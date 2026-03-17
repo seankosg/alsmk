@@ -49,18 +49,19 @@ Deno.serve(async (req) => {
 
       const userClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
+        auth: { autoRefreshToken: false, persistSession: false },
       });
 
-      const { data: userData, error: userError } =
-        await userClient.auth.getUser();
-      if (userError || !userData?.user) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+      const callerId = claimsData?.claims?.sub;
+
+      if (claimsError || !callerId) {
         return new Response(JSON.stringify({ error: "Invalid token" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      const callerId = userData.user.id;
 
       // Check admin role
       const { data: hasAdmin } = await adminClient.rpc("has_role", {
