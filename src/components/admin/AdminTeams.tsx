@@ -43,10 +43,10 @@ export function AdminTeams() {
   const save = useMutation({
     mutationFn: async () => {
       if (editing) {
-        const { error } = await supabase.from("teams").update({ name, code }).eq("id", editing.id);
+        const { error } = await supabase.from("teams").update({ name, code, target_headcount: targetHeadcount }).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("teams").insert({ name, code });
+        const { error } = await supabase.from("teams").insert({ name, code, target_headcount: targetHeadcount });
         if (error) throw error;
       }
     },
