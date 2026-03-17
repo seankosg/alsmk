@@ -7,6 +7,20 @@ import { Users, User, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 const Organization = () => {
+  const { data: pmName } = useQuery({
+    queryKey: ["project_settings", "pm_name"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_settings")
+        .select("value")
+        .eq("key", "pm_name")
+        .maybeSingle();
+      if (error) throw error;
+      return data?.value ?? "TBD";
+    },
+    staleTime: 30_000,
+  });
+
   const { data: teams = [], isLoading: lt } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
