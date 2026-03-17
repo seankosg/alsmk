@@ -1,16 +1,33 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { MilestoneTimeline } from "@/components/dashboard/MilestoneTimeline";
+import { ProjectHUD } from "@/components/dashboard/ProjectHUD";
+import { TeamHeatmap } from "@/components/dashboard/TeamHeatmap";
+import { CriticalIssueBoard } from "@/components/dashboard/CriticalIssueBoard";
+import { ActivityStream } from "@/components/dashboard/ActivityStream";
+import { PersonnelTable } from "@/components/dashboard/PersonnelTable";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">ALSMK US Electric Steel Mill — Project Overview</p>
+      </div>
+
+      <MilestoneTimeline />
+
+      <ProjectHUD />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TeamHeatmap />
+        <CriticalIssueBoard />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ActivityStream />
+        <PersonnelTable />
+      </div>
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
