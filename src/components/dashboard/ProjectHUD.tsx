@@ -1,18 +1,50 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { mockTasks, mockMilestones, calcPlannedProgress } from "@/lib/mockData";
 import { CalendarClock, ListTodo, AlertTriangle, TrendingUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { calcPlannedProgress } from "@/lib/mockData";
 
 export function ProjectHUD() {
-  const totalTasks = mockTasks.length;
-  const avgProgress = Math.round(mockTasks.reduce((s, t) => s + t.current_progress, 0) / totalTasks);
-  const avgPlanned = Math.round(mockTasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / totalTasks);
-  const activeIssues = mockTasks.filter(t => t.issue_flag !== "normal").length;
-  const completionRate = Math.round(mockTasks.filter(t => t.current_progress >= 90).length / totalTasks * 100);
+  const { data: tasks = [], isLoading: loadingTasks } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tasks").select("*");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
 
-  // D-Day: days to final milestone
-  const finalMs = mockMilestones[mockMilestones.length - 1];
-  const dDay = Math.ceil((new Date(finalMs.target_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const { data: milestones = [], isLoading: loadingMs } = useQuery({
+    queryKey: ["milestones"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("milestones").select("*").order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+
+  if (loadingTasks || loadingMs) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Card key={i}><CardContent className="pt-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+        ))}
+      </div>
+    );
+  }
+
+  const totalTasks = tasks.length;
+  const avgProgress = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + t.current_progress, 0) / totalTasks) : 0;
+  const avgPlanned = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / totalTasks) : 0;
+  const activeIssues = tasks.filter(t => t.issue_flag !== "normal").length;
+  const completionRate = totalTasks > 0 ? Math.round(tasks.filter(t => t.current_progress >= 90).length / totalTasks * 100) : 0;
+
+  const finalMs = milestones[milestones.length - 1];
+  const dDay = finalMs ? Math.ceil((new Date(finalMs.target_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
 
   const donutData = [
     { name: "Actual", value: avgProgress },
@@ -21,7 +53,6 @@ export function ProjectHUD() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      {/* Donut */}
       <Card className="md:col-span-2 lg:col-span-1">
         <CardContent className="flex flex-col items-center justify-center pt-6">
           <div className="h-28 w-28 relative">
@@ -42,7 +73,6 @@ export function ProjectHUD() {
         </CardContent>
       </Card>
 
-      {/* D-Day */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -51,11 +81,10 @@ export function ProjectHUD() {
         </CardHeader>
         <CardContent>
           <span className="text-3xl font-bold font-mono text-primary">D-{dDay}</span>
-          <p className="text-xs text-muted-foreground mt-1">{finalMs.name}</p>
+          <p className="text-xs text-muted-foreground mt-1">{finalMs?.name ?? "—"}</p>
         </CardContent>
       </Card>
 
-      {/* Total Tasks */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -67,7 +96,6 @@ export function ProjectHUD() {
         </CardContent>
       </Card>
 
-      {/* Active Issues */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -79,7 +107,6 @@ export function ProjectHUD() {
         </CardContent>
       </Card>
 
-      {/* Completion Rate */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
