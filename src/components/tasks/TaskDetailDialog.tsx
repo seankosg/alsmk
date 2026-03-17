@@ -1,12 +1,14 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { calcPlannedProgress, getMemberName, getMilestoneName, getTeamName, getPartName } from "@/lib/mockData";
+import { calcPlannedProgress } from "@/lib/mockData";
 
 interface Task {
   id: string;
-  task_code: string;
+  task_code: string | null;
   title: string;
   milestone_id: string | null;
   team_id: string;
@@ -20,17 +22,37 @@ interface Task {
   issue_description: string | null;
 }
 
+interface LookupItem { id: string; name: string; [key: string]: any; }
+
 interface TaskDetailDialogProps {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  teams?: LookupItem[];
+  members?: LookupItem[];
+  milestones?: LookupItem[];
 }
 
-export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [] }: TaskDetailDialogProps) {
+  const { data: parts = [] } = useQuery({
+    queryKey: ["parts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("parts").select("id, name");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+
   if (!task) return null;
 
   const planned = calcPlannedProgress(task.start_date, task.end_date);
   const gap = task.current_progress - planned;
+
+  const getTeamName = (id: string) => teams.find(t => t.id === id)?.name ?? "Unknown";
+  const getPartName = (id: string | null) => !id ? "—" : parts.find(p => p.id === id)?.name ?? "Unknown";
+  const getMemberName = (id: string | null) => !id ? "Unassigned" : members.find(m => m.id === id)?.name ?? "Unknown";
+  const getMilestoneName = (id: string | null) => !id ? "—" : milestones.find(m => m.id === id)?.name ?? "Unknown";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
