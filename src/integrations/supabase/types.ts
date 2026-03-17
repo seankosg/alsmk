@@ -219,6 +219,24 @@ export type Database = {
           },
         ]
       }
+      project_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       task_code_sequences: {
         Row: {
           part_code: string
