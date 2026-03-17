@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Clock, Circle, AlertTriangle } from "lucide-react";
 
-const statusConfig = {
+const statusConfig: Record<string, { icon: typeof CheckCircle; color: string; bg: string }> = {
   completed: { icon: CheckCircle, color: "text-success", bg: "bg-success" },
   in_progress: { icon: Clock, color: "text-primary", bg: "bg-primary" },
   upcoming: { icon: Circle, color: "text-muted-foreground", bg: "bg-muted-foreground" },
