@@ -1,24 +1,36 @@
-import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2 } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
-
-const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "My Workspace", url: "/workspace", icon: Briefcase },
-  { title: "Organization", url: "/organization", icon: Building2 },
-  { title: "Admin", url: "/admin", icon: Settings },
-  { title: "Import", url: "/tasks/import", icon: Upload },
-];
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useAuthContext } from "./AppLayout";
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAdmin, memberName, signOut } = useAuthContext();
+
+  const navItems = [
+    { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "My Workspace", url: "/workspace", icon: Briefcase },
+    { title: "Organization", url: "/organization", icon: Building2 },
+    ...(isAdmin ? [
+      { title: "Admin", url: "/admin", icon: Settings },
+      { title: "Import", url: "/tasks/import", icon: Upload },
+    ] : []),
+  ];
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -56,12 +68,39 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border p-3">
-        {!collapsed && (
-          <p className="text-xs text-muted-foreground">
-            US Electric Steel Mill
-          </p>
+      <SidebarFooter className="border-t border-sidebar-border p-3 space-y-2">
+        {!collapsed && user && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-sidebar-foreground truncate">
+              {memberName ?? user.email}
+            </p>
+            {isAdmin && (
+              <Badge variant="outline" className="text-[10px] border-primary text-primary">
+                Admin
+              </Badge>
+            )}
+          </div>
         )}
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size={collapsed ? "icon" : "sm"}
+            className="w-full justify-start text-xs"
+            onClick={() => navigate("/change-password")}
+          >
+            <KeyRound className="h-3.5 w-3.5 shrink-0" />
+            {!collapsed && <span className="ml-1">Change Password</span>}
+          </Button>
+        </div>
+        <Button
+          variant="ghost"
+          size={collapsed ? "icon" : "sm"}
+          className="w-full justify-start text-xs text-muted-foreground hover:text-destructive"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-3.5 w-3.5 shrink-0" />
+          {!collapsed && <span className="ml-1">Sign Out</span>}
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );

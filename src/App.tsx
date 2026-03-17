@@ -9,6 +9,8 @@ import Workspace from "./pages/Workspace";
 import Organization from "./pages/Organization";
 import Admin from "./pages/Admin";
 import TaskImport from "./pages/TaskImport";
+import Login from "./pages/Login";
+import ChangePassword from "./pages/ChangePassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,16 +21,28 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/workspace" element={<Workspace />} />
-            <Route path="/organization" element={<Organization />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/tasks/import" element={<TaskImport />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
+        <Routes>
+          {/* Public route – outside AppLayout */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Protected routes – inside AppLayout (auth guard) */}
+          <Route
+            path="/*"
+            element={
+              <AppLayout>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/workspace" element={<Workspace />} />
+                  <Route path="/organization" element={<Organization />} />
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/tasks/import" element={<TaskImport />} />
+                  <Route path="/change-password" element={<ChangePassword />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </AppLayout>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
