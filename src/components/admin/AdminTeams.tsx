@@ -20,6 +20,7 @@ export function AdminTeams() {
   const [editing, setEditing] = useState<Team | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [targetHeadcount, setTargetHeadcount] = useState(0);
 
   const { data: teams = [], isLoading } = useQuery({
     queryKey: ["teams"],
