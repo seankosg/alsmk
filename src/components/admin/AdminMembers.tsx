@@ -215,7 +215,7 @@ export function AdminMembers() {
     setResetOpen(true);
   }
 
-  const getTeamName = (tid: string) => teams.find(t => t.id === tid)?.name ?? "—";
+  const getTeamName = (tid: string | null) => tid ? (teams.find(t => t.id === tid)?.name ?? "—") : "—";
   const getPartName = (pid: string | null) => pid ? (parts.find(p => p.id === pid)?.name ?? "—") : "—";
   const filteredParts = parts.filter(p => p.team_id === teamId);
   const isMemberAdmin = (m: Member) => m.user_id ? adminUserIds.includes(m.user_id) : false;
