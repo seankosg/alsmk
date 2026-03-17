@@ -310,10 +310,11 @@ export function AdminMembers() {
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" />
             </div>
             <div className="space-y-2">
-              <Label>Team</Label>
-              <Select value={teamId} onValueChange={(v) => { setTeamId(v); setPartId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
+              <Label>Team (optional)</Label>
+              <Select value={teamId} onValueChange={(v) => { setTeamId(v === "__none__" ? "" : v); setPartId(""); }}>
+                <SelectTrigger><SelectValue placeholder="No team" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">— None —</SelectItem>
                   {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
