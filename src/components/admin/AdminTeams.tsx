@@ -117,6 +117,7 @@ export function AdminTeams() {
                 <TableRow key={team.id}>
                   <TableCell className="font-medium">{team.name}</TableCell>
                   <TableCell><Badge variant="outline">{team.code}</Badge></TableCell>
+                  <TableCell className="text-right font-mono text-sm">{team.target_headcount}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{teamParts.map(p => p.name).join(", ") || "—"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
