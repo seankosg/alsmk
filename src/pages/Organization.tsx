@@ -7,6 +7,20 @@ import { Users, User, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 const Organization = () => {
+  const { data: pmName } = useQuery({
+    queryKey: ["project_settings", "pm_name"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_settings")
+        .select("value")
+        .eq("key", "pm_name")
+        .maybeSingle();
+      if (error) throw error;
+      return data?.value ?? "TBD";
+    },
+    staleTime: 30_000,
+  });
+
   const { data: teams = [], isLoading: lt } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
@@ -48,6 +62,19 @@ const Organization = () => {
         <h1 className="text-2xl font-bold tracking-tight">Organization</h1>
         <p className="text-sm text-muted-foreground">Project organization chart — Teams, Parts & Members</p>
       </div>
+
+      {/* PM Header */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="pt-4 pb-3 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+            <User className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Project Manager</p>
+            <p className="text-base font-semibold">{pmName ?? "TBD"}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Summary bar */}
       <div className="flex gap-4 flex-wrap">
