@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
 import Workspace from "./pages/Workspace";
-import Directory from "./pages/Directory";
+import Organization from "./pages/Organization";
 import Admin from "./pages/Admin";
 import TaskImport from "./pages/TaskImport";
 import NotFound from "./pages/NotFound";
