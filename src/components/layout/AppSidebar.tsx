@@ -1,4 +1,4 @@
-import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -10,7 +10,7 @@ import {
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "My Workspace", url: "/workspace", icon: Briefcase },
-  { title: "Directory", url: "/directory", icon: Users },
+  { title: "Organization", url: "/organization", icon: Building2 },
   { title: "Admin", url: "/admin", icon: Settings },
   { title: "Import", url: "/tasks/import", icon: Upload },
 ];

@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
 import Workspace from "./pages/Workspace";
-import Directory from "./pages/Directory";
+import Organization from "./pages/Organization";
 import Admin from "./pages/Admin";
 import TaskImport from "./pages/TaskImport";
 import NotFound from "./pages/NotFound";
@@ -23,7 +23,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/workspace" element={<Workspace />} />
-            <Route path="/directory" element={<Directory />} />
+            <Route path="/organization" element={<Organization />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/tasks/import" element={<TaskImport />} />
             <Route path="*" element={<NotFound />} />
