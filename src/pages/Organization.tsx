@@ -99,7 +99,7 @@ const Organization = () => {
                 <div className="flex gap-0 items-start">
                   {teams.map((team, idx) => {
                     const teamParts = parts.filter(p => p.team_id === team.id);
-                    const teamMembers = members.filter(m => m.team_id === team.id);
+                    const teamMembers = orgMembers.filter(m => m.team_id === team.id);
                     const currentCount = teamMembers.length;
 
                     return (

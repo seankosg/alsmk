@@ -78,10 +78,10 @@ export function AdminMembers() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: Record<string, any> = {
         name,
         duty_title: dutyTitle || null,
-        team_id: teamId,
+        team_id: teamId || null,
         part_id: partId || null,
       };
       if (editing) {
