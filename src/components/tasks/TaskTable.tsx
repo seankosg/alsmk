@@ -8,14 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "./TaskDetailDialog";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 interface TaskTableProps {
   filterMine?: boolean;
 }
 
 export function TaskTable({ filterMine }: TaskTableProps) {
+  const { isAdmin, memberId } = useAuthContext();
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [flagFilter, setFlagFilter] = useState<string>("all");
+  const [memberFilter, setMemberFilter] = useState<string>("all");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const { data: teams = [] } = useQuery({
@@ -69,6 +72,17 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   };
 
   let filtered = [...tasks];
+
+  // Workspace filtering: non-admin sees only their own tasks
+  if (filterMine && !isAdmin) {
+    filtered = filtered.filter(t => t.assignee_id === memberId);
+  }
+
+  // Admin member filter in workspace
+  if (filterMine && isAdmin && memberFilter !== "all") {
+    filtered = filtered.filter(t => t.assignee_id === memberFilter);
+  }
+
   if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
   if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
 
@@ -79,8 +93,24 @@ export function TaskTable({ filterMine }: TaskTableProps) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-base">Tasks ({filtered.length})</CardTitle>
-            <div className="flex gap-2">
+            <CardTitle className="text-base">
+              Tasks ({filtered.length})
+              {filterMine && isAdmin && (
+                <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">Admin View</Badge>
+              )}
+            </CardTitle>
+            <div className="flex gap-2 flex-wrap">
+              {filterMine && isAdmin && (
+                <Select value={memberFilter} onValueChange={setMemberFilter}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs">
+                    <SelectValue placeholder="All Members" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Members</SelectItem>
+                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={teamFilter} onValueChange={setTeamFilter}>
                 <SelectTrigger className="w-[130px] h-8 text-xs">
                   <SelectValue placeholder="All Teams" />
