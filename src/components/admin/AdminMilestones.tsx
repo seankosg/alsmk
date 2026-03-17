@@ -129,7 +129,7 @@ export function AdminMilestones() {
                 <TableCell className="font-mono text-xs">{ms.target_date}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={statusColors[ms.status]}>
-                    {ms.status.replace("_", " ")}
+                    {(ms.status ?? "upcoming").replace("_", " ")}
                   </Badge>
                 </TableCell>
                 <TableCell>
