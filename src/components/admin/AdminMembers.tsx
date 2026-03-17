@@ -335,7 +335,7 @@ export function AdminMembers() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={close}>Cancel</Button>
-            <Button onClick={() => save.mutate()} disabled={!name.trim() || !teamId || save.isPending}>
+            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
               {save.isPending ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
