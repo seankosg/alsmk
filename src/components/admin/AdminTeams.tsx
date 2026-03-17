@@ -20,6 +20,7 @@ export function AdminTeams() {
   const [editing, setEditing] = useState<Team | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [targetHeadcount, setTargetHeadcount] = useState(0);
 
   const { data: teams = [], isLoading } = useQuery({
     queryKey: ["teams"],
@@ -42,10 +43,10 @@ export function AdminTeams() {
   const save = useMutation({
     mutationFn: async () => {
       if (editing) {
-        const { error } = await supabase.from("teams").update({ name, code }).eq("id", editing.id);
+        const { error } = await supabase.from("teams").update({ name, code, target_headcount: targetHeadcount }).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("teams").insert({ name, code });
+        const { error } = await supabase.from("teams").insert({ name, code, target_headcount: targetHeadcount });
         if (error) throw error;
       }
     },
@@ -73,6 +74,7 @@ export function AdminTeams() {
     setEditing(null);
     setName("");
     setCode("");
+    setTargetHeadcount(0);
     setOpen(true);
   }
 
@@ -80,6 +82,7 @@ export function AdminTeams() {
     setEditing(t);
     setName(t.name);
     setCode(t.code);
+    setTargetHeadcount(t.target_headcount);
     setOpen(true);
   }
 
@@ -100,19 +103,21 @@ export function AdminTeams() {
             <TableRow>
               <TableHead>Team Name</TableHead>
               <TableHead>Code</TableHead>
+              <TableHead className="text-right">TO (계획인원)</TableHead>
               <TableHead>Parts</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
             ) : teams.map((team) => {
               const teamParts = parts.filter(p => p.team_id === team.id);
               return (
                 <TableRow key={team.id}>
                   <TableCell className="font-medium">{team.name}</TableCell>
                   <TableCell><Badge variant="outline">{team.code}</Badge></TableCell>
+                  <TableCell className="text-right font-mono text-sm">{team.target_headcount}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{teamParts.map(p => p.name).join(", ") || "—"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
@@ -138,6 +143,10 @@ export function AdminTeams() {
             <div className="space-y-2">
               <Label>Code (3 letters)</Label>
               <Input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="e.g. DES" maxLength={5} />
+            </div>
+            <div className="space-y-2">
+              <Label>TO (계획인원수)</Label>
+              <Input type="number" min={0} value={targetHeadcount} onChange={e => setTargetHeadcount(parseInt(e.target.value) || 0)} placeholder="e.g. 25" />
             </div>
           </div>
           <DialogFooter>

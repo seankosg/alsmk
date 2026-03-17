@@ -332,18 +332,21 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          target_headcount: number
         }
         Insert: {
           code: string
           created_at?: string
           id?: string
           name: string
+          target_headcount?: number
         }
         Update: {
           code?: string
           created_at?: string
           id?: string
           name?: string
+          target_headcount?: number
         }
         Relationships: []
       }
