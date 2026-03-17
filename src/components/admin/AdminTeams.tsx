@@ -144,6 +144,10 @@ export function AdminTeams() {
               <Label>Code (3 letters)</Label>
               <Input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="e.g. DES" maxLength={5} />
             </div>
+            <div className="space-y-2">
+              <Label>TO (계획인원수)</Label>
+              <Input type="number" min={0} value={targetHeadcount} onChange={e => setTargetHeadcount(parseInt(e.target.value) || 0)} placeholder="e.g. 25" />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={close}>Cancel</Button>
