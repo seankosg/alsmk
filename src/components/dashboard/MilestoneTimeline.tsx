@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Clock, Circle, AlertTriangle } from "lucide-react";
 
-const statusConfig = {
+const statusConfig: Record<string, { icon: typeof CheckCircle; color: string; bg: string }> = {
   completed: { icon: CheckCircle, color: "text-success", bg: "bg-success" },
   in_progress: { icon: Clock, color: "text-primary", bg: "bg-primary" },
   upcoming: { icon: Circle, color: "text-muted-foreground", bg: "bg-muted-foreground" },
@@ -38,7 +38,7 @@ export function MilestoneTimeline() {
           <div className="overflow-x-auto scrollbar-thin">
             <div className="flex items-center gap-0 min-w-[600px] px-4 py-6">
               {milestones.map((ms, i) => {
-                const cfg = statusConfig[ms.status];
+                const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                 const Icon = cfg.icon;
                 const targetDate = new Date(ms.target_date);
                 const isPast = targetDate < today;
