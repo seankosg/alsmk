@@ -1,0 +1,1 @@
+ALTER TABLE public.teams ADD COLUMN target_headcount integer NOT NULL DEFAULT 0;
