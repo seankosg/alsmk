@@ -110,7 +110,7 @@ export function AdminTeams() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
             ) : teams.map((team) => {
               const teamParts = parts.filter(p => p.team_id === team.id);
               return (
