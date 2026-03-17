@@ -1,0 +1,1 @@
+ALTER TABLE public.members ALTER COLUMN team_id DROP NOT NULL;
