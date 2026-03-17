@@ -38,7 +38,7 @@ export function MilestoneTimeline() {
           <div className="overflow-x-auto scrollbar-thin">
             <div className="flex items-center gap-0 min-w-[600px] px-4 py-6">
               {milestones.map((ms, i) => {
-                const cfg = statusConfig[ms.status];
+                const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                 const Icon = cfg.icon;
                 const targetDate = new Date(ms.target_date);
                 const isPast = targetDate < today;
