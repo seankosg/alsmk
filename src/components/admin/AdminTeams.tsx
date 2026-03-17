@@ -103,6 +103,7 @@ export function AdminTeams() {
             <TableRow>
               <TableHead>Team Name</TableHead>
               <TableHead>Code</TableHead>
+              <TableHead className="text-right">TO (계획인원)</TableHead>
               <TableHead>Parts</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
