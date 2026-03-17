@@ -27,10 +27,15 @@ export function PersonnelTable() {
 
   const isLoading = lt || lm;
 
-  const rows = teams.map(team => {
+  // PM row: always plan=1, current=1
+  const pmRow = { id: "pm", name: "Project Manager", code: "PM", target: 1, current: 1 };
+
+  const teamRows = teams.map(team => {
     const current = members.filter(m => m.team_id === team.id).length;
     return { id: team.id, name: team.name, code: team.code, target: team.target_headcount, current };
   });
+
+  const rows = [pmRow, ...teamRows];
 
   const totalTarget = rows.reduce((s, r) => s + r.target, 0);
   const totalCurrent = rows.reduce((s, r) => s + r.current, 0);
