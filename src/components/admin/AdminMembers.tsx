@@ -78,7 +78,7 @@ export function AdminMembers() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, any> = {
+      const payload = {
         name,
         duty_title: dutyTitle || null,
         team_id: teamId || null,
@@ -88,7 +88,7 @@ export function AdminMembers() {
         const { error } = await supabase.from("members").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("members").insert(payload);
+        const { error } = await supabase.from("members").insert(payload as any);
         if (error) throw error;
       }
     },
