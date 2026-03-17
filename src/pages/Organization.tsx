@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, User, ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { Users, User, Crown } from "lucide-react";
+import { useMemo } from "react";
 
 const Organization = () => {
   const { data: pmName } = useQuery({
@@ -21,7 +20,7 @@ const Organization = () => {
     staleTime: 30_000,
   });
 
-  const { data: teams = [], isLoading: lt } = useQuery({
+  const { data: teams = [], isLoading } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
       const { data, error } = await supabase.from("teams").select("*").order("name");
@@ -51,188 +50,223 @@ const Organization = () => {
     staleTime: 30_000,
   });
 
-  const isLoading = lt;
-
   const totalTO = teams.reduce((s, t) => s + t.target_headcount, 0);
   const totalMembers = members.length;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Organization</h1>
-        <p className="text-sm text-muted-foreground">Project organization chart — Teams, Parts & Members</p>
-      </div>
-
-      {/* PM Header */}
-      <Card className="border-primary/30 bg-primary/5">
-        <CardContent className="pt-4 pb-3 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-            <User className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Project Manager</p>
-            <p className="text-base font-semibold">{pmName ?? "TBD"}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Summary bar */}
-      <div className="flex gap-4 flex-wrap">
-        <Card className="flex-1 min-w-[160px]">
-          <CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Users className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold font-mono">{totalMembers} <span className="text-sm font-normal text-muted-foreground">/ {totalTO}</span></p>
-              <p className="text-xs text-muted-foreground">현원 / TO</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="flex-1 min-w-[160px]">
-          <CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-warning/10 flex items-center justify-center">
-              <User className="h-4 w-4 text-warning" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold font-mono text-warning">{totalTO - totalMembers > 0 ? totalTO - totalMembers : 0}</p>
-              <p className="text-xs text-muted-foreground">부족 인원</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Org Chart */}
-      {isLoading ? (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Organization</h1>
+          <p className="text-sm text-muted-foreground">Project organization chart</p>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {teams.map((team) => {
-            const teamParts = parts.filter(p => p.team_id === team.id);
-            const teamMembers = members.filter(m => m.team_id === team.id);
-            const currentCount = teamMembers.length;
-            const vacancy = team.target_headcount - currentCount;
+        <div className="flex gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="text-sm font-mono font-medium">{totalMembers}<span className="text-muted-foreground">/{totalTO}</span></span>
+            <span className="text-xs text-muted-foreground">현원/TO</span>
+          </div>
+          {totalTO - totalMembers > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-warning/30">
+              <span className="text-sm font-mono font-medium text-warning">-{totalTO - totalMembers}</span>
+              <span className="text-xs text-muted-foreground">부족</span>
+            </div>
+          )}
+        </div>
+      </div>
 
-            return (
-              <TeamCard
-                key={team.id}
-                team={team}
-                parts={teamParts}
-                members={teamMembers}
-                currentCount={currentCount}
-                vacancy={vacancy}
-              />
-            );
-          })}
+      {isLoading ? (
+        <div className="flex justify-center"><Skeleton className="h-64 w-96" /></div>
+      ) : (
+        <div className="overflow-x-auto pb-8">
+          <div className="org-tree flex flex-col items-center min-w-fit">
+            {/* PM Root Node */}
+            <OrgNode
+              label="Project Manager"
+              name={pmName ?? "TBD"}
+              variant="pm"
+            />
+
+            {/* Connector: PM → Teams */}
+            {teams.length > 0 && (
+              <>
+                <VerticalLine />
+                <HorizontalBranch count={teams.length} />
+
+                {/* Teams Row */}
+                <div className="flex gap-0 items-start">
+                  {teams.map((team, idx) => {
+                    const teamParts = parts.filter(p => p.team_id === team.id);
+                    const teamMembers = members.filter(m => m.team_id === team.id);
+                    const currentCount = teamMembers.length;
+
+                    return (
+                      <div key={team.id} className="flex flex-col items-center px-4 min-w-[180px]">
+                        <VerticalLine />
+                        <OrgNode
+                          label={team.name}
+                          sublabel={team.code}
+                          count={`${currentCount}/${team.target_headcount}`}
+                          variant="team"
+                          warning={currentCount < team.target_headcount}
+                        />
+
+                        {/* Parts under this team */}
+                        {teamParts.length > 0 && (
+                          <>
+                            <VerticalLine />
+                            <HorizontalBranch count={teamParts.length} />
+                            <div className="flex gap-0 items-start">
+                              {teamParts.map((part) => {
+                                const partMembers = teamMembers.filter(m => m.part_id === part.id);
+                                return (
+                                  <div key={part.id} className="flex flex-col items-center px-2 min-w-[140px]">
+                                    <VerticalLine />
+                                    <OrgNode
+                                      label={part.name}
+                                      sublabel={part.code}
+                                      count={`${partMembers.length}명`}
+                                      variant="part"
+                                    />
+                                    {/* Members */}
+                                    {partMembers.length > 0 && (
+                                      <>
+                                        <VerticalLine short />
+                                        <MemberGroup members={partMembers} />
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {/* Unassigned members */}
+                            {(() => {
+                              const partIds = new Set(teamParts.map(p => p.id));
+                              const unassigned = teamMembers.filter(m => !m.part_id || !partIds.has(m.part_id));
+                              if (unassigned.length === 0) return null;
+                              return (
+                                <div className="mt-2">
+                                  <MemberGroup members={unassigned} label="미배정" />
+                                </div>
+                              );
+                            })()}
+                          </>
+                        )}
+
+                        {/* Members directly under team (no parts) */}
+                        {teamParts.length === 0 && teamMembers.length > 0 && (
+                          <>
+                            <VerticalLine short />
+                            <MemberGroup members={teamMembers} />
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 };
 
-interface TeamCardProps {
-  team: { id: string; name: string; code: string; target_headcount: number };
-  parts: { id: string; name: string; code: string }[];
-  members: { id: string; name: string; part_id: string | null; duty_title: string | null }[];
-  currentCount: number;
-  vacancy: number;
-}
+/* ─── Tree connector components ─── */
 
-function TeamCard({ team, parts, members, currentCount, vacancy }: TeamCardProps) {
-  const [expanded, setExpanded] = useState(true);
-
+function VerticalLine({ short }: { short?: boolean }) {
   return (
-    <Card>
-      <CardHeader
-        className="pb-3 cursor-pointer select-none"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-            <CardTitle className="text-base">{team.name}</CardTitle>
-            <Badge variant="outline" className="font-mono text-xs">{team.code}</Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-mono">
-              <span className={currentCount >= team.target_headcount ? "text-success" : "text-foreground"}>{currentCount}</span>
-              <span className="text-muted-foreground"> / {team.target_headcount}</span>
-            </span>
-            {vacancy > 0 && (
-              <Badge variant="outline" className="border-warning text-warning text-xs">
-                -{vacancy}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-
-      {expanded && (
-        <CardContent className="pt-0">
-          {parts.length === 0 ? (
-            <div className="pl-7">
-              {/* Members without parts */}
-              <MemberList members={members} />
-            </div>
-          ) : (
-            <div className="space-y-3 pl-3">
-              {parts.map((part) => {
-                const partMembers = members.filter(m => m.part_id === part.id);
-                return (
-                  <div key={part.id} className="border-l-2 border-border pl-4 py-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-medium">{part.name}</span>
-                      <Badge variant="secondary" className="text-[10px] font-mono">{part.code}</Badge>
-                      <span className="text-xs text-muted-foreground">({partMembers.length}명)</span>
-                    </div>
-                    <MemberList members={partMembers} />
-                  </div>
-                );
-              })}
-              {/* Members without a part assignment */}
-              {(() => {
-                const partIds = new Set(parts.map(p => p.id));
-                const unassigned = members.filter(m => !m.part_id || !partIds.has(m.part_id));
-                if (unassigned.length === 0) return null;
-                return (
-                  <div className="border-l-2 border-dashed border-border pl-4 py-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-medium text-muted-foreground">미배정</span>
-                      <span className="text-xs text-muted-foreground">({unassigned.length}명)</span>
-                    </div>
-                    <MemberList members={unassigned} />
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </CardContent>
-      )}
-    </Card>
+    <div
+      className="w-px bg-border"
+      style={{ height: short ? 12 : 20 }}
+    />
   );
 }
 
-function MemberList({ members }: { members: { id: string; name: string; duty_title: string | null }[] }) {
-  if (members.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">No members assigned</p>;
+function HorizontalBranch({ count }: { count: number }) {
+  if (count <= 1) return null;
+  return (
+    <div
+      className="h-px bg-border"
+      style={{ width: `calc(${count - 1} * 180px)` }}
+    />
+  );
+}
+
+/* ─── Node components ─── */
+
+interface OrgNodeProps {
+  label: string;
+  name?: string;
+  sublabel?: string;
+  count?: string;
+  variant: "pm" | "team" | "part";
+  warning?: boolean;
+}
+
+function OrgNode({ label, name, sublabel, count, variant, warning }: OrgNodeProps) {
+  const base = "rounded-lg border text-center transition-colors";
+
+  if (variant === "pm") {
+    return (
+      <div className={`${base} border-primary/40 bg-primary/10 px-6 py-3 min-w-[200px]`}>
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <Crown className="h-4 w-4 text-primary" />
+          <span className="text-xs font-medium text-primary">{label}</span>
+        </div>
+        <p className="text-base font-bold">{name}</p>
+      </div>
+    );
   }
 
+  if (variant === "team") {
+    return (
+      <div className={`${base} border-border bg-card px-4 py-2.5 min-w-[160px] shadow-sm`}>
+        <p className="text-sm font-semibold">{label}</p>
+        <div className="flex items-center justify-center gap-2 mt-1">
+          {sublabel && <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0">{sublabel}</Badge>}
+          {count && (
+            <span className={`text-xs font-mono ${warning ? "text-warning" : "text-muted-foreground"}`}>
+              {count}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // part
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={`${base} border-border/60 bg-muted/50 px-3 py-2 min-w-[120px]`}>
+      <p className="text-xs font-medium">{label}</p>
+      <div className="flex items-center justify-center gap-1.5 mt-0.5">
+        {sublabel && <span className="text-[10px] font-mono text-muted-foreground">{sublabel}</span>}
+        {count && <span className="text-[10px] text-muted-foreground">{count}</span>}
+      </div>
+    </div>
+  );
+}
+
+function MemberGroup({ members, label }: {
+  members: { id: string; name: string; duty_title: string | null }[];
+  label?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 py-1">
+      {label && <span className="text-[10px] text-muted-foreground mb-0.5">{label}</span>}
       {members.map((m) => (
         <div
           key={m.id}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 border border-border"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/40 border border-border/50 w-full"
         >
-          <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center">
-            <User className="h-3 w-3 text-primary" />
+          <div className="h-5 w-5 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+            <User className="h-2.5 w-2.5 text-primary" />
           </div>
-          <div>
-            <p className="text-xs font-medium leading-tight">{m.name}</p>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium leading-tight truncate">{m.name}</p>
             {m.duty_title && (
-              <p className="text-[10px] text-muted-foreground leading-tight">{m.duty_title}</p>
+              <p className="text-[9px] text-muted-foreground leading-tight truncate">{m.duty_title}</p>
             )}
           </div>
         </div>
