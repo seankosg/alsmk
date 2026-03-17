@@ -63,6 +63,19 @@ const Organization = () => {
         <p className="text-sm text-muted-foreground">Project organization chart — Teams, Parts & Members</p>
       </div>
 
+      {/* PM Header */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="pt-4 pb-3 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+            <User className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Project Manager</p>
+            <p className="text-base font-semibold">{pmName ?? "TBD"}</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary bar */}
       <div className="flex gap-4 flex-wrap">
         <Card className="flex-1 min-w-[160px]">
