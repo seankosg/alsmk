@@ -74,6 +74,7 @@ export function AdminTeams() {
     setEditing(null);
     setName("");
     setCode("");
+    setTargetHeadcount(0);
     setOpen(true);
   }
 
@@ -81,6 +82,7 @@ export function AdminTeams() {
     setEditing(t);
     setName(t.name);
     setCode(t.code);
+    setTargetHeadcount(t.target_headcount);
     setOpen(true);
   }
 
