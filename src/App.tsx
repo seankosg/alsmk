@@ -23,7 +23,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/workspace" element={<Workspace />} />
-            <Route path="/directory" element={<Directory />} />
+            <Route path="/organization" element={<Organization />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/tasks/import" element={<TaskImport />} />
             <Route path="*" element={<NotFound />} />

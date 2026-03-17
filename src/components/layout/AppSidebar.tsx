@@ -10,7 +10,7 @@ import {
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "My Workspace", url: "/workspace", icon: Briefcase },
-  { title: "Directory", url: "/directory", icon: Users },
+  { title: "Organization", url: "/organization", icon: Building2 },
   { title: "Admin", url: "/admin", icon: Settings },
   { title: "Import", url: "/tasks/import", icon: Upload },
 ];
