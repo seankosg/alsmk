@@ -81,14 +81,14 @@ export function AdminMembers() {
       const payload = {
         name,
         duty_title: dutyTitle || null,
-        team_id: teamId,
+        team_id: teamId || null,
         part_id: partId || null,
       };
       if (editing) {
         const { error } = await supabase.from("members").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("members").insert(payload);
+        const { error } = await supabase.from("members").insert(payload as any);
         if (error) throw error;
       }
     },
@@ -215,7 +215,7 @@ export function AdminMembers() {
     setResetOpen(true);
   }
 
-  const getTeamName = (tid: string) => teams.find(t => t.id === tid)?.name ?? "—";
+  const getTeamName = (tid: string | null) => tid ? (teams.find(t => t.id === tid)?.name ?? "—") : "—";
   const getPartName = (pid: string | null) => pid ? (parts.find(p => p.id === pid)?.name ?? "—") : "—";
   const filteredParts = parts.filter(p => p.team_id === teamId);
   const isMemberAdmin = (m: Member) => m.user_id ? adminUserIds.includes(m.user_id) : false;
@@ -310,10 +310,11 @@ export function AdminMembers() {
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" />
             </div>
             <div className="space-y-2">
-              <Label>Team</Label>
-              <Select value={teamId} onValueChange={(v) => { setTeamId(v); setPartId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
+              <Label>Team (optional)</Label>
+              <Select value={teamId} onValueChange={(v) => { setTeamId(v === "__none__" ? "" : v); setPartId(""); }}>
+                <SelectTrigger><SelectValue placeholder="No team" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">— None —</SelectItem>
                   {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -334,7 +335,7 @@ export function AdminMembers() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={close}>Cancel</Button>
-            <Button onClick={() => save.mutate()} disabled={!name.trim() || !teamId || save.isPending}>
+            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
               {save.isPending ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>

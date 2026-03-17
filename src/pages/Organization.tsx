@@ -50,8 +50,10 @@ const Organization = () => {
     staleTime: 30_000,
   });
 
+  // Filter out system admin accounts (no team) from org chart
+  const orgMembers = members.filter(m => m.team_id !== null);
   const totalTO = teams.reduce((s, t) => s + t.target_headcount, 0);
-  const totalMembers = members.length;
+  const totalMembers = orgMembers.length;
 
   return (
     <div className="space-y-6">
@@ -97,7 +99,7 @@ const Organization = () => {
                 <div className="flex gap-0 items-start">
                   {teams.map((team, idx) => {
                     const teamParts = parts.filter(p => p.team_id === team.id);
-                    const teamMembers = members.filter(m => m.team_id === team.id);
+                    const teamMembers = orgMembers.filter(m => m.team_id === team.id);
                     const currentCount = teamMembers.length;
 
                     return (
