@@ -38,7 +38,7 @@ export function useAuth() {
               }),
               supabase
                 .from("members")
-                .select("id, name")
+                .select("id, name, is_pm")
                 .eq("user_id", session.user.id)
                 .maybeSingle(),
             ]);
