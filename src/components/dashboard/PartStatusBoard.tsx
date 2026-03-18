@@ -80,7 +80,7 @@ export function PartStatusBoard() {
       return t.current_progress - planned < 0;
     }).length;
     const upcoming = partTasks.filter(t => {
-      const days = differenceInDays(parseISO(t.end_date), now);
+      const days = differenceInDays(parseLocalDate(t.end_date), now);
       return days >= 0 && days <= 7 && t.current_progress < 100;
     }).length;
     const issues = partTasks.filter(t => t.issue_flag !== "normal").length;
