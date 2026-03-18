@@ -65,10 +65,20 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
-  const [colWidths, setColWidths] = useState<Record<string, number>>({ ...DEFAULT_COL_WIDTHS });
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem("task-table-col-widths");
+      if (saved) return { ...DEFAULT_COL_WIDTHS, ...JSON.parse(saved) };
+    } catch {}
+    return { ...DEFAULT_COL_WIDTHS };
+  });
 
   const handleColResize = useCallback((col: string) => (delta: number) => {
-    setColWidths(prev => ({ ...prev, [col]: Math.max(40, (prev[col] ?? 80) + delta) }));
+    setColWidths(prev => {
+      const next = { ...prev, [col]: Math.max(40, (prev[col] ?? 80) + delta) };
+      localStorage.setItem("task-table-col-widths", JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const { data: teams = [] } = useQuery({
