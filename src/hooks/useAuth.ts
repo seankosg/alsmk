@@ -43,10 +43,14 @@ export function useAuth() {
                 .maybeSingle(),
             ]);
 
+            const admin = roleResult.data === true;
+            const pm = memberResult.data?.is_pm === true;
             setState({
               user: session.user,
               session,
-              isAdmin: roleResult.data === true,
+              isAdmin: admin,
+              isPm: pm,
+              isAdminOrPm: admin || pm,
               memberId: memberResult.data?.id ?? null,
               memberName: memberResult.data?.name ?? null,
               loading: false,
