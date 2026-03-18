@@ -61,6 +61,7 @@ export function UpcomingDeadlines() {
     .sort((a, b) => parseISO(a.end_date).getTime() - parseISO(b.end_date).getTime());
 
   const getTeamCode = (teamId: string) => teams.find((t) => t.id === teamId)?.code ?? "";
+  const getMemberName = (id: string | null) => members.find((m) => m.id === id)?.name ?? null;
 
   return (
     <>
