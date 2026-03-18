@@ -1,0 +1,1 @@
+ALTER TABLE public.members ADD COLUMN is_pm boolean NOT NULL DEFAULT false;
