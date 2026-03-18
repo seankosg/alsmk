@@ -244,6 +244,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                     onChange={e => setIssueType(e.target.value)}
                     placeholder="e.g. Delay, Resource, Quality"
                     maxLength={100}
+                    disabled={readOnly}
                   />
                 </div>
                 <div className="space-y-1">
@@ -255,6 +256,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                     rows={2}
                     maxLength={1000}
                     placeholder="Describe the issue..."
+                    disabled={readOnly}
                   />
                 </div>
               </div>
