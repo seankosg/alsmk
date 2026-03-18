@@ -143,8 +143,8 @@ export function TeamProgressChart() {
           {isLoading ? (
             <Skeleton className="h-[220px] w-full" />
           ) : (
-            <ChartContainer config={chartConfig} className="h-[220px] w-full">
-              <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }}>
+            <ChartContainer config={chartConfig} className="h-[280px] w-full">
+              <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 35 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="name"
@@ -169,7 +169,9 @@ export function TeamProgressChart() {
                   fill="hsl(var(--muted-foreground) / 0.3)"
                   radius={[4, 4, 0, 0]}
                   name="Planned"
-                />
+                >
+                  <LabelList dataKey="planned" content={renderPlannedLabel} />
+                </Bar>
                 <Bar
                   dataKey="actual"
                   radius={[4, 4, 0, 0]}
@@ -181,6 +183,7 @@ export function TeamProgressChart() {
                       fill={entry.actual >= entry.planned ? "hsl(var(--primary))" : "hsl(var(--destructive))"}
                     />
                   ))}
+                  <LabelList dataKey="actual" content={renderActualLabel} />
                 </Bar>
               </BarChart>
             </ChartContainer>
