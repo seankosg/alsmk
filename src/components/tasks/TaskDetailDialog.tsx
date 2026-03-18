@@ -88,6 +88,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
     setSaving(true);
     try {
       const { error } = await supabase.from("tasks").update({
+        start_date: startDate,
+        end_date: endDate,
         current_progress: currentProgress,
         actual_finish: actualFinish || null,
         action_plan: actionPlan.trim() || null,
