@@ -29,7 +29,7 @@ export function ProjectHUD() {
 
   if (loadingTasks || loadingMs) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
           <Card key={i}><CardContent className="pt-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
         ))}
