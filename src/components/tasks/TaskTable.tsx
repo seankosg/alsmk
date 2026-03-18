@@ -225,7 +225,16 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                 <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">{isAdmin ? "Admin View" : "PM View"}</Badge>
               )}
             </CardTitle>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap items-center">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-[180px] h-8 text-xs pl-8"
+                />
+              </div>
               {filterMine && (isAdmin || isPm) && (
                 <Select value={memberFilter} onValueChange={setMemberFilter}>
                   <SelectTrigger className="w-[140px] h-8 text-xs">
