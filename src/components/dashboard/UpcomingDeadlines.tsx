@@ -145,7 +145,7 @@ export function UpcomingDeadlines() {
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={!isAdmin}
+        readOnly={!isAdmin && selectedTask?.assignee_id !== memberId}
       />
     </>
   );
