@@ -94,7 +94,7 @@ export function BehindScheduleBoard() {
           ) : (
             <div className="space-y-2">
               {groupedByTeam.map(({ team, tasks: teamTasks }) => (
-                <Collapsible key={team.id} defaultOpen>
+                <Collapsible key={team.id} defaultOpen={false}>
                   <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-md bg-muted/50 hover:bg-muted transition-colors text-sm font-medium">
                     <span>{team.name} ({team.code})</span>
                     <div className="flex items-center gap-2">
