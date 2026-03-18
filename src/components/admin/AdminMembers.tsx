@@ -169,8 +169,11 @@ export function AdminMembers() {
 
   const toggleAdmin = useMutation({
     mutationFn: async ({ userId, grant }: { userId: string; grant: boolean }) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
       const res = await supabase.functions.invoke("admin-manage-user", {
         body: { action: "toggle-admin", user_id: userId, grant },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (res.error) throw new Error(res.error.message);
       if (res.data?.error) throw new Error(res.data.error);
