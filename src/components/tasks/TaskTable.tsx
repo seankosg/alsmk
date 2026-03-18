@@ -115,10 +115,13 @@ export function TaskTable({ filterMine }: TaskTableProps) {
     staleTime: 30_000,
   });
 
-  const myTeamId = useMemo(() => {
+  const myMember = useMemo(() => {
     if (!memberId) return null;
-    return members.find(m => m.id === memberId)?.team_id ?? null;
+    return members.find(m => m.id === memberId) ?? null;
   }, [members, memberId]);
+
+  const myTeamId = myMember?.team_id ?? null;
+  const isPm = myMember?.is_pm ?? false;
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["milestones"],
