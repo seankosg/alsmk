@@ -123,6 +123,7 @@ export function TaskImportComponent() {
   }
 
   const fallbackTeamId = myMember?.team_id ?? (manualTeamId || null);
+  const fallbackPartId = myMember?.part_id ?? null;
   const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
 
   const handleDownloadTemplate = () => {
