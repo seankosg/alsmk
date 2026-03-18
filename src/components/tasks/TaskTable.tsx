@@ -108,12 +108,17 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("id, name");
+      const { data, error } = await supabase.from("members").select("id, name, team_id");
       if (error) throw error;
       return data;
     },
     staleTime: 30_000,
   });
+
+  const myTeamId = useMemo(() => {
+    if (!memberId) return null;
+    return members.find(m => m.id === memberId)?.team_id ?? null;
+  }, [members, memberId]);
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["milestones"],
