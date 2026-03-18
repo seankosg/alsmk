@@ -158,7 +158,32 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
   if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
 
-  const selectedTask = filtered.find(t => t.id === selectedTaskId) ?? null;
+  // Sorting
+  if (sortKey) {
+    filtered.sort((a, b) => {
+      let valA: any, valB: any;
+      switch (sortKey) {
+        case "taskCode": valA = a.task_code ?? ""; valB = b.task_code ?? ""; break;
+        case "category": valA = a.category ?? ""; valB = b.category ?? ""; break;
+        case "subject": valA = a.title; valB = b.title; break;
+        case "actionPlan": valA = a.action_plan ?? ""; valB = b.action_plan ?? ""; break;
+        case "start": valA = a.start_date; valB = b.start_date; break;
+        case "finish": valA = a.end_date; valB = b.end_date; break;
+        case "dday": {
+          valA = a.actual_finish ? Infinity : differenceInCalendarDays(new Date(a.end_date), new Date());
+          valB = b.actual_finish ? Infinity : differenceInCalendarDays(new Date(b.end_date), new Date());
+          break;
+        }
+        case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
+        case "actual": valA = a.current_progress; valB = b.current_progress; break;
+        case "gap": valA = a.current_progress - calcPlannedProgress(a.start_date, a.end_date); valB = b.current_progress - calcPlannedProgress(b.start_date, b.end_date); break;
+        case "actualFinish": valA = a.actual_finish ?? "zzz"; valB = b.actual_finish ?? "zzz"; break;
+        default: return 0;
+      }
+      const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }
 
   const handleInlineProgressSave = async (taskId: string) => {
     const val = parseInt(editingProgressValue, 10);
