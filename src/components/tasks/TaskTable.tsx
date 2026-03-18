@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -246,7 +247,20 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                         <TableCell className="font-mono text-xs truncate" style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className="text-xs truncate" style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>{task.title}</TableCell>
-                        <TableCell className="text-xs truncate" style={{ width: colWidths.actionPlan }}>{task.action_plan ?? "—"}</TableCell>
+                        <TableCell className="text-xs truncate" style={{ width: colWidths.actionPlan }}>
+                          {task.action_plan ? (
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="block truncate cursor-default">{task.action_plan}</span>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="max-w-sm whitespace-pre-wrap text-xs">
+                                  {task.action_plan}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : "—"}
+                        </TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.start }}>{task.start_date}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
                         {(() => {
