@@ -67,6 +67,7 @@ export function TaskImportComponent() {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [validated, setValidated] = useState(false);
+  const [manualTeamId, setManualTeamId] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -110,10 +111,11 @@ export function TaskImportComponent() {
     staleTime: 30_000,
   });
 
-  // Get the current member's team_id as fallback
+  // Get the current member's team_id as fallback, or use manual selection
   const myMember = members.find(m => m.id === memberId);
-  const fallbackTeamId = myMember?.team_id ?? null;
+  const fallbackTeamId = myMember?.team_id ?? manualTeamId || null;
   const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
+  const needsManualTeam = !myMember?.team_id;
 
   const handleDownloadTemplate = () => {
     const cols = ["Subject", "Action Plan", "Start", "Finish"];
