@@ -108,7 +108,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("id, name, team_id");
+      const { data, error } = await supabase.from("members").select("id, name, team_id, is_pm");
       if (error) throw error;
       return data;
     },
