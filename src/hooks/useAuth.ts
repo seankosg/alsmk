@@ -6,6 +6,8 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   isAdmin: boolean;
+  isPm: boolean;
+  isAdminOrPm: boolean;
   memberId: string | null;
   memberName: string | null;
   loading: boolean;
