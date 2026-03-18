@@ -60,7 +60,7 @@ interface ParsedRow {
   errors: string[];
 }
 
-const DISPLAY_COLUMNS = ["Subject", "Action Plan", "Team", "Start", "Finish", "Actual %", "Actual Finish"];
+const DISPLAY_COLUMNS = ["Subject", "Assignee", "Action Plan", "Team/Part", "Start", "Finish", "Actual %", "Actual Finish"];
 
 export function TaskImportComponent() {
   const { memberId } = useAuthContext();
