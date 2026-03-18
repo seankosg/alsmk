@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
+import { differenceInCalendarDays } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ const DEFAULT_COL_WIDTHS: Record<string, number> = {
   subject: 260,
   start: 100,
   finish: 100,
+  dday: 70,
   plan: 70,
   actual: 70,
   gap: 70,
@@ -213,6 +215,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                       { key: "subject", label: "Subject", align: "" },
                       { key: "start", label: "Start", align: "" },
                       { key: "finish", label: "Finish", align: "" },
+                      { key: "dday", label: "D-Day", align: "text-right" },
                       { key: "plan", label: "Plan %", align: "text-right" },
                       { key: "actual", label: "Actual %", align: "text-right" },
                       { key: "gap", label: "차이 %", align: "text-right" },
@@ -231,7 +234,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
                   ) : filtered.map((task) => {
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
@@ -243,6 +246,19 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                         <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>{task.title}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.start }}>{task.start_date}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
+                        {(() => {
+                          const remaining = task.actual_finish
+                            ? 0
+                            : differenceInCalendarDays(new Date(task.end_date), new Date());
+                          return (
+                            <TableCell
+                              className={`text-right font-mono text-xs font-bold ${task.actual_finish ? 'text-muted-foreground' : remaining < 0 ? 'text-destructive' : remaining <= 7 ? 'text-warning' : 'text-primary'}`}
+                              style={{ width: colWidths.dday }}
+                            >
+                              {task.actual_finish ? "Done" : remaining === 0 ? "D-Day" : remaining > 0 ? `D-${remaining}` : `D+${Math.abs(remaining)}`}
+                            </TableCell>
+                          );
+                        })()}
                         <TableCell className="text-right font-mono text-xs" style={{ width: colWidths.plan }}>{planned}%</TableCell>
                         <TableCell
                           className="text-right font-mono text-xs"
