@@ -73,7 +73,10 @@ export function UpcomingDeadlines() {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{task.title}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">
+                      {task.action_plan && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{task.action_plan}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                         {getTeamCode(task.team_id)} · {task.task_code ?? "—"}
                       </p>
                     </div>
