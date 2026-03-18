@@ -185,6 +185,8 @@ export function TaskTable({ filterMine }: TaskTableProps) {
     });
   }
 
+  const selectedTask = filtered.find(t => t.id === selectedTaskId) ?? null;
+
   const handleInlineProgressSave = async (taskId: string) => {
     const val = parseInt(editingProgressValue, 10);
     if (isNaN(val) || val < 0 || val > 100) {
