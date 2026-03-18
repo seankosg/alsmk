@@ -223,7 +223,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           {/* Editable: Issue Flag */}
           <div className="space-y-3">
             <Label>Issue Flag</Label>
-            <Select value={issueFlag} onValueChange={(v) => setIssueFlag(v as "normal" | "warning" | "critical")}>
+            <Select value={issueFlag} onValueChange={(v) => setIssueFlag(v as "normal" | "warning" | "critical")} disabled={readOnly}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
