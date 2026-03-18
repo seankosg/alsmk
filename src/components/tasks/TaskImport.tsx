@@ -110,20 +110,6 @@ export function TaskImportComponent() {
     staleTime: 30_000,
   });
 
-  // Get the current member's team_id as fallback, or use manual selection
-  const myMember = members.find(m => m.id === memberId);
-  const needsManualTeam = !myMember?.team_id;
-
-  // Auto-select first team if member has no team assigned
-  if (needsManualTeam && !manualTeamInitialized && teams.length > 0) {
-    setManualTeamId(teams[0].id);
-    setManualTeamInitialized(true);
-  }
-
-  const fallbackTeamId = myMember?.team_id ?? (manualTeamId || null);
-  const fallbackPartId = myMember?.part_id ?? null;
-  const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
-
   const handleDownloadTemplate = () => {
     const cols = ["Subject", "Assignee", "Action Plan", "Start", "Finish"];
     const ws = XLSX.utils.aoa_to_sheet([
