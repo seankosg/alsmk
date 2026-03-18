@@ -73,12 +73,18 @@ export const mockPersonnelTargets = [
 
 // Helper: calculate planned progress
 export function calcPlannedProgress(startDate: string, endDate: string): number {
-  const now = new Date();
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const total = end.getTime() - start.getTime();
+  // Normalize all dates to UTC midnight to avoid timezone skew
+  const today = new Date();
+  const nowUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const start = Date.UTC(
+    ...startDate.split("-").map((v, i) => (i === 1 ? Number(v) - 1 : Number(v))) as [number, number, number]
+  );
+  const end = Date.UTC(
+    ...endDate.split("-").map((v, i) => (i === 1 ? Number(v) - 1 : Number(v))) as [number, number, number]
+  );
+  const total = end - start;
   if (total <= 0) return 100;
-  const elapsed = now.getTime() - start.getTime();
+  const elapsed = nowUtc - start;
   return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
 }
 
