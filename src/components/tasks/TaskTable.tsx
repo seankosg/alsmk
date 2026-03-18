@@ -170,8 +170,8 @@ export function TaskTable({ filterMine }: TaskTableProps) {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-base">
               Tasks ({filtered.length})
-              {filterMine && isAdmin && (
-                <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">Admin View</Badge>
+              {filterMine && (isAdmin || isPm) && (
+                <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">{isAdmin ? "Admin View" : "PM View"}</Badge>
               )}
             </CardTitle>
             <div className="flex gap-2 flex-wrap">
