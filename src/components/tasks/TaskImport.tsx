@@ -231,7 +231,7 @@ export function TaskImportComponent() {
           title, category, actionPlan, milestoneName, teamCode, partCode, assigneeName,
           startDate, endDate, actualProgress, actualFinish,
           teamId: resolvedTeamId,
-          partId: part?.id ?? null,
+          partId: resolvedPartId,
           assigneeId: member?.id ?? null,
           milestoneId: milestone?.id ?? null,
           errors,
