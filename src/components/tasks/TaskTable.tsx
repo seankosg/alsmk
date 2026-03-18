@@ -67,6 +67,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [flagFilter, setFlagFilter] = useState<string>("all");
   const [memberFilter, setMemberFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
