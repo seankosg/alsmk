@@ -88,7 +88,7 @@ export function UpcomingDeadlines() {
           ) : (
             <div className="space-y-3 max-h-[260px] overflow-y-auto scrollbar-thin">
               {upcoming.map((task) => {
-                const daysLeft = differenceInDays(parseISO(task.end_date), now);
+                const daysLeft = differenceInDays(parseLocalDate(task.end_date), now);
                 const isAtRisk = task.current_progress < 70;
                 return (
                   <div
