@@ -81,7 +81,7 @@ export function AddTaskDialog() {
         category: category || null,
         action_plan: actionPlan.trim() || null,
         team_id: teamId,
-        part_id: member?.part_id || null,
+        part_id: memberTeam?.part_id || null,
         assignee_id: memberId,
         start_date: startDate,
         end_date: endDate,
