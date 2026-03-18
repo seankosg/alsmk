@@ -3,6 +3,7 @@ import { TeamHeatmap } from "@/components/dashboard/TeamHeatmap";
 import { ProjectHUD } from "@/components/dashboard/ProjectHUD";
 import { TeamProgressChart } from "@/components/dashboard/TeamProgressChart";
 import { CriticalIssueBoard } from "@/components/dashboard/CriticalIssueBoard";
+import { BehindScheduleBoard } from "@/components/dashboard/BehindScheduleBoard";
 import { TaskDistributionChart } from "@/components/dashboard/TaskDistributionChart";
 import { UpcomingDeadlines } from "@/components/dashboard/UpcomingDeadlines";
 import { IssueTrendChart } from "@/components/dashboard/IssueTrendChart";
@@ -23,20 +24,22 @@ const Index = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TeamProgressChart />
-        <CriticalIssueBoard />
+        <BehindScheduleBoard />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TaskDistributionChart />
+        <CriticalIssueBoard />
         <UpcomingDeadlines />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TaskDistributionChart />
         <IssueTrendChart />
-        <ActivityStream />
       </div>
 
       <TeamHeatmap />
+
+      <ActivityStream />
 
       <PersonnelTable />
     </div>
