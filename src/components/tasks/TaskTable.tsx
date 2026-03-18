@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Search } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +67,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [flagFilter, setFlagFilter] = useState<string>("all");
   const [memberFilter, setMemberFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
@@ -157,6 +158,15 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   }
   if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
   if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase();
+    filtered = filtered.filter(t =>
+      (t.task_code?.toLowerCase().includes(q)) ||
+      t.title.toLowerCase().includes(q) ||
+      (t.action_plan?.toLowerCase().includes(q)) ||
+      (t.category?.toLowerCase().includes(q))
+    );
+  }
 
   // Sorting
   if (sortKey) {
@@ -215,7 +225,16 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                 <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">{isAdmin ? "Admin View" : "PM View"}</Badge>
               )}
             </CardTitle>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap items-center">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-[180px] h-8 text-xs pl-8"
+                />
+              </div>
               {filterMine && (isAdmin || isPm) && (
                 <Select value={memberFilter} onValueChange={setMemberFilter}>
                   <SelectTrigger className="w-[140px] h-8 text-xs">
