@@ -175,7 +175,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
               )}
             </CardTitle>
             <div className="flex gap-2 flex-wrap">
-              {filterMine && isAdmin && (
+              {filterMine && (isAdmin || isPm) && (
                 <Select value={memberFilter} onValueChange={setMemberFilter}>
                   <SelectTrigger className="w-[140px] h-8 text-xs">
                     <SelectValue placeholder="All Members" />
