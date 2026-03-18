@@ -133,7 +133,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   let filtered = [...tasks];
 
   if (filterMine && !isAdmin) {
-    filtered = filtered.filter(t => t.assignee_id === memberId);
+    filtered = filtered.filter(t => t.assignee_id === memberId || t.team_id === myTeamId);
   }
   if (filterMine && isAdmin && memberFilter !== "all") {
     filtered = filtered.filter(t => t.assignee_id === memberFilter);
