@@ -127,10 +127,10 @@ export function TaskImportComponent() {
   const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
 
   const handleDownloadTemplate = () => {
-    const cols = ["Subject", "Action Plan", "Start", "Finish"];
+    const cols = ["Subject", "Assignee", "Action Plan", "Start", "Finish"];
     const ws = XLSX.utils.aoa_to_sheet([
       cols,
-      ["Foundation Inspection", "Inspect foundation quality", "2026-04-01", "2026-04-15"],
+      ["Foundation Inspection", "John Doe", "Inspect foundation quality", "2026-04-01", "2026-04-15"],
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Tasks");
