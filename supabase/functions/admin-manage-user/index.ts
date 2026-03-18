@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,21 +50,20 @@ Deno.serve(async (req) => {
 
       const token = authHeader.replace("Bearer ", "");
 
-      // Create user-scoped client and verify token via getUser()
-      const userClient = createClient(supabaseUrl, anonKey, {
+      // Validate token using signing-key aware getClaims()
+      const authClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
         auth: { autoRefreshToken: false, persistSession: false },
       });
 
-      const { data: getUserData, error: getUserError } =
-        await userClient.auth.getUser(token);
+      const { data: claimsData, error: claimsError } =
+        await authClient.auth.getClaims(token);
+      const callerId = claimsData?.claims?.sub;
 
-      if (getUserError || !getUserData?.user) {
-        console.error("Auth failed:", getUserError?.message);
+      if (claimsError || !callerId) {
+        console.error("Auth failed:", claimsError?.message ?? "Unknown auth error");
         return jsonResponse({ error: "Invalid token" }, 401);
       }
-
-      const callerId = getUserData.user.id;
 
       // Check admin role
       const { data: hasAdmin } = await adminClient.rpc("has_role", {
