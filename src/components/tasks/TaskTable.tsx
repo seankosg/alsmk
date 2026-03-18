@@ -194,18 +194,29 @@ export function TaskTable({ filterMine }: TaskTableProps) {
             </div>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
-              <Table>
+              <Table className="table-fixed" style={{ minWidth: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[140px]">Task Code</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead className="w-[90px]">Start</TableHead>
-                    <TableHead className="w-[90px]">Finish</TableHead>
-                    <TableHead className="text-right w-[70px]">Plan %</TableHead>
-                    <TableHead className="text-right w-[70px]">Actual %</TableHead>
-                    <TableHead className="text-right w-[70px]">차이 %</TableHead>
-                    <TableHead className="w-[100px]">Actual Finish</TableHead>
+                    {[
+                      { key: "taskCode", label: "Task Code", align: "" },
+                      { key: "category", label: "Category", align: "" },
+                      { key: "subject", label: "Subject", align: "" },
+                      { key: "start", label: "Start", align: "" },
+                      { key: "finish", label: "Finish", align: "" },
+                      { key: "plan", label: "Plan %", align: "text-right" },
+                      { key: "actual", label: "Actual %", align: "text-right" },
+                      { key: "gap", label: "차이 %", align: "text-right" },
+                      { key: "actualFinish", label: "Actual Finish", align: "" },
+                    ].map(col => (
+                      <TableHead
+                        key={col.key}
+                        className={`relative select-none ${col.align}`}
+                        style={{ width: colWidths[col.key], minWidth: 40 }}
+                      >
+                        {col.label}
+                        <ResizeHandle onResize={handleColResize(col.key)} />
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -217,14 +228,15 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                     const isEditingThis = editingProgressId === task.id;
                     return (
                       <TableRow key={task.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedTaskId(task.id)}>
-                        <TableCell className="font-mono text-xs">{task.task_code}</TableCell>
-                        <TableCell className="text-xs">{task.category ?? "—"}</TableCell>
-                        <TableCell className="text-sm font-medium">{task.title}</TableCell>
-                        <TableCell className="font-mono text-xs">{task.start_date}</TableCell>
-                        <TableCell className="font-mono text-xs">{task.end_date}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{planned}%</TableCell>
+                        <TableCell className="font-mono text-xs truncate" style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
+                        <TableCell className="text-xs truncate" style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
+                        <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>{task.title}</TableCell>
+                        <TableCell className="font-mono text-xs" style={{ width: colWidths.start }}>{task.start_date}</TableCell>
+                        <TableCell className="font-mono text-xs" style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
+                        <TableCell className="text-right font-mono text-xs" style={{ width: colWidths.plan }}>{planned}%</TableCell>
                         <TableCell
                           className="text-right font-mono text-xs"
+                          style={{ width: colWidths.actual }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingProgressId(task.id);
@@ -251,10 +263,10 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                             <span className="cursor-text hover:underline">{task.current_progress}%</span>
                           )}
                         </TableCell>
-                        <TableCell className={`text-right font-mono text-xs font-bold ${gap >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                        <TableCell className={`text-right font-mono text-xs font-bold ${gap >= 0 ? 'text-primary' : 'text-destructive'}`} style={{ width: colWidths.gap }}>
                           {gap >= 0 ? '+' : ''}{gap}%
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{task.actual_finish ?? "—"}</TableCell>
+                        <TableCell className="font-mono text-xs" style={{ width: colWidths.actualFinish }}>{task.actual_finish ?? "—"}</TableCell>
                       </TableRow>
                     );
                   })}
