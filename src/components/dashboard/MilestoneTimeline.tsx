@@ -124,7 +124,7 @@ export function MilestoneTimeline() {
                           {ms.name}
                         </span>
                         <span
-                          className={`text-[10px] font-mono ${
+                          className={`text-xs font-mono font-semibold ${
                             isPast ? "text-muted-foreground" : "text-foreground"
                           }`}
                         >
