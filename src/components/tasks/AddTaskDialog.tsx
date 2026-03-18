@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,31 @@ export function AddTaskDialog() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Fetch member's team to use as default category
+  const { data: memberTeam } = useQuery({
+    queryKey: ["member-team", memberId],
+    queryFn: async () => {
+      if (!memberId) return null;
+      const { data: member } = await supabase
+        .from("members")
+        .select("team_id, part_id, teams(name)")
+        .eq("id", memberId)
+        .single();
+      return member;
+    },
+    enabled: !!memberId,
+    staleTime: 60_000,
+  });
+
+  // Set default category to team name when dialog opens
+  useEffect(() => {
+    if (open && !category && memberTeam?.teams?.name) {
+      setCategory(memberTeam.teams.name);
+    }
+  }, [open, memberTeam]);
+
   const resetForm = () => {
-    setCategory("");
+    setCategory(memberTeam?.teams?.name ?? "");
     setSubject("");
     setActionPlan("");
     setStartDate("");
