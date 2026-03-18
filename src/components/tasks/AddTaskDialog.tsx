@@ -67,15 +67,7 @@ export function AddTaskDialog() {
 
     setSaving(true);
     try {
-      // We still need team_id (required by DB). For now use a default or derive from member.
-      // Since team_id is required, we fetch the member's team
-      const { data: member } = await supabase
-        .from("members")
-        .select("team_id, part_id")
-        .eq("id", memberId)
-        .single();
-
-      const teamId = member?.team_id;
+      const teamId = memberTeam?.team_id;
       if (!teamId) {
         toast.error("Your member profile has no team assigned.");
         setSaving(false);
