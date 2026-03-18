@@ -17,20 +17,10 @@ export function ProjectHUD() {
     staleTime: 30_000,
   });
 
-  const { data: milestones = [], isLoading: loadingMs } = useQuery({
-    queryKey: ["milestones"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("milestones").select("*").order("sort_order");
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 30_000,
-  });
-
-  if (loadingTasks || loadingMs) {
+  if (loadingTasks) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 5 }).map((_, i) => (
+        {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}><CardContent className="pt-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
         ))}
       </div>
@@ -43,17 +33,14 @@ export function ProjectHUD() {
   const activeIssues = tasks.filter(t => t.issue_flag !== "normal").length;
   const completionRate = totalTasks > 0 ? Math.round(tasks.filter(t => t.current_progress >= 90).length / totalTasks * 100) : 0;
 
-  const activeIssues = tasks.filter(t => t.issue_flag !== "normal").length;
-  const completionRate = totalTasks > 0 ? Math.round(tasks.filter(t => t.current_progress >= 90).length / totalTasks * 100) : 0;
-
   const donutData = [
     { name: "Actual", value: avgProgress },
     { name: "Remaining", value: 100 - avgProgress },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      <Card className="md:col-span-2 lg:col-span-1">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <Card>
         <CardContent className="flex flex-col items-center justify-center pt-6">
           <div className="h-28 w-28 relative">
             <ResponsiveContainer>
@@ -70,18 +57,6 @@ export function ProjectHUD() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2">Planned: {avgPlanned}%</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <CalendarClock className="h-3.5 w-3.5" /> D-Day
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <span className="text-3xl font-bold font-mono text-primary">D-{dDay}</span>
-          <p className="text-xs text-muted-foreground mt-1">{finalMs?.name ?? "—"}</p>
         </CardContent>
       </Card>
 
