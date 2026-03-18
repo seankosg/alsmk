@@ -145,6 +145,7 @@ export function UpcomingDeadlines() {
         teams={teams}
         members={members}
         milestones={milestones}
+        readOnly={!isAdmin}
       />
     </>
   );
