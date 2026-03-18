@@ -65,6 +65,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       value={{
         user: auth.user,
         isAdmin: auth.isAdmin,
+        isPm: auth.isPm,
+        isAdminOrPm: auth.isAdminOrPm,
         memberId: auth.memberId,
         memberName: auth.memberName,
         signOut: auth.signOut,
