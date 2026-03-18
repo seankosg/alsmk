@@ -74,7 +74,7 @@ const MyDashboard = () => {
   const plannedInProgress = myTasks.filter((t) => {
     if (t.actual_finish) return false;
     try {
-      return isWithinInterval(now, { start: parseISO(t.start_date), end: parseISO(t.end_date) });
+      return isWithinInterval(now, { start: parseLocalDate(t.start_date), end: parseLocalDate(t.end_date) });
     } catch { return false; }
   }).length;
   const actualInProgress = myTasks.filter((t) => t.current_progress > 0 && t.current_progress < 100 && !t.actual_finish).length;
