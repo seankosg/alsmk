@@ -50,17 +50,16 @@ Deno.serve(async (req) => {
 
       const token = authHeader.replace("Bearer ", "");
 
-      // Create user-scoped client and verify token via getUser()
-      const userClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
+      // Validate token with a plain anon client in stateless mode
+      const authClient = createClient(supabaseUrl, anonKey, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
 
       const { data: getUserData, error: getUserError } =
-        await userClient.auth.getUser(token);
+        await authClient.auth.getUser(token);
 
       if (getUserError || !getUserData?.user) {
-        console.error("Auth failed:", getUserError?.message);
+        console.error("Auth failed:", getUserError?.message ?? "Unknown auth error");
         return jsonResponse({ error: "Invalid token" }, 401);
       }
 
