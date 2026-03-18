@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -60,15 +59,13 @@ interface ParsedRow {
   errors: string[];
 }
 
-const DISPLAY_COLUMNS = ["Subject", "Action Plan", "Team", "Start", "Finish", "Actual %", "Actual Finish"];
+const DISPLAY_COLUMNS = ["Subject", "Assignee", "Action Plan", "Team/Part", "Start", "Finish", "Actual %", "Actual Finish"];
 
 export function TaskImportComponent() {
   const { memberId } = useAuthContext();
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [validated, setValidated] = useState(false);
-  const [manualTeamId, setManualTeamId] = useState<string>("");
-  const [manualTeamInitialized, setManualTeamInitialized] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -112,25 +109,11 @@ export function TaskImportComponent() {
     staleTime: 30_000,
   });
 
-  // Get the current member's team_id as fallback, or use manual selection
-  const myMember = members.find(m => m.id === memberId);
-  const needsManualTeam = !myMember?.team_id;
-
-  // Auto-select first team if member has no team assigned
-  if (needsManualTeam && !manualTeamInitialized && teams.length > 0) {
-    setManualTeamId(teams[0].id);
-    setManualTeamInitialized(true);
-  }
-
-  const fallbackTeamId = myMember?.team_id ?? (manualTeamId || null);
-  const fallbackPartId = myMember?.part_id ?? null;
-  const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
-
   const handleDownloadTemplate = () => {
-    const cols = ["Subject", "Action Plan", "Start", "Finish"];
+    const cols = ["Subject", "Assignee", "Action Plan", "Start", "Finish"];
     const ws = XLSX.utils.aoa_to_sheet([
       cols,
-      ["Foundation Inspection", "Inspect foundation quality", "2026-04-01", "2026-04-15"],
+      ["Foundation Inspection", "John Doe", "Inspect foundation quality", "2026-04-01", "2026-04-15"],
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Tasks");
@@ -203,14 +186,15 @@ export function TaskImportComponent() {
         const errors: string[] = [];
 
         if (!title) errors.push("Subject 필수");
+        if (!assigneeName) errors.push("Assignee 필수");
         if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) errors.push("Start 형식 오류");
         if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) errors.push("Finish 형식 오류");
 
-        // Resolve assignee first (needed for team/part fallback)
+        // Resolve assignee (required)
         const member = assigneeName ? members.find(m => m.name.toLowerCase() === assigneeName.toLowerCase()) : null;
         if (assigneeName && !member) errors.push(`Assignee '${assigneeName}' 없음`);
 
-        // Team resolution: Excel teamCode → assignee's team → importer fallback
+        // Team resolution: Excel teamCode → assignee's team (assignee is primary source)
         let resolvedTeamId: string | null = null;
         if (teamCode) {
           const team = teams.find(t => t.code.toUpperCase() === teamCode);
@@ -218,12 +202,11 @@ export function TaskImportComponent() {
           else errors.push(`Team '${teamCode}' 없음`);
         } else if (member?.team_id) {
           resolvedTeamId = member.team_id;
-        } else {
-          resolvedTeamId = fallbackTeamId;
-          if (!resolvedTeamId) errors.push("Team 없음 (소속팀 미지정)");
+        } else if (member && !member.team_id) {
+          errors.push(`Assignee '${assigneeName}' 소속팀 미지정`);
         }
 
-        // Part resolution: Excel partCode → assignee's part → importer fallback
+        // Part resolution: Excel partCode → assignee's part
         let resolvedPartId: string | null = null;
         if (partCode) {
           const part = parts.find(p => p.code.toUpperCase() === partCode && p.team_id === resolvedTeamId);
@@ -231,8 +214,6 @@ export function TaskImportComponent() {
           else errors.push(`Part '${partCode}' 없음`);
         } else if (member?.part_id) {
           resolvedPartId = member.part_id;
-        } else {
-          resolvedPartId = fallbackPartId;
         }
 
         const milestone = milestoneName ? milestones.find(m => m.name.toLowerCase() === milestoneName.toLowerCase()) : null;
@@ -297,34 +278,17 @@ export function TaskImportComponent() {
 
   return (
     <div className="space-y-4">
-      {needsManualTeam && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">Default Team:</span>
-          <Select value={manualTeamId} onValueChange={(v) => { setManualTeamId(v); setValidated(false); setParsedRows([]); }}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select team" />
-            </SelectTrigger>
-            <SelectContent>
-              {teams.map(t => (
-                <SelectItem key={t.id} value={t.id}>{t.name} ({t.code})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
       <div className="flex gap-3 items-center flex-wrap">
         <Button variant="outline" onClick={handleDownloadTemplate}>
           <Download className="mr-2 h-4 w-4" /> Download Template
         </Button>
-        <Button onClick={() => fileRef.current?.click()} disabled={needsManualTeam && !manualTeamId}>
+        <Button onClick={() => fileRef.current?.click()}>
           <Upload className="mr-2 h-4 w-4" /> Upload File
         </Button>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileUpload} />
-        {fallbackTeamName && (
-          <span className="text-xs text-muted-foreground">
-            Team 미지정 시 기본: <Badge variant="outline" className="ml-1 text-[10px]">{fallbackTeamName}</Badge>
-          </span>
-        )}
+        <span className="text-xs text-muted-foreground">
+          Assignee 기준으로 Team/Part가 자동 결정됩니다
+        </span>
       </div>
 
       {validated && parsedRows.length > 0 && (
@@ -361,15 +325,16 @@ export function TaskImportComponent() {
                 <TableBody>
                   {parsedRows.map((row, ri) => {
                     const hasError = row.errors.length > 0;
-                    const teamLabel = row.teamCode || (row.teamId ? `(${fallbackTeamName})` : "—");
+                    const teamName = row.teamId ? teams.find(t => t.id === row.teamId)?.code ?? "—" : "—";
+                    const partName = row.partId ? parts.find(p => p.id === row.partId)?.code ?? "" : "";
+                    const teamPartLabel = partName ? `${teamName}/${partName}` : teamName;
                     return (
                       <TableRow key={ri} className={hasError ? "bg-destructive/10" : ""}>
                         <TableCell className="text-xs font-mono">{ri + 1}</TableCell>
                         <TableCell className="text-xs">{row.title || "—"}</TableCell>
+                        <TableCell className="text-xs">{row.assigneeName || "—"}</TableCell>
                         <TableCell className="text-xs max-w-[200px] truncate">{row.actionPlan || "—"}</TableCell>
-                        <TableCell className={`text-xs font-mono ${!row.teamCode && row.teamId ? "text-muted-foreground italic" : !row.teamId ? "text-destructive font-bold" : ""}`}>
-                          {teamLabel}
-                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">{teamPartLabel}</TableCell>
                         <TableCell className="text-xs font-mono">{row.startDate}</TableCell>
                         <TableCell className="text-xs font-mono">{row.endDate}</TableCell>
                         <TableCell className="text-xs font-mono text-right">{row.actualProgress}%</TableCell>
