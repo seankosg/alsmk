@@ -176,6 +176,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               rows={3}
               maxLength={2000}
               placeholder="Describe the action plan..."
+              disabled={readOnly}
             />
           </div>
 
