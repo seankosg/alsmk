@@ -34,7 +34,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("tasks").select("*").order("title", { ascending: true }).order("start_date", { ascending: true });
       if (error) throw error;
       return data;
     },
