@@ -50,15 +50,7 @@ Deno.serve(async (req) => {
 
       const token = authHeader.replace("Bearer ", "");
 
-      // Use getUser with token — works reliably in edge runtime
-      const { data: userData, error: userError } =
-        await adminClient.auth.admin.getUserById(
-          // We can't use admin.getUserById without knowing the id.
-          // Instead, create a user-scoped client and call getUser().
-          "" // placeholder — see below
-        ).catch(() => ({ data: null, error: new Error("skip") })) as any;
-
-      // Correct approach: create anon client with auth header, call getUser(token)
+      // Create user-scoped client and verify token via getUser()
       const userClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
         auth: { autoRefreshToken: false, persistSession: false },
