@@ -1,5 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -10,12 +8,15 @@ interface Task {
   id: string;
   task_code: string | null;
   title: string;
+  category: string | null;
+  action_plan: string | null;
   milestone_id: string | null;
   team_id: string;
   part_id: string | null;
   assignee_id: string | null;
   start_date: string;
   end_date: string;
+  actual_finish: string | null;
   current_progress: number;
   issue_flag: "normal" | "warning" | "critical";
   issue_type: string | null;
@@ -34,29 +35,17 @@ interface TaskDetailDialogProps {
 }
 
 export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [] }: TaskDetailDialogProps) {
-  const { data: parts = [] } = useQuery({
-    queryKey: ["parts"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("parts").select("id, name");
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 30_000,
-  });
-
   if (!task) return null;
 
   const planned = calcPlannedProgress(task.start_date, task.end_date);
   const gap = task.current_progress - planned;
 
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name ?? "Unknown";
-  const getPartName = (id: string | null) => !id ? "—" : parts.find(p => p.id === id)?.name ?? "Unknown";
   const getMemberName = (id: string | null) => !id ? "Unassigned" : members.find(m => m.id === id)?.name ?? "Unknown";
-  const getMilestoneName = (id: string | null) => !id ? "—" : milestones.find(m => m.id === id)?.name ?? "Unknown";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <code className="text-sm text-muted-foreground">{task.task_code}</code>
@@ -70,8 +59,23 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
 
         <div className="space-y-4">
           <div>
+            <p className="text-xs text-muted-foreground">Category</p>
+            <p className="text-sm font-medium">{task.category ?? "—"}</p>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground">Subject</p>
             <h3 className="text-lg font-semibold">{task.title}</h3>
           </div>
+
+          {task.action_plan && (
+            <div>
+              <p className="text-xs text-muted-foreground">Action Plan</p>
+              <p className="text-sm whitespace-pre-wrap">{task.action_plan}</p>
+            </div>
+          )}
+
+          <Separator />
 
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
@@ -79,24 +83,20 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               <p className="font-medium">{getTeamName(task.team_id)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Part</p>
-              <p className="font-medium">{getPartName(task.part_id)}</p>
-            </div>
-            <div>
               <p className="text-xs text-muted-foreground">Assignee</p>
               <p className="font-medium">{getMemberName(task.assignee_id)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Milestone</p>
-              <p className="font-medium">{getMilestoneName(task.milestone_id)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Start</p>
               <p className="font-mono text-xs">{task.start_date}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">End</p>
+              <p className="text-xs text-muted-foreground">Finish</p>
               <p className="font-mono text-xs">{task.end_date}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Actual Finish</p>
+              <p className="font-mono text-xs">{task.actual_finish ?? "—"}</p>
             </div>
           </div>
 
@@ -104,14 +104,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
 
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Progress</span>
+              <span>Actual %</span>
               <span className="font-mono font-bold">{task.current_progress}%</span>
             </div>
             <Progress value={task.current_progress} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Planned: {planned}%</span>
+              <span>Plan: {planned}%</span>
               <span className={`font-mono font-bold ${gap >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                Gap: {gap >= 0 ? '+' : ''}{gap}%
+                차이: {gap >= 0 ? '+' : ''}{gap}%
               </span>
             </div>
           </div>

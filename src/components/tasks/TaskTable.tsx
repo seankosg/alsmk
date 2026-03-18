@@ -61,28 +61,14 @@ export function TaskTable({ filterMine }: TaskTableProps) {
     staleTime: 30_000,
   });
 
-  const getMemberName = (id: string | null) => {
-    if (!id) return "Unassigned";
-    return members.find(m => m.id === id)?.name ?? "Unknown";
-  };
-
-  const getMilestoneName = (id: string | null) => {
-    if (!id) return "—";
-    return milestones.find(m => m.id === id)?.name ?? "Unknown";
-  };
-
   let filtered = [...tasks];
 
-  // Workspace filtering: non-admin sees only their own tasks
   if (filterMine && !isAdmin) {
     filtered = filtered.filter(t => t.assignee_id === memberId);
   }
-
-  // Admin member filter in workspace
   if (filterMine && isAdmin && memberFilter !== "all") {
     filtered = filtered.filter(t => t.assignee_id === memberFilter);
   }
-
   if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
   if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
 
@@ -145,39 +131,35 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[140px]">Task Code</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Milestone</TableHead>
-                    <TableHead>Assignee</TableHead>
-                    <TableHead className="text-right">Planned</TableHead>
-                    <TableHead className="text-right">Current</TableHead>
-                    <TableHead className="text-right">Gap</TableHead>
-                    <TableHead>Flag</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead className="w-[90px]">Start</TableHead>
+                    <TableHead className="w-[90px]">Finish</TableHead>
+                    <TableHead className="text-right w-[70px]">Plan %</TableHead>
+                    <TableHead className="text-right w-[70px]">Actual %</TableHead>
+                    <TableHead className="text-right w-[70px]">차이 %</TableHead>
+                    <TableHead className="w-[100px]">Actual Finish</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
                   ) : filtered.map((task) => {
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     return (
                       <TableRow key={task.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className="font-mono text-xs">{task.task_code}</TableCell>
+                        <TableCell className="text-xs">{task.category ?? "—"}</TableCell>
                         <TableCell className="text-sm font-medium">{task.title}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{getMilestoneName(task.milestone_id)}</TableCell>
-                        <TableCell className="text-xs">{getMemberName(task.assignee_id)}</TableCell>
+                        <TableCell className="font-mono text-xs">{task.start_date}</TableCell>
+                        <TableCell className="font-mono text-xs">{task.end_date}</TableCell>
                         <TableCell className="text-right font-mono text-xs">{planned}%</TableCell>
                         <TableCell className="text-right font-mono text-xs">{task.current_progress}%</TableCell>
                         <TableCell className={`text-right font-mono text-xs font-bold ${gap >= 0 ? 'text-primary' : 'text-destructive'}`}>
                           {gap >= 0 ? '+' : ''}{gap}%
                         </TableCell>
-                        <TableCell>
-                          {task.issue_flag !== "normal" && (
-                            <Badge variant={task.issue_flag === "critical" ? "destructive" : "outline"} className={task.issue_flag === "warning" ? "border-warning text-warning text-[10px]" : "text-[10px]"}>
-                              {task.issue_flag}
-                            </Badge>
-                          )}
-                        </TableCell>
+                        <TableCell className="font-mono text-xs">{task.actual_finish ?? "—"}</TableCell>
                       </TableRow>
                     );
                   })}

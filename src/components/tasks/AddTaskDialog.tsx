@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -16,73 +17,53 @@ export function AddTaskDialog() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [title, setTitle] = useState("");
-  const [teamId, setTeamId] = useState("");
-  const [partId, setPartId] = useState("");
-  const [milestoneId, setMilestoneId] = useState("");
+  const [category, setCategory] = useState("");
+  const [subject, setSubject] = useState("");
+  const [actionPlan, setActionPlan] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const { data: teams = [] } = useQuery({
-    queryKey: ["teams"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("teams").select("*").order("name");
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 30_000,
-  });
-
-  const { data: parts = [] } = useQuery({
-    queryKey: ["parts"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("parts").select("*").order("name");
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 30_000,
-  });
-
-  const { data: milestones = [] } = useQuery({
-    queryKey: ["milestones"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("milestones").select("*").order("sort_order");
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 30_000,
-  });
-
-  // Filter parts by selected team
-  const filteredParts = teamId ? parts.filter(p => p.team_id === teamId) : [];
-
   const resetForm = () => {
-    setTitle("");
-    setTeamId("");
-    setPartId("");
-    setMilestoneId("");
+    setCategory("");
+    setSubject("");
+    setActionPlan("");
     setStartDate("");
     setEndDate("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !teamId || !startDate || !endDate) {
-      toast.error("Title, Team, Start Date, End Date are required.");
+    if (!subject.trim() || !startDate || !endDate) {
+      toast.error("Subject, Start, and Finish are required.");
       return;
     }
     if (endDate < startDate) {
-      toast.error("End date must be after start date.");
+      toast.error("Finish date must be after Start date.");
       return;
     }
 
     setSaving(true);
     try {
+      // We still need team_id (required by DB). For now use a default or derive from member.
+      // Since team_id is required, we fetch the member's team
+      const { data: member } = await supabase
+        .from("members")
+        .select("team_id")
+        .eq("id", memberId)
+        .single();
+
+      const teamId = member?.team_id;
+      if (!teamId) {
+        toast.error("Your member profile has no team assigned.");
+        setSaving(false);
+        return;
+      }
+
       const { error } = await supabase.from("tasks").insert({
-        title: title.trim(),
+        title: subject.trim(),
+        category: category || null,
+        action_plan: actionPlan.trim() || null,
         team_id: teamId,
-        part_id: partId || null,
-        milestone_id: milestoneId || null,
         assignee_id: memberId,
         start_date: startDate,
         end_date: endDate,
@@ -107,57 +88,40 @@ export function AddTaskDialog() {
           <Plus className="mr-2 h-4 w-4" /> Add Task
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Add New Task</DialogTitle>
-          <DialogDescription>Create a task assigned to you.</DialogDescription>
+          <DialogDescription>Task Code will be auto-generated. Plan % is calculated automatically.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="task-title">Title</Label>
-            <Input id="task-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Task title" maxLength={200} required />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Team</Label>
-              <Select value={teamId} onValueChange={(v) => { setTeamId(v); setPartId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
-                <SelectContent>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Part</Label>
-              <Select value={partId || "none"} onValueChange={(v) => setPartId(v === "none" ? "" : v)} disabled={!teamId}>
-                <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {filteredParts.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Milestone</Label>
-            <Select value={milestoneId || "none"} onValueChange={(v) => setMilestoneId(v === "none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+            <Label>Category</Label>
+            <Select value={category || "none"} onValueChange={(v) => setCategory(v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
-                {milestones.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                {/* Category options will be added later */}
               </SelectContent>
             </Select>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="subject">Subject</Label>
+            <Input id="subject" value={subject} onChange={e => setSubject(e.target.value)} placeholder="Task subject" maxLength={200} required />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="action-plan">Action Plan</Label>
+            <Textarea id="action-plan" value={actionPlan} onChange={e => setActionPlan(e.target.value)} placeholder="Describe the action plan..." rows={3} maxLength={2000} />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="start-date">Start Date</Label>
+              <Label htmlFor="start-date">Start</Label>
               <Input id="start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="end-date">End Date</Label>
+              <Label htmlFor="end-date">Finish</Label>
               <Input id="end-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required />
             </div>
           </div>
