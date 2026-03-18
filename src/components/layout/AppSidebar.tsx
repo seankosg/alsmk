@@ -1,4 +1,4 @@
-import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -15,10 +15,14 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAdmin, memberName, signOut } = useAuthContext();
+  const { user, isAdmin, isAdminOrPm, memberName, signOut } = useAuthContext();
 
   const navItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    // Admin/PM see Project Dashboard; regular members see My Dashboard
+    ...(isAdminOrPm
+      ? [{ title: "Project Dashboard", url: "/", icon: LayoutDashboard }]
+      : [{ title: "My Dashboard", url: "/my", icon: User }]
+    ),
     { title: "My Workspace", url: "/workspace", icon: Briefcase },
     { title: "Organization", url: "/organization", icon: Building2 },
     ...(isAdmin ? [

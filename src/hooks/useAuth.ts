@@ -6,6 +6,8 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   isAdmin: boolean;
+  isPm: boolean;
+  isAdminOrPm: boolean;
   memberId: string | null;
   memberName: string | null;
   loading: boolean;
@@ -16,6 +18,8 @@ export function useAuth() {
     user: null,
     session: null,
     isAdmin: false,
+    isPm: false,
+    isAdminOrPm: false,
     memberId: null,
     memberName: null,
     loading: true,
@@ -34,15 +38,19 @@ export function useAuth() {
               }),
               supabase
                 .from("members")
-                .select("id, name")
+                .select("id, name, is_pm")
                 .eq("user_id", session.user.id)
                 .maybeSingle(),
             ]);
 
+            const admin = roleResult.data === true;
+            const pm = memberResult.data?.is_pm === true;
             setState({
               user: session.user,
               session,
-              isAdmin: roleResult.data === true,
+              isAdmin: admin,
+              isPm: pm,
+              isAdminOrPm: admin || pm,
               memberId: memberResult.data?.id ?? null,
               memberName: memberResult.data?.name ?? null,
               loading: false,
@@ -53,6 +61,8 @@ export function useAuth() {
             user: null,
             session: null,
             isAdmin: false,
+            isPm: false,
+            isAdminOrPm: false,
             memberId: null,
             memberName: null,
             loading: false,

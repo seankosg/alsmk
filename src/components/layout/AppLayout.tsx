@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface AuthContextType {
   user: ReturnType<typeof useAuth>["user"];
   isAdmin: boolean;
+  isPm: boolean;
+  isAdminOrPm: boolean;
   memberId: string | null;
   memberName: string | null;
   signOut: () => Promise<void>;
@@ -19,6 +21,8 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   isAdmin: false,
+  isPm: false,
+  isAdminOrPm: false,
   memberId: null,
   memberName: null,
   signOut: async () => {},
@@ -51,11 +55,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return <Navigate to="/" replace />;
   }
 
+  // Regular member accessing / → redirect to /my
+  if (!auth.isAdmin && !auth.isPm && location.pathname === "/") {
+    return <Navigate to="/my" replace />;
+  }
+
   return (
     <AuthContext.Provider
       value={{
         user: auth.user,
         isAdmin: auth.isAdmin,
+        isPm: auth.isPm,
+        isAdminOrPm: auth.isAdminOrPm,
         memberId: auth.memberId,
         memberName: auth.memberName,
         signOut: auth.signOut,
