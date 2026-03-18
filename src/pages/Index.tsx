@@ -1,4 +1,5 @@
 import { MilestoneTimeline } from "@/components/dashboard/MilestoneTimeline";
+import { TeamHeatmap } from "@/components/dashboard/TeamHeatmap";
 import { ProjectHUD } from "@/components/dashboard/ProjectHUD";
 import { TeamProgressChart } from "@/components/dashboard/TeamProgressChart";
 import { CriticalIssueBoard } from "@/components/dashboard/CriticalIssueBoard";
