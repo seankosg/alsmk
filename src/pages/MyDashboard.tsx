@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -6,14 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { ListTodo, TrendingDown, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
-import { differenceInDays, parseISO } from "date-fns";
+import {
+  ListTodo, PlayCircle, Activity, TrendingUp, CheckCircle2,
+  AlertTriangle, Clock, BarChart3, Target, ArrowDownRight,
+} from "lucide-react";
+import { differenceInDays, parseISO, isWithinInterval, startOfDay } from "date-fns";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 
 const MyDashboard = () => {
   const { memberId } = useAuthContext();
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const behindRef = useRef<HTMLDivElement>(null);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
@@ -56,12 +60,7 @@ const MyDashboard = () => {
   });
 
   const myTasks = tasks.filter((t) => t.assignee_id === memberId);
-  const now = new Date();
-
-  // KPI calculations
-  const totalTasks = myTasks.length;
-  const completedTasks = myTasks.filter((t) => t.actual_finish).length;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const now = startOfDay(new Date());
 
   const tasksWithGap = myTasks.map((t) => {
     const planned = calcPlannedProgress(t.start_date, t.end_date);
@@ -69,8 +68,23 @@ const MyDashboard = () => {
     return { ...t, planned, gap };
   });
 
+  // Row 1 metrics
+  const totalTasks = myTasks.length;
+  const plannedInProgress = myTasks.filter((t) => {
+    if (t.actual_finish) return false;
+    try {
+      return isWithinInterval(now, { start: parseISO(t.start_date), end: parseISO(t.end_date) });
+    } catch { return false; }
+  }).length;
+  const actualInProgress = myTasks.filter((t) => t.current_progress > 0 && t.current_progress < 100 && !t.actual_finish).length;
+  const aheadTasks = tasksWithGap.filter((t) => t.gap > 0).length;
+  const onTrackTasks = tasksWithGap.filter((t) => t.gap === 0).length;
   const behindTasks = tasksWithGap.filter((t) => t.gap < 0).sort((a, b) => a.gap - b.gap);
-  const avgGap = totalTasks > 0 ? Math.round(tasksWithGap.reduce((s, t) => s + t.gap, 0) / totalTasks) : 0;
+
+  // Row 2 metrics
+  const avgPlanned = totalTasks > 0 ? Math.round(tasksWithGap.reduce((s, t) => s + t.planned, 0) / totalTasks) : 0;
+  const avgActual = totalTasks > 0 ? Math.round(tasksWithGap.reduce((s, t) => s + t.current_progress, 0) / totalTasks) : 0;
+  const avgGap = avgActual - avgPlanned;
 
   // Upcoming deadlines (7 days)
   const upcoming = tasksWithGap
@@ -96,9 +110,9 @@ const MyDashboard = () => {
     return (
       <div className="space-y-6">
         <div><h1 className="text-2xl font-bold tracking-tight">My Dashboard</h1></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}><CardContent className="pt-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
           ))}
         </div>
       </div>
@@ -112,8 +126,8 @@ const MyDashboard = () => {
         <p className="text-sm text-muted-foreground">Personal task overview &amp; management</p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Row 1 — Task Count Cards (6 cols) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -128,46 +142,108 @@ const MyDashboard = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Completion Rate
+              <PlayCircle className="h-3.5 w-3.5" /> Plan In-Prog
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span className="text-3xl font-bold font-mono text-success">{completionRate}%</span>
+            <span className="text-3xl font-bold font-mono text-primary">{plannedInProgress}</span>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <AlertTriangle className="h-3.5 w-3.5" /> Behind Schedule
+              <Activity className="h-3.5 w-3.5" /> Actual In-Prog
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span className="text-3xl font-bold font-mono text-primary">{actualInProgress}</span>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5" /> Ahead
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span className="text-3xl font-bold font-mono text-success">{aheadTasks}</span>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" /> On Track
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span className="text-3xl font-bold font-mono text-success">{onTrackTasks}</span>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="cursor-pointer hover:ring-1 hover:ring-warning/50 transition-all"
+          onClick={() => behindRef.current?.scrollIntoView({ behavior: "smooth" })}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" /> Behind
             </CardTitle>
           </CardHeader>
           <CardContent>
             <span className="text-3xl font-bold font-mono text-warning">{behindTasks.length}</span>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Row 2 — Progress Averages (3 cols) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Target className="h-3.5 w-3.5" /> Avg Planned %
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span className="text-3xl font-bold font-mono">{avgPlanned}%</span>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <TrendingDown className="h-3.5 w-3.5" /> Avg Gap
+              <BarChart3 className="h-3.5 w-3.5" /> Avg Actual %
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span className={`text-3xl font-bold font-mono ${avgGap < 0 ? "text-destructive" : "text-success"}`}>
+            <span className="text-3xl font-bold font-mono">{avgActual}%</span>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <ArrowDownRight className="h-3.5 w-3.5" /> Gap
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span className={`text-3xl font-bold font-mono ${avgGap < 0 ? "text-destructive" : avgGap > 0 ? "text-success" : "text-muted-foreground"}`}>
               {avgGap > 0 ? "+" : ""}{avgGap}%
             </span>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Behind Schedule List */}
+      {/* Row 3 — Behind Schedule List */}
+      <div ref={behindRef}>
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-warning" />
               <CardTitle className="text-base">Behind Schedule</CardTitle>
+              <span className="text-xs text-muted-foreground">({behindTasks.length})</span>
             </div>
             <p className="text-xs text-muted-foreground">Tasks where Actual &lt; Planned</p>
           </CardHeader>
@@ -205,7 +281,9 @@ const MyDashboard = () => {
             )}
           </CardContent>
         </Card>
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upcoming Deadlines */}
         <Card>
           <CardHeader className="pb-2">
@@ -254,60 +332,60 @@ const MyDashboard = () => {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* Task Status Donut */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Task Progress Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {totalTasks === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No tasks assigned</p>
-          ) : (
-            <div className="flex items-center justify-center gap-8">
-              <div className="h-40 w-40 relative">
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie
-                      data={donutData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      dataKey="value"
-                      startAngle={90}
-                      endAngle={-270}
-                      strokeWidth={0}
-                    >
-                      {donutData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold font-mono">{totalTasks}</span>
-                  <span className="text-[10px] text-muted-foreground">tasks</span>
+        {/* Task Status Donut */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Task Progress Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {totalTasks === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">No tasks assigned</p>
+            ) : (
+              <div className="flex items-center justify-center gap-8">
+                <div className="h-40 w-40 relative">
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={donutData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        dataKey="value"
+                        startAngle={90}
+                        endAngle={-270}
+                        strokeWidth={0}
+                      >
+                        {donutData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-bold font-mono">{totalTasks}</span>
+                    <span className="text-[10px] text-muted-foreground">tasks</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: "Completed", value: completed, color: "bg-success" },
+                    { label: "In Progress", value: inProgress, color: "bg-primary" },
+                    { label: "Not Started", value: notStarted, color: "bg-muted" },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center gap-2 text-sm">
+                      <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+                      <span className="text-muted-foreground">{item.label}</span>
+                      <span className="font-mono font-medium">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="space-y-2">
-                {[
-                  { label: "Completed", value: completed, color: "bg-success" },
-                  { label: "In Progress", value: inProgress, color: "bg-primary" },
-                  { label: "Not Started", value: notStarted, color: "bg-muted" },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-2 text-sm">
-                    <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-mono font-medium">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <TaskDetailDialog
         task={selectedTask}
