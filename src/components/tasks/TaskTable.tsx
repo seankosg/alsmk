@@ -17,6 +17,7 @@ const DEFAULT_COL_WIDTHS: Record<string, number> = {
   taskCode: 140,
   category: 100,
   subject: 260,
+  actionPlan: 200,
   start: 100,
   finish: 100,
   dday: 70,
