@@ -70,6 +70,8 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem("task-table-col-widths");
@@ -77,6 +79,17 @@ export function TaskTable({ filterMine }: TaskTableProps) {
     } catch {}
     return { ...DEFAULT_COL_WIDTHS };
   });
+
+  const handleSort = useCallback((key: string) => {
+    setSortKey(prev => {
+      if (prev === key) {
+        setSortDir(d => d === "asc" ? "desc" : "asc");
+        return key;
+      }
+      setSortDir("asc");
+      return key;
+    });
+  }, []);
 
   const handleColResize = useCallback((col: string) => (delta: number) => {
     setColWidths(prev => {
