@@ -57,11 +57,11 @@ export function UpcomingDeadlines() {
   const now = new Date();
   const upcoming = tasks
     .filter((t) => {
-      const end = parseISO(t.end_date);
+      const end = parseLocalDate(t.end_date);
       const days = differenceInDays(end, now);
       return days >= 0 && days <= 7 && t.current_progress < 100;
     })
-    .sort((a, b) => parseISO(a.end_date).getTime() - parseISO(b.end_date).getTime());
+    .sort((a, b) => parseLocalDate(a.end_date).getTime() - parseLocalDate(b.end_date).getTime());
 
   const getTeamCode = (teamId: string) => teams.find((t) => t.id === teamId)?.code ?? "";
   const getMemberName = (id: string | null) => members.find((m) => m.id === id)?.name ?? null;
