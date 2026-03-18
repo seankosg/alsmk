@@ -8,7 +8,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronDown, Layers } from "lucide-react";
 import { calcPlannedProgress } from "@/lib/mockData";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 
@@ -79,7 +80,7 @@ export function PartStatusBoard() {
       return t.current_progress - planned < 0;
     }).length;
     const upcoming = partTasks.filter(t => {
-      const days = differenceInDays(parseISO(t.end_date), now);
+      const days = differenceInDays(parseLocalDate(t.end_date), now);
       return days >= 0 && days <= 7 && t.current_progress < 100;
     }).length;
     const issues = partTasks.filter(t => t.issue_flag !== "normal").length;
@@ -96,7 +97,7 @@ export function PartStatusBoard() {
         });
       case "upcoming":
         return partTasks.filter(t => {
-          const days = differenceInDays(parseISO(t.end_date), now);
+          const days = differenceInDays(parseLocalDate(t.end_date), now);
           return days >= 0 && days <= 7 && t.current_progress < 100;
         });
       case "issue":

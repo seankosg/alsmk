@@ -10,7 +10,8 @@ import {
   ListTodo, PlayCircle, Activity, TrendingUp, CheckCircle2,
   AlertTriangle, Clock, BarChart3, Target, ArrowDownRight,
 } from "lucide-react";
-import { differenceInDays, parseISO, isWithinInterval, startOfDay } from "date-fns";
+import { differenceInDays, isWithinInterval, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 
@@ -73,7 +74,7 @@ const MyDashboard = () => {
   const plannedInProgress = myTasks.filter((t) => {
     if (t.actual_finish) return false;
     try {
-      return isWithinInterval(now, { start: parseISO(t.start_date), end: parseISO(t.end_date) });
+      return isWithinInterval(now, { start: parseLocalDate(t.start_date), end: parseLocalDate(t.end_date) });
     } catch { return false; }
   }).length;
   const actualInProgress = myTasks.filter((t) => t.current_progress > 0 && t.current_progress < 100 && !t.actual_finish).length;
@@ -89,10 +90,10 @@ const MyDashboard = () => {
   // Upcoming deadlines (7 days)
   const upcoming = tasksWithGap
     .filter((t) => {
-      const days = differenceInDays(parseISO(t.end_date), now);
+      const days = differenceInDays(parseLocalDate(t.end_date), now);
       return days >= 0 && days <= 7 && t.current_progress < 100;
     })
-    .sort((a, b) => parseISO(a.end_date).getTime() - parseISO(b.end_date).getTime());
+    .sort((a, b) => parseLocalDate(a.end_date).getTime() - parseLocalDate(b.end_date).getTime());
 
   // Donut data
   const completed = myTasks.filter((t) => t.current_progress >= 100 || t.actual_finish).length;
@@ -299,7 +300,7 @@ const MyDashboard = () => {
             ) : (
               <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-thin">
                 {upcoming.map((task) => {
-                  const daysLeft = differenceInDays(parseISO(task.end_date), now);
+                  const daysLeft = differenceInDays(parseLocalDate(task.end_date), now);
                   return (
                     <div
                       key={task.id}

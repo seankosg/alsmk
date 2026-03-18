@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 import { Clock, AlertTriangle } from "lucide-react";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -53,14 +54,14 @@ export function UpcomingDeadlines() {
     staleTime: 30_000,
   });
 
-  const now = new Date();
+  const now = startOfDay(new Date());
   const upcoming = tasks
     .filter((t) => {
-      const end = parseISO(t.end_date);
+      const end = parseLocalDate(t.end_date);
       const days = differenceInDays(end, now);
       return days >= 0 && days <= 7 && t.current_progress < 100;
     })
-    .sort((a, b) => parseISO(a.end_date).getTime() - parseISO(b.end_date).getTime());
+    .sort((a, b) => parseLocalDate(a.end_date).getTime() - parseLocalDate(b.end_date).getTime());
 
   const getTeamCode = (teamId: string) => teams.find((t) => t.id === teamId)?.code ?? "";
   const getMemberName = (id: string | null) => members.find((m) => m.id === id)?.name ?? null;
@@ -87,7 +88,7 @@ export function UpcomingDeadlines() {
           ) : (
             <div className="space-y-3 max-h-[260px] overflow-y-auto scrollbar-thin">
               {upcoming.map((task) => {
-                const daysLeft = differenceInDays(parseISO(task.end_date), now);
+                const daysLeft = differenceInDays(parseLocalDate(task.end_date), now);
                 const isAtRisk = task.current_progress < 70;
                 return (
                   <div

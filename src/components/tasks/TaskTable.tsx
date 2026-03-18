@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { ArrowUp, ArrowDown, ArrowUpDown, Search } from "lucide-react";
-import { differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -180,8 +181,8 @@ export function TaskTable({ filterMine }: TaskTableProps) {
         case "start": valA = a.start_date; valB = b.start_date; break;
         case "finish": valA = a.end_date; valB = b.end_date; break;
         case "dday": {
-          valA = a.actual_finish ? Infinity : differenceInCalendarDays(new Date(a.end_date), new Date());
-          valB = b.actual_finish ? Infinity : differenceInCalendarDays(new Date(b.end_date), new Date());
+          valA = a.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(a.end_date), startOfDay(new Date()));
+          valB = b.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(b.end_date), startOfDay(new Date()));
           break;
         }
         case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
@@ -352,7 +353,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                         {(() => {
                           const remaining = task.actual_finish
                             ? 0
-                            : differenceInCalendarDays(new Date(task.end_date), new Date());
+                            : differenceInCalendarDays(parseLocalDate(task.end_date), startOfDay(new Date()));
                           return (
                             <TableCell
                               className={`text-right font-mono text-xs font-bold ${task.actual_finish ? 'text-muted-foreground' : remaining < 0 ? 'text-destructive' : remaining <= 7 ? 'text-warning' : 'text-primary'}`}

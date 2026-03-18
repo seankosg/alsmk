@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Clock, Circle, AlertTriangle, CalendarClock } from "lucide-react";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 
 const statusConfig: Record<string, { icon: typeof CheckCircle; color: string; bg: string }> = {
   completed: { icon: CheckCircle, color: "text-success", bg: "bg-success" },
@@ -23,17 +24,17 @@ export function MilestoneTimeline() {
     staleTime: 30_000,
   });
 
-  const today = new Date();
+  const today = startOfDay(new Date());
 
   // D-Day calculation: last milestone
   const finalMs = milestones[milestones.length - 1];
-  const dDay = finalMs ? differenceInDays(new Date(finalMs.target_date), today) : null;
+  const dDay = finalMs ? differenceInDays(parseLocalDate(finalMs.target_date), today) : null;
 
   // Calculate "today" position as percentage along the timeline
   const getElapsedPercent = () => {
     if (milestones.length < 2) return 0;
-    const firstDate = new Date(milestones[0].target_date).getTime();
-    const lastDate = new Date(milestones[milestones.length - 1].target_date).getTime();
+    const firstDate = parseLocalDate(milestones[0].target_date).getTime();
+    const lastDate = parseLocalDate(milestones[milestones.length - 1].target_date).getTime();
     const range = lastDate - firstDate;
     if (range <= 0) return 100;
     const elapsed = today.getTime() - firstDate;
@@ -101,7 +102,7 @@ export function MilestoneTimeline() {
                 {milestones.map((ms, i) => {
                   const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                   const Icon = cfg.icon;
-                  const targetDate = new Date(ms.target_date);
+                  const targetDate = parseLocalDate(ms.target_date);
                   const isPast = targetDate < today;
 
                   return (
