@@ -263,7 +263,10 @@ export type Database = {
       }
       tasks: {
         Row: {
+          action_plan: string | null
+          actual_finish: string | null
           assignee_id: string | null
+          category: string | null
           created_at: string
           created_by: string | null
           current_progress: number
@@ -281,7 +284,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          action_plan?: string | null
+          actual_finish?: string | null
           assignee_id?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           current_progress?: number
@@ -299,7 +305,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          action_plan?: string | null
+          actual_finish?: string | null
           assignee_id?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           current_progress?: number
