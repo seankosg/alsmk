@@ -78,7 +78,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
 
   if (!task) return null;
 
-  const planned = calcPlannedProgress(task.start_date, task.end_date);
+  const planned = calcPlannedProgress(startDate, endDate);
   const gap = currentProgress - planned;
 
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name ?? "Unknown";
