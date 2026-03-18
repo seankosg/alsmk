@@ -21,6 +21,8 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   isAdmin: false,
+  isPm: false,
+  isAdminOrPm: false,
   memberId: null,
   memberName: null,
   signOut: async () => {},
