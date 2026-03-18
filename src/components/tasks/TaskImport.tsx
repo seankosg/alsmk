@@ -279,34 +279,17 @@ export function TaskImportComponent() {
 
   return (
     <div className="space-y-4">
-      {needsManualTeam && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">Default Team:</span>
-          <Select value={manualTeamId} onValueChange={(v) => { setManualTeamId(v); setValidated(false); setParsedRows([]); }}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select team" />
-            </SelectTrigger>
-            <SelectContent>
-              {teams.map(t => (
-                <SelectItem key={t.id} value={t.id}>{t.name} ({t.code})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
       <div className="flex gap-3 items-center flex-wrap">
         <Button variant="outline" onClick={handleDownloadTemplate}>
           <Download className="mr-2 h-4 w-4" /> Download Template
         </Button>
-        <Button onClick={() => fileRef.current?.click()} disabled={needsManualTeam && !manualTeamId}>
+        <Button onClick={() => fileRef.current?.click()}>
           <Upload className="mr-2 h-4 w-4" /> Upload File
         </Button>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileUpload} />
-        {fallbackTeamName && (
-          <span className="text-xs text-muted-foreground">
-            Team 미지정 시 기본: <Badge variant="outline" className="ml-1 text-[10px]">{fallbackTeamName}</Badge>
-          </span>
-        )}
+        <span className="text-xs text-muted-foreground">
+          Assignee 기준으로 Team/Part가 자동 결정됩니다
+        </span>
       </div>
 
       {validated && parsedRows.length > 0 && (
