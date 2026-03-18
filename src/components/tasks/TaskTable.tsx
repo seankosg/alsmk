@@ -215,6 +215,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                       { key: "subject", label: "Subject", align: "" },
                       { key: "start", label: "Start", align: "" },
                       { key: "finish", label: "Finish", align: "" },
+                      { key: "dday", label: "D-Day", align: "text-right" },
                       { key: "plan", label: "Plan %", align: "text-right" },
                       { key: "actual", label: "Actual %", align: "text-right" },
                       { key: "gap", label: "차이 %", align: "text-right" },
