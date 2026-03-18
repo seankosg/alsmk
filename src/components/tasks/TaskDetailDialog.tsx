@@ -195,6 +195,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               max={100}
               step={1}
               className="w-full"
+              disabled={readOnly}
             />
             <Progress value={currentProgress} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
