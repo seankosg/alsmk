@@ -61,6 +61,7 @@ export function UpcomingDeadlines() {
     .sort((a, b) => parseISO(a.end_date).getTime() - parseISO(b.end_date).getTime());
 
   const getTeamCode = (teamId: string) => teams.find((t) => t.id === teamId)?.code ?? "";
+  const getMemberName = (id: string | null) => members.find((m) => m.id === id)?.name ?? null;
 
   return (
     <>
@@ -104,6 +105,7 @@ export function UpcomingDeadlines() {
                         )}
                         <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                           {getTeamCode(task.team_id)} · {task.task_code ?? "—"}
+                          {getMemberName(task.assignee_id) && ` · ${getMemberName(task.assignee_id)}`}
                         </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
