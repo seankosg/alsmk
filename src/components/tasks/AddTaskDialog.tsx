@@ -130,10 +130,10 @@ export function AddTaskDialog() {
             </div>
             <div className="space-y-2">
               <Label>Part</Label>
-              <Select value={partId} onValueChange={setPartId} disabled={!teamId}>
+              <Select value={partId || "none"} onValueChange={(v) => setPartId(v === "none" ? "" : v)} disabled={!teamId}>
                 <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {filteredParts.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -142,10 +142,10 @@ export function AddTaskDialog() {
 
           <div className="space-y-2">
             <Label>Milestone</Label>
-            <Select value={milestoneId} onValueChange={setMilestoneId}>
+            <Select value={milestoneId || "none"} onValueChange={(v) => setMilestoneId(v === "none" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {milestones.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
               </SelectContent>
             </Select>
