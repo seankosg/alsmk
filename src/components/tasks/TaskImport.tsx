@@ -326,15 +326,16 @@ export function TaskImportComponent() {
                 <TableBody>
                   {parsedRows.map((row, ri) => {
                     const hasError = row.errors.length > 0;
-                    const teamLabel = row.teamCode || (row.teamId ? `(${fallbackTeamName})` : "—");
+                    const teamName = row.teamId ? teams.find(t => t.id === row.teamId)?.code ?? "—" : "—";
+                    const partName = row.partId ? parts.find(p => p.id === row.partId)?.code ?? "" : "";
+                    const teamPartLabel = partName ? `${teamName}/${partName}` : teamName;
                     return (
                       <TableRow key={ri} className={hasError ? "bg-destructive/10" : ""}>
                         <TableCell className="text-xs font-mono">{ri + 1}</TableCell>
                         <TableCell className="text-xs">{row.title || "—"}</TableCell>
+                        <TableCell className="text-xs">{row.assigneeName || "—"}</TableCell>
                         <TableCell className="text-xs max-w-[200px] truncate">{row.actionPlan || "—"}</TableCell>
-                        <TableCell className={`text-xs font-mono ${!row.teamCode && row.teamId ? "text-muted-foreground italic" : !row.teamId ? "text-destructive font-bold" : ""}`}>
-                          {teamLabel}
-                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">{teamPartLabel}</TableCell>
                         <TableCell className="text-xs font-mono">{row.startDate}</TableCell>
                         <TableCell className="text-xs font-mono">{row.endDate}</TableCell>
                         <TableCell className="text-xs font-mono text-right">{row.actualProgress}%</TableCell>
