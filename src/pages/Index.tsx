@@ -1,7 +1,10 @@
 import { MilestoneTimeline } from "@/components/dashboard/MilestoneTimeline";
 import { ProjectHUD } from "@/components/dashboard/ProjectHUD";
-import { TeamHeatmap } from "@/components/dashboard/TeamHeatmap";
+import { TeamProgressChart } from "@/components/dashboard/TeamProgressChart";
 import { CriticalIssueBoard } from "@/components/dashboard/CriticalIssueBoard";
+import { TaskDistributionChart } from "@/components/dashboard/TaskDistributionChart";
+import { UpcomingDeadlines } from "@/components/dashboard/UpcomingDeadlines";
+import { IssueTrendChart } from "@/components/dashboard/IssueTrendChart";
 import { ActivityStream } from "@/components/dashboard/ActivityStream";
 import { PersonnelTable } from "@/components/dashboard/PersonnelTable";
 
@@ -18,14 +21,21 @@ const Index = () => {
       <ProjectHUD />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TeamHeatmap />
+        <TeamProgressChart />
         <CriticalIssueBoard />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActivityStream />
-        <PersonnelTable />
+        <TaskDistributionChart />
+        <UpcomingDeadlines />
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <IssueTrendChart />
+        <ActivityStream />
+      </div>
+
+      <PersonnelTable />
     </div>
   );
 };
