@@ -50,19 +50,18 @@ Deno.serve(async (req) => {
 
       const token = authHeader.replace("Bearer ", "");
 
-      // Validate token directly against the auth API to avoid SDK session issues in edge runtime
-      const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-        headers: {
-          apikey: anonKey,
-          Authorization: `Bearer ${token}`,
-        },
+      // Validate token using signing-key aware getClaims()
+      const authClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { autoRefreshToken: false, persistSession: false },
       });
 
-      const authPayload = await authResponse.json();
-      const callerId = authPayload?.id as string | undefined;
+      const { data: claimsData, error: claimsError } =
+        await authClient.auth.getClaims(token);
+      const callerId = claimsData?.claims?.sub;
 
-      if (!authResponse.ok || !callerId) {
-        console.error("Auth failed:", authPayload?.msg ?? authPayload?.error_description ?? authPayload?.error ?? "Unknown auth error");
+      if (claimsError || !callerId) {
+        console.error("Auth failed:", claimsError?.message ?? "Unknown auth error");
         return jsonResponse({ error: "Invalid token" }, 401);
       }
 
