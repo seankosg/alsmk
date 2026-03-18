@@ -95,7 +95,7 @@ export function TaskImportComponent() {
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("id, name, team_id");
+      const { data, error } = await supabase.from("members").select("id, name, team_id, part_id");
       if (error) throw error;
       return data;
     },
@@ -123,6 +123,7 @@ export function TaskImportComponent() {
   }
 
   const fallbackTeamId = myMember?.team_id ?? (manualTeamId || null);
+  const fallbackPartId = myMember?.part_id ?? null;
   const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
 
   const handleDownloadTemplate = () => {
@@ -218,6 +219,7 @@ export function TaskImportComponent() {
 
         const part = partCode ? parts.find(p => p.code.toUpperCase() === partCode && p.team_id === resolvedTeamId) : null;
         if (partCode && !part) errors.push(`Part '${partCode}' 없음`);
+        const resolvedPartId = part?.id ?? (!partCode ? fallbackPartId : null);
 
         const member = assigneeName ? members.find(m => m.name.toLowerCase() === assigneeName.toLowerCase()) : null;
         if (assigneeName && !member) errors.push(`Assignee '${assigneeName}' 없음`);
@@ -229,7 +231,7 @@ export function TaskImportComponent() {
           title, category, actionPlan, milestoneName, teamCode, partCode, assigneeName,
           startDate, endDate, actualProgress, actualFinish,
           teamId: resolvedTeamId,
-          partId: part?.id ?? null,
+          partId: resolvedPartId,
           assigneeId: member?.id ?? null,
           milestoneId: milestone?.id ?? null,
           errors,
