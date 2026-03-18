@@ -33,8 +33,8 @@ export function MilestoneTimeline() {
   // Calculate "today" position as percentage along the timeline
   const getElapsedPercent = () => {
     if (milestones.length < 2) return 0;
-    const firstDate = new Date(milestones[0].target_date).getTime();
-    const lastDate = new Date(milestones[milestones.length - 1].target_date).getTime();
+    const firstDate = parseLocalDate(milestones[0].target_date).getTime();
+    const lastDate = parseLocalDate(milestones[milestones.length - 1].target_date).getTime();
     const range = lastDate - firstDate;
     if (range <= 0) return 100;
     const elapsed = today.getTime() - firstDate;
