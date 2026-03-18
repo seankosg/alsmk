@@ -24,11 +24,11 @@ export function MilestoneTimeline() {
     staleTime: 30_000,
   });
 
-  const today = new Date();
+  const today = startOfDay(new Date());
 
   // D-Day calculation: last milestone
   const finalMs = milestones[milestones.length - 1];
-  const dDay = finalMs ? differenceInDays(new Date(finalMs.target_date), today) : null;
+  const dDay = finalMs ? differenceInDays(parseLocalDate(finalMs.target_date), today) : null;
 
   // Calculate "today" position as percentage along the timeline
   const getElapsedPercent = () => {
