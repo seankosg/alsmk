@@ -19,6 +19,7 @@ const DEFAULT_COL_WIDTHS: Record<string, number> = {
   subject: 260,
   start: 100,
   finish: 100,
+  dday: 70,
   plan: 70,
   actual: 70,
   gap: 70,
