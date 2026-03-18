@@ -334,6 +334,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
         teams={teams}
         members={members}
         milestones={milestones}
+        readOnly={!isAdmin && selectedTask?.assignee_id !== memberId}
       />
     </>
   );
