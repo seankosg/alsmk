@@ -71,9 +71,9 @@ export const mockPersonnelTargets = [
   { id: "pt8", team_id: "t4", part_id: "p8", target_headcount: 6, current_headcount: 5 },
 ];
 
-// Helper: calculate planned progress
+// Helper: calculate planned progress (start & end dates are both inclusive working days)
 export function calcPlannedProgress(startDate: string, endDate: string): number {
-  // Normalize all dates to UTC midnight to avoid timezone skew
+  const DAY = 86_400_000;
   const today = new Date();
   const nowUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   const start = Date.UTC(
@@ -82,10 +82,10 @@ export function calcPlannedProgress(startDate: string, endDate: string): number 
   const end = Date.UTC(
     ...endDate.split("-").map((v, i) => (i === 1 ? Number(v) - 1 : Number(v))) as [number, number, number]
   );
-  const total = end - start;
-  if (total <= 0) return 100;
-  const elapsed = nowUtc - start;
-  return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+  const totalDays = Math.round((end - start) / DAY) + 1; // inclusive
+  if (totalDays <= 0) return 100;
+  const elapsedDays = Math.round((nowUtc - start) / DAY) + 1; // today counts as a worked day
+  return Math.min(100, Math.max(0, Math.round((elapsedDays / totalDays) * 100)));
 }
 
 // Helper: get team name by id
