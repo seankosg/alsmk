@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,31 @@ export function AddTaskDialog() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Fetch member's team to use as default category
+  const { data: memberTeam } = useQuery({
+    queryKey: ["member-team", memberId],
+    queryFn: async () => {
+      if (!memberId) return null;
+      const { data: member } = await supabase
+        .from("members")
+        .select("team_id, part_id, teams(name)")
+        .eq("id", memberId)
+        .single();
+      return member;
+    },
+    enabled: !!memberId,
+    staleTime: 60_000,
+  });
+
+  // Set default category to team name when dialog opens
+  useEffect(() => {
+    if (open && !category && memberTeam?.teams?.name) {
+      setCategory(memberTeam.teams.name);
+    }
+  }, [open, memberTeam]);
+
   const resetForm = () => {
-    setCategory("");
+    setCategory(memberTeam?.teams?.name ?? "");
     setSubject("");
     setActionPlan("");
     setStartDate("");
@@ -44,15 +67,7 @@ export function AddTaskDialog() {
 
     setSaving(true);
     try {
-      // We still need team_id (required by DB). For now use a default or derive from member.
-      // Since team_id is required, we fetch the member's team
-      const { data: member } = await supabase
-        .from("members")
-        .select("team_id, part_id")
-        .eq("id", memberId)
-        .single();
-
-      const teamId = member?.team_id;
+      const teamId = memberTeam?.team_id;
       if (!teamId) {
         toast.error("Your member profile has no team assigned.");
         setSaving(false);
@@ -66,7 +81,7 @@ export function AddTaskDialog() {
         category: category || null,
         action_plan: actionPlan.trim() || null,
         team_id: teamId,
-        part_id: member?.part_id || null,
+        part_id: memberTeam?.part_id || null,
         assignee_id: memberId,
         start_date: startDate,
         end_date: endDate,
@@ -99,14 +114,8 @@ export function AddTaskDialog() {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Category</Label>
-            <Select value={category || "none"} onValueChange={(v) => setCategory(v === "none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {/* Category options will be added later */}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="category">Category</Label>
+            <Input id="category" value={category} onChange={e => setCategory(e.target.value)} placeholder="Category (default: your team)" maxLength={100} />
           </div>
 
           <div className="space-y-2">
