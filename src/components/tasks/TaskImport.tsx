@@ -223,7 +223,7 @@ export function TaskImportComponent() {
           errors.push(`Assignee '${assigneeName}' 소속팀 미지정`);
         }
 
-        // Part resolution: Excel partCode → assignee's part → importer fallback
+        // Part resolution: Excel partCode → assignee's part
         let resolvedPartId: string | null = null;
         if (partCode) {
           const part = parts.find(p => p.code.toUpperCase() === partCode && p.team_id === resolvedTeamId);
@@ -231,8 +231,6 @@ export function TaskImportComponent() {
           else errors.push(`Part '${partCode}' 없음`);
         } else if (member?.part_id) {
           resolvedPartId = member.part_id;
-        } else {
-          resolvedPartId = fallbackPartId;
         }
 
         const milestone = milestoneName ? milestones.find(m => m.name.toLowerCase() === milestoneName.toLowerCase()) : null;
