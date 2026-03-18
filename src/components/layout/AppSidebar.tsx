@@ -18,14 +18,8 @@ export function AppSidebar() {
   const { user, isAdmin, isAdminOrPm, memberName, signOut } = useAuthContext();
 
   const navItems = [
-    // Admin/PM see both Project Dashboard and My Dashboard
-    ...(isAdminOrPm
-      ? [
-          { title: "Project Dashboard", url: "/", icon: LayoutDashboard },
-          { title: "My Dashboard", url: "/my", icon: User },
-        ]
-      : [{ title: "My Dashboard", url: "/my", icon: User }]
-    ),
+    { title: "Project Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "My Dashboard", url: "/my", icon: User },
     { title: "My Workspace", url: "/workspace", icon: Briefcase },
     { title: "Organization", url: "/organization", icon: Building2 },
     ...(isAdmin ? [

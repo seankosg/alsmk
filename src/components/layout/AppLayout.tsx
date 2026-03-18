@@ -54,10 +54,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return <Navigate to="/" replace />;
   }
 
-  // Regular member accessing / → redirect to /my
-  if (!auth.isAdmin && !auth.isPm && location.pathname === "/") {
-    return <Navigate to="/my" replace />;
-  }
+  // Regular member accessing / → redirect to /my (removed: now all users can view Project Dashboard read-only)
 
   return (
     <AuthContext.Provider
