@@ -161,12 +161,26 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               <p className="font-medium">{getMemberName(task.assignee_id)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Start</p>
-              <p className="font-mono text-xs">{task.start_date}</p>
+              <Label htmlFor="edit-start-date" className="text-xs text-muted-foreground">Start</Label>
+              <Input
+                id="edit-start-date"
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                disabled={readOnly}
+                className="font-mono text-xs mt-1"
+              />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Finish</p>
-              <p className="font-mono text-xs">{task.end_date}</p>
+              <Label htmlFor="edit-end-date" className="text-xs text-muted-foreground">Finish</Label>
+              <Input
+                id="edit-end-date"
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                disabled={readOnly}
+                className="font-mono text-xs mt-1"
+              />
             </div>
           </div>
 
