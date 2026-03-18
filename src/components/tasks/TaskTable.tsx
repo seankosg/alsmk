@@ -246,6 +246,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                         <TableCell className="font-mono text-xs truncate" style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className="text-xs truncate" style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>{task.title}</TableCell>
+                        <TableCell className="text-xs truncate" style={{ width: colWidths.actionPlan }}>{task.action_plan ?? "—"}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.start }}>{task.start_date}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
                         {(() => {
