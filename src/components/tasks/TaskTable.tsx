@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "./TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { toast } from "sonner";
 
 interface TaskTableProps {
   filterMine?: boolean;
@@ -16,10 +18,13 @@ interface TaskTableProps {
 
 export function TaskTable({ filterMine }: TaskTableProps) {
   const { isAdmin, memberId } = useAuthContext();
+  const queryClient = useQueryClient();
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [flagFilter, setFlagFilter] = useState<string>("all");
   const [memberFilter, setMemberFilter] = useState<string>("all");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
+  const [editingProgressValue, setEditingProgressValue] = useState("");
 
   const { data: teams = [] } = useQuery({
     queryKey: ["teams"],
@@ -73,6 +78,23 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
 
   const selectedTask = filtered.find(t => t.id === selectedTaskId) ?? null;
+
+  const handleInlineProgressSave = async (taskId: string) => {
+    const val = parseInt(editingProgressValue, 10);
+    if (isNaN(val) || val < 0 || val > 100) {
+      toast.error("0~100 사이 값을 입력하세요.");
+      setEditingProgressId(null);
+      return;
+    }
+    try {
+      const { error } = await supabase.from("tasks").update({ current_progress: val }).eq("id", taskId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update progress.");
+    }
+    setEditingProgressId(null);
+  };
 
   return (
     <>
@@ -147,6 +169,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                   ) : filtered.map((task) => {
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
+                    const isEditingThis = editingProgressId === task.id;
                     return (
                       <TableRow key={task.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className="font-mono text-xs">{task.task_code}</TableCell>
@@ -155,7 +178,34 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                         <TableCell className="font-mono text-xs">{task.start_date}</TableCell>
                         <TableCell className="font-mono text-xs">{task.end_date}</TableCell>
                         <TableCell className="text-right font-mono text-xs">{planned}%</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{task.current_progress}%</TableCell>
+                        <TableCell
+                          className="text-right font-mono text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProgressId(task.id);
+                            setEditingProgressValue(String(task.current_progress));
+                          }}
+                        >
+                          {isEditingThis ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={editingProgressValue}
+                              onChange={e => setEditingProgressValue(e.target.value)}
+                              onBlur={() => handleInlineProgressSave(task.id)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") handleInlineProgressSave(task.id);
+                                if (e.key === "Escape") setEditingProgressId(null);
+                              }}
+                              className="h-7 w-16 text-right text-xs p-1"
+                              autoFocus
+                              onClick={e => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span className="cursor-text hover:underline">{task.current_progress}%</span>
+                          )}
+                        </TableCell>
                         <TableCell className={`text-right font-mono text-xs font-bold ${gap >= 0 ? 'text-primary' : 'text-destructive'}`}>
                           {gap >= 0 ? '+' : ''}{gap}%
                         </TableCell>

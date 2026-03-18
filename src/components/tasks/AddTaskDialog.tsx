@@ -59,6 +59,8 @@ export function AddTaskDialog() {
         return;
       }
 
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { error } = await supabase.from("tasks").insert({
         title: subject.trim(),
         category: category || null,
@@ -68,6 +70,7 @@ export function AddTaskDialog() {
         assignee_id: memberId,
         start_date: startDate,
         end_date: endDate,
+        created_by: user?.id || null,
       });
       if (error) throw error;
 
