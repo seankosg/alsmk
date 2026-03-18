@@ -12,9 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { calcPlannedProgress } from "@/lib/mockData";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 interface Task {
   id: string;
@@ -49,6 +52,7 @@ interface TaskDetailDialogProps {
 
 export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [], readOnly = false }: TaskDetailDialogProps) {
   const queryClient = useQueryClient();
+  const auth = useAuthContext();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -62,6 +66,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Notification recipients
+  const [notifyRecipients, setNotifyRecipients] = useState<string[]>([]);
+  const [showNotifySection, setShowNotifySection] = useState(false);
+
+  // Track original flag to detect changes
+  const [originalFlag, setOriginalFlag] = useState<"normal" | "warning" | "critical">("normal");
+
   // Reset form when task changes
   useEffect(() => {
     if (task) {
@@ -69,20 +80,56 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       setActualFinish(task.actual_finish ?? "");
       setActionPlan(task.action_plan ?? "");
       setIssueFlag(task.issue_flag);
+      setOriginalFlag(task.issue_flag);
       setIssueType(task.issue_type ?? "");
       setIssueDescription(task.issue_description ?? "");
       setStartDate(task.start_date);
       setEndDate(task.end_date);
+      setNotifyRecipients([]);
+      setShowNotifySection(false);
     }
   }, [task]);
 
+  // Show notify section when flag changes to warning/critical
+  useEffect(() => {
+    const flagRaised = issueFlag !== "normal" && originalFlag === "normal";
+    const flagEscalated = issueFlag === "critical" && originalFlag === "warning";
+    if (flagRaised || flagEscalated) {
+      setShowNotifySection(true);
+      // Pre-select assignee if it's not the current user
+      if (task?.assignee_id && task.assignee_id !== auth.memberId) {
+        setNotifyRecipients([task.assignee_id]);
+      }
+    } else if (issueFlag === "normal") {
+      setShowNotifySection(false);
+      setNotifyRecipients([]);
+    }
+  }, [issueFlag, originalFlag, task?.assignee_id, auth.memberId]);
+
   if (!task) return null;
+
+  // Flag edit permission: only assignee, PM, or admin
+  const canEditFlag = (auth.memberId === task.assignee_id) || auth.isAdminOrPm;
 
   const planned = calcPlannedProgress(startDate, endDate);
   const gap = currentProgress - planned;
 
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name ?? "Unknown";
   const getMemberName = (id: string | null) => !id ? "Unassigned" : members.find(m => m.id === id)?.name ?? "Unknown";
+  const getMemberTeamName = (member: LookupItem) => {
+    const teamId = member.team_id;
+    if (!teamId) return "";
+    return teams.find(t => t.id === teamId)?.name ?? "";
+  };
+
+  const toggleRecipient = (memberId: string) => {
+    setNotifyRecipients(prev =>
+      prev.includes(memberId) ? prev.filter(id => id !== memberId) : [...prev, memberId]
+    );
+  };
+
+  const selectAllRecipients = () => setNotifyRecipients(members.map(m => m.id));
+  const deselectAllRecipients = () => setNotifyRecipients([]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -99,7 +146,32 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       }).eq("id", task.id);
 
       if (error) throw error;
-      toast.success("Task updated.");
+
+      // Send notifications if recipients selected
+      if (showNotifySection && notifyRecipients.length > 0 && auth.memberId) {
+        const notifTitle = `[${issueFlag.toUpperCase()}] ${task.task_code ?? "Task"}`;
+        const notifMessage = `${auth.memberName ?? "Someone"} raised an issue: ${issueDescription.trim() || issueType.trim() || "No description"}`;
+
+        const notifRows = notifyRecipients.map(recipientId => ({
+          recipient_id: recipientId,
+          sender_id: auth.memberId!,
+          task_id: task.id,
+          type: "flag_raised",
+          title: notifTitle,
+          message: notifMessage,
+        }));
+
+        const { error: notifError } = await supabase.from("notifications").insert(notifRows);
+        if (notifError) {
+          console.error("Failed to send notifications:", notifError);
+          toast.warning("Task saved but notifications failed to send.");
+        } else {
+          toast.success(`Task updated. ${notifyRecipients.length} notification(s) sent.`);
+        }
+      } else {
+        toast.success("Task updated.");
+      }
+
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       onOpenChange(false);
     } catch (err: any) {
@@ -221,7 +293,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Plan: {planned}%</span>
               <span className={`font-mono font-bold ${gap >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                차이: {gap >= 0 ? '+' : ''}{gap}%
+                Gap: {gap >= 0 ? '+' : ''}{gap}%
               </span>
             </div>
           </div>
@@ -240,10 +312,17 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
 
           <Separator />
 
-          {/* Editable: Issue Flag */}
+          {/* Editable: Issue Flag — permission-gated */}
           <div className="space-y-3">
             <Label>Issue Flag</Label>
-            <Select value={issueFlag} onValueChange={(v) => setIssueFlag(v as "normal" | "warning" | "critical")} disabled={readOnly}>
+            {!canEditFlag && !readOnly && (
+              <p className="text-xs text-muted-foreground">Only the assignee, PM, or admin can change the flag.</p>
+            )}
+            <Select
+              value={issueFlag}
+              onValueChange={(v) => setIssueFlag(v as "normal" | "warning" | "critical")}
+              disabled={readOnly || !canEditFlag}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -264,7 +343,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                     onChange={e => setIssueType(e.target.value)}
                     placeholder="e.g. Delay, Resource, Quality"
                     maxLength={100}
-                    disabled={readOnly}
+                    disabled={readOnly || !canEditFlag}
                   />
                 </div>
                 <div className="space-y-1">
@@ -276,12 +355,56 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                     rows={2}
                     maxLength={1000}
                     placeholder="Describe the issue..."
-                    disabled={readOnly}
+                    disabled={readOnly || !canEditFlag}
                   />
                 </div>
               </div>
             )}
           </div>
+
+          {/* Notify Members Section */}
+          {showNotifySection && !readOnly && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-semibold">Notify Members</Label>
+                  <Badge variant="secondary" className="text-xs">{notifyRecipients.length} selected</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" className="text-xs h-7" onClick={selectAllRecipients}>
+                    Select All
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="text-xs h-7" onClick={deselectAllRecipients}>
+                    Deselect All
+                  </Button>
+                </div>
+                <ScrollArea className="max-h-40 border border-border rounded-md">
+                  <div className="p-2 space-y-1">
+                    {members.map((m) => {
+                      const teamName = getMemberTeamName(m);
+                      return (
+                        <label
+                          key={m.id}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent/50 cursor-pointer text-sm"
+                        >
+                          <Checkbox
+                            checked={notifyRecipients.includes(m.id)}
+                            onCheckedChange={() => toggleRecipient(m.id)}
+                          />
+                          <span className="flex-1">{m.name}</span>
+                          {teamName && (
+                            <span className="text-xs text-muted-foreground">{teamName}</span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-4">

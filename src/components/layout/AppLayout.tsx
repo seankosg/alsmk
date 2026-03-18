@@ -1,8 +1,7 @@
 import { createContext, useContext } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useLocation } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,10 +88,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     {auth.memberName}
                   </span>
                 )}
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-                </Button>
+                <NotificationBell />
               </div>
             </header>
             <main className="flex-1 overflow-auto p-4 md:p-6">
