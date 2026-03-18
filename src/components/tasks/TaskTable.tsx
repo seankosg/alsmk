@@ -214,6 +214,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                       { key: "taskCode", label: "Task Code", align: "" },
                       { key: "category", label: "Category", align: "" },
                       { key: "subject", label: "Subject", align: "" },
+                      { key: "actionPlan", label: "Action Plan", align: "" },
                       { key: "start", label: "Start", align: "" },
                       { key: "finish", label: "Finish", align: "" },
                       { key: "dday", label: "D-Day", align: "text-right" },
