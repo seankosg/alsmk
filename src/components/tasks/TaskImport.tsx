@@ -113,7 +113,7 @@ export function TaskImportComponent() {
 
   // Get the current member's team_id as fallback, or use manual selection
   const myMember = members.find(m => m.id === memberId);
-  const fallbackTeamId = myMember?.team_id ?? manualTeamId || null;
+  const fallbackTeamId = myMember?.team_id ?? (manualTeamId || null);
   const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
   const needsManualTeam = !myMember?.team_id;
 
