@@ -108,17 +108,20 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("id, name, team_id");
+      const { data, error } = await supabase.from("members").select("id, name, team_id, is_pm");
       if (error) throw error;
       return data;
     },
     staleTime: 30_000,
   });
 
-  const myTeamId = useMemo(() => {
+  const myMember = useMemo(() => {
     if (!memberId) return null;
-    return members.find(m => m.id === memberId)?.team_id ?? null;
+    return members.find(m => m.id === memberId) ?? null;
   }, [members, memberId]);
+
+  const myTeamId = myMember?.team_id ?? null;
+  const isPm = myMember?.is_pm ?? false;
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["milestones"],
@@ -132,10 +135,10 @@ export function TaskTable({ filterMine }: TaskTableProps) {
 
   let filtered = [...tasks];
 
-  if (filterMine && !isAdmin) {
+  if (filterMine && !isAdmin && !isPm) {
     filtered = filtered.filter(t => t.assignee_id === memberId || t.team_id === myTeamId);
   }
-  if (filterMine && isAdmin && memberFilter !== "all") {
+  if (filterMine && (isAdmin || isPm) && memberFilter !== "all") {
     filtered = filtered.filter(t => t.assignee_id === memberFilter);
   }
   if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
@@ -167,12 +170,12 @@ export function TaskTable({ filterMine }: TaskTableProps) {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-base">
               Tasks ({filtered.length})
-              {filterMine && isAdmin && (
-                <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">Admin View</Badge>
+              {filterMine && (isAdmin || isPm) && (
+                <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">{isAdmin ? "Admin View" : "PM View"}</Badge>
               )}
             </CardTitle>
             <div className="flex gap-2 flex-wrap">
-              {filterMine && isAdmin && (
+              {filterMine && (isAdmin || isPm) && (
                 <Select value={memberFilter} onValueChange={setMemberFilter}>
                   <SelectTrigger className="w-[140px] h-8 text-xs">
                     <SelectValue placeholder="All Members" />

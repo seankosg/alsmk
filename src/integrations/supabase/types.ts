@@ -82,6 +82,7 @@ export type Database = {
           duty_title: string | null
           email: string | null
           id: string
+          is_pm: boolean
           name: string
           part_id: string | null
           team_id: string | null
@@ -92,6 +93,7 @@ export type Database = {
           duty_title?: string | null
           email?: string | null
           id?: string
+          is_pm?: boolean
           name: string
           part_id?: string | null
           team_id?: string | null
@@ -102,6 +104,7 @@ export type Database = {
           duty_title?: string | null
           email?: string | null
           id?: string
+          is_pm?: boolean
           name?: string
           part_id?: string | null
           team_id?: string | null
