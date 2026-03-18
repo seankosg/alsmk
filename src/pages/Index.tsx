@@ -36,6 +36,8 @@ const Index = () => {
         <ActivityStream />
       </div>
 
+      <TeamHeatmap />
+
       <PersonnelTable />
     </div>
   );
