@@ -76,7 +76,8 @@ export function TeamProgressChart() {
               teamTasks.length
           )
         : 0;
-    return { name: team.code, planned: avgPlanned, actual: avgActual, teamId: team.id, teamName: team.name };
+    const gap = avgActual - avgPlanned;
+    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, teamId: team.id, teamName: team.name };
   });
 
   const handleBarClick = (data: any) => {
@@ -85,6 +86,33 @@ export function TeamProgressChart() {
       const team = teams.find(t => t.id === d.teamId);
       if (team) setSelectedTeam({ code: team.code, id: team.id, name: team.name });
     }
+  };
+
+  const renderPlannedLabel = (props: any) => {
+    const { x, y, width, value } = props;
+    return (
+      <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={11} fill="hsl(var(--muted-foreground))">
+        {value}%
+      </text>
+    );
+  };
+
+  const renderActualLabel = (props: any) => {
+    const { x, y, width, value, index } = props;
+    const entry = chartData[index];
+    const gap = entry?.gap ?? 0;
+    const gapColor = gap >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))";
+    const gapText = gap >= 0 ? `+${gap}%p` : `${gap}%p`;
+    return (
+      <g>
+        <text x={x + width / 2} y={y - 20} textAnchor="middle" fontSize={10} fontWeight={600} fill={gapColor}>
+          {gapText}
+        </text>
+        <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={11} fill="hsl(var(--foreground))">
+          {value}%
+        </text>
+      </g>
+    );
   };
 
   const getMemberName = (id: string | null) => {
