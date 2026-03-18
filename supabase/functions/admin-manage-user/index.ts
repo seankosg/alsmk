@@ -50,20 +50,21 @@ Deno.serve(async (req) => {
 
       const token = authHeader.replace("Bearer ", "");
 
-      // Validate token with a plain anon client in stateless mode
-      const authClient = createClient(supabaseUrl, anonKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
+      // Validate token directly against the auth API to avoid SDK session issues in edge runtime
+      const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      const { data: getUserData, error: getUserError } =
-        await authClient.auth.getUser(token);
+      const authPayload = await authResponse.json();
+      const callerId = authPayload?.id as string | undefined;
 
-      if (getUserError || !getUserData?.user) {
-        console.error("Auth failed:", getUserError?.message ?? "Unknown auth error");
+      if (!authResponse.ok || !callerId) {
+        console.error("Auth failed:", authPayload?.msg ?? authPayload?.error_description ?? authPayload?.error ?? "Unknown auth error");
         return jsonResponse({ error: "Invalid token" }, 401);
       }
-
-      const callerId = getUserData.user.id;
 
       // Check admin role
       const { data: hasAdmin } = await adminClient.rpc("has_role", {
