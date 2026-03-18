@@ -68,6 +68,7 @@ export function TaskImportComponent() {
   const [importing, setImporting] = useState(false);
   const [validated, setValidated] = useState(false);
   const [manualTeamId, setManualTeamId] = useState<string>("");
+  const [manualTeamInitialized, setManualTeamInitialized] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
