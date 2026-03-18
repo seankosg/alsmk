@@ -114,14 +114,8 @@ export function AddTaskDialog() {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Category</Label>
-            <Select value={category || "none"} onValueChange={(v) => setCategory(v === "none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {/* Category options will be added later */}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="category">Category</Label>
+            <Input id="category" value={category} onChange={e => setCategory(e.target.value)} placeholder="Category (default: your team)" maxLength={100} />
           </div>
 
           <div className="space-y-2">
