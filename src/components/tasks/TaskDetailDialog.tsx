@@ -59,6 +59,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [issueFlag, setIssueFlag] = useState<"normal" | "warning" | "critical">("normal");
   const [issueType, setIssueType] = useState("");
   const [issueDescription, setIssueDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Reset form when task changes
   useEffect(() => {
@@ -69,12 +71,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       setIssueFlag(task.issue_flag);
       setIssueType(task.issue_type ?? "");
       setIssueDescription(task.issue_description ?? "");
+      setStartDate(task.start_date);
+      setEndDate(task.end_date);
     }
   }, [task]);
 
   if (!task) return null;
 
-  const planned = calcPlannedProgress(task.start_date, task.end_date);
+  const planned = calcPlannedProgress(startDate, endDate);
   const gap = currentProgress - planned;
 
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name ?? "Unknown";
@@ -84,6 +88,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
     setSaving(true);
     try {
       const { error } = await supabase.from("tasks").update({
+        start_date: startDate,
+        end_date: endDate,
         current_progress: currentProgress,
         actual_finish: actualFinish || null,
         action_plan: actionPlan.trim() || null,
@@ -155,12 +161,26 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               <p className="font-medium">{getMemberName(task.assignee_id)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Start</p>
-              <p className="font-mono text-xs">{task.start_date}</p>
+              <Label htmlFor="edit-start-date" className="text-xs text-muted-foreground">Start</Label>
+              <Input
+                id="edit-start-date"
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                disabled={readOnly}
+                className="font-mono text-xs mt-1"
+              />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Finish</p>
-              <p className="font-mono text-xs">{task.end_date}</p>
+              <Label htmlFor="edit-end-date" className="text-xs text-muted-foreground">Finish</Label>
+              <Input
+                id="edit-end-date"
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                disabled={readOnly}
+                className="font-mono text-xs mt-1"
+              />
             </div>
           </div>
 
