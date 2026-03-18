@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Clock, Circle, AlertTriangle, CalendarClock } from "lucide-react";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 
 const statusConfig: Record<string, { icon: typeof CheckCircle; color: string; bg: string }> = {
   completed: { icon: CheckCircle, color: "text-success", bg: "bg-success" },

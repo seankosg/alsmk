@@ -10,7 +10,8 @@ import {
   ListTodo, PlayCircle, Activity, TrendingUp, CheckCircle2,
   AlertTriangle, Clock, BarChart3, Target, ArrowDownRight,
 } from "lucide-react";
-import { differenceInDays, parseISO, isWithinInterval, startOfDay } from "date-fns";
+import { differenceInDays, isWithinInterval, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 

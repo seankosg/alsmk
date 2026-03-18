@@ -8,7 +8,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronDown, Layers } from "lucide-react";
 import { calcPlannedProgress } from "@/lib/mockData";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 
