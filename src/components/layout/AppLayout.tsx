@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface AuthContextType {
   user: ReturnType<typeof useAuth>["user"];
   isAdmin: boolean;
+  isPm: boolean;
+  isAdminOrPm: boolean;
   memberId: string | null;
   memberName: string | null;
   signOut: () => Promise<void>;
