@@ -219,6 +219,7 @@ export function TaskImportComponent() {
 
         const part = partCode ? parts.find(p => p.code.toUpperCase() === partCode && p.team_id === resolvedTeamId) : null;
         if (partCode && !part) errors.push(`Part '${partCode}' 없음`);
+        const resolvedPartId = part?.id ?? (!partCode ? fallbackPartId : null);
 
         const member = assigneeName ? members.find(m => m.name.toLowerCase() === assigneeName.toLowerCase()) : null;
         if (assigneeName && !member) errors.push(`Assignee '${assigneeName}' 없음`);
