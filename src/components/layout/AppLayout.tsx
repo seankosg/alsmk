@@ -55,6 +55,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return <Navigate to="/" replace />;
   }
 
+  // Regular member accessing / → redirect to /my
+  if (!auth.isAdmin && !auth.isPm && location.pathname === "/") {
+    return <Navigate to="/my" replace />;
+  }
+
   return (
     <AuthContext.Provider
       value={{
