@@ -206,23 +206,34 @@ export function TaskImportComponent() {
         if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) errors.push("Start 형식 오류");
         if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) errors.push("Finish 형식 오류");
 
-        // Team resolution: from Excel or fallback to importer's team
+        // Resolve assignee first (needed for team/part fallback)
+        const member = assigneeName ? members.find(m => m.name.toLowerCase() === assigneeName.toLowerCase()) : null;
+        if (assigneeName && !member) errors.push(`Assignee '${assigneeName}' 없음`);
+
+        // Team resolution: Excel teamCode → assignee's team → importer fallback
         let resolvedTeamId: string | null = null;
         if (teamCode) {
           const team = teams.find(t => t.code.toUpperCase() === teamCode);
           if (team) resolvedTeamId = team.id;
           else errors.push(`Team '${teamCode}' 없음`);
+        } else if (member?.team_id) {
+          resolvedTeamId = member.team_id;
         } else {
           resolvedTeamId = fallbackTeamId;
           if (!resolvedTeamId) errors.push("Team 없음 (소속팀 미지정)");
         }
 
-        const part = partCode ? parts.find(p => p.code.toUpperCase() === partCode && p.team_id === resolvedTeamId) : null;
-        if (partCode && !part) errors.push(`Part '${partCode}' 없음`);
-        const resolvedPartId = part?.id ?? (!partCode ? fallbackPartId : null);
-
-        const member = assigneeName ? members.find(m => m.name.toLowerCase() === assigneeName.toLowerCase()) : null;
-        if (assigneeName && !member) errors.push(`Assignee '${assigneeName}' 없음`);
+        // Part resolution: Excel partCode → assignee's part → importer fallback
+        let resolvedPartId: string | null = null;
+        if (partCode) {
+          const part = parts.find(p => p.code.toUpperCase() === partCode && p.team_id === resolvedTeamId);
+          if (part) resolvedPartId = part.id;
+          else errors.push(`Part '${partCode}' 없음`);
+        } else if (member?.part_id) {
+          resolvedPartId = member.part_id;
+        } else {
+          resolvedPartId = fallbackPartId;
+        }
 
         const milestone = milestoneName ? milestones.find(m => m.name.toLowerCase() === milestoneName.toLowerCase()) : null;
         if (milestoneName && !milestone) errors.push(`Milestone '${milestoneName}' 없음`);
