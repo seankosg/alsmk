@@ -7,8 +7,10 @@ import { Progress } from "@/components/ui/progress";
 import { differenceInDays, parseISO } from "date-fns";
 import { Clock, AlertTriangle } from "lucide-react";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 export function UpcomingDeadlines() {
+  const { isAdmin } = useAuthContext();
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
   const { data: tasks = [], isLoading: lt } = useQuery({
@@ -143,6 +145,7 @@ export function UpcomingDeadlines() {
         teams={teams}
         members={members}
         milestones={milestones}
+        readOnly={!isAdmin}
       />
     </>
   );

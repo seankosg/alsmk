@@ -44,9 +44,10 @@ interface TaskDetailDialogProps {
   teams?: LookupItem[];
   members?: LookupItem[];
   milestones?: LookupItem[];
+  readOnly?: boolean;
 }
 
-export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [] }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [], readOnly = false }: TaskDetailDialogProps) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -175,6 +176,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               rows={3}
               maxLength={2000}
               placeholder="Describe the action plan..."
+              disabled={readOnly}
             />
           </div>
 
@@ -193,6 +195,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               max={100}
               step={1}
               className="w-full"
+              disabled={readOnly}
             />
             <Progress value={currentProgress} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
@@ -211,6 +214,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               type="date"
               value={actualFinish}
               onChange={e => setActualFinish(e.target.value)}
+              disabled={readOnly}
             />
           </div>
 
@@ -219,7 +223,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           {/* Editable: Issue Flag */}
           <div className="space-y-3">
             <Label>Issue Flag</Label>
-            <Select value={issueFlag} onValueChange={(v) => setIssueFlag(v as "normal" | "warning" | "critical")}>
+            <Select value={issueFlag} onValueChange={(v) => setIssueFlag(v as "normal" | "warning" | "critical")} disabled={readOnly}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -240,6 +244,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                     onChange={e => setIssueType(e.target.value)}
                     placeholder="e.g. Delay, Resource, Quality"
                     maxLength={100}
+                    disabled={readOnly}
                   />
                 </div>
                 <div className="space-y-1">
@@ -251,6 +256,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                     rows={2}
                     maxLength={1000}
                     placeholder="Describe the issue..."
+                    disabled={readOnly}
                   />
                 </div>
               </div>
@@ -259,33 +265,37 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-4">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={deleting}>
-                <Trash2 className="mr-1 h-4 w-4" /> Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Task?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete task <strong>{task.task_code}</strong>. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  {deleting ? "Deleting..." : "Delete"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {!readOnly && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={deleting}>
+                  <Trash2 className="mr-1 h-4 w-4" /> Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Task?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete task <strong>{task.task_code}</strong>. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {deleting ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{readOnly ? "Close" : "Cancel"}</Button>
+            {!readOnly && (
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            )}
           </div>
         </DialogFooter>
       </DialogContent>
