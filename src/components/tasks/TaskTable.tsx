@@ -158,6 +158,15 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   }
   if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
   if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase();
+    filtered = filtered.filter(t =>
+      (t.task_code?.toLowerCase().includes(q)) ||
+      t.title.toLowerCase().includes(q) ||
+      (t.action_plan?.toLowerCase().includes(q)) ||
+      (t.category?.toLowerCase().includes(q))
+    );
+  }
 
   // Sorting
   if (sortKey) {
