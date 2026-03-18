@@ -276,11 +276,26 @@ export function TaskImportComponent() {
 
   return (
     <div className="space-y-4">
+      {needsManualTeam && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Default Team:</span>
+          <Select value={manualTeamId} onValueChange={(v) => { setManualTeamId(v); setValidated(false); setParsedRows([]); }}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select team" />
+            </SelectTrigger>
+            <SelectContent>
+              {teams.map(t => (
+                <SelectItem key={t.id} value={t.id}>{t.name} ({t.code})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="flex gap-3 items-center flex-wrap">
         <Button variant="outline" onClick={handleDownloadTemplate}>
           <Download className="mr-2 h-4 w-4" /> Download Template
         </Button>
-        <Button onClick={() => fileRef.current?.click()}>
+        <Button onClick={() => fileRef.current?.click()} disabled={needsManualTeam && !manualTeamId}>
           <Upload className="mr-2 h-4 w-4" /> Upload File
         </Button>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileUpload} />
