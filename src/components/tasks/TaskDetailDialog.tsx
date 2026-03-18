@@ -214,6 +214,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               type="date"
               value={actualFinish}
               onChange={e => setActualFinish(e.target.value)}
+              disabled={readOnly}
             />
           </div>
 
