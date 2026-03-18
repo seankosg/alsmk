@@ -7,15 +7,40 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthContext } from "@/components/layout/AppLayout";
 import * as XLSX from "xlsx";
 
-const TEMPLATE_COLUMNS = [
-  "Title", "Category", "Action Plan", "Milestone", "Team Code", "Part Code",
-  "Assignee", "Start Date", "End Date",
-];
+// Mapping of possible header names → canonical keys
+const HEADER_ALIASES: Record<string, string> = {
+  "title": "title",
+  "subject": "title",
+  "category": "category",
+  "action plan": "actionPlan",
+  "actionplan": "actionPlan",
+  "milestone": "milestone",
+  "team code": "teamCode",
+  "teamcode": "teamCode",
+  "team": "teamCode",
+  "part code": "partCode",
+  "partcode": "partCode",
+  "part": "partCode",
+  "assignee": "assignee",
+  "start date": "startDate",
+  "startdate": "startDate",
+  "start": "startDate",
+  "end date": "endDate",
+  "enddate": "endDate",
+  "finish": "endDate",
+  "actual %": "actualProgress",
+  "actual%": "actualProgress",
+  "actual finish": "actualFinish",
+  "actualfinish": "actualFinish",
+};
+
+// Columns that are computed / ignored on import
+const IGNORED_HEADERS = ["d day", "d-day", "dday", "plan %", "plan%", "차이 %", "차이%", "gap", "gap %", "gap%"];
 
 interface ParsedRow {
-  raw: string[];
   title: string;
   category: string;
   actionPlan: string;
@@ -25,7 +50,8 @@ interface ParsedRow {
   assigneeName: string;
   startDate: string;
   endDate: string;
-  // resolved IDs
+  actualProgress: number;
+  actualFinish: string;
   teamId: string | null;
   partId: string | null;
   assigneeId: string | null;
@@ -33,7 +59,10 @@ interface ParsedRow {
   errors: string[];
 }
 
+const DISPLAY_COLUMNS = ["Subject", "Action Plan", "Team", "Start", "Finish", "Actual %", "Actual Finish"];
+
 export function TaskImportComponent() {
+  const { memberId } = useAuthContext();
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [validated, setValidated] = useState(false);
@@ -63,7 +92,7 @@ export function TaskImportComponent() {
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("id, name");
+      const { data, error } = await supabase.from("members").select("id, name, team_id");
       if (error) throw error;
       return data;
     },
@@ -80,10 +109,16 @@ export function TaskImportComponent() {
     staleTime: 30_000,
   });
 
+  // Get the current member's team_id as fallback
+  const myMember = members.find(m => m.id === memberId);
+  const fallbackTeamId = myMember?.team_id ?? null;
+  const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
+
   const handleDownloadTemplate = () => {
+    const cols = ["Subject", "Action Plan", "Start", "Finish"];
     const ws = XLSX.utils.aoa_to_sheet([
-      TEMPLATE_COLUMNS,
-      ["Foundation Inspection", "Civil", "Inspect foundation quality", "Foundation Work", "CON", "CIV", "Mike Johnson", "2026-04-01", "2026-04-15"],
+      cols,
+      ["Foundation Inspection", "Inspect foundation quality", "2026-04-01", "2026-04-15"],
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Tasks");
@@ -93,7 +128,6 @@ export function TaskImportComponent() {
   const parseDate = (val: any): string => {
     if (!val) return "";
     if (typeof val === "number") {
-      // Excel serial date
       const d = XLSX.SSF.parse_date_code(val);
       return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
     }
@@ -123,31 +157,55 @@ export function TaskImportComponent() {
         return;
       }
 
+      // Build column index map from headers
+      const headers = (rows[0] ?? []).map((h: any) => String(h ?? "").trim().toLowerCase());
+      const colMap: Record<string, number> = {};
+      headers.forEach((h, i) => {
+        if (IGNORED_HEADERS.includes(h)) return;
+        const key = HEADER_ALIASES[h];
+        if (key) colMap[key] = i;
+      });
+
+      if (!colMap.title && !colMap.startDate) {
+        toast.error("헤더를 인식할 수 없습니다. Subject/Title, Start 등의 컬럼명을 확인하세요.");
+        return;
+      }
+
       const dataRows = rows.slice(1).filter(r => r.some(c => c != null && String(c).trim()));
 
       const parsed: ParsedRow[] = dataRows.map(row => {
-        const str = (i: number) => String(row[i] ?? "").trim();
-        const title = str(0);
-        const category = str(1);
-        const actionPlan = str(2);
-        const milestoneName = str(3);
-        const teamCode = str(4).toUpperCase();
-        const partCode = str(5).toUpperCase();
-        const assigneeName = str(6);
-        const startDate = parseDate(row[7]);
-        const endDate = parseDate(row[8]);
+        const get = (key: string) => colMap[key] !== undefined ? String(row[colMap[key]] ?? "").trim() : "";
+        const title = get("title");
+        const category = get("category");
+        const actionPlan = get("actionPlan");
+        const milestoneName = get("milestone");
+        const teamCode = get("teamCode").toUpperCase();
+        const partCode = get("partCode").toUpperCase();
+        const assigneeName = get("assignee");
+        const startDate = parseDate(colMap.startDate !== undefined ? row[colMap.startDate] : "");
+        const endDate = parseDate(colMap.endDate !== undefined ? row[colMap.endDate] : "");
+        const actualProgressStr = get("actualProgress").replace("%", "");
+        const actualProgress = actualProgressStr ? parseInt(actualProgressStr, 10) : 0;
+        const actualFinish = parseDate(colMap.actualFinish !== undefined ? row[colMap.actualFinish] : "");
 
         const errors: string[] = [];
 
-        if (!title) errors.push("Title 필수");
-        if (!teamCode) errors.push("Team Code 필수");
-        if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) errors.push("Start Date 형식 오류");
-        if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) errors.push("End Date 형식 오류");
+        if (!title) errors.push("Subject 필수");
+        if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) errors.push("Start 형식 오류");
+        if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) errors.push("Finish 형식 오류");
 
-        const team = teams.find(t => t.code.toUpperCase() === teamCode);
-        if (teamCode && !team) errors.push(`Team '${teamCode}' 없음`);
+        // Team resolution: from Excel or fallback to importer's team
+        let resolvedTeamId: string | null = null;
+        if (teamCode) {
+          const team = teams.find(t => t.code.toUpperCase() === teamCode);
+          if (team) resolvedTeamId = team.id;
+          else errors.push(`Team '${teamCode}' 없음`);
+        } else {
+          resolvedTeamId = fallbackTeamId;
+          if (!resolvedTeamId) errors.push("Team 없음 (소속팀 미지정)");
+        }
 
-        const part = partCode ? parts.find(p => p.code.toUpperCase() === partCode && (!team || p.team_id === team?.id)) : null;
+        const part = partCode ? parts.find(p => p.code.toUpperCase() === partCode && p.team_id === resolvedTeamId) : null;
         if (partCode && !part) errors.push(`Part '${partCode}' 없음`);
 
         const member = assigneeName ? members.find(m => m.name.toLowerCase() === assigneeName.toLowerCase()) : null;
@@ -157,10 +215,9 @@ export function TaskImportComponent() {
         if (milestoneName && !milestone) errors.push(`Milestone '${milestoneName}' 없음`);
 
         return {
-          raw: row.map(c => String(c ?? "")),
           title, category, actionPlan, milestoneName, teamCode, partCode, assigneeName,
-          startDate, endDate,
-          teamId: team?.id ?? null,
+          startDate, endDate, actualProgress, actualFinish,
+          teamId: resolvedTeamId,
           partId: part?.id ?? null,
           assigneeId: member?.id ?? null,
           milestoneId: milestone?.id ?? null,
@@ -194,7 +251,8 @@ export function TaskImportComponent() {
         milestone_id: r.milestoneId,
         start_date: r.startDate,
         end_date: r.endDate,
-        current_progress: 0,
+        current_progress: r.actualProgress,
+        actual_finish: r.actualFinish || null,
         issue_flag: "normal" as const,
       }));
 
@@ -215,7 +273,7 @@ export function TaskImportComponent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 items-center flex-wrap">
         <Button variant="outline" onClick={handleDownloadTemplate}>
           <Download className="mr-2 h-4 w-4" /> Download Template
         </Button>
@@ -223,6 +281,11 @@ export function TaskImportComponent() {
           <Upload className="mr-2 h-4 w-4" /> Upload File
         </Button>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileUpload} />
+        {fallbackTeamName && (
+          <span className="text-xs text-muted-foreground">
+            Team 미지정 시 기본: <Badge variant="outline" className="ml-1 text-[10px]">{fallbackTeamName}</Badge>
+          </span>
+        )}
       </div>
 
       {validated && parsedRows.length > 0 && (
@@ -250,7 +313,7 @@ export function TaskImportComponent() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs w-12">#</TableHead>
-                    {TEMPLATE_COLUMNS.map((h, i) => (
+                    {DISPLAY_COLUMNS.map((h, i) => (
                       <TableHead key={i} className="text-xs">{h}</TableHead>
                     ))}
                     <TableHead className="text-xs">Status</TableHead>
@@ -259,24 +322,19 @@ export function TaskImportComponent() {
                 <TableBody>
                   {parsedRows.map((row, ri) => {
                     const hasError = row.errors.length > 0;
+                    const teamLabel = row.teamCode || (row.teamId ? `(${fallbackTeamName})` : "—");
                     return (
                       <TableRow key={ri} className={hasError ? "bg-destructive/10" : ""}>
                         <TableCell className="text-xs font-mono">{ri + 1}</TableCell>
-                        <TableCell className="text-xs">{row.title}</TableCell>
-                        <TableCell className="text-xs">{row.category || "—"}</TableCell>
+                        <TableCell className="text-xs">{row.title || "—"}</TableCell>
                         <TableCell className="text-xs max-w-[200px] truncate">{row.actionPlan || "—"}</TableCell>
-                        <TableCell className="text-xs">{row.milestoneName || "—"}</TableCell>
-                        <TableCell className={`text-xs font-mono ${row.teamCode && !row.teamId ? "text-destructive font-bold" : ""}`}>
-                          {row.teamCode || "—"}
-                        </TableCell>
-                        <TableCell className={`text-xs font-mono ${row.partCode && !row.partId ? "text-destructive font-bold" : ""}`}>
-                          {row.partCode || "—"}
-                        </TableCell>
-                        <TableCell className={`text-xs ${row.assigneeName && !row.assigneeId ? "text-destructive font-bold" : ""}`}>
-                          {row.assigneeName || "—"}
+                        <TableCell className={`text-xs font-mono ${!row.teamCode && row.teamId ? "text-muted-foreground italic" : !row.teamId ? "text-destructive font-bold" : ""}`}>
+                          {teamLabel}
                         </TableCell>
                         <TableCell className="text-xs font-mono">{row.startDate}</TableCell>
                         <TableCell className="text-xs font-mono">{row.endDate}</TableCell>
+                        <TableCell className="text-xs font-mono text-right">{row.actualProgress}%</TableCell>
+                        <TableCell className="text-xs font-mono">{row.actualFinish || "—"}</TableCell>
                         <TableCell className="text-xs">
                           {hasError ? (
                             <span className="text-destructive text-[10px]">{row.errors.join(", ")}</span>
