@@ -105,6 +105,7 @@ export function UpcomingDeadlines() {
                         )}
                         <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                           {getTeamCode(task.team_id)} · {task.task_code ?? "—"}
+                          {getMemberName(task.assignee_id) && ` · ${getMemberName(task.assignee_id)}`}
                         </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
