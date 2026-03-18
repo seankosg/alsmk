@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -66,6 +67,7 @@ export function TaskImportComponent() {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [validated, setValidated] = useState(false);
+  const [manualTeamId, setManualTeamId] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -109,10 +111,11 @@ export function TaskImportComponent() {
     staleTime: 30_000,
   });
 
-  // Get the current member's team_id as fallback
+  // Get the current member's team_id as fallback, or use manual selection
   const myMember = members.find(m => m.id === memberId);
-  const fallbackTeamId = myMember?.team_id ?? null;
+  const fallbackTeamId = myMember?.team_id ?? (manualTeamId || null);
   const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
+  const needsManualTeam = !myMember?.team_id;
 
   const handleDownloadTemplate = () => {
     const cols = ["Subject", "Action Plan", "Start", "Finish"];
@@ -273,11 +276,26 @@ export function TaskImportComponent() {
 
   return (
     <div className="space-y-4">
+      {needsManualTeam && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Default Team:</span>
+          <Select value={manualTeamId} onValueChange={(v) => { setManualTeamId(v); setValidated(false); setParsedRows([]); }}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select team" />
+            </SelectTrigger>
+            <SelectContent>
+              {teams.map(t => (
+                <SelectItem key={t.id} value={t.id}>{t.name} ({t.code})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="flex gap-3 items-center flex-wrap">
         <Button variant="outline" onClick={handleDownloadTemplate}>
           <Download className="mr-2 h-4 w-4" /> Download Template
         </Button>
-        <Button onClick={() => fileRef.current?.click()}>
+        <Button onClick={() => fileRef.current?.click()} disabled={needsManualTeam && !manualTeamId}>
           <Upload className="mr-2 h-4 w-4" /> Upload File
         </Button>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileUpload} />
