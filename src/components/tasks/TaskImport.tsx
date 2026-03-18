@@ -110,14 +110,10 @@ export function TaskImportComponent() {
   });
 
   const handleDownloadTemplate = () => {
-    const cols = ["Subject", "Assignee", "Action Plan", "Start", "Finish"];
-    const ws = XLSX.utils.aoa_to_sheet([
-      cols,
-      ["Foundation Inspection", "John Doe", "Inspect foundation quality", "2026-04-01", "2026-04-15"],
-    ]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Tasks");
-    XLSX.writeFile(wb, "task_import_template.xlsx");
+    const link = document.createElement("a");
+    link.href = "/templates/ALSMK_Temp.xlsx";
+    link.download = "ALSMK_Temp.xlsx";
+    link.click();
   };
 
   const parseDate = (val: any): string => {
