@@ -61,6 +61,8 @@ export function useAuth() {
             user: null,
             session: null,
             isAdmin: false,
+            isPm: false,
+            isAdminOrPm: false,
             memberId: null,
             memberName: null,
             loading: false,
