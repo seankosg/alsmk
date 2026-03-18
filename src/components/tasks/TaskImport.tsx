@@ -114,9 +114,16 @@ export function TaskImportComponent() {
 
   // Get the current member's team_id as fallback, or use manual selection
   const myMember = members.find(m => m.id === memberId);
+  const needsManualTeam = !myMember?.team_id;
+
+  // Auto-select first team if member has no team assigned
+  if (needsManualTeam && !manualTeamInitialized && teams.length > 0) {
+    setManualTeamId(teams[0].id);
+    setManualTeamInitialized(true);
+  }
+
   const fallbackTeamId = myMember?.team_id ?? (manualTeamId || null);
   const fallbackTeamName = fallbackTeamId ? teams.find(t => t.id === fallbackTeamId)?.name ?? null : null;
-  const needsManualTeam = !myMember?.team_id;
 
   const handleDownloadTemplate = () => {
     const cols = ["Subject", "Action Plan", "Start", "Finish"];
