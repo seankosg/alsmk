@@ -93,7 +93,7 @@ export function TaskImportComponent() {
   });
 
   const { data: members = [] } = useQuery({
-    queryKey: ["members"],
+    queryKey: ["members-with-parts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("members").select("id, name, team_id, part_id");
       if (error) throw error;
