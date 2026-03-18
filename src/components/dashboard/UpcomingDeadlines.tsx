@@ -10,7 +10,7 @@ import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 
 export function UpcomingDeadlines() {
-  const { isAdmin } = useAuthContext();
+  const { isAdmin, memberId } = useAuthContext();
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
   const { data: tasks = [], isLoading: lt } = useQuery({
