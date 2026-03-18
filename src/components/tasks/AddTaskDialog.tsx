@@ -130,10 +130,10 @@ export function AddTaskDialog() {
             </div>
             <div className="space-y-2">
               <Label>Part</Label>
-              <Select value={partId} onValueChange={setPartId} disabled={!teamId}>
+              <Select value={partId || "none"} onValueChange={(v) => setPartId(v === "none" ? "" : v)} disabled={!teamId}>
                 <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {filteredParts.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
