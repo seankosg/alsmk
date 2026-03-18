@@ -9,6 +9,7 @@ import { UpcomingDeadlines } from "@/components/dashboard/UpcomingDeadlines";
 import { IssueTrendChart } from "@/components/dashboard/IssueTrendChart";
 import { ActivityStream } from "@/components/dashboard/ActivityStream";
 import { PersonnelTable } from "@/components/dashboard/PersonnelTable";
+import { PartStatusBoard } from "@/components/dashboard/PartStatusBoard";
 
 const Index = () => {
   return (
@@ -38,6 +39,8 @@ const Index = () => {
       </div>
 
       <TeamHeatmap />
+
+      <PartStatusBoard />
 
       <ActivityStream />
 

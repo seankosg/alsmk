@@ -73,7 +73,7 @@ export function CriticalIssueBoard() {
               {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[260px] overflow-y-auto scrollbar-thin">
               {issues.length === 0 && (
                 <p className="text-sm text-muted-foreground">No active issues</p>
               )}
