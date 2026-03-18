@@ -59,6 +59,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [issueFlag, setIssueFlag] = useState<"normal" | "warning" | "critical">("normal");
   const [issueType, setIssueType] = useState("");
   const [issueDescription, setIssueDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Reset form when task changes
   useEffect(() => {
@@ -69,6 +71,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       setIssueFlag(task.issue_flag);
       setIssueType(task.issue_type ?? "");
       setIssueDescription(task.issue_description ?? "");
+      setStartDate(task.start_date);
+      setEndDate(task.end_date);
     }
   }, [task]);
 
