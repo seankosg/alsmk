@@ -39,7 +39,7 @@ export function IssueTrendChart() {
 
   const chartData = weeks.map((w) => {
     const inWeek = issueTasks.filter((t) => {
-      const d = parseISO(t.updated_at);
+      const d = new Date(t.updated_at);
       return isAfter(d, eightWeeksAgo) && d >= w.start && d <= w.end;
     });
     return {
