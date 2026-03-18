@@ -39,7 +39,7 @@ const Workspace = () => {
     const rows = tasks.map(t => {
       const planned = calcPlannedProgress(t.start_date, t.end_date);
       const gap = t.current_progress - planned;
-      const remaining = t.actual_finish ? 0 : differenceInCalendarDays(new Date(t.end_date), new Date());
+      const remaining = t.actual_finish ? 0 : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
       const dDay = t.actual_finish ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`;
 
       return {

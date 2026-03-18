@@ -54,7 +54,7 @@ export function UpcomingDeadlines() {
     staleTime: 30_000,
   });
 
-  const now = new Date();
+  const now = startOfDay(new Date());
   const upcoming = tasks
     .filter((t) => {
       const end = parseLocalDate(t.end_date);

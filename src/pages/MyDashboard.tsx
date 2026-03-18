@@ -300,7 +300,7 @@ const MyDashboard = () => {
             ) : (
               <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-thin">
                 {upcoming.map((task) => {
-                  const daysLeft = differenceInDays(parseISO(task.end_date), now);
+                  const daysLeft = differenceInDays(parseLocalDate(task.end_date), now);
                   return (
                     <div
                       key={task.id}

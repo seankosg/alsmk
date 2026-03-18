@@ -353,7 +353,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                         {(() => {
                           const remaining = task.actual_finish
                             ? 0
-                            : differenceInCalendarDays(new Date(task.end_date), new Date());
+                            : differenceInCalendarDays(parseLocalDate(task.end_date), startOfDay(new Date()));
                           return (
                             <TableCell
                               className={`text-right font-mono text-xs font-bold ${task.actual_finish ? 'text-muted-foreground' : remaining < 0 ? 'text-destructive' : remaining <= 7 ? 'text-warning' : 'text-primary'}`}

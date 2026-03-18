@@ -102,7 +102,7 @@ export function MilestoneTimeline() {
                 {milestones.map((ms, i) => {
                   const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                   const Icon = cfg.icon;
-                  const targetDate = new Date(ms.target_date);
+                  const targetDate = parseLocalDate(ms.target_date);
                   const isPast = targetDate < today;
 
                   return (

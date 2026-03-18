@@ -97,7 +97,7 @@ export function PartStatusBoard() {
         });
       case "upcoming":
         return partTasks.filter(t => {
-          const days = differenceInDays(parseISO(t.end_date), now);
+          const days = differenceInDays(parseLocalDate(t.end_date), now);
           return days >= 0 && days <= 7 && t.current_progress < 100;
         });
       case "issue":
