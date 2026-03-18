@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from "react";
+import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +70,8 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem("task-table-col-widths");
@@ -76,6 +79,17 @@ export function TaskTable({ filterMine }: TaskTableProps) {
     } catch {}
     return { ...DEFAULT_COL_WIDTHS };
   });
+
+  const handleSort = useCallback((key: string) => {
+    setSortKey(prev => {
+      if (prev === key) {
+        setSortDir(d => d === "asc" ? "desc" : "asc");
+        return key;
+      }
+      setSortDir("asc");
+      return key;
+    });
+  }, []);
 
   const handleColResize = useCallback((col: string) => (delta: number) => {
     setColWidths(prev => {
@@ -143,6 +157,33 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   }
   if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
   if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
+
+  // Sorting
+  if (sortKey) {
+    filtered.sort((a, b) => {
+      let valA: any, valB: any;
+      switch (sortKey) {
+        case "taskCode": valA = a.task_code ?? ""; valB = b.task_code ?? ""; break;
+        case "category": valA = a.category ?? ""; valB = b.category ?? ""; break;
+        case "subject": valA = a.title; valB = b.title; break;
+        case "actionPlan": valA = a.action_plan ?? ""; valB = b.action_plan ?? ""; break;
+        case "start": valA = a.start_date; valB = b.start_date; break;
+        case "finish": valA = a.end_date; valB = b.end_date; break;
+        case "dday": {
+          valA = a.actual_finish ? Infinity : differenceInCalendarDays(new Date(a.end_date), new Date());
+          valB = b.actual_finish ? Infinity : differenceInCalendarDays(new Date(b.end_date), new Date());
+          break;
+        }
+        case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
+        case "actual": valA = a.current_progress; valB = b.current_progress; break;
+        case "gap": valA = a.current_progress - calcPlannedProgress(a.start_date, a.end_date); valB = b.current_progress - calcPlannedProgress(b.start_date, b.end_date); break;
+        case "actualFinish": valA = a.actual_finish ?? "zzz"; valB = b.actual_finish ?? "zzz"; break;
+        default: return 0;
+      }
+      const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }
 
   const selectedTask = filtered.find(t => t.id === selectedTaskId) ?? null;
 
@@ -234,10 +275,18 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                     ].map(col => (
                       <TableHead
                         key={col.key}
-                        className={`relative select-none ${col.align}`}
+                        className={`relative select-none cursor-pointer hover:bg-accent/50 ${col.align}`}
                         style={{ width: colWidths[col.key], minWidth: 40 }}
+                        onClick={() => handleSort(col.key)}
                       >
-                        {col.label}
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          {sortKey === col.key ? (
+                            sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-30" />
+                          )}
+                        </span>
                         <ResizeHandle onResize={handleColResize(col.key)} />
                       </TableHead>
                     ))}
