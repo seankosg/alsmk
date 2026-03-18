@@ -43,8 +43,8 @@ export function ProjectHUD() {
   const activeIssues = tasks.filter(t => t.issue_flag !== "normal").length;
   const completionRate = totalTasks > 0 ? Math.round(tasks.filter(t => t.current_progress >= 90).length / totalTasks * 100) : 0;
 
-  const finalMs = milestones[milestones.length - 1];
-  const dDay = finalMs ? Math.ceil((new Date(finalMs.target_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+  const activeIssues = tasks.filter(t => t.issue_flag !== "normal").length;
+  const completionRate = totalTasks > 0 ? Math.round(tasks.filter(t => t.current_progress >= 90).length / totalTasks * 100) : 0;
 
   const donutData = [
     { name: "Actual", value: avgProgress },
