@@ -33,9 +33,13 @@ export function ProjectHUD() {
   const activeIssues = tasks.filter(t => t.issue_flag !== "normal").length;
   const completionRate = totalTasks > 0 ? Math.round(tasks.filter(t => t.current_progress >= 90).length / totalTasks * 100) : 0;
 
-  const donutData = [
+  const actualDonutData = [
     { name: "Actual", value: avgProgress },
     { name: "Remaining", value: 100 - avgProgress },
+  ];
+  const plannedDonutData = [
+    { name: "Planned", value: avgPlanned },
+    { name: "Remaining", value: 100 - avgPlanned },
   ];
 
   return (
@@ -45,18 +49,24 @@ export function ProjectHUD() {
           <div className="h-28 w-28 relative">
             <ResponsiveContainer>
               <PieChart>
-                <Pie data={donutData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
+                <Pie data={plannedDonutData} cx="50%" cy="50%" innerRadius={44} outerRadius={52} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
+                  <Cell fill="hsl(38, 90%, 50%)" />
+                  <Cell fill="hsl(220, 20%, 18%)" />
+                </Pie>
+                <Pie data={actualDonutData} cx="50%" cy="50%" innerRadius={28} outerRadius={40} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
                   <Cell fill="hsl(215, 80%, 55%)" />
                   <Cell fill="hsl(220, 20%, 18%)" />
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-xl font-bold font-mono">{avgProgress}%</span>
-              <span className="text-[10px] text-muted-foreground">Actual</span>
+              <span className="text-lg font-bold font-mono">{avgProgress}%</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Planned: {avgPlanned}%</p>
+          <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(215, 80%, 55%)" }} />Actual</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(38, 90%, 50%)" }} />Plan</span>
+          </div>
         </CardContent>
       </Card>
 
