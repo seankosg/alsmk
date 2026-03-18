@@ -72,10 +72,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   ALSMK Project Management
                 </span>
               </div>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-              </Button>
+              <div className="flex items-center gap-3">
+                {auth.memberName && (
+                  <span className="text-sm font-bold text-primary">
+                    {auth.memberName}
+                  </span>
+                )}
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-4 w-4" />
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                </Button>
+              </div>
             </header>
             <main className="flex-1 overflow-auto p-4 md:p-6">
               {children}
