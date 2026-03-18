@@ -90,10 +90,10 @@ const MyDashboard = () => {
   // Upcoming deadlines (7 days)
   const upcoming = tasksWithGap
     .filter((t) => {
-      const days = differenceInDays(parseISO(t.end_date), now);
+      const days = differenceInDays(parseLocalDate(t.end_date), now);
       return days >= 0 && days <= 7 && t.current_progress < 100;
     })
-    .sort((a, b) => parseISO(a.end_date).getTime() - parseISO(b.end_date).getTime());
+    .sort((a, b) => parseLocalDate(a.end_date).getTime() - parseLocalDate(b.end_date).getTime());
 
   // Donut data
   const completed = myTasks.filter((t) => t.current_progress >= 100 || t.actual_finish).length;
