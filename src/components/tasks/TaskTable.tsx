@@ -277,7 +277,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                               className={`text-right font-mono text-xs font-bold ${task.actual_finish ? 'text-muted-foreground' : remaining < 0 ? 'text-destructive' : remaining <= 7 ? 'text-warning' : 'text-primary'}`}
                               style={{ width: colWidths.dday }}
                             >
-                              {task.actual_finish ? "Done" : remaining === 0 ? "D-Day" : remaining > 0 ? `D-${remaining}` : `D+${Math.abs(remaining)}`}
+                              {task.actual_finish ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`}
                             </TableCell>
                           );
                         })()}
