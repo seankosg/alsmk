@@ -254,7 +254,17 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                       <TableRow key={task.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className="font-mono text-xs truncate" style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className="text-xs truncate" style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
-                        <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>{task.title}</TableCell>
+                        <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate">{task.title}</span>
+                            {task.issue_flag === "warning" && (
+                              <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
+                            )}
+                            {task.issue_flag === "critical" && (
+                              <Badge variant="destructive" className="shrink-0 text-[10px] px-1.5 py-0">Critical</Badge>
+                            )}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-xs truncate" style={{ width: colWidths.actionPlan }}>
                           {task.action_plan ? (
                             <TooltipProvider delayDuration={200}>
