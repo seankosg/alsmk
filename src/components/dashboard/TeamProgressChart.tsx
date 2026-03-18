@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList } from "recharts";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -76,7 +76,8 @@ export function TeamProgressChart() {
               teamTasks.length
           )
         : 0;
-    return { name: team.code, planned: avgPlanned, actual: avgActual, teamId: team.id, teamName: team.name };
+    const gap = avgActual - avgPlanned;
+    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, teamId: team.id, teamName: team.name };
   });
 
   const handleBarClick = (data: any) => {
@@ -85,6 +86,33 @@ export function TeamProgressChart() {
       const team = teams.find(t => t.id === d.teamId);
       if (team) setSelectedTeam({ code: team.code, id: team.id, name: team.name });
     }
+  };
+
+  const renderPlannedLabel = (props: any) => {
+    const { x, y, width, value } = props;
+    return (
+      <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={11} fill="hsl(var(--muted-foreground))">
+        {value}%
+      </text>
+    );
+  };
+
+  const renderActualLabel = (props: any) => {
+    const { x, y, width, value, index } = props;
+    const entry = chartData[index];
+    const gap = entry?.gap ?? 0;
+    const gapColor = gap >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))";
+    const gapText = gap >= 0 ? `+${gap}%p` : `${gap}%p`;
+    return (
+      <g>
+        <text x={x + width / 2} y={y - 20} textAnchor="middle" fontSize={10} fontWeight={600} fill={gapColor}>
+          {gapText}
+        </text>
+        <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={11} fill="hsl(var(--foreground))">
+          {value}%
+        </text>
+      </g>
+    );
   };
 
   const getMemberName = (id: string | null) => {
@@ -115,8 +143,8 @@ export function TeamProgressChart() {
           {isLoading ? (
             <Skeleton className="h-[220px] w-full" />
           ) : (
-            <ChartContainer config={chartConfig} className="h-[220px] w-full">
-              <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }}>
+            <ChartContainer config={chartConfig} className="h-[280px] w-full">
+              <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 35 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="name"
@@ -141,7 +169,9 @@ export function TeamProgressChart() {
                   fill="hsl(var(--muted-foreground) / 0.3)"
                   radius={[4, 4, 0, 0]}
                   name="Planned"
-                />
+                >
+                  <LabelList dataKey="planned" content={renderPlannedLabel} />
+                </Bar>
                 <Bar
                   dataKey="actual"
                   radius={[4, 4, 0, 0]}
@@ -153,6 +183,7 @@ export function TeamProgressChart() {
                       fill={entry.actual >= entry.planned ? "hsl(var(--primary))" : "hsl(var(--destructive))"}
                     />
                   ))}
+                  <LabelList dataKey="actual" content={renderActualLabel} />
                 </Bar>
               </BarChart>
             </ChartContainer>
