@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { startOfWeek, subWeeks, format, isAfter, parseISO } from "date-fns";
+import { startOfWeek, subWeeks, format, isAfter } from "date-fns";
+import { parseLocalDate } from "@/lib/utils";
 
 const chartConfig = {
   critical: { label: "Critical", color: "hsl(var(--destructive))" },
@@ -38,7 +39,7 @@ export function IssueTrendChart() {
 
   const chartData = weeks.map((w) => {
     const inWeek = issueTasks.filter((t) => {
-      const d = parseISO(t.updated_at);
+      const d = new Date(t.updated_at);
       return isAfter(d, eightWeeksAgo) && d >= w.start && d <= w.end;
     });
     return {
