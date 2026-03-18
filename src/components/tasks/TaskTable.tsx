@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,46 @@ import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "./TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
+
+const DEFAULT_COL_WIDTHS: Record<string, number> = {
+  taskCode: 140,
+  category: 100,
+  subject: 260,
+  start: 100,
+  finish: 100,
+  plan: 70,
+  actual: 70,
+  gap: 70,
+  actualFinish: 110,
+};
+
+function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
+  const startX = useRef(0);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startX.current = e.clientX;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      onResize(ev.clientX - startX.current);
+      startX.current = ev.clientX;
+    };
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [onResize]);
+
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 z-10"
+    />
+  );
+}
 
 interface TaskTableProps {
   filterMine?: boolean;
