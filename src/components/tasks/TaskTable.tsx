@@ -181,8 +181,8 @@ export function TaskTable({ filterMine }: TaskTableProps) {
         case "start": valA = a.start_date; valB = b.start_date; break;
         case "finish": valA = a.end_date; valB = b.end_date; break;
         case "dday": {
-          valA = a.actual_finish ? Infinity : differenceInCalendarDays(new Date(a.end_date), new Date());
-          valB = b.actual_finish ? Infinity : differenceInCalendarDays(new Date(b.end_date), new Date());
+          valA = a.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(a.end_date), startOfDay(new Date()));
+          valB = b.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(b.end_date), startOfDay(new Date()));
           break;
         }
         case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
