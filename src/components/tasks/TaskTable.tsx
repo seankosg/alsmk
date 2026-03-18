@@ -246,6 +246,19 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                         <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>{task.title}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.start }}>{task.start_date}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
+                        {(() => {
+                          const remaining = task.actual_finish
+                            ? 0
+                            : differenceInCalendarDays(new Date(task.end_date), new Date());
+                          return (
+                            <TableCell
+                              className={`text-right font-mono text-xs font-bold ${task.actual_finish ? 'text-muted-foreground' : remaining < 0 ? 'text-destructive' : remaining <= 7 ? 'text-warning' : 'text-primary'}`}
+                              style={{ width: colWidths.dday }}
+                            >
+                              {task.actual_finish ? "Done" : remaining === 0 ? "D-Day" : remaining > 0 ? `D-${remaining}` : `D+${Math.abs(remaining)}`}
+                            </TableCell>
+                          );
+                        })()}
                         <TableCell className="text-right font-mono text-xs" style={{ width: colWidths.plan }}>{planned}%</TableCell>
                         <TableCell
                           className="text-right font-mono text-xs"
