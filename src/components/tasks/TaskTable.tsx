@@ -275,10 +275,18 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                     ].map(col => (
                       <TableHead
                         key={col.key}
-                        className={`relative select-none ${col.align}`}
+                        className={`relative select-none cursor-pointer hover:bg-accent/50 ${col.align}`}
                         style={{ width: colWidths[col.key], minWidth: 40 }}
+                        onClick={() => handleSort(col.key)}
                       >
-                        {col.label}
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          {sortKey === col.key ? (
+                            sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-30" />
+                          )}
+                        </span>
                         <ResizeHandle onResize={handleColResize(col.key)} />
                       </TableHead>
                     ))}
