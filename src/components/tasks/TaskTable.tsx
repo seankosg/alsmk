@@ -17,6 +17,7 @@ const DEFAULT_COL_WIDTHS: Record<string, number> = {
   taskCode: 140,
   category: 100,
   subject: 260,
+  actionPlan: 200,
   start: 100,
   finish: 100,
   dday: 70,
@@ -213,6 +214,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                       { key: "taskCode", label: "Task Code", align: "" },
                       { key: "category", label: "Category", align: "" },
                       { key: "subject", label: "Subject", align: "" },
+                      { key: "actionPlan", label: "Action Plan", align: "" },
                       { key: "start", label: "Start", align: "" },
                       { key: "finish", label: "Finish", align: "" },
                       { key: "dday", label: "D-Day", align: "text-right" },
@@ -234,7 +236,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
                   ) : filtered.map((task) => {
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
@@ -244,6 +246,7 @@ export function TaskTable({ filterMine }: TaskTableProps) {
                         <TableCell className="font-mono text-xs truncate" style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className="text-xs truncate" style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>{task.title}</TableCell>
+                        <TableCell className="text-xs truncate" style={{ width: colWidths.actionPlan }}>{task.action_plan ?? "—"}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.start }}>{task.start_date}</TableCell>
                         <TableCell className="font-mono text-xs" style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
                         {(() => {
