@@ -59,13 +59,24 @@ export function ProjectHUD() {
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center leading-tight">
               <span className="text-lg font-bold font-mono">{avgProgress}%</span>
             </div>
           </div>
-          <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(215, 80%, 55%)" }} />Actual</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(38, 90%, 50%)" }} />Plan</span>
+          <div className="mt-2 flex flex-col items-center gap-0.5 text-[10px]">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(215, 80%, 55%)" }} />Actual {avgProgress}%</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(38, 90%, 50%)" }} />Plan {avgPlanned}%</span>
+            </div>
+            {(() => {
+              const gap = avgProgress - avgPlanned;
+              const isAhead = gap >= 0;
+              return (
+                <span className={`font-mono font-semibold ${isAhead ? "text-success" : "text-destructive"}`}>
+                  Gap {isAhead ? "+" : ""}{gap}%p
+                </span>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
