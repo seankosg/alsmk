@@ -344,6 +344,9 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                         <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className={`text-sm font-medium truncate ${statusTextColor}`} style={{ width: colWidths.subject }}>
                           <span className="flex items-center gap-1.5">
+                            {isSummary && (
+                              <Badge variant="secondary" className="shrink-0 text-[10px] px-1.5 py-0">Summary</Badge>
+                            )}
                             <span className="truncate">{task.title}</span>
                             {task.issue_flag === "warning" && (
                               <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
