@@ -236,12 +236,10 @@ const Workspace = () => {
           <p className="text-sm text-muted-foreground">Your assigned tasks and progress</p>
         </div>
         <div className="flex items-center gap-2">
-          {(isAdmin || isPm) && (
-            <Button variant="outline" onClick={handleGenerateSummaries} disabled={generating}>
-              <ListTree className="mr-2 h-4 w-4" />
-              {generating ? "Generating..." : "Generate Summaries"}
-            </Button>
-          )}
+          <Button variant="outline" onClick={handleGenerateSummaries} disabled={generating}>
+            <ListTree className="mr-2 h-4 w-4" />
+            {generating ? "Generating..." : isAdminOrPm ? "Generate Summaries" : "Generate Summaries (내 태스크)"}
+          </Button>
           <Button variant="outline" onClick={() => navigate("/tasks/import")}>
             <Upload className="mr-2 h-4 w-4" /> Import
           </Button>
