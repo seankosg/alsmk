@@ -10,6 +10,7 @@ import Workspace from "./pages/Workspace";
 import Organization from "./pages/Organization";
 import Admin from "./pages/Admin";
 import TaskImport from "./pages/TaskImport";
+import Messages from "./pages/Messages";
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
 import NotFound from "./pages/NotFound";
