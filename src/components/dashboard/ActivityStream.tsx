@@ -2,9 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorCard } from "./QueryErrorCard";
 
 export function ActivityStream() {
-  const { data: logs = [], isLoading } = useQuery({
+  const { data: logs = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["activity_log"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -17,6 +18,10 @@ export function ActivityStream() {
     },
     staleTime: 15_000,
   });
+
+  if (isError) {
+    return <QueryErrorCard title="Activity Stream" onRetry={() => refetch()} />;
+  }
 
   return (
     <Card>

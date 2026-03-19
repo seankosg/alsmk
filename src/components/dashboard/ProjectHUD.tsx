@@ -6,6 +6,7 @@ import { ListTodo, CheckCircle2, Clock, CircleDashed } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { calcPlannedProgress } from "@/lib/mockData";
+import { QueryErrorCard } from "./QueryErrorCard";
 
 const BRACKETS = [
   { label: "0–25%", min: 0, max: 25, color: "hsl(var(--destructive))" },
@@ -19,7 +20,7 @@ const distChartConfig = Object.fromEntries(
 );
 
 export function ProjectHUD() {
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasks = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
       const { data, error } = await supabase.from("tasks").select("*");
@@ -28,6 +29,10 @@ export function ProjectHUD() {
     },
     staleTime: 30_000,
   });
+
+  if (isError) {
+    return <QueryErrorCard title="Project Summary" onRetry={() => refetch()} />;
+  }
 
   if (isLoading) {
     return (

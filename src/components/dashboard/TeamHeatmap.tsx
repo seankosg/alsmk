@@ -8,13 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { QueryErrorCard } from "./QueryErrorCard";
 
 export function TeamHeatmap() {
   const { isAdmin, memberId } = useAuthContext();
   const [selectedPart, setSelectedPart] = useState<{ id: string; name: string; teamName: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
-  const { data: teams = [], isLoading: lt } = useQuery({
+  const { data: teams = [], isLoading: lt, isError: et, refetch: rt } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
       const { data, error } = await supabase.from("teams").select("*").order("name");
@@ -65,6 +66,10 @@ export function TeamHeatmap() {
   });
 
   const isLoading = lt || lp || ltt;
+
+  if (et) {
+    return <QueryErrorCard title="Team Heatmap" onRetry={() => rt()} />;
+  }
 
   const getGapColor = (avgGap: number) => {
     if (avgGap >= 0) return "bg-success/20 border-success/40 text-success";

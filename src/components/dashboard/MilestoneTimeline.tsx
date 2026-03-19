@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Clock, Circle, AlertTriangle, CalendarClock } from "lucide-react";
+import { QueryErrorCard } from "./QueryErrorCard";
 import { differenceInDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 
@@ -14,7 +15,7 @@ const statusConfig: Record<string, { icon: typeof CheckCircle; color: string; bg
 };
 
 export function MilestoneTimeline() {
-  const { data: milestones = [], isLoading } = useQuery({
+  const { data: milestones = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["milestones"],
     queryFn: async () => {
       const { data, error } = await supabase.from("milestones").select("*").order("sort_order");
@@ -23,6 +24,10 @@ export function MilestoneTimeline() {
     },
     staleTime: 30_000,
   });
+
+  if (isError) {
+    return <QueryErrorCard title="Milestone Timeline" onRetry={() => refetch()} />;
+  }
 
   const today = startOfDay(new Date());
 

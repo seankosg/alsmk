@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList } from "rec
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { QueryErrorCard } from "./QueryErrorCard";
 
 const chartConfig = {
   planned: { label: "Planned", color: "hsl(var(--muted-foreground))" },
@@ -21,7 +22,7 @@ export function TeamProgressChart() {
   const [selectedTeam, setSelectedTeam] = useState<{ code: string; id: string; name: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
-  const { data: teams = [], isLoading: lt } = useQuery({
+  const { data: teams = [], isLoading: lt, isError: et, refetch: rt } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
       const { data, error } = await supabase.from("teams").select("*").order("name");
@@ -31,7 +32,7 @@ export function TeamProgressChart() {
     staleTime: 30_000,
   });
 
-  const { data: tasks = [], isLoading: ltt } = useQuery({
+  const { data: tasks = [], isLoading: ltt, isError: ett } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
       const { data, error } = await supabase.from("tasks").select("*");
@@ -40,6 +41,10 @@ export function TeamProgressChart() {
     },
     staleTime: 30_000,
   });
+
+  if (et || ett) {
+    return <QueryErrorCard title="Team Progress" onRetry={() => rt()} />;
+  }
 
   const { data: members = [] } = useQuery({
     queryKey: ["members"],

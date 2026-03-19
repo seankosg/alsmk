@@ -3,10 +3,11 @@ import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
 import "./index.css";
 
-// Auto-update service worker: reload page when new version is available
-registerSW({
+// Auto-update service worker
+const updateSW = registerSW({
   onNeedRefresh() {
-    window.location.reload();
+    // Update SW and reload once (guard prevents loop)
+    updateSW(true);
   },
   onOfflineReady() {
     console.log("App ready for offline use");
