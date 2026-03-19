@@ -2,28 +2,62 @@
 
 ## 요약
 
-Task 입력/수정 시 Category 필드를 기존 **텍스트 입력(Input)**에서 **콤보박스(Combobox)** 형태로 변경합니다. 기존에 DB에 저장된 category 값 목록을 드롭다운으로 보여주고, 목록에서 선택하거나 직접 새 값을 입력할 수 있도록 합니다.
+서머리 태스크에 서브태스크 추가 후, 해당 그룹의 모든 서브태스크 코드(`task_code`)를 **시작날짜(start_date)** 기준으로 재정렬하는 기능을 구현합니다.
 
-## 변경 대상 파일 (3개)
+현재 "Add Subtask" 버튼은 서머리 태스크에도 이미 표시되고 동작합니다. 핵심 변경은 **서브태스크 추가 후 코드 재정렬** 로직입니다.
 
-### 1. 새 컴포넌트: `src/components/tasks/CategoryCombobox.tsx`
-- DB의 `tasks` 테이블에서 고유한 category 값 목록을 조회 (`SELECT DISTINCT category FROM tasks WHERE category IS NOT NULL`)
-- shadcn/ui의 `Popover` + `Command` 컴포넌트를 활용한 콤보박스 구현
-- 기존 값 선택 또는 새 값 직접 입력 가능
-- Props: `value`, `onChange`
+## 변경 파일
 
-### 2. `src/components/tasks/AddTaskDialog.tsx`
-- Category 필드의 `<Input>`을 `<CategoryCombobox>`로 교체
+### `src/components/tasks/AddSubtaskDialog.tsx`
 
-### 3. `src/components/tasks/TaskDetailDialog.tsx`
-- Category 필드의 `<Input>`을 `<CategoryCombobox>`로 교체
+서브태스크 삽입 후 다음 로직 추가:
 
-### 4. `src/components/tasks/AddSubtaskDialog.tsx`
-- Category 필드의 `<Input>`을 `<CategoryCombobox>`로 교체
+1. 해당 parent의 모든 서브태스크를 조회
+2. `start_date` 오름차순으로 정렬
+3. 각 서브태스크의 `task_code`를 `{parent_code}-01`, `{parent_code}-02`, ... 순서로 업데이트
 
-## 동작 방식
-- 클릭하면 기존 category 목록이 드롭다운으로 표시
-- 검색/필터 입력 가능
-- 목록에 없는 값은 직접 타이핑하여 새로 추가 가능
-- 선택 또는 입력 후 값이 category state에 반영
+이 로직은 **기존 single→summary 변환 시**와 **이미 summary인 경우** 모두에 적용됩니다.
+
+```text
+[서브태스크 insert 완료]
+       ↓
+[parent의 모든 서브태스크 SELECT, ORDER BY start_date ASC]
+       ↓
+[각 서브태스크 task_code = parent_code + "-" + 순번(01, 02, ...)]
+```
+
+## 기술 상세
+
+`handleSave` 함수의 insert 성공 후:
+
+```typescript
+// 3. Re-order all sibling subtasks by start_date
+const { data: siblings } = await supabase
+  .from("tasks")
+  .select("id, start_date, task_code")
+  .eq("parent_id", parent.id)
+  .order("start_date", { ascending: true })
+  .order("created_at", { ascending: true });
+
+if (siblings && siblings.length > 0) {
+  const parentTask = await supabase
+    .from("tasks")
+    .select("task_code")
+    .eq("id", parent.id)
+    .single();
+  const parentCode = parentTask.data?.task_code;
+  if (parentCode) {
+    for (let i = 0; i < siblings.length; i++) {
+      const newCode = parentCode + "-" + String(i + 1).padStart(2, "0");
+      if (siblings[i].task_code !== newCode) {
+        await supabase.from("tasks")
+          .update({ task_code: newCode })
+          .eq("id", siblings[i].id);
+      }
+    }
+  }
+}
+```
+
+이 변경으로 서브태스크 추가 시마다 기존+신규 서브태스크가 시작날짜 순서로 코드가 재배정됩니다.
 
