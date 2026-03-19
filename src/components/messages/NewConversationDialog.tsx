@@ -179,7 +179,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: NewConv
           </div>
 
           {/* Member list */}
-          <ScrollArea className="max-h-56">
+          <ScrollArea className="h-[300px]">
             <div className="space-y-0.5">
               {filteredMembers.map((m) => (
                 <label
