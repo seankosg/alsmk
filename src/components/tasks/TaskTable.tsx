@@ -255,7 +255,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
     return result;
   }, [filtered, compareFn, collapsedSummaries]);
 
-  const selectedTask = filtered.find(t => t.id === selectedTaskId) ?? null;
+  const selectedTask = tasks.find(t => t.id === selectedTaskId) ?? null;
 
   const handleInlineProgressSave = async (taskId: string) => {
     const val = parseInt(editingProgressValue, 10);
