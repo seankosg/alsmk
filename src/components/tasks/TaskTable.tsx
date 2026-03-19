@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown, Search } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronRight, ChevronDown } from "lucide-react";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -76,6 +76,24 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
   const [editingProgressValue, setEditingProgressValue] = useState("");
   const [sortKey, setSortKey] = useState<string | null>("taskCode");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [collapsedSummaries, setCollapsedSummaries] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("task-table-collapsed");
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set();
+  });
+
+  const toggleCollapse = useCallback((summaryId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCollapsedSummaries(prev => {
+      const next = new Set(prev);
+      if (next.has(summaryId)) next.delete(summaryId);
+      else next.add(summaryId);
+      localStorage.setItem("task-table-collapsed", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem("task-table-col-widths");
@@ -181,34 +199,63 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
     );
   }
 
-  // Sorting
-  if (sortKey) {
-    filtered.sort((a, b) => {
-      let valA: any, valB: any;
-      switch (sortKey) {
-        case "taskCode": valA = a.task_code ?? ""; valB = b.task_code ?? ""; break;
-        case "category": valA = a.category ?? ""; valB = b.category ?? ""; break;
-        case "subject": valA = a.title; valB = b.title; break;
-        case "actionPlan": valA = a.action_plan ?? ""; valB = b.action_plan ?? ""; break;
-        case "start": valA = a.start_date; valB = b.start_date; break;
-        case "finish": valA = a.end_date; valB = b.end_date; break;
-        case "dday": {
-          valA = a.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(a.end_date), startOfDay(new Date()));
-          valB = b.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(b.end_date), startOfDay(new Date()));
-          break;
-        }
-        case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
-        case "actual": valA = a.current_progress; valB = b.current_progress; break;
-        case "gap": valA = a.current_progress - calcPlannedProgress(a.start_date, a.end_date); valB = b.current_progress - calcPlannedProgress(b.start_date, b.end_date); break;
-        case "actualFinish": valA = a.actual_finish ?? "zzz"; valB = b.actual_finish ?? "zzz"; break;
-        default: return 0;
+  // Group-aware sorting: summaries+independents sorted together, subtasks inserted after their parent
+  const compareFn = useCallback((a: typeof filtered[0], b: typeof filtered[0]) => {
+    if (!sortKey) return 0;
+    let valA: any, valB: any;
+    switch (sortKey) {
+      case "taskCode": valA = a.task_code ?? ""; valB = b.task_code ?? ""; break;
+      case "category": valA = a.category ?? ""; valB = b.category ?? ""; break;
+      case "subject": valA = a.title; valB = b.title; break;
+      case "actionPlan": valA = a.action_plan ?? ""; valB = b.action_plan ?? ""; break;
+      case "start": valA = a.start_date; valB = b.start_date; break;
+      case "finish": valA = a.end_date; valB = b.end_date; break;
+      case "dday": {
+        valA = a.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(a.end_date), startOfDay(new Date()));
+        valB = b.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(b.end_date), startOfDay(new Date()));
+        break;
       }
-      const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }
+      case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
+      case "actual": valA = a.current_progress; valB = b.current_progress; break;
+      case "gap": valA = a.current_progress - calcPlannedProgress(a.start_date, a.end_date); valB = b.current_progress - calcPlannedProgress(b.start_date, b.end_date); break;
+      case "actualFinish": valA = a.actual_finish ?? "zzz"; valB = b.actual_finish ?? "zzz"; break;
+      default: return 0;
+    }
+    const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
+    return sortDir === "asc" ? cmp : -cmp;
+  }, [sortKey, sortDir]);
 
-  const selectedTask = filtered.find(t => t.id === selectedTaskId) ?? null;
+  // Separate into groups, sort, then flatten with hierarchy
+  const grouped = useMemo(() => {
+    const subtasksMap = new Map<string, typeof filtered>();
+    const mainTasks: typeof filtered = [];
+
+    for (const t of filtered) {
+      if (t.parent_id && filtered.some(p => p.id === t.parent_id)) {
+        if (!subtasksMap.has(t.parent_id)) subtasksMap.set(t.parent_id, []);
+        subtasksMap.get(t.parent_id)!.push(t);
+      } else {
+        mainTasks.push(t);
+      }
+    }
+
+    mainTasks.sort(compareFn);
+
+    const result: typeof filtered = [];
+    for (const item of mainTasks) {
+      result.push(item);
+      const children = subtasksMap.get(item.id);
+      if (children) {
+        children.sort(compareFn);
+        if (!collapsedSummaries.has(item.id)) {
+          result.push(...children);
+        }
+      }
+    }
+    return result;
+  }, [filtered, compareFn, collapsedSummaries]);
+
+  const selectedTask = tasks.find(t => t.id === selectedTaskId) ?? null;
 
   const handleInlineProgressSave = async (taskId: string) => {
     const val = parseInt(editingProgressValue, 10);
@@ -325,11 +372,13 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 ? (
+                  {grouped.length === 0 ? (
                     <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
-                  ) : filtered.map((task) => {
+                  ) : grouped.map((task) => {
                     const isSummary = (task as any).is_summary === true;
                     const hasParent = !!(task as any).parent_id;
+                    const hasChildren = isSummary && tasks.some(t => t.parent_id === task.id);
+                    const isCollapsed = collapsedSummaries.has(task.id);
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     const isEditingThis = editingProgressId === task.id;
@@ -344,11 +393,19 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                           : "text-destructive";
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
-                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-muted/30" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
+                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-primary/10 border-l-2 border-l-primary" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className={`truncate ${statusTextColor} ${isSummary ? "font-semibold text-sm" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
                           <span className={`flex items-center gap-1.5 ${hasParent ? "pl-6" : ""}`}>
+                            {hasChildren && (
+                              <button
+                                onClick={(e) => toggleCollapse(task.id, e)}
+                                className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors"
+                              >
+                                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              </button>
+                            )}
                             <span className="truncate">{task.title}</span>
                             {task.issue_flag === "warning" && (
                               <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
