@@ -115,8 +115,8 @@ export function AddTaskDialog() {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Input id="category" value={category} onChange={e => setCategory(e.target.value)} placeholder="Category (default: your team)" maxLength={100} />
+            <Label>Category</Label>
+            <CategoryCombobox value={category} onChange={setCategory} placeholder="Category (default: your team)" />
           </div>
 
           <div className="space-y-2">

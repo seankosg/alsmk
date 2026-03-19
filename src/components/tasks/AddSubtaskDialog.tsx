@@ -150,7 +150,9 @@ export function AddSubtaskDialog({ parent, open, onOpenChange, teams = [], membe
         <div className="space-y-4">
           <div>
             <Label className="text-xs text-muted-foreground">Category</Label>
-            <Input value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g. Design, Engineering" maxLength={100} className="mt-1" />
+            <div className="mt-1">
+              <CategoryCombobox value={category} onChange={setCategory} placeholder="e.g. Design, Engineering" />
+            </div>
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Subject</Label>
