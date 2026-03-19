@@ -416,8 +416,8 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                     return (
                       <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-primary/10 border-l-2 border-l-primary" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
-                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
-                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "font-semibold text-sm" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
+                        <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
+                        <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "font-semibold text-sm" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
                           <span className={`flex items-center gap-1.5 ${hasParent ? "pl-6" : ""}`}>
                             {hasChildren && (
                               <button
@@ -427,7 +427,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                                 {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                               </button>
                             )}
-                            <span className="truncate">{task.title}</span>
+                            <span className="break-words whitespace-normal">{task.title}</span>
                             {isCollapsed && hasChildren && (
                               <span className="shrink-0 text-[10px] text-muted-foreground">({tasks.filter(t => t.parent_id === task.id).length})</span>
                             )}
@@ -439,12 +439,12 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                             )}
                           </span>
                         </TableCell>
-                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.actionPlan }}>
+                        <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.actionPlan }}>
                           {task.action_plan ? (
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="block truncate cursor-default">{task.action_plan}</span>
+                                  <span className="block break-words whitespace-normal cursor-default">{task.action_plan}</span>
                                 </TooltipTrigger>
                                 <TooltipContent side="bottom" className="max-w-sm whitespace-pre-wrap text-xs">
                                   {task.action_plan}
