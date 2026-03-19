@@ -372,11 +372,13 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 ? (
+                  {grouped.length === 0 ? (
                     <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
-                  ) : filtered.map((task) => {
+                  ) : grouped.map((task) => {
                     const isSummary = (task as any).is_summary === true;
                     const hasParent = !!(task as any).parent_id;
+                    const hasChildren = isSummary && tasks.some(t => t.parent_id === task.id);
+                    const isCollapsed = collapsedSummaries.has(task.id);
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     const isEditingThis = editingProgressId === task.id;
@@ -391,11 +393,19 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                           : "text-destructive";
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
-                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-muted/30" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
+                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-primary/10 border-l-2 border-l-primary" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className={`truncate ${statusTextColor} ${isSummary ? "font-semibold text-sm" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
                           <span className={`flex items-center gap-1.5 ${hasParent ? "pl-6" : ""}`}>
+                            {hasChildren && (
+                              <button
+                                onClick={(e) => toggleCollapse(task.id, e)}
+                                className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors"
+                              >
+                                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              </button>
+                            )}
                             <span className="truncate">{task.title}</span>
                             {task.issue_flag === "warning" && (
                               <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
