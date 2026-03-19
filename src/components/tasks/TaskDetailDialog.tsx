@@ -475,11 +475,17 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         <TaskComments taskId={task.id} taskAssigneeId={assigneeId} />
 
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-4">
-          {/* Send Message button - always visible regardless of readOnly */}
-          <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
-            <MessageSquare className="mr-1 h-4 w-4" /> Message
-          </Button>
-          {(!readOnly || isSummary) && (
+          <div className="flex gap-2">
+            {/* Send Message button */}
+            <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
+              <MessageSquare className="mr-1 h-4 w-4" /> Message
+            </Button>
+            {/* Add Subtask button — for independent tasks or existing summaries */}
+            {!readOnly && (!task.parent_id) && (
+              <Button variant="outline" size="sm" onClick={() => setAddSubtaskOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" /> Add Subtask
+              </Button>
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={deleting}>
