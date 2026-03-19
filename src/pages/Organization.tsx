@@ -28,6 +28,7 @@ const Organization = () => {
       return data;
     },
     staleTime: Infinity,
+  });
 
   const { data: parts = [] } = useQuery({
     queryKey: ["parts"],
@@ -37,6 +38,7 @@ const Organization = () => {
       return data;
     },
     staleTime: Infinity,
+  });
 
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
@@ -46,6 +48,7 @@ const Organization = () => {
       return data;
     },
     staleTime: Infinity,
+  });
 
   // Filter out system admin accounts (no team) from org chart
   const orgMembers = members.filter(m => m.team_id !== null);
