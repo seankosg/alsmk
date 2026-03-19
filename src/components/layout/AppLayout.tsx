@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef } from "react";
+import hyundaiLogo from "@/assets/hyundai-logo.png";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
