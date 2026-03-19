@@ -31,6 +31,9 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime"],
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "@radix-ui/react-dropdown-menu", "@radix-ui/react-context"],
+  },
+  optimizeDeps: {
+    include: ["react", "react-dom", "react/jsx-runtime"],
   },
 }));
