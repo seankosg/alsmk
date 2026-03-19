@@ -427,7 +427,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                                 {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                               </button>
                             )}
-                            <span className="truncate">{task.title}</span>
+                            <span className="break-words whitespace-normal">{task.title}</span>
                             {isCollapsed && hasChildren && (
                               <span className="shrink-0 text-[10px] text-muted-foreground">({tasks.filter(t => t.parent_id === task.id).length})</span>
                             )}
