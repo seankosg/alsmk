@@ -14,10 +14,12 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Users } from "lucide-react";
+import { Trash2, Users, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { TaskComments } from "./TaskComments";
+import { SendMessageDialog } from "@/components/messages/SendMessageDialog";
 
 interface Task {
   id: string;
@@ -55,6 +57,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const auth = useAuthContext();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sendMsgOpen, setSendMsgOpen] = useState(false);
 
   // Editable fields
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -197,8 +200,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <code className="text-sm text-muted-foreground">{task.task_code}</code>
@@ -407,7 +411,15 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           )}
         </div>
 
+        {/* Comments Section - always visible */}
+        <Separator />
+        <TaskComments taskId={task.id} taskAssigneeId={task.assignee_id} />
+
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-4">
+          {/* Send Message button - always visible regardless of readOnly */}
+          <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
+            <MessageSquare className="mr-1 h-4 w-4" /> Message
+          </Button>
           {!readOnly && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -443,5 +455,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <SendMessageDialog
+      open={sendMsgOpen}
+      onOpenChange={setSendMsgOpen}
+      taskId={task.id}
+      taskCode={task.task_code}
+      taskTitle={task.title}
+      taskIssueFlag={task.issue_flag}
+    />
+    </>
   );
 }
