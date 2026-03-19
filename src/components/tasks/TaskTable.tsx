@@ -407,6 +407,9 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                               </button>
                             )}
                             <span className="truncate">{task.title}</span>
+                            {isCollapsed && hasChildren && (
+                              <span className="shrink-0 text-[10px] text-muted-foreground">({tasks.filter(t => t.parent_id === task.id).length})</span>
+                            )}
                             {task.issue_flag === "warning" && (
                               <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
                             )}
