@@ -146,6 +146,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
     setSaving(true);
     try {
       const { error } = await supabase.from("tasks").update({
+        title: title.trim(),
+        category: category.trim() || null,
+        team_id: teamId,
         start_date: startDate,
         end_date: endDate,
         current_progress: currentProgress,
