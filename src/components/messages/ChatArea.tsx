@@ -148,6 +148,23 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
 
   return (
     <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {members.filter((m) => m.id !== memberId).map((m) => m.name).join(", ") || "대화"}
+          </span>
+          <span className="text-xs text-muted-foreground">({members.length}명)</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setMembersDialogOpen(true)}
+          title="멤버 관리"
+        >
+          <Users className="h-4 w-4" />
+        </Button>
+      </div>
       <ScrollArea className="flex-1 p-4" ref={scrollRef as any}>
         <div className="space-y-3">
           {isLoading && <p className="text-sm text-muted-foreground text-center">Loading...</p>}
