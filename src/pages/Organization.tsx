@@ -45,9 +45,7 @@ const Organization = () => {
       if (error) throw error;
       return data;
     },
-    staleTime: 5 * 60_000,
-    gcTime: 10 * 60_000,
-  });
+    staleTime: Infinity,
 
   // Filter out system admin accounts (no team) from org chart
   const orgMembers = members.filter(m => m.team_id !== null);
