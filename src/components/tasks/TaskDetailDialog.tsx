@@ -39,6 +39,7 @@ interface Task {
   issue_flag: "normal" | "warning" | "critical";
   issue_type: string | null;
   issue_description: string | null;
+  parent_id: string | null;
 }
 
 interface LookupItem { id: string; name: string; [key: string]: any; }
