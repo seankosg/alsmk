@@ -36,9 +36,7 @@ const Organization = () => {
       if (error) throw error;
       return data;
     },
-    staleTime: 5 * 60_000,
-    gcTime: 10 * 60_000,
-  });
+    staleTime: Infinity,
 
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
