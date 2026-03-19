@@ -97,22 +97,8 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     });
   }, []);
 
-  // Respond to allCollapsed prop toggle
-  const [prevAllCollapsed, setPrevAllCollapsed] = useState(allCollapsed);
-  if (allCollapsed !== prevAllCollapsed) {
-    setPrevAllCollapsed(allCollapsed);
-    if (allCollapsed) {
-      // Collapse all summaries
-      const summaryIds = (tasks ?? []).filter((t: any) => t.is_summary).map((t: any) => t.id);
-      const next = new Set(summaryIds);
-      localStorage.setItem("task-table-collapsed", JSON.stringify([...next]));
-      setCollapsedSummaries(next);
-    } else {
-      // Expand all
-      localStorage.setItem("task-table-collapsed", JSON.stringify([]));
-      setCollapsedSummaries(new Set());
-    }
-  }
+  // allCollapsed toggle ref to detect changes
+  const prevAllCollapsedRef = useRef(allCollapsed);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
