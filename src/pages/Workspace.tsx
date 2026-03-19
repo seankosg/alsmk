@@ -20,6 +20,7 @@ const Workspace = () => {
   const { isAdmin, memberId } = useAuthContext();
   const [filterMode, setFilterMode] = useState<"mine" | "team">("mine");
   const [generating, setGenerating] = useState(false);
+  const [allCollapsed, setAllCollapsed] = useState(false);
 
   const { data: myMember } = useQuery({
     queryKey: ["my_member", memberId],
