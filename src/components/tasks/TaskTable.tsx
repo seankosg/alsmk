@@ -147,7 +147,22 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     staleTime: 30_000,
   });
 
-  const { data: members = [] } = useQuery({
+  // Respond to allCollapsed prop toggle
+  useEffect(() => {
+    if (allCollapsed === prevAllCollapsedRef.current) return;
+    prevAllCollapsedRef.current = allCollapsed;
+    if (allCollapsed) {
+      const summaryIds = tasks.filter((t: any) => t.is_summary).map((t: any) => t.id);
+      const next = new Set(summaryIds);
+      localStorage.setItem("task-table-collapsed", JSON.stringify([...next]));
+      setCollapsedSummaries(next);
+    } else {
+      localStorage.setItem("task-table-collapsed", JSON.stringify([]));
+      setCollapsedSummaries(new Set());
+    }
+  }, [allCollapsed, tasks]);
+
+
     queryKey: ["members"],
     queryFn: async () => {
       const { data, error } = await supabase.from("members").select("id, name, team_id, is_pm");
