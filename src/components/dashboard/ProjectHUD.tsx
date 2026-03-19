@@ -1,10 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { ListTodo, CheckCircle2, Clock, CircleDashed } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { calcPlannedProgress } from "@/lib/mockData";
+
+const BRACKETS = [
+  { label: "0–25%", min: 0, max: 25, color: "hsl(var(--destructive))" },
+  { label: "26–50%", min: 26, max: 50, color: "hsl(var(--warning))" },
+  { label: "51–75%", min: 51, max: 75, color: "hsl(var(--info))" },
+  { label: "76–100%", min: 76, max: 100, color: "hsl(var(--success))" },
+];
+
+const distChartConfig = Object.fromEntries(
+  BRACKETS.map((b) => [b.label, { label: b.label, color: b.color }])
+);
 
 export function ProjectHUD() {
   const { data: tasks = [], isLoading } = useQuery({
@@ -19,8 +31,8 @@ export function ProjectHUD() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {Array.from({ length: 2 }).map((_, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i}><CardContent className="pt-6"><Skeleton className="h-32 w-full" /></CardContent></Card>
         ))}
       </div>
@@ -52,31 +64,38 @@ export function ProjectHUD() {
     { label: "Not Started", value: notStarted, icon: CircleDashed, color: "text-muted-foreground" },
   ];
 
+  // Task distribution
+  const distribution = BRACKETS.map((b) => ({
+    name: b.label,
+    value: tasks.filter((t) => t.current_progress >= b.min && t.current_progress <= b.max).length,
+    color: b.color,
+  }));
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* Donut Chart Card */}
       <Card>
-        <CardContent className="flex flex-col items-center justify-center pt-6">
-          <div className="h-28 w-28 relative">
+        <CardContent className="flex flex-col items-center justify-center pt-6 pb-4">
+          <div className="h-36 w-36 relative">
             <ResponsiveContainer>
               <PieChart>
-                <Pie data={plannedDonutData} cx="50%" cy="50%" innerRadius={44} outerRadius={52} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
+                <Pie data={plannedDonutData} cx="50%" cy="50%" innerRadius={56} outerRadius={66} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
                   <Cell fill="hsl(38, 90%, 50%)" />
                   <Cell fill="hsl(220, 20%, 18%)" />
                 </Pie>
-                <Pie data={actualDonutData} cx="50%" cy="50%" innerRadius={28} outerRadius={40} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
+                <Pie data={actualDonutData} cx="50%" cy="50%" innerRadius={36} outerRadius={50} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
                   <Cell fill="hsl(215, 80%, 55%)" />
                   <Cell fill="hsl(220, 20%, 18%)" />
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center leading-tight">
-              <span className={`text-lg font-bold font-mono ${gap >= 0 ? "text-success" : "text-destructive"}`}>
+              <span className={`text-xl font-bold font-mono ${gap >= 0 ? "text-success" : "text-destructive"}`}>
                 {gap > 0 ? "+" : ""}{gap}%p
               </span>
             </div>
           </div>
-          <div className="mt-2 flex flex-col items-center gap-0.5 text-[10px]">
+          <div className="mt-1 flex flex-col items-center gap-0.5 text-[10px]">
             <div className="flex items-center gap-3 text-muted-foreground">
               <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(215, 80%, 55%)" }} />Actual {avgProgress}%</span>
               <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(38, 90%, 50%)" }} />Plan {avgPlanned}%</span>
@@ -98,6 +117,49 @@ export function ProjectHUD() {
                 </div>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Task Distribution Card */}
+      <Card>
+        <CardHeader className="pb-1 pt-4 px-4">
+          <CardTitle className="text-xs text-muted-foreground">Task Distribution</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 pt-0">
+          <div className="flex items-center gap-3">
+            <ChartContainer config={distChartConfig} className="h-[140px] w-[140px] shrink-0">
+              <PieChart>
+                <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                <Pie
+                  data={distribution}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={38}
+                  outerRadius={62}
+                  strokeWidth={2}
+                  stroke="hsl(var(--card))"
+                >
+                  {distribution.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+            <div className="space-y-1.5 flex-1 min-w-0">
+              {distribution.map((d) => (
+                <div key={d.name} className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-sm shrink-0" style={{ backgroundColor: d.color }} />
+                  <span className="text-[10px] text-muted-foreground flex-1">{d.name}</span>
+                  <span className="text-[10px] font-mono font-semibold">
+                    {d.value}
+                    <span className="text-muted-foreground font-normal ml-0.5">
+                      ({totalTasks > 0 ? Math.round((d.value / totalTasks) * 100) : 0}%)
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
