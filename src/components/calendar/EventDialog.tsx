@@ -68,6 +68,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
   const [endDate, setEndDate] = useState("");
   const [eventType, setEventType] = useState("personal");
   const [saving, setSaving] = useState(false);
+  const [allDay, setAllDay] = useState(true);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("18:00");
 
   // Recurrence fields
   const [recurrence, setRecurrence] = useState<RecurrenceType>("none");
