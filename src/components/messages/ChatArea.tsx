@@ -181,7 +181,8 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
                       />
                     </div>
                   )}
-                  <p className="whitespace-pre-wrap">{msg.message}</p>
+                    <p className="whitespace-pre-wrap">{msg.message}</p>
+                  </div>
                 </div>
               </div>
             );
