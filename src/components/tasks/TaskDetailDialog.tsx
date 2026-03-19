@@ -240,7 +240,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               </Badge>
             )}
           </DialogTitle>
-          {!readOnly && (!task.parent_id) && (
+          {(!readOnly || isSummary) && (!task.parent_id) && (
             <Button variant="outline" size="sm" onClick={() => setAddSubtaskOpen(true)} className="shrink-0">
               <Plus className="mr-1 h-4 w-4" /> Add Subtask
             </Button>
