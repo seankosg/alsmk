@@ -155,6 +155,7 @@ const Workspace = () => {
             title,
             team_id: teamId,
             part_id: partId,
+            assignee_id: assigneeId,
             start_date: startDate,
             end_date: endDate,
             current_progress: actualProgress,
