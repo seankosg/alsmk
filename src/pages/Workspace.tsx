@@ -241,6 +241,13 @@ const Workspace = () => {
             <ListTree className="mr-2 h-4 w-4" />
             {generating ? "Generating..." : isAdminOrPm ? "Generate Summaries" : "Generate Summaries (내 태스크)"}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setAllCollapsed(prev => !prev)}
+          >
+            <ChevronsUpDown className="mr-2 h-4 w-4" />
+            {allCollapsed ? "Expand All" : "Collapse All"}
+          </Button>
           <Button variant="outline" onClick={() => navigate("/tasks/import")}>
             <Upload className="mr-2 h-4 w-4" /> Import
           </Button>
