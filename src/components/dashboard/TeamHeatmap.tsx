@@ -15,7 +15,7 @@ export function TeamHeatmap() {
   const [selectedPart, setSelectedPart] = useState<{ id: string; name: string; teamName: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
-  const { data: teams = [], isLoading: lt } = useQuery({
+  const { data: teams = [], isLoading: lt, isError: et, refetch: rt } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
       const { data, error } = await supabase.from("teams").select("*").order("name");
