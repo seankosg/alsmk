@@ -17,6 +17,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAdmin, isAdminOrPm, memberName, signOut } = useAuthContext();
+  const { unreadCount } = useUnreadMessages();
 
   const navItems = [
     { title: "Project Dashboard", url: "/", icon: LayoutDashboard },
