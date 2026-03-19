@@ -201,6 +201,16 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const handleDelete = async () => {
     setDeleting(true);
     try {
+      // If summary, detach subtasks first
+      if (isSummary) {
+        const subtaskIds = allTasks.filter(t => t.parent_id === task.id).map(t => t.id);
+        if (subtaskIds.length > 0) {
+          const { error: detachError } = await supabase.from("tasks").update({
+            parent_id: null,
+          } as any).in("id", subtaskIds);
+          if (detachError) throw detachError;
+        }
+      }
       const { error } = await supabase.from("tasks").delete().eq("id", task.id);
       if (error) throw error;
       toast.success("Task deleted.");
