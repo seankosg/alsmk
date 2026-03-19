@@ -66,7 +66,7 @@ interface TaskTableProps {
   allCollapsed?: boolean;
 }
 
-export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
+export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTableProps) {
   const { isAdmin, memberId } = useAuthContext();
   const queryClient = useQueryClient();
   const [teamFilter, setTeamFilter] = useState<string>("all");
