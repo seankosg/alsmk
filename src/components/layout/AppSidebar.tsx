@@ -48,7 +48,7 @@ export function AppSidebar() {
                 ALSMK
               </span>
               {memberName && (
-                <Badge variant="secondary" className="text-[10px] font-semibold bg-primary/15 text-primary border-primary/30 truncate max-w-[120px]">
+                <Badge variant="secondary" className="text-xs font-semibold bg-primary text-white border-primary/30 truncate max-w-[140px] px-2.5 py-0.5">
                   {memberName}
                 </Badge>
               )}
