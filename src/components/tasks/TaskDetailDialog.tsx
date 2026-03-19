@@ -148,6 +148,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         issue_flag: issueFlag,
         issue_type: issueFlag !== "normal" ? (issueType.trim() || null) : null,
         issue_description: issueFlag !== "normal" ? (issueDescription.trim() || null) : null,
+        assignee_id: assigneeId || null,
       }).eq("id", task.id);
 
       if (error) throw error;
