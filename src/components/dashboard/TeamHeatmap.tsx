@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { QueryErrorCard } from "./QueryErrorCard";
 
 export function TeamHeatmap() {
   const { isAdmin, memberId } = useAuthContext();
