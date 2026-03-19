@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { CategoryCombobox } from "./CategoryCombobox";
 
 export function AddTaskDialog() {
   const { memberId } = useAuthContext();
