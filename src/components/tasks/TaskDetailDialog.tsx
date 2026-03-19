@@ -486,6 +486,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                 <Plus className="mr-1 h-4 w-4" /> Add Subtask
               </Button>
             )}
+          </div>
+          {(!readOnly || isSummary) && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={deleting}>
