@@ -86,6 +86,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
       setEventDate(event.event_date);
       setEndDate(event.end_date ?? "");
       setEventType(event.event_type);
+      setAllDay(event.all_day);
+      setStartTime(event.start_time ?? "09:00");
+      setEndTime(event.end_time ?? "18:00");
       setRecurrence("none");
       setRecurrenceUntil("");
     } else {
@@ -94,6 +97,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
       setEventDate(defaultDate);
       setEndDate("");
       setEventType("personal");
+      setAllDay(true);
+      setStartTime("09:00");
+      setEndTime("18:00");
       setRecurrence("none");
       setRecurrenceUntil("");
     }
