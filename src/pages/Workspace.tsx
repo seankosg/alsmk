@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { Button } from "@/components/ui/button";
-import { Upload, FileDown, ListTree } from "lucide-react";
+import { Upload, FileDown, ListTree, ChevronsUpDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ const Workspace = () => {
   const { isAdmin, memberId } = useAuthContext();
   const [filterMode, setFilterMode] = useState<"mine" | "team">("mine");
   const [generating, setGenerating] = useState(false);
+  const [allCollapsed, setAllCollapsed] = useState(false);
 
   const { data: myMember } = useQuery({
     queryKey: ["my_member", memberId],
@@ -240,6 +241,13 @@ const Workspace = () => {
             <ListTree className="mr-2 h-4 w-4" />
             {generating ? "Generating..." : isAdminOrPm ? "Generate Summaries" : "Generate Summaries (내 태스크)"}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setAllCollapsed(prev => !prev)}
+          >
+            <ChevronsUpDown className="mr-2 h-4 w-4" />
+            {allCollapsed ? "Expand All" : "Collapse All"}
+          </Button>
           <Button variant="outline" onClick={() => navigate("/tasks/import")}>
             <Upload className="mr-2 h-4 w-4" /> Import
           </Button>
@@ -259,7 +267,7 @@ const Workspace = () => {
         </Tabs>
       )}
 
-      <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} />
+      <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} allCollapsed={allCollapsed} />
     </div>
   );
 };

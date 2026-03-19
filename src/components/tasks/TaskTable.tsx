@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronRight, ChevronDown } from "lucide-react";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
@@ -62,9 +62,11 @@ interface TaskTableProps {
   filterMine?: boolean;
   /** "mine" = only my assigned tasks, "team" = my team's tasks, undefined = all (legacy behavior) */
   filterMode?: "mine" | "team";
+  /** When toggled, collapse or expand all summary tasks */
+  allCollapsed?: boolean;
 }
 
-export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
+export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTableProps) {
   const { isAdmin, memberId } = useAuthContext();
   const queryClient = useQueryClient();
   const [teamFilter, setTeamFilter] = useState<string>("all");
@@ -94,6 +96,10 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
       return next;
     });
   }, []);
+
+  // allCollapsed toggle ref to detect changes
+  const prevAllCollapsedRef = useRef(allCollapsed);
+
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem("task-table-col-widths");
@@ -140,6 +146,21 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
     },
     staleTime: 30_000,
   });
+
+  // Respond to allCollapsed prop toggle
+  useEffect(() => {
+    if (allCollapsed === prevAllCollapsedRef.current) return;
+    prevAllCollapsedRef.current = allCollapsed;
+    if (allCollapsed) {
+      const summaryIds = tasks.filter((t: any) => t.is_summary).map((t: any) => t.id);
+      const next = new Set(summaryIds);
+      localStorage.setItem("task-table-collapsed", JSON.stringify([...next]));
+      setCollapsedSummaries(next);
+    } else {
+      localStorage.setItem("task-table-collapsed", JSON.stringify([]));
+      setCollapsedSummaries(new Set());
+    }
+  }, [allCollapsed, tasks]);
 
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
