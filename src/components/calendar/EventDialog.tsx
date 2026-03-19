@@ -155,6 +155,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
             end_date: endDate || null,
             event_type: eventType,
             created_by: memberId,
+            all_day: allDay,
+            start_time: allDay ? null : startTime || null,
+            end_time: allDay ? null : endTime || null,
           };
           const { error } = await supabase.from("calendar_events").insert(data);
           if (error) throw error;
