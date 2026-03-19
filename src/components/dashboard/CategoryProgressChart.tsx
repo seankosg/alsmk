@@ -118,7 +118,7 @@ export function CategoryProgressChart() {
   };
 
   const behindTasks = selectedCategory
-    ? tasks
+    ? filteredTasks
         .filter(t => (t.category || "Uncategorized") === selectedCategory)
         .map(t => {
           const planned = calcPlannedProgress(t.start_date, t.end_date);
