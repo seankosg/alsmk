@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { ListTodo, AlertTriangle, TrendingUp } from "lucide-react";
+import { ListTodo, CheckCircle2, Clock, CircleDashed } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { calcPlannedProgress } from "@/lib/mockData";
 
 export function ProjectHUD() {
-  const { data: tasks = [], isLoading: loadingTasks } = useQuery({
+  const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
       const { data, error } = await supabase.from("tasks").select("*");
@@ -17,11 +17,11 @@ export function ProjectHUD() {
     staleTime: 30_000,
   });
 
-  if (loadingTasks) {
+  if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}><CardContent className="pt-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Card key={i}><CardContent className="pt-6"><Skeleton className="h-32 w-full" /></CardContent></Card>
         ))}
       </div>
     );
@@ -30,8 +30,11 @@ export function ProjectHUD() {
   const totalTasks = tasks.length;
   const avgProgress = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + t.current_progress, 0) / totalTasks) : 0;
   const avgPlanned = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / totalTasks) : 0;
-  const activeIssues = tasks.filter(t => t.issue_flag !== "normal").length;
-  const completionRate = totalTasks > 0 ? Math.round(tasks.filter(t => t.current_progress >= 90).length / totalTasks * 100) : 0;
+  const gap = avgProgress - avgPlanned;
+
+  const completed = tasks.filter(t => t.current_progress >= 100).length;
+  const inProgress = tasks.filter(t => t.current_progress > 0 && t.current_progress < 100).length;
+  const notStarted = tasks.filter(t => t.current_progress === 0).length;
 
   const actualDonutData = [
     { name: "Actual", value: avgProgress },
@@ -42,8 +45,16 @@ export function ProjectHUD() {
     { name: "Remaining", value: 100 - avgPlanned },
   ];
 
+  const summaryItems = [
+    { label: "Total", value: totalTasks, icon: ListTodo, color: "text-foreground" },
+    { label: "Completed", value: completed, icon: CheckCircle2, color: "text-success" },
+    { label: "In Progress", value: inProgress, icon: Clock, color: "text-primary" },
+    { label: "Not Started", value: notStarted, icon: CircleDashed, color: "text-muted-foreground" },
+  ];
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Donut Chart Card */}
       <Card>
         <CardContent className="flex flex-col items-center justify-center pt-6">
           <div className="h-28 w-28 relative">
@@ -60,7 +71,9 @@ export function ProjectHUD() {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center leading-tight">
-              <span className="text-lg font-bold font-mono">{avgProgress}%</span>
+              <span className={`text-lg font-bold font-mono ${gap >= 0 ? "text-success" : "text-destructive"}`}>
+                {gap > 0 ? "+" : ""}{gap}%p
+              </span>
             </div>
           </div>
           <div className="mt-2 flex flex-col items-center gap-0.5 text-[10px]">
@@ -68,50 +81,24 @@ export function ProjectHUD() {
               <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(215, 80%, 55%)" }} />Actual {avgProgress}%</span>
               <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(38, 90%, 50%)" }} />Plan {avgPlanned}%</span>
             </div>
-            {(() => {
-              const gap = avgProgress - avgPlanned;
-              const isAhead = gap >= 0;
-              return (
-                <span className={`font-mono font-semibold ${isAhead ? "text-success" : "text-destructive"}`}>
-                  Gap {isAhead ? "+" : ""}{gap}%p
-                </span>
-              );
-            })()}
           </div>
         </CardContent>
       </Card>
 
+      {/* Task Summary Card */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <ListTodo className="h-3.5 w-3.5" /> Total Tasks
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <span className="text-3xl font-bold font-mono">{totalTasks}</span>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" /> Active Issues
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <span className="text-3xl font-bold font-mono text-warning">{activeIssues}</span>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" /> Completion Rate
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <span className="text-3xl font-bold font-mono text-success">{completionRate}%</span>
-          <p className="text-xs text-muted-foreground mt-1">≥90% progress</p>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 gap-4">
+            {summaryItems.map((item) => (
+              <div key={item.label} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <item.icon className={`h-5 w-5 shrink-0 ${item.color}`} />
+                <div>
+                  <span className={`text-2xl font-bold font-mono ${item.color}`}>{item.value}</span>
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>
