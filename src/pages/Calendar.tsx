@@ -23,6 +23,7 @@ interface CalendarEvent {
   all_day: boolean;
   start_time: string | null;
   end_time: string | null;
+  recurrence_group_id?: string | null;
 }
 
 export default function Calendar() {
