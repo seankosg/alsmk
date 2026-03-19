@@ -267,7 +267,7 @@ const Workspace = () => {
         </Tabs>
       )}
 
-      <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} />
+      <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} allCollapsed={allCollapsed} />
     </div>
   );
 };
