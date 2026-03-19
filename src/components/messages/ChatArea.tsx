@@ -7,8 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { TaskCard } from "./TaskCard";
 import { TaskSearchPopover } from "./TaskSearchPopover";
+import { ManageMembersDialog } from "./ManageMembersDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
-import { Send, Paperclip, Trash2 } from "lucide-react";
+import { Send, Paperclip, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -25,6 +26,7 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
   const [sending, setSending] = useState(false);
   const [referencedTaskId, setReferencedTaskId] = useState<string | null>(null);
   const [taskSearchOpen, setTaskSearchOpen] = useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: messages = [], isLoading } = useQuery({
@@ -146,6 +148,23 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
 
   return (
     <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {members.filter((m) => m.id !== memberId).map((m) => m.name).join(", ") || "대화"}
+          </span>
+          <span className="text-xs text-muted-foreground">({members.length}명)</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setMembersDialogOpen(true)}
+          title="멤버 관리"
+        >
+          <Users className="h-4 w-4" />
+        </Button>
+      </div>
       <ScrollArea className="flex-1 p-4" ref={scrollRef as any}>
         <div className="space-y-3">
           {isLoading && <p className="text-sm text-muted-foreground text-center">Loading...</p>}
@@ -230,6 +249,13 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
           </Button>
         </div>
       </div>
+
+      <ManageMembersDialog
+        open={membersDialogOpen}
+        onOpenChange={setMembersDialogOpen}
+        conversationId={conversationId}
+        currentMembers={members}
+      />
     </div>
   );
 }
