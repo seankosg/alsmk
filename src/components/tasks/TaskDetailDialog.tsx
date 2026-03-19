@@ -416,6 +416,10 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         <TaskComments taskId={task.id} taskAssigneeId={task.assignee_id} />
 
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-4">
+          {/* Send Message button - always visible regardless of readOnly */}
+          <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
+            <MessageSquare className="mr-1 h-4 w-4" /> Message
+          </Button>
           {!readOnly && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
