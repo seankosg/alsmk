@@ -96,6 +96,24 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
       return next;
     });
   }, []);
+
+  // Respond to allCollapsed prop toggle
+  const [prevAllCollapsed, setPrevAllCollapsed] = useState(allCollapsed);
+  if (allCollapsed !== prevAllCollapsed) {
+    setPrevAllCollapsed(allCollapsed);
+    if (allCollapsed) {
+      // Collapse all summaries
+      const summaryIds = (tasks ?? []).filter((t: any) => t.is_summary).map((t: any) => t.id);
+      const next = new Set(summaryIds);
+      localStorage.setItem("task-table-collapsed", JSON.stringify([...next]));
+      setCollapsedSummaries(next);
+    } else {
+      // Expand all
+      localStorage.setItem("task-table-collapsed", JSON.stringify([]));
+      setCollapsedSummaries(new Set());
+    }
+  }
+
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem("task-table-col-widths");
