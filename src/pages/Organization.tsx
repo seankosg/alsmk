@@ -75,7 +75,11 @@ const Organization = () => {
           <h1 className="text-2xl font-bold tracking-tight">Organization</h1>
           <p className="text-sm text-muted-foreground">Project organization chart</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border">
             <Users className="h-4 w-4 text-primary" />
             <span className="text-sm font-mono font-medium">{totalMembers}<span className="text-muted-foreground">/{totalTO}</span></span>
