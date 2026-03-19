@@ -110,9 +110,11 @@ const Workspace = () => {
           ? groupTasks.reduce((max, t) => (t.actual_finish! > max ? t.actual_finish! : max), groupTasks[0].actual_finish!)
           : null;
 
-        // Team & part: use first subtask's
+        // Team & part & assignee: use first subtask's (assignee only if all same)
         const teamId = groupTasks[0].team_id;
         const partId = groupTasks[0].part_id;
+        const allSameAssignee = groupTasks.every(t => t.assignee_id === groupTasks[0].assignee_id);
+        const assigneeId = allSameAssignee ? groupTasks[0].assignee_id : null;
 
         // Check if summary already exists for this title
         const existingSummary = tasks.find(t => (t as any).is_summary && t.title === title);
