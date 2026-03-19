@@ -126,11 +126,6 @@ export function AppSidebar() {
           <LogOut className="h-3.5 w-3.5 shrink-0" />
           {!collapsed && <span className="ml-1">Sign Out</span>}
         </Button>
-        {!collapsed && (
-          <p className="text-[10px] text-muted-foreground/50 text-center pt-1">
-            © {new Date().getFullYear()} Sean B. KO. All rights reserved.
-          </p>
-        )}
       </SidebarFooter>
     </Sidebar>
   );
