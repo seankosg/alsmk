@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CategoryComboboxProps {
@@ -86,7 +86,7 @@ export function CategoryCombobox({ value, onChange, placeholder = "Select or typ
                   }}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Create &quot;{search}&quot;
+                  Create "{search}"
                 </CommandItem>
               )}
             </CommandGroup>
@@ -96,5 +96,3 @@ export function CategoryCombobox({ value, onChange, placeholder = "Select or typ
     </Popover>
   );
 }
-
-import { Plus } from "lucide-react";
