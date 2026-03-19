@@ -324,6 +324,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                   {filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
                   ) : filtered.map((task) => {
+                    const isSummary = (task as any).is_summary === true;
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     const isEditingThis = editingProgressId === task.id;
@@ -338,11 +339,14 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                           : "text-destructive";
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
-                      <TableRow key={task.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedTaskId(task.id)}>
+                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-muted/30 font-bold" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className={`font-mono text-xs truncate ${statusTextColor}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className={`text-sm font-medium truncate ${statusTextColor}`} style={{ width: colWidths.subject }}>
                           <span className="flex items-center gap-1.5">
+                            {isSummary && (
+                              <Badge variant="secondary" className="shrink-0 text-[10px] px-1.5 py-0">Summary</Badge>
+                            )}
                             <span className="truncate">{task.title}</span>
                             {task.issue_flag === "warning" && (
                               <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
@@ -431,7 +435,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={!isAdmin && selectedTask?.assignee_id !== memberId}
+        readOnly={((selectedTask as any)?.is_summary === true) || (!isAdmin && selectedTask?.assignee_id !== memberId)}
       />
     </>
   );
