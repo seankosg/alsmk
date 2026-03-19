@@ -21,6 +21,7 @@ export function AppSidebar() {
     { title: "Project Dashboard", url: "/", icon: LayoutDashboard },
     { title: "My Dashboard", url: "/my", icon: User },
     { title: "My Workspace", url: "/workspace", icon: Briefcase },
+    { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Organization", url: "/organization", icon: Building2 },
     ...(isAdmin ? [
       { title: "Admin", url: "/admin", icon: Settings },
