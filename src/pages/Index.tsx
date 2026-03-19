@@ -5,7 +5,6 @@ import { TeamProgressChart } from "@/components/dashboard/TeamProgressChart";
 import { CategoryProgressChart } from "@/components/dashboard/CategoryProgressChart";
 import { CriticalIssueBoard } from "@/components/dashboard/CriticalIssueBoard";
 import { BehindScheduleBoard } from "@/components/dashboard/BehindScheduleBoard";
-import { TaskDistributionChart } from "@/components/dashboard/TaskDistributionChart";
 import { UpcomingDeadlines } from "@/components/dashboard/UpcomingDeadlines";
 import { IssueTrendChart } from "@/components/dashboard/IssueTrendChart";
 import { ActivityStream } from "@/components/dashboard/ActivityStream";
@@ -39,10 +38,7 @@ const Index = () => {
         <IssueTrendChart />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <IssueTrendChart />
-        <TeamHeatmap />
-      </div>
+      <TeamHeatmap />
 
       <PartStatusBoard />
 
