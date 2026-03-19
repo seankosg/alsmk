@@ -14,12 +14,13 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Users, MessageSquare } from "lucide-react";
+import { Trash2, Users, MessageSquare, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { TaskComments } from "./TaskComments";
 import { SendMessageDialog } from "@/components/messages/SendMessageDialog";
+import { AddSubtaskDialog } from "./AddSubtaskDialog";
 
 interface Task {
   id: string;
@@ -38,6 +39,7 @@ interface Task {
   issue_flag: "normal" | "warning" | "critical";
   issue_type: string | null;
   issue_description: string | null;
+  parent_id: string | null;
 }
 
 interface LookupItem { id: string; name: string; [key: string]: any; }
@@ -60,6 +62,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sendMsgOpen, setSendMsgOpen] = useState(false);
+  const [addSubtaskOpen, setAddSubtaskOpen] = useState(false);
 
   // Editable fields
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -473,10 +476,18 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         <TaskComments taskId={task.id} taskAssigneeId={assigneeId} />
 
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-4">
-          {/* Send Message button - always visible regardless of readOnly */}
-          <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
-            <MessageSquare className="mr-1 h-4 w-4" /> Message
-          </Button>
+          <div className="flex gap-2">
+            {/* Send Message button */}
+            <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
+              <MessageSquare className="mr-1 h-4 w-4" /> Message
+            </Button>
+            {/* Add Subtask button — for independent tasks or existing summaries */}
+            {!readOnly && (!task.parent_id) && (
+              <Button variant="outline" size="sm" onClick={() => setAddSubtaskOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" /> Add Subtask
+              </Button>
+            )}
+          </div>
           {(!readOnly || isSummary) && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -527,6 +538,15 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       taskTitle={task.title}
       taskIssueFlag={task.issue_flag}
     />
+    {task && (
+      <AddSubtaskDialog
+        parent={{ ...task, is_summary: isSummary, created_by: (task as any).created_by ?? null }}
+        open={addSubtaskOpen}
+        onOpenChange={setAddSubtaskOpen}
+        teams={teams}
+        members={members}
+      />
+    )}
     </>
   );
 }
