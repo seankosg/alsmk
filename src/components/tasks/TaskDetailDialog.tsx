@@ -69,6 +69,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [category, setCategory] = useState("");
+  const [title, setTitle] = useState("");
+  const [teamId, setTeamId] = useState("");
 
   // Notification recipients
   const [notifyRecipients, setNotifyRecipients] = useState<string[]>([]);
@@ -90,6 +93,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       setStartDate(task.start_date);
       setEndDate(task.end_date);
       setAssigneeId(task.assignee_id);
+      setCategory(task.category ?? "");
+      setTitle(task.title);
+      setTeamId(task.team_id);
       setNotifyRecipients([]);
       setShowNotifySection(false);
     }
@@ -140,6 +146,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
     setSaving(true);
     try {
       const { error } = await supabase.from("tasks").update({
+        title: title.trim(),
+        category: category.trim() || null,
+        team_id: teamId,
         start_date: startDate,
         end_date: endDate,
         current_progress: currentProgress,
@@ -220,20 +229,43 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         <div className="space-y-4">
           {/* Read-only info */}
           <div>
-            <p className="text-xs text-muted-foreground">Category</p>
-            <p className="text-sm font-medium">{task.category ?? "—"}</p>
+            <Label className="text-xs text-muted-foreground">Category</Label>
+            <Input
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              placeholder="e.g. Design, Engineering"
+              maxLength={100}
+              disabled={readOnly}
+              className="mt-1"
+            />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Subject</p>
-            <h3 className="text-lg font-semibold">{task.title}</h3>
+            <Label className="text-xs text-muted-foreground">Subject</Label>
+            <Input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Task subject"
+              maxLength={200}
+              disabled={readOnly}
+              className="mt-1 text-lg font-semibold"
+            />
           </div>
 
           <Separator />
 
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xs text-muted-foreground">Team</p>
-              <p className="font-medium">{getTeamName(task.team_id)}</p>
+              <Label className="text-xs text-muted-foreground">Team</Label>
+              <Select value={teamId} onValueChange={setTeamId} disabled={readOnly}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Assignee</Label>
