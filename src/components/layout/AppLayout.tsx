@@ -136,7 +136,7 @@ function RealtimeDmToast({ memberId }: { memberId: string | null }) {
             description: preview,
             action: {
               label: "View",
-              onClick: () => navigate("/messages"),
+              onClick: () => navigate(`/messages?conv=${msg.conversation_id}`),
             },
             duration: 6000,
           });

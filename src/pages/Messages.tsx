@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatArea } from "@/components/messages/ChatArea";
@@ -8,7 +9,16 @@ import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { MessageSquare } from "lucide-react";
 
 export default function Messages() {
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(
+    searchParams.get("conv") || null
+  );
+  useEffect(() => {
+    const conv = searchParams.get("conv");
+    if (conv && conv !== selectedConversation) {
+      setSelectedConversation(conv);
+    }
+  }, [searchParams]);
   const [newConvoOpen, setNewConvoOpen] = useState(false);
   const [taskDialogId, setTaskDialogId] = useState<string | null>(null);
   const queryClient = useQueryClient();
