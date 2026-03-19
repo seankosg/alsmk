@@ -6,7 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /** Parse "YYYY-MM-DD" as local midnight (avoids UTC offset issues with new Date() / parseISO). */
-export function parseLocalDate(dateStr: string): Date {
+export function parseLocalDate(dateStr: string | undefined | null): Date {
+  if (!dateStr) return new Date(NaN);
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
