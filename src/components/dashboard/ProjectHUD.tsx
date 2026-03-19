@@ -20,7 +20,7 @@ const distChartConfig = Object.fromEntries(
 );
 
 export function ProjectHUD() {
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasks = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
       const { data, error } = await supabase.from("tasks").select("*");
@@ -29,6 +29,10 @@ export function ProjectHUD() {
     },
     staleTime: 30_000,
   });
+
+  if (isError) {
+    return <QueryErrorCard title="Project Summary" onRetry={() => refetch()} />;
+  }
 
   if (isLoading) {
     return (
