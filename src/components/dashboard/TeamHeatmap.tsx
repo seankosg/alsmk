@@ -67,6 +67,10 @@ export function TeamHeatmap() {
 
   const isLoading = lt || lp || ltt;
 
+  if (et) {
+    return <QueryErrorCard title="Team Heatmap" onRetry={() => rt()} />;
+  }
+
   const getGapColor = (avgGap: number) => {
     if (avgGap >= 0) return "bg-success/20 border-success/40 text-success";
     if (avgGap >= -10) return "bg-warning/20 border-warning/40 text-warning";
