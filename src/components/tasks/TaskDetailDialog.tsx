@@ -338,12 +338,15 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
 
           <Separator />
 
-          {/* Editable: Actual % */}
+          {/* Editable: Actual % (read-only for summary — auto-calculated from subtasks) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Actual %</Label>
               <span className="font-mono text-sm font-bold">{currentProgress}%</span>
             </div>
+            {isSummary && (
+              <p className="text-xs text-muted-foreground">Auto-calculated from subtasks average.</p>
+            )}
             <Slider
               value={[currentProgress]}
               onValueChange={([v]) => setCurrentProgress(v)}
@@ -351,7 +354,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               max={100}
               step={1}
               className="w-full"
-              disabled={readOnly}
+              disabled={readOnly || isSummary}
             />
             <Progress value={currentProgress} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
