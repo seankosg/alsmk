@@ -162,7 +162,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     }
   }, [allCollapsed, tasks]);
 
-
+  const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
       const { data, error } = await supabase.from("members").select("id, name, team_id, is_pm");
