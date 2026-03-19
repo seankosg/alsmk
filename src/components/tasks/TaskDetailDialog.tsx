@@ -230,7 +230,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between gap-2">
           <DialogTitle className="flex items-center gap-2">
             <code className="text-sm text-muted-foreground">{task.task_code}</code>
             {issueFlag !== "normal" && (
@@ -239,6 +239,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               </Badge>
             )}
           </DialogTitle>
+          {!readOnly && (!task.parent_id) && (
+            <Button variant="outline" size="sm" onClick={() => setAddSubtaskOpen(true)} className="shrink-0">
+              <Plus className="mr-1 h-4 w-4" /> Add Subtask
+            </Button>
+          )}
         </DialogHeader>
 
         <div className="space-y-4">
@@ -484,12 +489,6 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
             <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
               <MessageSquare className="mr-1 h-4 w-4" /> Message
             </Button>
-            {/* Add Subtask button — for independent tasks or existing summaries */}
-            {!readOnly && (!task.parent_id) && (
-              <Button variant="outline" size="sm" onClick={() => setAddSubtaskOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" /> Add Subtask
-              </Button>
-            )}
           </div>
           {(!readOnly || isSummary) && (
             <AlertDialog>
