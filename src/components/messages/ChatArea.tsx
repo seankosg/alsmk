@@ -26,6 +26,7 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
   const [sending, setSending] = useState(false);
   const [referencedTaskId, setReferencedTaskId] = useState<string | null>(null);
   const [taskSearchOpen, setTaskSearchOpen] = useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: messages = [], isLoading } = useQuery({
