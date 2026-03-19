@@ -116,19 +116,56 @@ export function TaskImportComponent() {
     link.click();
   };
 
+  const isValidDate = (y: number, m: number, d: number): boolean => {
+    const dt = new Date(y, m - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+  };
+
+  const fmt = (y: number, m: number, d: number): string =>
+    `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
   const parseDate = (val: any): string => {
     if (!val) return "";
+
+    // Excel serial date number
     if (typeof val === "number") {
       const d = XLSX.SSF.parse_date_code(val);
-      return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+      if (d && isValidDate(d.y, d.m, d.d)) return fmt(d.y, d.m, d.d);
+      return ""; // invalid serial date
     }
+
+    // Already a Date object
+    if (val instanceof Date && !isNaN(val.getTime())) {
+      return fmt(val.getFullYear(), val.getMonth() + 1, val.getDate());
+    }
+
     const s = String(val).trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    const d = new Date(s);
-    if (!isNaN(d.getTime())) {
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    // YYYY-MM-DD
+    const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) {
+      const [, ys, ms, ds] = isoMatch;
+      const y = Number(ys), m = Number(ms), d = Number(ds);
+      if (isValidDate(y, m, d)) return fmt(y, m, d);
+      return ""; // e.g. 2026-09-31
     }
-    return s;
+
+    // M/D/YY or M/D/YYYY
+    const mdyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (mdyMatch) {
+      const [, ms, ds, ys] = mdyMatch;
+      let y = Number(ys), m = Number(ms), d = Number(ds);
+      if (y < 100) y += 2000; // 26 → 2026
+      if (isValidDate(y, m, d)) return fmt(y, m, d);
+      return "";
+    }
+
+    // Fallback: try native Date
+    const dt = new Date(s);
+    if (!isNaN(dt.getTime())) {
+      return fmt(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+    }
+    return "";
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
