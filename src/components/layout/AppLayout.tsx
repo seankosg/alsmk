@@ -96,6 +96,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </main>
           </div>
         </div>
+        <UnreadMessagesDialog />
+        <RealtimeDmToast memberId={auth.memberId} />
       </SidebarProvider>
     </AuthContext.Provider>
   );
