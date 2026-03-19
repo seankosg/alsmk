@@ -199,32 +199,61 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
     );
   }
 
-  // Sorting
-  if (sortKey) {
-    filtered.sort((a, b) => {
-      let valA: any, valB: any;
-      switch (sortKey) {
-        case "taskCode": valA = a.task_code ?? ""; valB = b.task_code ?? ""; break;
-        case "category": valA = a.category ?? ""; valB = b.category ?? ""; break;
-        case "subject": valA = a.title; valB = b.title; break;
-        case "actionPlan": valA = a.action_plan ?? ""; valB = b.action_plan ?? ""; break;
-        case "start": valA = a.start_date; valB = b.start_date; break;
-        case "finish": valA = a.end_date; valB = b.end_date; break;
-        case "dday": {
-          valA = a.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(a.end_date), startOfDay(new Date()));
-          valB = b.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(b.end_date), startOfDay(new Date()));
-          break;
-        }
-        case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
-        case "actual": valA = a.current_progress; valB = b.current_progress; break;
-        case "gap": valA = a.current_progress - calcPlannedProgress(a.start_date, a.end_date); valB = b.current_progress - calcPlannedProgress(b.start_date, b.end_date); break;
-        case "actualFinish": valA = a.actual_finish ?? "zzz"; valB = b.actual_finish ?? "zzz"; break;
-        default: return 0;
+  // Group-aware sorting: summaries+independents sorted together, subtasks inserted after their parent
+  const compareFn = useCallback((a: typeof filtered[0], b: typeof filtered[0]) => {
+    if (!sortKey) return 0;
+    let valA: any, valB: any;
+    switch (sortKey) {
+      case "taskCode": valA = a.task_code ?? ""; valB = b.task_code ?? ""; break;
+      case "category": valA = a.category ?? ""; valB = b.category ?? ""; break;
+      case "subject": valA = a.title; valB = b.title; break;
+      case "actionPlan": valA = a.action_plan ?? ""; valB = b.action_plan ?? ""; break;
+      case "start": valA = a.start_date; valB = b.start_date; break;
+      case "finish": valA = a.end_date; valB = b.end_date; break;
+      case "dday": {
+        valA = a.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(a.end_date), startOfDay(new Date()));
+        valB = b.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(b.end_date), startOfDay(new Date()));
+        break;
       }
-      const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }
+      case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
+      case "actual": valA = a.current_progress; valB = b.current_progress; break;
+      case "gap": valA = a.current_progress - calcPlannedProgress(a.start_date, a.end_date); valB = b.current_progress - calcPlannedProgress(b.start_date, b.end_date); break;
+      case "actualFinish": valA = a.actual_finish ?? "zzz"; valB = b.actual_finish ?? "zzz"; break;
+      default: return 0;
+    }
+    const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
+    return sortDir === "asc" ? cmp : -cmp;
+  }, [sortKey, sortDir]);
+
+  // Separate into groups, sort, then flatten with hierarchy
+  const grouped = useMemo(() => {
+    const subtasksMap = new Map<string, typeof filtered>();
+    const mainTasks: typeof filtered = [];
+
+    for (const t of filtered) {
+      if (t.parent_id && filtered.some(p => p.id === t.parent_id)) {
+        if (!subtasksMap.has(t.parent_id)) subtasksMap.set(t.parent_id, []);
+        subtasksMap.get(t.parent_id)!.push(t);
+      } else {
+        mainTasks.push(t);
+      }
+    }
+
+    mainTasks.sort(compareFn);
+
+    const result: typeof filtered = [];
+    for (const item of mainTasks) {
+      result.push(item);
+      const children = subtasksMap.get(item.id);
+      if (children) {
+        children.sort(compareFn);
+        if (!collapsedSummaries.has(item.id)) {
+          result.push(...children);
+        }
+      }
+    }
+    return result;
+  }, [filtered, compareFn, collapsedSummaries]);
 
   const selectedTask = filtered.find(t => t.id === selectedTaskId) ?? null;
 
