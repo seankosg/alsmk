@@ -540,10 +540,12 @@ export type Database = {
           current_progress: number
           end_date: string
           id: string
+          is_summary: boolean
           issue_description: string | null
           issue_flag: Database["public"]["Enums"]["issue_flag"]
           issue_type: string | null
           milestone_id: string | null
+          parent_id: string | null
           part_id: string | null
           start_date: string
           task_code: string | null
@@ -561,10 +563,12 @@ export type Database = {
           current_progress?: number
           end_date: string
           id?: string
+          is_summary?: boolean
           issue_description?: string | null
           issue_flag?: Database["public"]["Enums"]["issue_flag"]
           issue_type?: string | null
           milestone_id?: string | null
+          parent_id?: string | null
           part_id?: string | null
           start_date: string
           task_code?: string | null
@@ -582,10 +586,12 @@ export type Database = {
           current_progress?: number
           end_date?: string
           id?: string
+          is_summary?: boolean
           issue_description?: string | null
           issue_flag?: Database["public"]["Enums"]["issue_flag"]
           issue_type?: string | null
           milestone_id?: string | null
+          parent_id?: string | null
           part_id?: string | null
           start_date?: string
           task_code?: string | null
@@ -606,6 +612,13 @@ export type Database = {
             columns: ["milestone_id"]
             isOneToOne: false
             referencedRelation: "milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
