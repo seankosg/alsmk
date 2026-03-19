@@ -17,7 +17,8 @@ const Organization = () => {
       if (error) throw error;
       return data?.value ?? "TBD";
     },
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   });
 
   const { data: teams = [], isLoading } = useQuery({
