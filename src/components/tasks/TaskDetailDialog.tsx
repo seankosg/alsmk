@@ -57,6 +57,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const auth = useAuthContext();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sendMsgOpen, setSendMsgOpen] = useState(false);
 
   // Editable fields
   const [currentProgress, setCurrentProgress] = useState(0);
