@@ -20,6 +20,9 @@ interface CalendarEvent {
   event_type: string;
   created_by: string;
   creator_name?: string;
+  all_day: boolean;
+  start_time: string | null;
+  end_time: string | null;
 }
 
 export default function Calendar() {

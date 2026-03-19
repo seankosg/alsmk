@@ -46,35 +46,44 @@ export type Database = {
       }
       calendar_events: {
         Row: {
+          all_day: boolean
           created_at: string
           created_by: string
           description: string | null
           end_date: string | null
+          end_time: string | null
           event_date: string
           event_type: string
           id: string
+          start_time: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          all_day?: boolean
           created_at?: string
           created_by: string
           description?: string | null
           end_date?: string | null
+          end_time?: string | null
           event_date: string
           event_type?: string
           id?: string
+          start_time?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          all_day?: boolean
           created_at?: string
           created_by?: string
           description?: string | null
           end_date?: string | null
+          end_time?: string | null
           event_date?: string
           event_type?: string
           id?: string
+          start_time?: string | null
           title?: string
           updated_at?: string
         }

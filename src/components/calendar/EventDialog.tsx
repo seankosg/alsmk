@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -18,6 +19,9 @@ interface CalendarEvent {
   end_date: string | null;
   event_type: string;
   created_by: string;
+  all_day: boolean;
+  start_time: string | null;
+  end_time: string | null;
 }
 
 interface EventDialogProps {
@@ -64,6 +68,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
   const [endDate, setEndDate] = useState("");
   const [eventType, setEventType] = useState("personal");
   const [saving, setSaving] = useState(false);
+  const [allDay, setAllDay] = useState(true);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("18:00");
 
   // Recurrence fields
   const [recurrence, setRecurrence] = useState<RecurrenceType>("none");
@@ -79,6 +86,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
       setEventDate(event.event_date);
       setEndDate(event.end_date ?? "");
       setEventType(event.event_type);
+      setAllDay(event.all_day);
+      setStartTime(event.start_time ?? "09:00");
+      setEndTime(event.end_time ?? "18:00");
       setRecurrence("none");
       setRecurrenceUntil("");
     } else {
@@ -87,6 +97,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
       setEventDate(defaultDate);
       setEndDate("");
       setEventType("personal");
+      setAllDay(true);
+      setStartTime("09:00");
+      setEndTime("18:00");
       setRecurrence("none");
       setRecurrenceUntil("");
     }
@@ -105,6 +118,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
           end_date: endDate || null,
           event_type: eventType,
           created_by: event.created_by,
+          all_day: allDay,
+          start_time: allDay ? null : startTime || null,
+          end_time: allDay ? null : endTime || null,
         };
         const { error } = await supabase.from("calendar_events").update(data).eq("id", event.id);
         if (error) throw error;
@@ -123,6 +139,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
             end_date: eventDuration > 0 ? format(addDays(new Date(d), eventDuration), "yyyy-MM-dd") : null,
             event_type: eventType,
             created_by: memberId,
+            all_day: allDay,
+            start_time: allDay ? null : startTime || null,
+            end_time: allDay ? null : endTime || null,
           }));
 
           const { error } = await supabase.from("calendar_events").insert(rows);
@@ -136,6 +155,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
             end_date: endDate || null,
             event_type: eventType,
             created_by: memberId,
+            all_day: allDay,
+            start_time: allDay ? null : startTime || null,
+            end_time: allDay ? null : endTime || null,
           };
           const { error } = await supabase.from("calendar_events").insert(data);
           if (error) throw error;
@@ -200,6 +222,24 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={!canEdit} />
             </div>
           </div>
+
+          {/* All-day toggle + time inputs */}
+          <div className="flex items-center gap-3">
+            <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} disabled={!canEdit} />
+            <Label htmlFor="all-day" className="cursor-pointer">하루종일</Label>
+          </div>
+          {!allDay && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>시작 시간 (KST)</Label>
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!canEdit} />
+              </div>
+              <div>
+                <Label>종료 시간 (KST)</Label>
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!canEdit} />
+              </div>
+            </div>
+          )}
           <div>
             <Label>유형</Label>
             <Select value={eventType} onValueChange={setEventType} disabled={!canEdit}>
