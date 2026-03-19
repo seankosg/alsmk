@@ -1,9 +1,12 @@
 import * as XLSX from "xlsx";
 import PptxGenJS from "pptxgenjs";
+import html2canvas from "html2canvas";
 import { supabase } from "@/integrations/supabase/client";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { differenceInCalendarDays, startOfDay, format } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
+
+// ─── Types ─────────────────────────────────────────────────
 
 interface TaskRow {
   id: string;
@@ -24,6 +27,8 @@ interface TaskRow {
 interface TeamRow { id: string; name: string; code: string }
 interface MilestoneRow { id: string; name: string; target_date: string; status: string; sort_order: number }
 interface MemberRow { id: string; name: string }
+
+// ─── Helpers ───────────────────────────────────────────────
 
 async function fetchDashboardData() {
   const [tasksRes, teamsRes, milestonesRes, membersRes] = await Promise.all([
@@ -131,22 +136,52 @@ export async function exportDashboardExcel() {
   XLSX.writeFile(wb, `ALSMK_Report_${dateStr()}.xlsx`);
 }
 
-// ─── PowerPoint Export ──────────────────────────────────────
+// ─── PowerPoint Export (html2canvas capture) ────────────────
+
+const SECTION_LABELS: Record<string, string> = {
+  "milestone-timeline": "Milestone Timeline",
+  "project-hud": "Project HUD (KPI)",
+  "team-progress": "Team Progress",
+  "category-progress": "Category Progress",
+  "behind-schedule": "Behind Schedule",
+  "critical-issues": "Critical Issues",
+  "upcoming-deadlines": "Upcoming Deadlines",
+  "issue-trend": "Issue Trend",
+  "team-heatmap": "Team Heatmap",
+  "part-status": "Part Status Board",
+};
 
 const NAVY = "00205B";
 const BLUE = "1B69B5";
 const WHITE = "FFFFFF";
-const LIGHT_BG = "F0F4F8";
-const RED = "DC2626";
-const AMBER = "D97706";
 const GREEN = "16A34A";
+const AMBER = "D97706";
+const RED = "DC2626";
 
-export async function exportDashboardPptx() {
-  const { tasks, teams, milestones, members } = await fetchDashboardData();
+async function captureElement(exportId: string): Promise<string | null> {
+  const el = document.querySelector(`[data-export-id="${exportId}"]`) as HTMLElement | null;
+  if (!el) return null;
+  try {
+    const canvas = await html2canvas(el, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    return canvas.toDataURL("image/png");
+  } catch (err) {
+    console.error(`Failed to capture ${exportId}:`, err);
+    return null;
+  }
+}
+
+export async function exportDashboardPptxWithCaptures(selectedSections: string[]) {
+  const { tasks } = await fetchDashboardData();
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_16x9";
   pptx.author = "ALSMK Project";
 
+  // === Slide 1: Title + KPI ===
   const totalTasks = tasks.length;
   const avgActual = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + t.current_progress, 0) / totalTasks) : 0;
   const avgPlanned = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / totalTasks) : 0;
@@ -155,7 +190,6 @@ export async function exportDashboardPptx() {
   const inProgress = tasks.filter(t => t.current_progress > 0 && t.current_progress < 100).length;
   const notStarted = tasks.filter(t => t.current_progress === 0).length;
 
-  // === Slide 1: Title ===
   const slide1 = pptx.addSlide();
   slide1.background = { color: NAVY };
   slide1.addText("ALSMK US Electric Steel Mill", { x: 0.8, y: 1.0, w: 8.4, h: 1.0, fontSize: 32, bold: true, color: WHITE, fontFace: "Arial" });
@@ -184,139 +218,82 @@ export async function exportDashboardPptx() {
   ];
   slide1.addTable(kpiData, { x: 0.5, y: 3.6, w: 9.0, colW: [1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.2], border: { type: "none" } });
 
-  // === Slide 2: Milestones ===
-  const slide2 = pptx.addSlide();
-  slide2.background = { color: WHITE };
-  slide2.addText("Milestone Timeline", { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, color: NAVY, fontFace: "Arial" });
+  // === Capture and add section slides ===
+  // Pair small sections side-by-side, full-width for large ones
+  const FULL_WIDTH_SECTIONS = new Set([
+    "milestone-timeline", "project-hud", "team-heatmap", "part-status",
+  ]);
 
-  const msTableHeader: PptxGenJS.TableRow = [
-    { text: "Milestone", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY }, align: "left" } },
-    { text: "Target Date", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "Status", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "D-Day", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-  ];
-  const msTableRows: PptxGenJS.TableRow[] = milestones.map((ms, i) => {
-    const bg = i % 2 === 0 ? LIGHT_BG : WHITE;
-    const statusColor = ms.status === "completed" ? GREEN : ms.status === "delayed" ? RED : ms.status === "in_progress" ? BLUE : "666666";
-    return [
-      { text: ms.name, options: { fontSize: 10, fill: { color: bg }, color: "333333" } },
-      { text: ms.target_date, options: { fontSize: 10, fill: { color: bg }, color: "333333", align: "center" } },
-      { text: ms.status.replace("_", " "), options: { fontSize: 10, fill: { color: bg }, color: statusColor, bold: true, align: "center" } },
-      { text: dDay(ms.target_date), options: { fontSize: 10, fill: { color: bg }, color: "333333", align: "center" } },
-    ];
-  });
-  slide2.addTable([msTableHeader, ...msTableRows], {
-    x: 0.5, y: 1.1, w: 9.0, colW: [3.5, 2.0, 2.0, 1.5],
-    border: { type: "solid", pt: 0.5, color: "DDDDDD" },
-    rowH: 0.4,
-  });
+  const fullSections: string[] = [];
+  const halfSections: string[] = [];
 
-  // === Slide 3: Team Progress ===
-  const slide3 = pptx.addSlide();
-  slide3.background = { color: WHITE };
-  slide3.addText("Team Progress", { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, color: NAVY, fontFace: "Arial" });
+  for (const id of selectedSections) {
+    if (FULL_WIDTH_SECTIONS.has(id)) {
+      fullSections.push(id);
+    } else {
+      halfSections.push(id);
+    }
+  }
 
-  const tpTableHeader: PptxGenJS.TableRow = [
-    { text: "Team", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY } } },
-    { text: "Tasks", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "Plan %", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "Actual %", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "Gap (%p)", options: { fontSize: 11, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-  ];
-  const tpTableRows: PptxGenJS.TableRow[] = teams.map((team, i) => {
-    const tt = tasks.filter(t => t.team_id === team.id);
-    const cnt = tt.length;
-    const ap = cnt > 0 ? Math.round(tt.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / cnt) : 0;
-    const aa = cnt > 0 ? Math.round(tt.reduce((s, t) => s + t.current_progress, 0) / cnt) : 0;
-    const g = aa - ap;
-    const bg = i % 2 === 0 ? LIGHT_BG : WHITE;
-    return [
-      { text: team.name, options: { fontSize: 10, fill: { color: bg }, color: "333333" } },
-      { text: `${cnt}`, options: { fontSize: 10, fill: { color: bg }, color: "333333", align: "center" } },
-      { text: `${ap}%`, options: { fontSize: 10, fill: { color: bg }, color: AMBER, bold: true, align: "center" } },
-      { text: `${aa}%`, options: { fontSize: 10, fill: { color: bg }, color: BLUE, bold: true, align: "center" } },
-      { text: `${g > 0 ? "+" : ""}${g}%p`, options: { fontSize: 10, fill: { color: bg }, color: g >= 0 ? GREEN : RED, bold: true, align: "center" } },
-    ];
-  });
-  slide3.addTable([tpTableHeader, ...tpTableRows], {
-    x: 0.5, y: 1.1, w: 9.0, colW: [3.0, 1.5, 1.5, 1.5, 1.5],
-    border: { type: "solid", pt: 0.5, color: "DDDDDD" },
-    rowH: 0.45,
-  });
+  // Process full-width sections (1 per slide)
+  for (const sectionId of fullSections) {
+    const imgData = await captureElement(sectionId);
+    if (!imgData) continue;
 
-  // === Slide 4: Behind Schedule ===
-  const slide4 = pptx.addSlide();
-  slide4.background = { color: WHITE };
-  slide4.addText("Behind Schedule Tasks", { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, color: NAVY, fontFace: "Arial" });
-
-  const behindTasks = tasks
-    .map(t => ({ ...t, planned: calcPlannedProgress(t.start_date, t.end_date), gap: t.current_progress - calcPlannedProgress(t.start_date, t.end_date) }))
-    .filter(t => t.gap < 0 && t.current_progress < 100)
-    .sort((a, b) => a.gap - b.gap)
-    .slice(0, 12);
-
-  const bsHeader: PptxGenJS.TableRow = [
-    { text: "Task Code", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY } } },
-    { text: "Title", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY } } },
-    { text: "Assignee", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY } } },
-    { text: "Plan", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "Actual", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "Gap", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-  ];
-  const bsRows: PptxGenJS.TableRow[] = behindTasks.map((t, i) => {
-    const bg = i % 2 === 0 ? LIGHT_BG : WHITE;
-    return [
-      { text: t.task_code ?? "", options: { fontSize: 8, fill: { color: bg }, color: "333333" } },
-      { text: t.title, options: { fontSize: 8, fill: { color: bg }, color: "333333" } },
-      { text: memberName(members, t.assignee_id), options: { fontSize: 8, fill: { color: bg }, color: "333333" } },
-      { text: `${t.planned}%`, options: { fontSize: 8, fill: { color: bg }, color: AMBER, align: "center" } },
-      { text: `${t.current_progress}%`, options: { fontSize: 8, fill: { color: bg }, color: BLUE, align: "center" } },
-      { text: `${t.gap}%p`, options: { fontSize: 8, fill: { color: bg }, color: RED, bold: true, align: "center" } },
-    ];
-  });
-  if (bsRows.length === 0) {
-    slide4.addText("No behind-schedule tasks 🎉", { x: 1, y: 2.5, w: 8, h: 1, fontSize: 18, color: GREEN, align: "center" });
-  } else {
-    slide4.addTable([bsHeader, ...bsRows], {
-      x: 0.3, y: 1.1, w: 9.4, colW: [1.8, 2.8, 1.5, 1.0, 1.0, 1.0],
-      border: { type: "solid", pt: 0.5, color: "DDDDDD" },
-      rowH: 0.35,
+    const slide = pptx.addSlide();
+    slide.background = { color: "1A1F2E" };
+    slide.addText(SECTION_LABELS[sectionId] ?? sectionId, {
+      x: 0.5, y: 0.2, w: 9, h: 0.5,
+      fontSize: 20, bold: true, color: WHITE, fontFace: "Arial",
+    });
+    slide.addImage({
+      data: imgData,
+      x: 0.3, y: 0.8, w: 9.4, h: 4.5,
+      sizing: { type: "contain", w: 9.4, h: 4.5 },
     });
   }
 
-  // === Slide 5: Critical Issues ===
-  const slide5 = pptx.addSlide();
-  slide5.background = { color: WHITE };
-  slide5.addText("Critical Issues", { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, color: NAVY, fontFace: "Arial" });
+  // Process half-width sections (2 per slide)
+  for (let i = 0; i < halfSections.length; i += 2) {
+    const slide = pptx.addSlide();
+    slide.background = { color: "1A1F2E" };
 
-  const issueTasks = tasks.filter(t => t.issue_flag !== "normal").slice(0, 12);
-  const ciHeader: PptxGenJS.TableRow = [
-    { text: "Task Code", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY } } },
-    { text: "Title", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY } } },
-    { text: "Flag", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "Issue Type", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY }, align: "center" } },
-    { text: "Description", options: { fontSize: 9, bold: true, color: WHITE, fill: { color: NAVY } } },
-  ];
-  const ciRows: PptxGenJS.TableRow[] = issueTasks.map((t, i) => {
-    const bg = i % 2 === 0 ? LIGHT_BG : WHITE;
-    const flagColor = t.issue_flag === "critical" ? RED : AMBER;
-    return [
-      { text: t.task_code ?? "", options: { fontSize: 8, fill: { color: bg }, color: "333333" } },
-      { text: t.title, options: { fontSize: 8, fill: { color: bg }, color: "333333" } },
-      { text: t.issue_flag.toUpperCase(), options: { fontSize: 8, fill: { color: bg }, color: flagColor, bold: true, align: "center" } },
-      { text: t.issue_type ?? "", options: { fontSize: 8, fill: { color: bg }, color: "333333", align: "center" } },
-      { text: t.issue_description ?? "", options: { fontSize: 8, fill: { color: bg }, color: "333333" } },
-    ];
-  });
-  if (ciRows.length === 0) {
-    slide5.addText("No active issues 🎉", { x: 1, y: 2.5, w: 8, h: 1, fontSize: 18, color: GREEN, align: "center" });
-  } else {
-    slide5.addTable([ciHeader, ...ciRows], {
-      x: 0.3, y: 1.1, w: 9.4, colW: [1.6, 2.0, 1.0, 1.2, 3.6],
-      border: { type: "solid", pt: 0.5, color: "DDDDDD" },
-      rowH: 0.35,
-    });
+    const leftId = halfSections[i];
+    const rightId = halfSections[i + 1];
+
+    // Left
+    const leftImg = await captureElement(leftId);
+    if (leftImg) {
+      slide.addText(SECTION_LABELS[leftId] ?? leftId, {
+        x: 0.3, y: 0.2, w: 4.5, h: 0.5,
+        fontSize: 16, bold: true, color: WHITE, fontFace: "Arial",
+      });
+      slide.addImage({
+        data: leftImg,
+        x: 0.3, y: 0.8, w: 4.5, h: 4.5,
+        sizing: { type: "contain", w: 4.5, h: 4.5 },
+      });
+    }
+
+    // Right
+    if (rightId) {
+      const rightImg = await captureElement(rightId);
+      if (rightImg) {
+        slide.addText(SECTION_LABELS[rightId] ?? rightId, {
+          x: 5.2, y: 0.2, w: 4.5, h: 0.5,
+          fontSize: 16, bold: true, color: WHITE, fontFace: "Arial",
+        });
+        slide.addImage({
+          data: rightImg,
+          x: 5.2, y: 0.8, w: 4.5, h: 4.5,
+          sizing: { type: "contain", w: 4.5, h: 4.5 },
+        });
+      }
+    }
   }
 
   await pptx.writeFile({ fileName: `ALSMK_Report_${dateStr()}.pptx` });
 }
+
+// Keep legacy export for backward compatibility
+export { exportDashboardPptxWithCaptures as exportDashboardPptx };
