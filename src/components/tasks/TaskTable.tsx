@@ -338,8 +338,8 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                           : "text-destructive";
                     return (
                       <TableRow key={task.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedTaskId(task.id)}>
-                        <TableCell className="font-mono text-xs truncate" style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
-                        <TableCell className="text-xs truncate" style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
+                        <TableCell className={`font-mono text-xs truncate ${statusTextColor}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
+                        <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className={`text-sm font-medium truncate ${statusTextColor}`} style={{ width: colWidths.subject }}>
                           <span className="flex items-center gap-1.5">
                             <span className="truncate">{task.title}</span>
