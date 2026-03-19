@@ -76,19 +76,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="min-h-screen flex w-full">
           <AppSidebar />
           <div className="flex-1 flex flex-col min-w-0">
-            <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-card shrink-0">
-              <div className="flex items-center gap-2">
-                <SidebarTrigger />
+            <header className="h-12 flex items-center justify-between border-b border-border px-3 sm:px-4 bg-card shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <SidebarTrigger className="shrink-0" />
                 <img src={hyundaiLogo} alt="Hyundai E&C" className="h-5 hidden sm:inline-block" />
-                <span className="font-mono text-sm font-semibold text-muted-foreground hidden sm:inline">
+                <span className="font-mono text-xs sm:text-sm font-semibold text-muted-foreground truncate hidden sm:inline">
                   ALSMK Task Management System
                 </span>
+                <span className="font-mono text-xs font-semibold text-muted-foreground sm:hidden">
+                  ALSMK
+                </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                 <NotificationBell />
               </div>
             </header>
-            <main className="flex-1 overflow-auto p-4 md:p-6">
+            <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">
               {children}
             </main>
           </div>

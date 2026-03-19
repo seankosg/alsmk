@@ -12,7 +12,7 @@ import { useAuthContext } from "./AppLayout";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,6 +35,13 @@ export function AppSidebar() {
   const handleLogout = async () => {
     await signOut();
     navigate("/login", { replace: true });
+  };
+
+  // Close sidebar on mobile after navigation
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
   };
 
   return (
@@ -67,8 +74,9 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="hover:bg-sidebar-accent/50"
+                      className="hover:bg-sidebar-accent/50 min-h-[44px] flex items-center"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
+                      onClick={handleNavClick}
                     >
                       <item.icon className="mr-2 h-4 w-4 shrink-0" />
                       {!collapsed && <span>{item.title}</span>}
@@ -102,8 +110,8 @@ export function AppSidebar() {
           <Button
             variant="ghost"
             size={collapsed ? "icon" : "sm"}
-            className="w-full justify-start text-xs"
-            onClick={() => navigate("/change-password")}
+            className="w-full justify-start text-xs min-h-[44px]"
+            onClick={() => { navigate("/change-password"); handleNavClick(); }}
           >
             <KeyRound className="h-3.5 w-3.5 shrink-0" />
             {!collapsed && <span className="ml-1">Change Password</span>}
@@ -112,7 +120,7 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           size={collapsed ? "icon" : "sm"}
-          className="w-full justify-start text-xs text-muted-foreground hover:text-destructive"
+          className="w-full justify-start text-xs text-muted-foreground hover:text-destructive min-h-[44px]"
           onClick={handleLogout}
         >
           <LogOut className="h-3.5 w-3.5 shrink-0" />
