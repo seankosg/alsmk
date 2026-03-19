@@ -93,6 +93,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       setStartDate(task.start_date);
       setEndDate(task.end_date);
       setAssigneeId(task.assignee_id);
+      setCategory(task.category ?? "");
+      setTitle(task.title);
+      setTeamId(task.team_id);
       setNotifyRecipients([]);
       setShowNotifySection(false);
     }
