@@ -74,7 +74,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
-  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<string | null>("taskCode");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
