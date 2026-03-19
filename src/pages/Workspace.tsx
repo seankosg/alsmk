@@ -38,6 +38,7 @@ const Workspace = () => {
   });
 
   const isPm = myMember?.is_pm ?? false;
+  const isAdminOrPm = isAdmin || isPm;
   const showTabs = !isAdmin && !isPm;
 
   const { data: tasks = [] } = useQuery({
