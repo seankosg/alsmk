@@ -2,6 +2,7 @@ import { MilestoneTimeline } from "@/components/dashboard/MilestoneTimeline";
 import { TeamHeatmap } from "@/components/dashboard/TeamHeatmap";
 import { ProjectHUD } from "@/components/dashboard/ProjectHUD";
 import { TeamProgressChart } from "@/components/dashboard/TeamProgressChart";
+import { CategoryProgressChart } from "@/components/dashboard/CategoryProgressChart";
 import { CriticalIssueBoard } from "@/components/dashboard/CriticalIssueBoard";
 import { BehindScheduleBoard } from "@/components/dashboard/BehindScheduleBoard";
 import { TaskDistributionChart } from "@/components/dashboard/TaskDistributionChart";
@@ -25,20 +26,23 @@ const Index = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TeamProgressChart />
+        <CategoryProgressChart />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <BehindScheduleBoard />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CriticalIssueBoard />
-        <UpcomingDeadlines />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <UpcomingDeadlines />
         <TaskDistributionChart />
-        <IssueTrendChart />
       </div>
 
-      <TeamHeatmap />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <IssueTrendChart />
+        <TeamHeatmap />
+      </div>
 
       <PartStatusBoard />
 
