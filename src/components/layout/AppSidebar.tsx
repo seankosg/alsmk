@@ -21,6 +21,7 @@ export function AppSidebar() {
 
   const navItems = [
     { title: "Project Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "Calendar", url: "/calendar", icon: CalendarDays },
     { title: "My Dashboard", url: "/my", icon: User },
     { title: "My Workspace", url: "/workspace", icon: Briefcase },
     { title: "Messages", url: "/messages", icon: MessageSquare },

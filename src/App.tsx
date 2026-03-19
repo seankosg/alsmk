@@ -41,6 +41,7 @@ const App = () => (
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/tasks/import" element={<TaskImport />} />
                   <Route path="/messages" element={<Messages />} />
+                  <Route path="/calendar" element={<Calendar />} />
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
