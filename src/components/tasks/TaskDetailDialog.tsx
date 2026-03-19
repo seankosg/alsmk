@@ -477,7 +477,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
             <MessageSquare className="mr-1 h-4 w-4" /> Message
           </Button>
-          {!readOnly && (
+          {(!readOnly || isSummary) && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={deleting}>
@@ -488,7 +488,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Task?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete task <strong>{task.task_code}</strong>. This action cannot be undone.
+                    {isSummary ? (
+                      <>
+                        Summary task <strong>{task.task_code}</strong>를 삭제합니다.
+                        하위 {allTasks.filter(t => t.parent_id === task.id).length}개 subtask는 독립 task로 전환됩니다.
+                      </>
+                    ) : (
+                      <>This will permanently delete task <strong>{task.task_code}</strong>. This action cannot be undone.</>
+                    )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -502,7 +509,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           )}
 
           <div className="flex gap-2 ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>{readOnly ? "Close" : "Cancel"}</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{readOnly && !isSummary ? "Close" : readOnly ? "Close" : "Cancel"}</Button>
             {!readOnly && (
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? "Saving..." : "Save Changes"}
