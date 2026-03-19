@@ -7,6 +7,18 @@ import { Users, User, Crown, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 
 const Organization = () => {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["teams"] });
+    await queryClient.invalidateQueries({ queryKey: ["parts"] });
+    await queryClient.invalidateQueries({ queryKey: ["members"] });
+    await queryClient.invalidateQueries({ queryKey: ["project_settings", "pm_name"] });
+    setRefreshing(false);
+  };
+
   const { data: pmName } = useQuery({
     queryKey: ["project_settings", "pm_name"],
     queryFn: async () => {
