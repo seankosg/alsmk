@@ -17,7 +17,7 @@ const Organization = () => {
       if (error) throw error;
       return data?.value ?? "TBD";
     },
-    staleTime: Infinity,
+    staleTime: 30_000,
   });
 
   const { data: teams = [], isLoading } = useQuery({
@@ -27,7 +27,7 @@ const Organization = () => {
       if (error) throw error;
       return data;
     },
-    staleTime: Infinity,
+    staleTime: 30_000,
   });
 
   const { data: parts = [] } = useQuery({
@@ -37,7 +37,7 @@ const Organization = () => {
       if (error) throw error;
       return data;
     },
-    staleTime: Infinity,
+    staleTime: 30_000,
   });
 
   const { data: members = [] } = useQuery({
@@ -47,7 +47,7 @@ const Organization = () => {
       if (error) throw error;
       return data;
     },
-    staleTime: Infinity,
+    staleTime: 30_000,
   });
 
   // Filter out system admin accounts (no team) from org chart
