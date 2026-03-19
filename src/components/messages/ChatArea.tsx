@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { TaskCard } from "./TaskCard";
 import { TaskSearchPopover } from "./TaskSearchPopover";
 import { useAuthContext } from "@/components/layout/AppLayout";
-import { Send, Paperclip } from "lucide-react";
+import { Send, Paperclip, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -79,7 +79,7 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
     const channel = supabase
       .channel(`dm-${conversationId}`)
       .on("postgres_changes", {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "direct_messages",
         filter: `conversation_id=eq.${conversationId}`,
@@ -114,6 +114,16 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
   const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
   const getTask = (id: string) => referencedTasks.find((t) => t.id === id);
 
+  const handleDeleteMessage = async (msgId: string) => {
+    try {
+      const { error } = await supabase.from("direct_messages").delete().eq("id", msgId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["direct_messages", conversationId] });
+    } catch (err: any) {
+      toast.error(err.message || "메시지 삭제에 실패했습니다.");
+    }
+  };
+
   const handleSend = async () => {
     if (!message.trim() || !memberId) return;
     setSending(true);
@@ -143,15 +153,24 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
             const isMe = msg.sender_id === memberId;
             const refTask = msg.referenced_task_id ? getTask(msg.referenced_task_id) : null;
             return (
-              <div key={msg.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+              <div key={msg.id} className={`group/msg flex flex-col ${isMe ? "items-end" : "items-start"}`}>
                 <p className="text-[10px] text-muted-foreground mb-0.5">
                   {getMemberName(msg.sender_id)} · {format(new Date(msg.created_at), "MM/dd HH:mm")}
                 </p>
-                <div
-                  className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                    isMe ? "bg-primary text-primary-foreground" : "bg-accent"
-                  }`}
-                >
+                <div className="flex items-center gap-1">
+                  {isMe && (
+                    <button
+                      onClick={() => handleDeleteMessage(msg.id)}
+                      className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                  <div
+                    className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                      isMe ? "bg-primary text-primary-foreground" : "bg-accent"
+                    }`}
+                  >
                   {refTask && (
                     <div className="mb-2">
                       <TaskCard
@@ -162,7 +181,8 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
                       />
                     </div>
                   )}
-                  <p className="whitespace-pre-wrap">{msg.message}</p>
+                    <p className="whitespace-pre-wrap">{msg.message}</p>
+                  </div>
                 </div>
               </div>
             );

@@ -102,6 +102,9 @@ export default function Messages() {
           selectedId={selectedConversation}
           onSelect={setSelectedConversation}
           onNewMessage={() => setNewConvoOpen(true)}
+          onDelete={(id) => {
+            if (selectedConversation === id) setSelectedConversation(null);
+          }}
         />
       </div>
       <div className="flex-1 min-w-0">
