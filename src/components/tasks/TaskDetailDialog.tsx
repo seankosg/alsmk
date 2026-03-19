@@ -21,6 +21,7 @@ import { useAuthContext } from "@/components/layout/AppLayout";
 import { TaskComments } from "./TaskComments";
 import { SendMessageDialog } from "@/components/messages/SendMessageDialog";
 import { AddSubtaskDialog } from "./AddSubtaskDialog";
+import { CategoryCombobox } from "./CategoryCombobox";
 
 interface Task {
   id: string;
