@@ -76,6 +76,24 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
   const [editingProgressValue, setEditingProgressValue] = useState("");
   const [sortKey, setSortKey] = useState<string | null>("taskCode");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [collapsedSummaries, setCollapsedSummaries] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("task-table-collapsed");
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set();
+  });
+
+  const toggleCollapse = useCallback((summaryId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCollapsedSummaries(prev => {
+      const next = new Set(prev);
+      if (next.has(summaryId)) next.delete(summaryId);
+      else next.add(summaryId);
+      localStorage.setItem("task-table-collapsed", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem("task-table-col-widths");
