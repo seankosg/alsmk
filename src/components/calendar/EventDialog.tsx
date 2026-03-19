@@ -19,6 +19,9 @@ interface CalendarEvent {
   end_date: string | null;
   event_type: string;
   created_by: string;
+  all_day: boolean;
+  start_time: string | null;
+  end_time: string | null;
 }
 
 interface EventDialogProps {
