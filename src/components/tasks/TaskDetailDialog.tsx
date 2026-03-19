@@ -50,9 +50,11 @@ interface TaskDetailDialogProps {
   members?: LookupItem[];
   milestones?: LookupItem[];
   readOnly?: boolean;
+  isSummary?: boolean;
+  allTasks?: any[];
 }
 
-export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [], readOnly = false }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [], readOnly = false, isSummary = false, allTasks = [] }: TaskDetailDialogProps) {
   const queryClient = useQueryClient();
   const auth = useAuthContext();
   const [saving, setSaving] = useState(false);
