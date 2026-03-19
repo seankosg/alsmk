@@ -61,11 +61,14 @@ export function CategoryProgressChart() {
     staleTime: 30_000,
   });
 
+  // Exclude summary tasks without a category
+  const filteredTasks = tasks.filter(t => !(t.is_summary && !t.category));
+
   // Group tasks by category
-  const categories = Array.from(new Set(tasks.map(t => t.category || "Uncategorized")));
+  const categories = Array.from(new Set(filteredTasks.map(t => t.category || "Uncategorized")));
 
   const chartData = categories.map((cat) => {
-    const catTasks = tasks.filter(t => (t.category || "Uncategorized") === cat);
+    const catTasks = filteredTasks.filter(t => (t.category || "Uncategorized") === cat);
     const avgActual = catTasks.length > 0
       ? Math.round(catTasks.reduce((s, t) => s + t.current_progress, 0) / catTasks.length)
       : 0;
