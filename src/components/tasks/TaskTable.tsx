@@ -62,6 +62,8 @@ interface TaskTableProps {
   filterMine?: boolean;
   /** "mine" = only my assigned tasks, "team" = my team's tasks, undefined = all (legacy behavior) */
   filterMode?: "mine" | "team";
+  /** When toggled, collapse or expand all summary tasks */
+  allCollapsed?: boolean;
 }
 
 export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
