@@ -537,6 +537,15 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       taskTitle={task.title}
       taskIssueFlag={task.issue_flag}
     />
+    {task && (
+      <AddSubtaskDialog
+        parent={{ ...task, is_summary: isSummary, created_by: (task as any).created_by ?? null }}
+        open={addSubtaskOpen}
+        onOpenChange={setAddSubtaskOpen}
+        teams={teams}
+        members={members}
+      />
+    )}
     </>
   );
 }
