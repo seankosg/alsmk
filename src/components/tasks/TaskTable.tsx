@@ -327,11 +327,20 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     const isEditingThis = editingProgressId === task.id;
+                    const isCompleted = task.current_progress >= 100 || !!task.actual_finish;
+                    const isNotStarted = task.current_progress === 0 && !task.actual_finish;
+                    const statusTextColor = isCompleted
+                      ? "text-muted-foreground/50"
+                      : isNotStarted
+                        ? ""
+                        : gap >= 0
+                          ? "text-success"
+                          : "text-destructive";
                     return (
                       <TableRow key={task.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className="font-mono text-xs truncate" style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className="text-xs truncate" style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
-                        <TableCell className="text-sm font-medium truncate" style={{ width: colWidths.subject }}>
+                        <TableCell className={`text-sm font-medium truncate ${statusTextColor}`} style={{ width: colWidths.subject }}>
                           <span className="flex items-center gap-1.5">
                             <span className="truncate">{task.title}</span>
                             {task.issue_flag === "warning" && (
@@ -342,7 +351,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                             )}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs truncate" style={{ width: colWidths.actionPlan }}>
+                        <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.actionPlan }}>
                           {task.action_plan ? (
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
