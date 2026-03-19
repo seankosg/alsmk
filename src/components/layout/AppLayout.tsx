@@ -81,7 +81,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarTrigger />
                 <img src={hyundaiLogo} alt="Hyundai E&C" className="h-5 hidden sm:inline-block" />
                 <span className="font-mono text-sm font-semibold text-muted-foreground hidden sm:inline">
-                  ALSMK Project Management
+                  ALSMK Task Management System
                 </span>
               </div>
               <div className="flex items-center gap-3">
