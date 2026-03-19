@@ -251,14 +251,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           {/* Read-only info */}
           <div>
             <Label className="text-xs text-muted-foreground">Category</Label>
-            <Input
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-              placeholder="e.g. Design, Engineering"
-              maxLength={100}
-              disabled={readOnly}
-              className="mt-1"
-            />
+            <div className="mt-1">
+              {readOnly ? (
+                <Input value={category} disabled className="mt-0" />
+              ) : (
+                <CategoryCombobox value={category} onChange={setCategory} placeholder="e.g. Design, Engineering" />
+              )}
+            </div>
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Subject</Label>
