@@ -114,6 +114,16 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
   const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
   const getTask = (id: string) => referencedTasks.find((t) => t.id === id);
 
+  const handleDeleteMessage = async (msgId: string) => {
+    try {
+      const { error } = await supabase.from("direct_messages").delete().eq("id", msgId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["direct_messages", conversationId] });
+    } catch (err: any) {
+      toast.error(err.message || "메시지 삭제에 실패했습니다.");
+    }
+  };
+
   const handleSend = async () => {
     if (!message.trim() || !memberId) return;
     setSending(true);
