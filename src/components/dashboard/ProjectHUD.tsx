@@ -6,6 +6,7 @@ import { ListTodo, CheckCircle2, Clock, CircleDashed } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { calcPlannedProgress } from "@/lib/mockData";
+import { QueryErrorCard } from "./QueryErrorCard";
 
 const BRACKETS = [
   { label: "0–25%", min: 0, max: 25, color: "hsl(var(--destructive))" },
