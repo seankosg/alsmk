@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { Button } from "@/components/ui/button";
-import { Upload, FileDown, ListTree } from "lucide-react";
+import { Upload, FileDown, ListTree, ChevronsUpDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
