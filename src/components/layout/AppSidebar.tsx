@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "./AppLayout";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -16,6 +17,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAdmin, isAdminOrPm, memberName, signOut } = useAuthContext();
+  const { unreadCount } = useUnreadMessages();
 
   const navItems = [
     { title: "Project Dashboard", url: "/", icon: LayoutDashboard },
@@ -62,6 +64,14 @@ export function AppSidebar() {
                     >
                       <item.icon className="mr-2 h-4 w-4 shrink-0" />
                       {!collapsed && <span>{item.title}</span>}
+                      {item.title === "Messages" && unreadCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="ml-auto h-5 min-w-[20px] px-1.5 flex items-center justify-center text-[10px] font-bold"
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

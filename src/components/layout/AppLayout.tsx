@@ -1,10 +1,13 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
+import { UnreadMessagesDialog } from "./UnreadMessagesDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Auth context so children can access auth state
 interface AuthContextType {
@@ -93,7 +96,58 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </main>
           </div>
         </div>
+        <UnreadMessagesDialog />
+        <RealtimeDmToast memberId={auth.memberId} />
       </SidebarProvider>
     </AuthContext.Provider>
   );
+}
+
+/** Global realtime DM toast — fires on every new message not sent by me */
+function RealtimeDmToast({ memberId }: { memberId: string | null }) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!memberId) return;
+
+    const channel = supabase
+      .channel("global-dm-toast")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "direct_messages" },
+        async (payload) => {
+          const msg = payload.new as any;
+          if (msg.sender_id === memberId) return;
+
+          // Resolve sender name
+          const { data: sender } = await supabase
+            .from("members")
+            .select("name")
+            .eq("id", msg.sender_id)
+            .maybeSingle();
+
+          const senderName = sender?.name || "Someone";
+          const preview =
+            msg.message.length > 50
+              ? msg.message.slice(0, 50) + "…"
+              : msg.message;
+
+          toast.info(`💬 ${senderName}`, {
+            description: preview,
+            action: {
+              label: "View",
+              onClick: () => navigate("/messages"),
+            },
+            duration: 6000,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [memberId, navigate]);
+
+  return null;
 }
