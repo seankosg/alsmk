@@ -43,9 +43,16 @@ export function AppSidebar() {
         <div className="flex items-center gap-2">
           <HardHat className="h-6 w-6 text-primary shrink-0" />
           {!collapsed && (
-            <span className="font-mono text-lg font-bold tracking-tight text-sidebar-foreground">
-              ALSMK
-            </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-mono text-lg font-bold tracking-tight text-sidebar-foreground">
+                ALSMK
+              </span>
+              {memberName && (
+                <Badge variant="secondary" className="text-[10px] font-semibold bg-primary/15 text-primary border-primary/30 truncate max-w-[120px]">
+                  {memberName}
+                </Badge>
+              )}
+            </div>
           )}
         </div>
       </SidebarHeader>

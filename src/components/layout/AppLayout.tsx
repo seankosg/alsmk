@@ -85,11 +85,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                {auth.memberName && (
-                  <span className="text-sm font-bold text-primary">
-                    {auth.memberName}
-                  </span>
-                )}
                 <NotificationBell />
               </div>
             </header>
