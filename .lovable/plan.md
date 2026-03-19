@@ -1,51 +1,29 @@
 
 
-# 단독 태스크에서 서브태스크 추가 기능
+## 요약
 
-## 개요
-단독 태스크(is_summary=false, parent_id=null)를 선택했을 때, 해당 태스크를 Summary로 자동 전환하고 서브태스크를 추가할 수 있는 기능 구현.
+Task 입력/수정 시 Category 필드를 기존 **텍스트 입력(Input)**에서 **콤보박스(Combobox)** 형태로 변경합니다. 기존에 DB에 저장된 category 값 목록을 드롭다운으로 보여주고, 목록에서 선택하거나 직접 새 값을 입력할 수 있도록 합니다.
 
-## 변경 파일
+## 변경 대상 파일 (3개)
 
-### 1. `src/components/tasks/TaskDetailDialog.tsx`
-- **"Add Subtask" 버튼 추가**: 단독 태스크(is_summary=false, parent_id=null)의 상세 다이얼로그 footer에 버튼 표시
-- 클릭 시 `AddSubtaskDialog` 열기
+### 1. 새 컴포넌트: `src/components/tasks/CategoryCombobox.tsx`
+- DB의 `tasks` 테이블에서 고유한 category 값 목록을 조회 (`SELECT DISTINCT category FROM tasks WHERE category IS NOT NULL`)
+- shadcn/ui의 `Popover` + `Command` 컴포넌트를 활용한 콤보박스 구현
+- 기존 값 선택 또는 새 값 직접 입력 가능
+- Props: `value`, `onChange`
 
-### 2. `src/components/tasks/AddSubtaskDialog.tsx` (새 파일)
-- 부모 태스크의 값(category, title, team_id, part_id, assignee_id, start_date, end_date)을 복사하여 폼 초기값으로 설정
-- action_plan은 빈값으로 시작 (서브태스크마다 다른 작업 내용)
-- 사용자가 각 필드를 편집 가능
-- task_code는 DB 트리거(`generate_task_code`)가 `parent_id` 기반으로 자동 생성
+### 2. `src/components/tasks/AddTaskDialog.tsx`
+- Category 필드의 `<Input>`을 `<CategoryCombobox>`로 교체
 
-**저장 시 로직**:
-1. 부모 태스크가 아직 `is_summary=false`이면 → `is_summary=true`로 업데이트
-2. 새 서브태스크를 `parent_id = 부모.id`로 INSERT
-3. 기존 부모 태스크 자체도 첫 번째 서브태스크로 복제 (원본 데이터 보존) — 단, 이미 is_summary=true이면 스킵
-4. tasks 쿼리 invalidate
+### 3. `src/components/tasks/TaskDetailDialog.tsx`
+- Category 필드의 `<Input>`을 `<CategoryCombobox>`로 교체
 
-**전환 흐름**:
-```text
-[단독 Task A] (is_summary=false, parent_id=null)
-    ↓ "Add Subtask" 클릭
-[Summary Task A] (is_summary=true)  ← 원본이 Summary로 전환
-  └ [Subtask A-01]                   ← 원본 데이터 복제
-  └ [Subtask A-02]                   ← 새로 추가한 서브태스크
-```
+### 4. `src/components/tasks/AddSubtaskDialog.tsx`
+- Category 필드의 `<Input>`을 `<CategoryCombobox>`로 교체
 
-### 3. `src/components/tasks/TaskTable.tsx`
-- 우클릭 컨텍스트 메뉴 또는 행 내 아이콘 대신, 기존 `TaskDetailDialog`를 통해 접근하므로 변경 최소화
-- `TaskDetailDialog`에 `onAddSubtask` 콜백 전달 불필요 — dialog 내부에서 직접 처리
-
-## 구현 순서
-
-| 단계 | 내용 |
-|------|------|
-| 1 | `AddSubtaskDialog.tsx` 생성 — 부모 태스크 값 복사 폼 + 저장 로직 |
-| 2 | `TaskDetailDialog.tsx`에 "Add Subtask" 버튼 추가 (단독 태스크 + 비-readOnly 조건) |
-| 3 | 저장 시 부모 is_summary 전환 + 원본 데이터 서브태스크 복제 로직 |
-
-## 주요 고려사항
-- task_code는 DB 트리거가 parent_id 기반으로 자동 생성하므로 클라이언트에서 별도 처리 불필요
-- Summary 전환 시 원본 태스크의 action_plan, current_progress 등을 첫 서브태스크로 복제하여 데이터 손실 방지
-- 이미 Summary인 태스크에서도 추가 서브태스크 생성 가능하도록 버튼 조건 확장
+## 동작 방식
+- 클릭하면 기존 category 목록이 드롭다운으로 표시
+- 검색/필터 입력 가능
+- 목록에 없는 값은 직접 타이핑하여 새로 추가 가능
+- 선택 또는 입력 후 값이 category state에 반영
 
