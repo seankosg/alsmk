@@ -455,5 +455,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <SendMessageDialog
+      open={sendMsgOpen}
+      onOpenChange={setSendMsgOpen}
+      taskId={task.id}
+      taskCode={task.task_code}
+      taskTitle={task.title}
+      taskIssueFlag={task.issue_flag}
+    />
+    </>
   );
 }
