@@ -351,7 +351,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                             )}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs truncate" style={{ width: colWidths.actionPlan }}>
+                        <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.actionPlan }}>
                           {task.action_plan ? (
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
