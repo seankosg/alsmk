@@ -324,6 +324,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                   {filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
                   ) : filtered.map((task) => {
+                    const isSummary = (task as any).is_summary === true;
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     const isEditingThis = editingProgressId === task.id;
@@ -338,7 +339,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                           : "text-destructive";
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
-                      <TableRow key={task.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedTaskId(task.id)}>
+                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-muted/30 font-bold" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className={`font-mono text-xs truncate ${statusTextColor}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className={`text-sm font-medium truncate ${statusTextColor}`} style={{ width: colWidths.subject }}>
