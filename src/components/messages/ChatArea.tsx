@@ -79,7 +79,7 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
     const channel = supabase
       .channel(`dm-${conversationId}`)
       .on("postgres_changes", {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "direct_messages",
         filter: `conversation_id=eq.${conversationId}`,
