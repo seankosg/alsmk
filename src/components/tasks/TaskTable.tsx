@@ -161,6 +161,10 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
     } else {
       filtered = filtered.filter(t => t.assignee_id === memberId || t.team_id === myTeamId);
     }
+    // Include parent summaries for visible subtasks
+    const visibleParentIds = new Set(filtered.filter(t => t.parent_id).map(t => t.parent_id!));
+    const missingParents = tasks.filter(t => visibleParentIds.has(t.id) && !filtered.some(f => f.id === t.id));
+    filtered = [...filtered, ...missingParents];
   }
   if (filterMine && (isAdmin || isPm) && memberFilter !== "all") {
     filtered = filtered.filter(t => t.assignee_id === memberFilter);
