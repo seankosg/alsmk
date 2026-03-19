@@ -222,6 +222,24 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={!canEdit} />
             </div>
           </div>
+
+          {/* All-day toggle + time inputs */}
+          <div className="flex items-center gap-3">
+            <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} disabled={!canEdit} />
+            <Label htmlFor="all-day" className="cursor-pointer">하루종일</Label>
+          </div>
+          {!allDay && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>시작 시간 (KST)</Label>
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!canEdit} />
+              </div>
+              <div>
+                <Label>종료 시간 (KST)</Label>
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!canEdit} />
+              </div>
+            </div>
+          )}
           <div>
             <Label>유형</Label>
             <Select value={eventType} onValueChange={setEventType} disabled={!canEdit}>
