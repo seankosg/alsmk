@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList } from "rec
 import { calcPlannedProgress } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { QueryErrorCard } from "./QueryErrorCard";
 
 const chartConfig = {
   planned: { label: "Planned", color: "hsl(var(--muted-foreground))" },
