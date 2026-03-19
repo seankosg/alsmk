@@ -345,9 +345,9 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
                       <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-muted/30" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
-                        <TableCell className={`font-mono text-xs truncate ${statusTextColor}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
-                        <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
-                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "font-semibold text-[15px]" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
+                        <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
+                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
+                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "font-semibold text-sm" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
                           <span className={`flex items-center gap-1.5 ${hasParent ? "pl-6" : ""}`}>
                             <span className="truncate">{task.title}</span>
                             {task.issue_flag === "warning" && (
@@ -358,7 +358,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                             )}
                           </span>
                         </TableCell>
-                        <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.actionPlan }}>
+                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.actionPlan }}>
                           {task.action_plan ? (
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
@@ -372,24 +372,24 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                             </TooltipProvider>
                           ) : "—"}
                         </TableCell>
-                        <TableCell className={`font-mono text-xs ${completedMuted}`} style={{ width: colWidths.start }}>{task.start_date}</TableCell>
-                        <TableCell className={`font-mono text-xs ${completedMuted}`} style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
+                        <TableCell className={`font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.start }}>{task.start_date}</TableCell>
+                        <TableCell className={`font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
                         {(() => {
                           const remaining = task.actual_finish
                             ? 0
                             : differenceInCalendarDays(parseLocalDate(task.end_date), startOfDay(new Date()));
                           return (
                             <TableCell
-                              className={`text-right font-mono text-xs font-bold ${isCompleted ? 'text-muted-foreground/50' : remaining < 0 ? 'text-destructive' : remaining <= 7 ? 'text-warning' : 'text-primary'}`}
+                              className={`text-right font-mono font-bold ${isSummary ? "text-sm" : "text-xs"} ${isCompleted ? 'text-muted-foreground/50' : remaining < 0 ? 'text-destructive' : remaining <= 7 ? 'text-warning' : 'text-primary'}`}
                               style={{ width: colWidths.dday }}
                             >
                               {task.actual_finish ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`}
                             </TableCell>
                           );
                         })()}
-                        <TableCell className={`text-right font-mono text-xs ${completedMuted}`} style={{ width: colWidths.plan }}>{planned}%</TableCell>
+                        <TableCell className={`text-right font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.plan }}>{planned}%</TableCell>
                         <TableCell
-                          className={`text-right font-mono text-xs ${completedMuted}`}
+                          className={`text-right font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`}
                           style={{ width: colWidths.actual }}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -417,10 +417,10 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                             <span className="cursor-text hover:underline">{task.current_progress}%</span>
                           )}
                         </TableCell>
-                        <TableCell className={`text-right font-mono text-xs font-bold ${isCompleted ? 'text-muted-foreground/50' : gap >= 0 ? 'text-primary' : 'text-destructive'}`} style={{ width: colWidths.gap }}>
+                        <TableCell className={`text-right font-mono font-bold ${isSummary ? "text-sm" : "text-xs"} ${isCompleted ? 'text-muted-foreground/50' : gap >= 0 ? 'text-primary' : 'text-destructive'}`} style={{ width: colWidths.gap }}>
                           {gap >= 0 ? '+' : ''}{gap}%
                         </TableCell>
-                        <TableCell className={`font-mono text-xs ${completedMuted}`} style={{ width: colWidths.actualFinish }}>{task.actual_finish ?? "—"}</TableCell>
+                        <TableCell className={`font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.actualFinish }}>{task.actual_finish ?? "—"}</TableCell>
                       </TableRow>
                     );
                   })}
