@@ -27,7 +27,7 @@ const Organization = () => {
       if (error) throw error;
       return data;
     },
-    staleTime: Infinity,
+    staleTime: 30_000,
   });
 
   const { data: parts = [] } = useQuery({
