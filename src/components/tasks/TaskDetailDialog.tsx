@@ -303,7 +303,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                disabled={readOnly}
+                disabled={readOnly || isSummary}
                 className="font-mono text-xs mt-1"
               />
             </div>
@@ -314,7 +314,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                disabled={readOnly}
+                disabled={readOnly || isSummary}
                 className="font-mono text-xs mt-1"
               />
             </div>
