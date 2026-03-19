@@ -18,6 +18,8 @@ import { Trash2, Users, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { TaskComments } from "./TaskComments";
+import { SendMessageDialog } from "@/components/messages/SendMessageDialog";
 
 interface Task {
   id: string;
