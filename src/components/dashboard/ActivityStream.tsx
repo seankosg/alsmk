@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorCard } from "./QueryErrorCard";
 
 export function ActivityStream() {
   const { data: logs = [], isLoading } = useQuery({
