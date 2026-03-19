@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { Button } from "@/components/ui/button";
@@ -8,10 +9,34 @@ import { supabase } from "@/integrations/supabase/client";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
+import { useAuthContext } from "@/components/layout/AppLayout";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
 
 const Workspace = () => {
   const navigate = useNavigate();
+  const { isAdmin, memberId } = useAuthContext();
+  const [filterMode, setFilterMode] = useState<"mine" | "team">("mine");
+
+  // Check if user is PM
+  const { data: myMember } = useQuery({
+    queryKey: ["my_member", memberId],
+    queryFn: async () => {
+      if (!memberId) return null;
+      const { data, error } = await supabase
+        .from("members")
+        .select("is_pm")
+        .eq("id", memberId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!memberId,
+    staleTime: 30_000,
+  });
+
+  const isPm = myMember?.is_pm ?? false;
+  const showTabs = !isAdmin && !isPm;
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
@@ -80,7 +105,17 @@ const Workspace = () => {
           <AddTaskDialog />
         </div>
       </div>
-      <TaskTable filterMine />
+
+      {showTabs && (
+        <Tabs value={filterMode} onValueChange={(v) => setFilterMode(v as "mine" | "team")}>
+          <TabsList>
+            <TabsTrigger value="mine">내 태스크</TabsTrigger>
+            <TabsTrigger value="team">팀 태스크</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} />
     </div>
   );
 };

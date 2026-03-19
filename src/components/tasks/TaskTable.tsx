@@ -154,7 +154,13 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
   let filtered = [...tasks];
 
   if (filterMine && !isAdmin && !isPm) {
-    filtered = filtered.filter(t => t.assignee_id === memberId || t.team_id === myTeamId);
+    if (filterMode === "mine") {
+      filtered = filtered.filter(t => t.assignee_id === memberId);
+    } else if (filterMode === "team") {
+      filtered = filtered.filter(t => t.team_id === myTeamId);
+    } else {
+      filtered = filtered.filter(t => t.assignee_id === memberId || t.team_id === myTeamId);
+    }
   }
   if (filterMine && (isAdmin || isPm) && memberFilter !== "all") {
     filtered = filtered.filter(t => t.assignee_id === memberFilter);
