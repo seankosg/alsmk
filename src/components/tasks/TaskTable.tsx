@@ -345,9 +345,9 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
                       <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-muted/30" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
-                        <TableCell className={`font-mono text-xs truncate ${statusTextColor}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
-                        <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
-                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "font-semibold text-[15px]" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
+                        <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
+                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
+                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "font-semibold text-sm" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
                           <span className={`flex items-center gap-1.5 ${hasParent ? "pl-6" : ""}`}>
                             <span className="truncate">{task.title}</span>
                             {task.issue_flag === "warning" && (
