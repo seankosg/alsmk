@@ -438,6 +438,8 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
         members={members}
         milestones={milestones}
         readOnly={((selectedTask as any)?.is_summary === true) || (!isAdmin && selectedTask?.assignee_id !== memberId)}
+        isSummary={(selectedTask as any)?.is_summary === true}
+        allTasks={tasks}
       />
     </>
   );
