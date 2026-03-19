@@ -88,7 +88,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
               <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">© {new Date().getFullYear()} Sean B. KO</span>
+                <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">© {new Date().getFullYear()} Sean B. KO. All rights reserved.</span>
                 <NotificationBell />
               </div>
             </header>
