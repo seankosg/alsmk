@@ -236,8 +236,18 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               <p className="font-medium">{getTeamName(task.team_id)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Assignee</p>
-              <p className="font-medium">{getMemberName(task.assignee_id)}</p>
+              <Label className="text-xs text-muted-foreground">Assignee</Label>
+              <Select value={assigneeId ?? "__unassigned__"} onValueChange={v => setAssigneeId(v === "__unassigned__" ? null : v)} disabled={readOnly}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {members.map(m => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="edit-start-date" className="text-xs text-muted-foreground">Start</Label>
