@@ -489,12 +489,6 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
             <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
               <MessageSquare className="mr-1 h-4 w-4" /> Message
             </Button>
-            {/* Add Subtask button — for independent tasks or existing summaries */}
-            {!readOnly && (!task.parent_id) && (
-              <Button variant="outline" size="sm" onClick={() => setAddSubtaskOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" /> Add Subtask
-              </Button>
-            )}
           </div>
           {(!readOnly || isSummary) && (
             <AlertDialog>
