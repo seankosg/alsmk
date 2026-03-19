@@ -3,7 +3,7 @@ import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
-  SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+  SidebarGroupLabel, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem,
   SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className={item.title === "Messages" && unreadCount > 0 ? "pr-8" : undefined}>
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
@@ -64,16 +64,13 @@ export function AppSidebar() {
                     >
                       <item.icon className="mr-2 h-4 w-4 shrink-0" />
                       {!collapsed && <span>{item.title}</span>}
-                      {item.title === "Messages" && unreadCount > 0 && (
-                        <Badge
-                          variant="destructive"
-                          className="ml-auto h-5 min-w-[20px] px-1.5 flex items-center justify-center text-[10px] font-bold"
-                        >
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </Badge>
-                      )}
                     </NavLink>
                   </SidebarMenuButton>
+                  {item.title === "Messages" && unreadCount > 0 && !collapsed && (
+                    <SidebarMenuBadge className="right-2 top-1/2 -translate-y-1/2 rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
