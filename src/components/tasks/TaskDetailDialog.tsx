@@ -200,8 +200,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <code className="text-sm text-muted-foreground">{task.task_code}</code>
