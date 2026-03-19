@@ -74,7 +74,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
-  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<string | null>("taskCode");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
@@ -161,6 +161,10 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
     } else {
       filtered = filtered.filter(t => t.assignee_id === memberId || t.team_id === myTeamId);
     }
+    // Include parent summaries for visible subtasks
+    const visibleParentIds = new Set(filtered.filter(t => t.parent_id).map(t => t.parent_id!));
+    const missingParents = tasks.filter(t => visibleParentIds.has(t.id) && !filtered.some(f => f.id === t.id));
+    filtered = [...filtered, ...missingParents];
   }
   if (filterMine && (isAdmin || isPm) && memberFilter !== "all") {
     filtered = filtered.filter(t => t.assignee_id === memberFilter);
@@ -325,6 +329,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                     <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
                   ) : filtered.map((task) => {
                     const isSummary = (task as any).is_summary === true;
+                    const hasParent = !!(task as any).parent_id;
                     const planned = calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     const isEditingThis = editingProgressId === task.id;
@@ -339,14 +344,11 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                           : "text-destructive";
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
-                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-muted/30 font-bold" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
+                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-muted/30" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className={`font-mono text-xs truncate ${statusTextColor}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className={`text-xs truncate ${statusTextColor}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
-                        <TableCell className={`text-sm font-medium truncate ${statusTextColor}`} style={{ width: colWidths.subject }}>
-                          <span className="flex items-center gap-1.5">
-                            {isSummary && (
-                              <Badge variant="secondary" className="shrink-0 text-[10px] px-1.5 py-0">Summary</Badge>
-                            )}
+                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "font-semibold text-[15px]" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
+                          <span className={`flex items-center gap-1.5 ${hasParent ? "pl-6" : ""}`}>
                             <span className="truncate">{task.title}</span>
                             {task.issue_flag === "warning" && (
                               <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
@@ -436,6 +438,8 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
         members={members}
         milestones={milestones}
         readOnly={((selectedTask as any)?.is_summary === true) || (!isAdmin && selectedTask?.assignee_id !== memberId)}
+        isSummary={(selectedTask as any)?.is_summary === true}
+        allTasks={tasks}
       />
     </>
   );

@@ -50,9 +50,11 @@ interface TaskDetailDialogProps {
   members?: LookupItem[];
   milestones?: LookupItem[];
   readOnly?: boolean;
+  isSummary?: boolean;
+  allTasks?: any[];
 }
 
-export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [], readOnly = false }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [], readOnly = false, isSummary = false, allTasks = [] }: TaskDetailDialogProps) {
   const queryClient = useQueryClient();
   const auth = useAuthContext();
   const [saving, setSaving] = useState(false);
@@ -199,6 +201,16 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const handleDelete = async () => {
     setDeleting(true);
     try {
+      // If summary, detach subtasks first
+      if (isSummary) {
+        const subtaskIds = allTasks.filter(t => t.parent_id === task.id).map(t => t.id);
+        if (subtaskIds.length > 0) {
+          const { error: detachError } = await supabase.from("tasks").update({
+            parent_id: null,
+          } as any).in("id", subtaskIds);
+          if (detachError) throw detachError;
+        }
+      }
       const { error } = await supabase.from("tasks").delete().eq("id", task.id);
       if (error) throw error;
       toast.success("Task deleted.");
@@ -465,7 +477,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
             <MessageSquare className="mr-1 h-4 w-4" /> Message
           </Button>
-          {!readOnly && (
+          {(!readOnly || isSummary) && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={deleting}>
@@ -476,7 +488,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Task?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete task <strong>{task.task_code}</strong>. This action cannot be undone.
+                    {isSummary ? (
+                      <>
+                        Summary task <strong>{task.task_code}</strong>를 삭제합니다.
+                        하위 {allTasks.filter(t => t.parent_id === task.id).length}개 subtask는 독립 task로 전환됩니다.
+                      </>
+                    ) : (
+                      <>This will permanently delete task <strong>{task.task_code}</strong>. This action cannot be undone.</>
+                    )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -490,7 +509,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           )}
 
           <div className="flex gap-2 ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>{readOnly ? "Close" : "Cancel"}</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{readOnly && !isSummary ? "Close" : readOnly ? "Close" : "Cancel"}</Button>
             {!readOnly && (
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? "Saving..." : "Save Changes"}
