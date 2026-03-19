@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "./AppLayout";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export function AppSidebar() {
   const { state } = useSidebar();
