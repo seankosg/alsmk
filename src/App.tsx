@@ -16,7 +16,16 @@ import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
