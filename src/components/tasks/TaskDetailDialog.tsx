@@ -61,6 +61,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sendMsgOpen, setSendMsgOpen] = useState(false);
+  const [addSubtaskOpen, setAddSubtaskOpen] = useState(false);
 
   // Editable fields
   const [currentProgress, setCurrentProgress] = useState(0);
