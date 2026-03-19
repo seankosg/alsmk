@@ -68,6 +68,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [issueDescription, setIssueDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
 
   // Notification recipients
   const [notifyRecipients, setNotifyRecipients] = useState<string[]>([]);
