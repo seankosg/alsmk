@@ -249,6 +249,13 @@ export function ChatArea({ conversationId, members, onTaskClick }: ChatAreaProps
           </Button>
         </div>
       </div>
+
+      <ManageMembersDialog
+        open={membersDialogOpen}
+        onOpenChange={setMembersDialogOpen}
+        conversationId={conversationId}
+        currentMembers={members}
+      />
     </div>
   );
 }
