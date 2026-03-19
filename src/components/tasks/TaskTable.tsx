@@ -60,9 +60,11 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
 
 interface TaskTableProps {
   filterMine?: boolean;
+  /** "mine" = only my assigned tasks, "team" = my team's tasks, undefined = all (legacy behavior) */
+  filterMode?: "mine" | "team";
 }
 
-export function TaskTable({ filterMine }: TaskTableProps) {
+export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
   const { isAdmin, memberId } = useAuthContext();
   const queryClient = useQueryClient();
   const [teamFilter, setTeamFilter] = useState<string>("all");
@@ -152,7 +154,13 @@ export function TaskTable({ filterMine }: TaskTableProps) {
   let filtered = [...tasks];
 
   if (filterMine && !isAdmin && !isPm) {
-    filtered = filtered.filter(t => t.assignee_id === memberId || t.team_id === myTeamId);
+    if (filterMode === "mine") {
+      filtered = filtered.filter(t => t.assignee_id === memberId);
+    } else if (filterMode === "team") {
+      filtered = filtered.filter(t => t.team_id === myTeamId);
+    } else {
+      filtered = filtered.filter(t => t.assignee_id === memberId || t.team_id === myTeamId);
+    }
   }
   if (filterMine && (isAdmin || isPm) && memberFilter !== "all") {
     filtered = filtered.filter(t => t.assignee_id === memberFilter);
