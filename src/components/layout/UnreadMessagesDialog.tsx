@@ -46,14 +46,21 @@ export function UnreadMessagesDialog() {
         </DialogHeader>
         <div className="space-y-2 max-h-48 overflow-auto">
           {previews.map((msg) => (
-            <div key={msg.id} className="flex items-start gap-2 text-sm rounded-md bg-muted/50 p-2">
+            <button
+              key={msg.id}
+              className="w-full flex items-start gap-2 text-sm rounded-md bg-muted/50 p-2 hover:bg-muted transition-colors cursor-pointer text-left"
+              onClick={() => {
+                setOpen(false);
+                navigate(`/messages?conv=${msg.conversation_id}`);
+              }}
+            >
               <span className="font-medium text-foreground shrink-0">
                 {msg.sender?.name}:
               </span>
               <span className="text-muted-foreground truncate">
                 {msg.message.length > 60 ? msg.message.slice(0, 60) + "…" : msg.message}
               </span>
-            </div>
+            </button>
           ))}
           {unreadCount > 5 && (
             <p className="text-xs text-muted-foreground text-center">
