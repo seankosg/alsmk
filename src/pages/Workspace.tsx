@@ -64,8 +64,11 @@ const Workspace = () => {
   const handleGenerateSummaries = async () => {
     setGenerating(true);
     try {
-      // Get all non-summary tasks
-      const subtasks = tasks.filter(t => !(t as any).is_summary);
+      // Get all non-summary tasks, scoped by role
+      let subtasks = tasks.filter(t => !(t as any).is_summary);
+      if (!isAdminOrPm) {
+        subtasks = subtasks.filter(t => t.assignee_id === memberId);
+      }
 
       // Group by title
       const groups = new Map<string, typeof subtasks>();
@@ -106,8 +109,9 @@ const Workspace = () => {
           ? groupTasks.reduce((max, t) => (t.actual_finish! > max ? t.actual_finish! : max), groupTasks[0].actual_finish!)
           : null;
 
-        // Team: use first subtask's team
+        // Team & part: use first subtask's
         const teamId = groupTasks[0].team_id;
+        const partId = groupTasks[0].part_id;
 
         // Check if summary already exists for this title
         const existingSummary = tasks.find(t => (t as any).is_summary && t.title === title);
@@ -130,12 +134,23 @@ const Workspace = () => {
           } as any).in("id", subtaskIds);
           if (linkError) throw linkError;
 
+          // Update subtask codes to hierarchical format
+          const summaryCode = existingSummary.task_code;
+          if (summaryCode) {
+            for (let i = 0; i < subtaskIds.length; i++) {
+              await supabase.from("tasks").update({
+                task_code: summaryCode + "-" + String(i + 1).padStart(2, "0"),
+              } as any).eq("id", subtaskIds[i]);
+            }
+          }
+
           updated++;
         } else {
           // Create new summary task
           const { data: newSummary, error } = await supabase.from("tasks").insert({
             title,
             team_id: teamId,
+            part_id: partId,
             start_date: startDate,
             end_date: endDate,
             current_progress: actualProgress,
@@ -143,7 +158,7 @@ const Workspace = () => {
             actual_finish: latestFinish,
             is_summary: true,
             action_plan: null,
-          } as any).select("id").single();
+          } as any).select("id, task_code").single();
           if (error) throw error;
 
           // Link subtasks
@@ -152,6 +167,16 @@ const Workspace = () => {
             parent_id: newSummary.id,
           } as any).in("id", subtaskIds);
           if (linkError) throw linkError;
+
+          // Update subtask codes to hierarchical format
+          const summaryCode = newSummary.task_code;
+          if (summaryCode) {
+            for (let i = 0; i < subtaskIds.length; i++) {
+              await supabase.from("tasks").update({
+                task_code: summaryCode + "-" + String(i + 1).padStart(2, "0"),
+              } as any).eq("id", subtaskIds[i]);
+            }
+          }
 
           created++;
         }
