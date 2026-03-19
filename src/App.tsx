@@ -11,6 +11,7 @@ import Organization from "./pages/Organization";
 import Admin from "./pages/Admin";
 import TaskImport from "./pages/TaskImport";
 import Messages from "./pages/Messages";
+import Calendar from "./pages/Calendar";
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
 import NotFound from "./pages/NotFound";
@@ -40,6 +41,7 @@ const App = () => (
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/tasks/import" element={<TaskImport />} />
                   <Route path="/messages" element={<Messages />} />
+                  <Route path="/calendar" element={<Calendar />} />
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

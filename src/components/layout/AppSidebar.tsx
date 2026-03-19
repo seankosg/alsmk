@@ -1,4 +1,4 @@
-import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -21,6 +21,7 @@ export function AppSidebar() {
 
   const navItems = [
     { title: "Project Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "Calendar", url: "/calendar", icon: CalendarDays },
     { title: "My Dashboard", url: "/my", icon: User },
     { title: "My Workspace", url: "/workspace", icon: Briefcase },
     { title: "Messages", url: "/messages", icon: MessageSquare },
