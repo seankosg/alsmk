@@ -127,6 +127,7 @@ const Workspace = () => {
             current_progress: actualProgress,
             issue_flag: worstFlag,
             actual_finish: latestFinish,
+            assignee_id: assigneeId,
           } as any).eq("id", existingSummary.id);
           if (error) throw error;
 
