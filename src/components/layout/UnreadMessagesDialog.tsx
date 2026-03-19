@@ -25,7 +25,8 @@ export function UnreadMessagesDialog() {
 
   const handleView = () => {
     setOpen(false);
-    navigate("/messages");
+    const latestConvId = unreadMessages[0]?.conversation_id;
+    navigate(latestConvId ? `/messages?conv=${latestConvId}` : "/messages");
   };
 
   // Show top 5 previews
