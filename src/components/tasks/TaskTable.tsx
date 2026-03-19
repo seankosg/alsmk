@@ -60,6 +60,8 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
 
 interface TaskTableProps {
   filterMine?: boolean;
+  /** "mine" = only my assigned tasks, "team" = my team's tasks, undefined = all (legacy behavior) */
+  filterMode?: "mine" | "team";
 }
 
 export function TaskTable({ filterMine }: TaskTableProps) {
