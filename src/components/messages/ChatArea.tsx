@@ -7,8 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { TaskCard } from "./TaskCard";
 import { TaskSearchPopover } from "./TaskSearchPopover";
+import { ManageMembersDialog } from "./ManageMembersDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
-import { Send, Paperclip, Trash2 } from "lucide-react";
+import { Send, Paperclip, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
