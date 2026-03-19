@@ -118,6 +118,9 @@ export function EventDialog({ open, onOpenChange, event, defaultDate, onSaved }:
           end_date: endDate || null,
           event_type: eventType,
           created_by: event.created_by,
+          all_day: allDay,
+          start_time: allDay ? null : startTime || null,
+          end_time: allDay ? null : endTime || null,
         };
         const { error } = await supabase.from("calendar_events").update(data).eq("id", event.id);
         if (error) throw error;
