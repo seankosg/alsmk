@@ -1,11 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, User, Crown } from "lucide-react";
-import { useMemo } from "react";
+import { Users, User, Crown, RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
 
 const Organization = () => {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["teams"] });
+    await queryClient.invalidateQueries({ queryKey: ["parts"] });
+    await queryClient.invalidateQueries({ queryKey: ["members"] });
+    await queryClient.invalidateQueries({ queryKey: ["project_settings", "pm_name"] });
+    setRefreshing(false);
+  };
+
   const { data: pmName } = useQuery({
     queryKey: ["project_settings", "pm_name"],
     queryFn: async () => {
@@ -62,7 +75,11 @@ const Organization = () => {
           <h1 className="text-2xl font-bold tracking-tight">Organization</h1>
           <p className="text-sm text-muted-foreground">Project organization chart</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border">
             <Users className="h-4 w-4 text-primary" />
             <span className="text-sm font-mono font-medium">{totalMembers}<span className="text-muted-foreground">/{totalTO}</span></span>
