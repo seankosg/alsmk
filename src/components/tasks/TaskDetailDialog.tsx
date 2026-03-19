@@ -229,20 +229,43 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         <div className="space-y-4">
           {/* Read-only info */}
           <div>
-            <p className="text-xs text-muted-foreground">Category</p>
-            <p className="text-sm font-medium">{task.category ?? "—"}</p>
+            <Label className="text-xs text-muted-foreground">Category</Label>
+            <Input
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              placeholder="e.g. Design, Engineering"
+              maxLength={100}
+              disabled={readOnly}
+              className="mt-1"
+            />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Subject</p>
-            <h3 className="text-lg font-semibold">{task.title}</h3>
+            <Label className="text-xs text-muted-foreground">Subject</Label>
+            <Input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Task subject"
+              maxLength={200}
+              disabled={readOnly}
+              className="mt-1 text-lg font-semibold"
+            />
           </div>
 
           <Separator />
 
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xs text-muted-foreground">Team</p>
-              <p className="font-medium">{getTeamName(task.team_id)}</p>
+              <Label className="text-xs text-muted-foreground">Team</Label>
+              <Select value={teamId} onValueChange={setTeamId} disabled={readOnly}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Assignee</Label>
