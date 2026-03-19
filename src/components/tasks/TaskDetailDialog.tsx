@@ -68,6 +68,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [issueDescription, setIssueDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
 
   // Notification recipients
   const [notifyRecipients, setNotifyRecipients] = useState<string[]>([]);
@@ -88,6 +89,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
       setIssueDescription(task.issue_description ?? "");
       setStartDate(task.start_date);
       setEndDate(task.end_date);
+      setAssigneeId(task.assignee_id);
       setNotifyRecipients([]);
       setShowNotifySection(false);
     }
@@ -146,6 +148,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         issue_flag: issueFlag,
         issue_type: issueFlag !== "normal" ? (issueType.trim() || null) : null,
         issue_description: issueFlag !== "normal" ? (issueDescription.trim() || null) : null,
+        assignee_id: assigneeId || null,
       }).eq("id", task.id);
 
       if (error) throw error;
@@ -233,8 +236,18 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
               <p className="font-medium">{getTeamName(task.team_id)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Assignee</p>
-              <p className="font-medium">{getMemberName(task.assignee_id)}</p>
+              <Label className="text-xs text-muted-foreground">Assignee</Label>
+              <Select value={assigneeId ?? "__unassigned__"} onValueChange={v => setAssigneeId(v === "__unassigned__" ? null : v)} disabled={readOnly}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {members.map(m => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="edit-start-date" className="text-xs text-muted-foreground">Start</Label>
@@ -413,7 +426,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
 
         {/* Comments Section - always visible */}
         <Separator />
-        <TaskComments taskId={task.id} taskAssigneeId={task.assignee_id} />
+        <TaskComments taskId={task.id} taskAssigneeId={assigneeId} />
 
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-4">
           {/* Send Message button - always visible regardless of readOnly */}
