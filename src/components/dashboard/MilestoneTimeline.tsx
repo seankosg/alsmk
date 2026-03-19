@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Clock, Circle, AlertTriangle, CalendarClock } from "lucide-react";
+import { QueryErrorCard } from "./QueryErrorCard";
 import { differenceInDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 
