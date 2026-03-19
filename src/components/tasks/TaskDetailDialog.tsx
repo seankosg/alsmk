@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Users } from "lucide-react";
+import { Trash2, Users, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { useAuthContext } from "@/components/layout/AppLayout";
