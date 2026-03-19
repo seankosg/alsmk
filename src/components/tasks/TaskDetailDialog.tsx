@@ -411,6 +411,10 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
           )}
         </div>
 
+        {/* Comments Section - always visible */}
+        <Separator />
+        <TaskComments taskId={task.id} taskAssigneeId={task.assignee_id} />
+
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-4">
           {!readOnly && (
             <AlertDialog>
