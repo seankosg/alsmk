@@ -439,12 +439,12 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                             )}
                           </span>
                         </TableCell>
-                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.actionPlan }}>
+                        <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.actionPlan }}>
                           {task.action_plan ? (
                             <TooltipProvider delayDuration={200}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="block truncate cursor-default">{task.action_plan}</span>
+                                  <span className="block break-words whitespace-normal cursor-default">{task.action_plan}</span>
                                 </TooltipTrigger>
                                 <TooltipContent side="bottom" className="max-w-sm whitespace-pre-wrap text-xs">
                                   {task.action_plan}
