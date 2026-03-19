@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { CategoryCombobox } from "./CategoryCombobox";
 
 interface ParentTask {
   id: string;
@@ -149,7 +150,9 @@ export function AddSubtaskDialog({ parent, open, onOpenChange, teams = [], membe
         <div className="space-y-4">
           <div>
             <Label className="text-xs text-muted-foreground">Category</Label>
-            <Input value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g. Design, Engineering" maxLength={100} className="mt-1" />
+            <div className="mt-1">
+              <CategoryCombobox value={category} onChange={setCategory} placeholder="e.g. Design, Engineering" />
+            </div>
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Subject</Label>
