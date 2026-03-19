@@ -1,10 +1,13 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
+import { UnreadMessagesDialog } from "./UnreadMessagesDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Auth context so children can access auth state
 interface AuthContextType {
