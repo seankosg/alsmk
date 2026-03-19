@@ -401,7 +401,7 @@ export function TaskTable({ filterMine, filterMode }: TaskTableProps) {
                             {hasChildren && (
                               <button
                                 onClick={(e) => toggleCollapse(task.id, e)}
-                                className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors"
+                                className="shrink-0 p-0.5 rounded hover:bg-accent transition-colors -ml-[22px]"
                               >
                                 {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                               </button>
