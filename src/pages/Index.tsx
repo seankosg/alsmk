@@ -32,11 +32,11 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div data-export-id="team-progress">
-          <TeamProgressChart />
-        </div>
         <div data-export-id="category-progress">
           <CategoryProgressChart />
+        </div>
+        <div data-export-id="team-progress">
+          <TeamProgressChart />
         </div>
       </div>
 
