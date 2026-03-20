@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
+import { DeletedTasksList } from "@/components/tasks/DeletedTasksList";
 import { Button } from "@/components/ui/button";
-import { Upload, FileDown, ListTree, ChevronsUpDown } from "lucide-react";
+import { Upload, FileDown, ListTree, ChevronsUpDown, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { calcPlannedProgress } from "@/lib/mockData";
