@@ -273,6 +273,9 @@ export function TaskImportComponent() {
         const milestone = milestoneName ? milestones.find(m => m.name.toLowerCase() === milestoneName.toLowerCase()) : null;
         if (milestoneName && !milestone) errors.push(`Milestone '${milestoneName}' 없음`);
 
+        const isDuplicate = !!(member?.id && startDate && endDate &&
+          existingTaskKeys.has(`${title}|${member.id}|${startDate}|${endDate}`));
+
         return {
           title, category, actionPlan, milestoneName, teamCode, partCode, assigneeName,
           startDate, endDate, actualProgress, actualFinish,
@@ -281,6 +284,7 @@ export function TaskImportComponent() {
           assigneeId: member?.id ?? null,
           milestoneId: milestone?.id ?? null,
           errors,
+          isDuplicate,
         };
       });
 
