@@ -282,12 +282,7 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
           {!isLoading && topLevelComments.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">No comments yet</p>
           )}
-          {topLevelComments.map((c) => (
-            <div key={c.id} className="space-y-1">
-              {renderComment(c)}
-              {repliesByParent[c.id]?.map((r) => renderComment(r, true))}
-            </div>
-          ))}
+          {topLevelComments.map((c) => renderThread(c))}
         </div>
       </ScrollArea>
 
