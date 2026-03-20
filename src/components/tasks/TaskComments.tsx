@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthContext } from "@/components/layout/AppLayout";
-import { Send, Reply, X } from "lucide-react";
+import { Send, Reply, X, Pencil, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -17,12 +17,14 @@ interface TaskCommentsProps {
 }
 
 export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
-  const { memberId, memberName, isAdminOrPm } = useAuthContext();
+  const { memberId, memberName, isAdmin, isAdminOrPm } = useAuthContext();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [commentType, setCommentType] = useState<"comment" | "instruction">("comment");
   const [sending, setSending] = useState(false);
   const [replyTo, setReplyTo] = useState<{ id: string; authorId: string; authorName: string; message: string; type: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState("");
 
   const { data: comments = [], isLoading } = useQuery({
     queryKey: ["task_comments", taskId],
@@ -38,7 +40,6 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
     enabled: !!taskId,
   });
 
-  // Get member names for comments
   const authorIds = [...new Set(comments.map((c) => c.author_id))];
   const { data: authors = [] } = useQuery({
     queryKey: ["comment_authors", authorIds],
@@ -54,12 +55,12 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
     enabled: authorIds.length > 0,
   });
 
-  // Realtime
+  // Realtime — listen for INSERT, UPDATE, DELETE
   useEffect(() => {
     const channel = supabase
       .channel(`comments-${taskId}`)
       .on("postgres_changes", {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "task_comments",
         filter: `task_id=eq.${taskId}`,
@@ -72,6 +73,8 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
   }, [taskId, queryClient]);
 
   const getAuthorName = (id: string) => authors.find((a) => a.id === id)?.name ?? "Unknown";
+
+  const canEditOrDelete = (authorId: string) => authorId === memberId || isAdmin;
 
   const typeBadgeStyle = (type: string) => {
     switch (type) {
@@ -89,6 +92,43 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
       message: comment.message,
       type: comment.type,
     });
+  };
+
+  const handleEdit = (comment: typeof comments[0]) => {
+    setEditingId(comment.id);
+    setEditingMessage(comment.message);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingId || !editingMessage.trim()) return;
+    try {
+      const { error } = await supabase
+        .from("task_comments")
+        .update({ message: editingMessage.trim() })
+        .eq("id", editingId);
+      if (error) throw error;
+      setEditingId(null);
+      setEditingMessage("");
+      queryClient.invalidateQueries({ queryKey: ["task_comments", taskId] });
+      toast.success("Comment updated.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update comment.");
+    }
+  };
+
+  const handleDelete = async (commentId: string) => {
+    if (!confirm("Delete this comment? Replies will also be removed.")) return;
+    try {
+      const { error } = await supabase
+        .from("task_comments")
+        .delete()
+        .eq("id", commentId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["task_comments", taskId] });
+      toast.success("Comment deleted.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete comment.");
+    }
   };
 
   const handleSend = async () => {
@@ -109,7 +149,6 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
 
       // Send notification
       if (isReply && replyTo) {
-        // Reply → notify the original comment author (not task assignee)
         if (replyTo.authorId !== memberId) {
           await supabase.from("notifications").insert({
             recipient_id: replyTo.authorId,
@@ -121,7 +160,6 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
           });
         }
       } else {
-        // Comment/Instruction → notify task assignee
         if (taskAssigneeId && taskAssigneeId !== memberId) {
           const titleMap: Record<string, string> = {
             comment: `New comment from ${memberName ?? "User"}`,
@@ -148,7 +186,6 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
     }
   };
 
-  // Group replies under their parent comments
   const topLevelComments = comments.filter(c => !c.parent_comment_id);
   const repliesByParent = comments.reduce<Record<string, typeof comments>>((acc, c) => {
     if (c.parent_comment_id) {
@@ -157,6 +194,69 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
     }
     return acc;
   }, {});
+
+  const renderComment = (c: typeof comments[0], isReplyItem = false) => {
+    const isEditing = editingId === c.id;
+    const showActions = canEditOrDelete(c.author_id);
+
+    return (
+      <div key={c.id} className={`rounded-md border p-2 ${typeBadgeStyle(isReplyItem ? "reply" : c.type)} ${isReplyItem ? "ml-5" : ""}`}>
+        <div className="flex items-center gap-2 mb-1">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            {isReplyItem ? "reply" : c.type}
+          </Badge>
+          <span className="text-xs font-medium">{getAuthorName(c.author_id)}</span>
+          <span className="text-[10px] text-muted-foreground ml-auto">
+            {format(new Date(c.created_at), "MM/dd HH:mm")}
+          </span>
+          {showActions && !isEditing && (
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => handleEdit(c)} className="p-0.5 text-muted-foreground hover:text-foreground transition-colors">
+                <Pencil className="h-3 w-3" />
+              </button>
+              <button onClick={() => handleDelete(c.id)} className="p-0.5 text-muted-foreground hover:text-destructive transition-colors">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </div>
+        {isEditing ? (
+          <div className="space-y-1.5">
+            <Textarea
+              value={editingMessage}
+              onChange={(e) => setEditingMessage(e.target.value)}
+              rows={2}
+              className="resize-none text-sm min-h-0"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleEditSave(); }
+                if (e.key === "Escape") { setEditingId(null); setEditingMessage(""); }
+              }}
+            />
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={() => { setEditingId(null); setEditingMessage(""); }}>
+                Cancel
+              </Button>
+              <Button size="sm" className="h-6 text-[10px] px-2" onClick={handleEditSave} disabled={!editingMessage.trim()}>
+                <Check className="h-3 w-3 mr-1" /> Save
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm whitespace-pre-wrap">{c.message}</p>
+            {!isReplyItem && (
+              <button
+                onClick={() => handleReply(c)}
+                className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Reply className="h-3 w-3" /> Reply
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -170,38 +270,8 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
           )}
           {topLevelComments.map((c) => (
             <div key={c.id} className="space-y-1">
-              {/* Parent comment */}
-              <div className={`rounded-md border p-2 ${typeBadgeStyle(c.type)}`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                    {c.type}
-                  </Badge>
-                  <span className="text-xs font-medium">{getAuthorName(c.author_id)}</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto">
-                    {format(new Date(c.created_at), "MM/dd HH:mm")}
-                  </span>
-                </div>
-                <p className="text-sm whitespace-pre-wrap">{c.message}</p>
-                <button
-                  onClick={() => handleReply(c)}
-                  className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Reply className="h-3 w-3" /> Reply
-                </button>
-              </div>
-              {/* Threaded replies */}
-              {repliesByParent[c.id]?.map((r) => (
-                <div key={r.id} className={`ml-5 rounded-md border p-2 ${typeBadgeStyle("reply")}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">reply</Badge>
-                    <span className="text-xs font-medium">{getAuthorName(r.author_id)}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">
-                      {format(new Date(r.created_at), "MM/dd HH:mm")}
-                    </span>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">{r.message}</p>
-                </div>
-              ))}
+              {renderComment(c)}
+              {repliesByParent[c.id]?.map((r) => renderComment(r, true))}
             </div>
           ))}
         </div>
