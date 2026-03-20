@@ -422,7 +422,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                 </TableHeader>
                 <TableBody>
                   {grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
                   ) : grouped.map((task) => {
                     const isSummary = (task as any).is_summary === true;
                     const hasParent = !!(task as any).parent_id;
