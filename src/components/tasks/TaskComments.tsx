@@ -195,12 +195,28 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
     return acc;
   }, {});
 
-  const renderComment = (c: typeof comments[0], isReplyItem = false) => {
+  const renderThread = (c: typeof comments[0], depth = 0) => {
+    const replies = repliesByParent[c.id] ?? [];
+    return (
+      <div key={c.id} className="space-y-1">
+        {renderComment(c, depth > 0, depth)}
+        {replies.length > 0 && (
+          <div className="space-y-1">
+            {replies.map((r) => renderThread(r, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderComment = (c: typeof comments[0], isReplyItem = false, depth = 0) => {
     const isEditing = editingId === c.id;
     const showActions = canEditOrDelete(c.author_id);
+    const maxIndent = 4;
+    const indentClass = depth > 0 ? `ml-${Math.min(depth, maxIndent) * 4}` : "";
 
     return (
-      <div key={c.id} className={`rounded-md border p-2 ${typeBadgeStyle(isReplyItem ? "reply" : c.type)} ${isReplyItem ? "ml-5" : ""}`}>
+      <div key={c.id} className={`rounded-md border p-2 ${typeBadgeStyle(isReplyItem ? "reply" : c.type)} ${indentClass}`}>
         <div className="flex items-center gap-2 mb-1">
           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
             {isReplyItem ? "reply" : c.type}
@@ -244,14 +260,12 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
         ) : (
           <>
             <p className="text-sm whitespace-pre-wrap">{c.message}</p>
-            {!isReplyItem && (
-              <button
-                onClick={() => handleReply(c)}
-                className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Reply className="h-3 w-3" /> Reply
-              </button>
-            )}
+            <button
+              onClick={() => handleReply(c)}
+              className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Reply className="h-3 w-3" /> Reply
+            </button>
           </>
         )}
       </div>
@@ -268,12 +282,7 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
           {!isLoading && topLevelComments.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">No comments yet</p>
           )}
-          {topLevelComments.map((c) => (
-            <div key={c.id} className="space-y-1">
-              {renderComment(c)}
-              {repliesByParent[c.id]?.map((r) => renderComment(r, true))}
-            </div>
-          ))}
+          {topLevelComments.map((c) => renderThread(c))}
         </div>
       </ScrollArea>
 
