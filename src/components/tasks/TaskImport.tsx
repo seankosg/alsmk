@@ -58,6 +58,7 @@ interface ParsedRow {
   assigneeId: string | null;
   milestoneId: string | null;
   errors: string[];
+  isDuplicate: boolean;
 }
 
 const DISPLAY_COLUMNS = ["Subject", "Assignee", "Action Plan", "Team/Part", "Start", "Finish", "Actual %", "Actual Finish"];
