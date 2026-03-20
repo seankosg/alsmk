@@ -18,7 +18,7 @@ const Workspace = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, memberId } = useAuthContext();
-  const [filterMode, setFilterMode] = useState<"mine" | "team">("mine");
+  const [filterMode, setFilterMode] = useState<"mine" | "team" | "project">("mine");
   const [generating, setGenerating] = useState(false);
   const [allCollapsed, setAllCollapsed] = useState(false);
 
