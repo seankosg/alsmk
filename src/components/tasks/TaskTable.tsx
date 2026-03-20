@@ -521,7 +521,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                               onClick={e => e.stopPropagation()}
                             />
                           ) : (
-                            <span className="cursor-text hover:underline">{task.current_progress}%</span>
+                            <span className={readOnly ? "" : "cursor-text hover:underline"}>{task.current_progress}%</span>
                           )}
                         </TableCell>
                         <TableCell className={`text-right font-mono font-bold ${isSummary ? "text-sm" : "text-xs"} ${isCompleted ? 'text-muted-foreground/50' : gap >= 0 ? 'text-primary' : 'text-destructive'}`} style={{ width: colWidths.gap }}>
