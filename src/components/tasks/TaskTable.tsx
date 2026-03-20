@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 const DEFAULT_COL_WIDTHS: Record<string, number> = {
   taskCode: 140,
+  assignee: 100,
   category: 100,
   subject: 260,
   actionPlan: 200,
@@ -232,6 +233,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   const getVal = useCallback((t: typeof filtered[0], key: string): any => {
     switch (key) {
       case "taskCode": return t.task_code ?? "";
+      case "assignee": return members.find(m => m.id === t.assignee_id)?.name ?? "";
       case "category": return t.category ?? "";
       case "subject": return t.title;
       case "actionPlan": return t.action_plan ?? "";
@@ -377,6 +379,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                   <TableRow>
                     {[
                       { key: "taskCode", label: "Task Code", align: "" },
+                      { key: "assignee", label: "Assignee", align: "" },
                       { key: "category", label: "Category", align: "" },
                       { key: "subject", label: "Subject", align: "" },
                       { key: "actionPlan", label: "Action Plan", align: "" },
@@ -419,7 +422,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                 </TableHeader>
                 <TableBody>
                   {grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground">No tasks found</TableCell></TableRow>
                   ) : grouped.map((task) => {
                     const isSummary = (task as any).is_summary === true;
                     const hasParent = !!(task as any).parent_id;
@@ -441,6 +444,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                     return (
                       <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-primary/10 border-l-2 border-l-primary" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
+                        <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.assignee }}>{members.find(m => m.id === task.assignee_id)?.name ?? "—"}</TableCell>
                         <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "font-semibold text-sm" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
                           <span className={`flex items-center gap-1.5 ${hasParent ? "pl-6" : ""}`}>
