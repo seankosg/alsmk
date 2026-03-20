@@ -498,12 +498,13 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                           className={`text-right font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`}
                           style={{ width: colWidths.actual }}
                           onClick={(e) => {
+                            if (readOnly) return;
                             e.stopPropagation();
                             setEditingProgressId(task.id);
                             setEditingProgressValue(String(task.current_progress));
                           }}
                         >
-                          {isEditingThis ? (
+                          {isEditingThis && !readOnly ? (
                             <Input
                               type="number"
                               min={0}
