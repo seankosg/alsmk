@@ -6,7 +6,7 @@ import { CategoryProgressChart } from "@/components/dashboard/CategoryProgressCh
 import { CriticalIssueBoard } from "@/components/dashboard/CriticalIssueBoard";
 import { BehindScheduleBoard } from "@/components/dashboard/BehindScheduleBoard";
 import { UpcomingDeadlines } from "@/components/dashboard/UpcomingDeadlines";
-import { IssueTrendChart } from "@/components/dashboard/IssueTrendChart";
+import { OverdueTasksBoard } from "@/components/dashboard/OverdueTasksBoard";
 import { ActivityStream } from "@/components/dashboard/ActivityStream";
 import { PersonnelTable } from "@/components/dashboard/PersonnelTable";
 import { PartStatusBoard } from "@/components/dashboard/PartStatusBoard";
@@ -41,8 +41,8 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div data-export-id="behind-schedule">
-          <BehindScheduleBoard />
+        <div data-export-id="overdue-tasks">
+          <OverdueTasksBoard />
         </div>
         <div data-export-id="critical-issues">
           <CriticalIssueBoard />
@@ -50,11 +50,11 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div data-export-id="behind-schedule">
+          <BehindScheduleBoard />
+        </div>
         <div data-export-id="upcoming-deadlines">
           <UpcomingDeadlines />
-        </div>
-        <div data-export-id="issue-trend">
-          <IssueTrendChart />
         </div>
       </div>
 
