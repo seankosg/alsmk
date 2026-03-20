@@ -390,16 +390,26 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                         key={col.key}
                         className={`relative select-none cursor-pointer hover:bg-accent/50 ${col.align}`}
                         style={{ width: colWidths[col.key], minWidth: 40 }}
-                        onClick={() => handleSort(col.key)}
+                        onClick={(e) => handleSort(col.key, e.shiftKey)}
                       >
-                        <span className="inline-flex items-center gap-1">
-                          {col.label}
-                          {sortKey === col.key ? (
-                            sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                          ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-30" />
-                          )}
-                        </span>
+                        {(() => {
+                          const sortIdx = sortColumns.findIndex(s => s.key === col.key);
+                          const sortInfo = sortIdx !== -1 ? sortColumns[sortIdx] : null;
+                          const priorityLabels = ["①", "②", "③", "④", "⑤"];
+                          return (
+                            <span className="inline-flex items-center gap-1">
+                              {col.label}
+                              {sortInfo ? (
+                                <>
+                                  {sortInfo.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                                  {sortColumns.length > 1 && <span className="text-[10px] text-primary font-bold">{priorityLabels[sortIdx] ?? sortIdx + 1}</span>}
+                                </>
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 opacity-30" />
+                              )}
+                            </span>
+                          );
+                        })()}
                         <ResizeHandle onResize={handleColResize(col.key)} />
                       </TableHead>
                     ))}
