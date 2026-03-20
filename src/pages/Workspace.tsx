@@ -263,10 +263,11 @@ const Workspace = () => {
       </div>
 
       {showTabs && (
-        <Tabs value={filterMode} onValueChange={(v) => setFilterMode(v as "mine" | "team")}>
+        <Tabs value={filterMode} onValueChange={(v) => setFilterMode(v as "mine" | "team" | "project")}>
           <TabsList>
             <TabsTrigger value="mine">내 태스크</TabsTrigger>
             <TabsTrigger value="team">팀 태스크</TabsTrigger>
+            <TabsTrigger value="project">프로젝트 태스크</TabsTrigger>
           </TabsList>
         </Tabs>
       )}
