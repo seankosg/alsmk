@@ -361,6 +361,11 @@ export function TaskImportComponent() {
                 <Badge variant="default" className="gap-1">
                   <CheckCircle className="h-3 w-3" /> {validRows.length} valid
                 </Badge>
+                {duplicateRows.length > 0 && (
+                  <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-500">
+                    <AlertTriangle className="h-3 w-3" /> {duplicateRows.length} duplicates
+                  </Badge>
+                )}
                 {errorRows.length > 0 && (
                   <Badge variant="destructive" className="gap-1">
                     <XCircle className="h-3 w-3" /> {errorRows.length} errors
