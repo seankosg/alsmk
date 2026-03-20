@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronRight, ChevronDown } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronRight, ChevronDown, X } from "lucide-react";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -76,8 +76,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
-  const [sortKey, setSortKey] = useState<string | null>("taskCode");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortColumns, setSortColumns] = useState<Array<{ key: string; dir: "asc" | "desc" }>>([{ key: "taskCode", dir: "asc" }]);
   const [collapsedSummaries, setCollapsedSummaries] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem("task-table-collapsed");
@@ -108,14 +107,21 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     return { ...DEFAULT_COL_WIDTHS };
   });
 
-  const handleSort = useCallback((key: string) => {
-    setSortKey(prev => {
-      if (prev === key) {
-        setSortDir(d => d === "asc" ? "desc" : "asc");
-        return key;
+  const handleSort = useCallback((key: string, shiftKey: boolean) => {
+    setSortColumns(prev => {
+      if (shiftKey) {
+        const idx = prev.findIndex(s => s.key === key);
+        if (idx === -1) return [...prev, { key, dir: "asc" }];
+        const current = prev[idx];
+        if (current.dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" } : s);
+        // 3rd click: remove
+        return prev.filter((_, i) => i !== idx);
       }
-      setSortDir("asc");
-      return key;
+      // Normal click: single sort
+      if (prev.length === 1 && prev[0].key === key) {
+        return [{ key, dir: prev[0].dir === "asc" ? "desc" : "asc" }];
+      }
+      return [{ key, dir: "asc" }];
     });
   }, []);
 
@@ -221,30 +227,32 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   }
 
   // Group-aware sorting: summaries+independents sorted together, subtasks inserted after their parent
-  const compareFn = useCallback((a: typeof filtered[0], b: typeof filtered[0]) => {
-    if (!sortKey) return 0;
-    let valA: any, valB: any;
-    switch (sortKey) {
-      case "taskCode": valA = a.task_code ?? ""; valB = b.task_code ?? ""; break;
-      case "category": valA = a.category ?? ""; valB = b.category ?? ""; break;
-      case "subject": valA = a.title; valB = b.title; break;
-      case "actionPlan": valA = a.action_plan ?? ""; valB = b.action_plan ?? ""; break;
-      case "start": valA = a.start_date; valB = b.start_date; break;
-      case "finish": valA = a.end_date; valB = b.end_date; break;
-      case "dday": {
-        valA = a.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(a.end_date), startOfDay(new Date()));
-        valB = b.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(b.end_date), startOfDay(new Date()));
-        break;
-      }
-      case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
-      case "actual": valA = a.current_progress; valB = b.current_progress; break;
-      case "gap": valA = a.current_progress - calcPlannedProgress(a.start_date, a.end_date); valB = b.current_progress - calcPlannedProgress(b.start_date, b.end_date); break;
-      case "actualFinish": valA = a.actual_finish ?? "zzz"; valB = b.actual_finish ?? "zzz"; break;
-      default: return 0;
+  const getVal = useCallback((t: typeof filtered[0], key: string): any => {
+    switch (key) {
+      case "taskCode": return t.task_code ?? "";
+      case "category": return t.category ?? "";
+      case "subject": return t.title;
+      case "actionPlan": return t.action_plan ?? "";
+      case "start": return t.start_date;
+      case "finish": return t.end_date;
+      case "dday": return t.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
+      case "plan": return calcPlannedProgress(t.start_date, t.end_date);
+      case "actual": return t.current_progress;
+      case "gap": return t.current_progress - calcPlannedProgress(t.start_date, t.end_date);
+      case "actualFinish": return t.actual_finish ?? "zzz";
+      default: return "";
     }
-    const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
-    return sortDir === "asc" ? cmp : -cmp;
-  }, [sortKey, sortDir]);
+  }, []);
+
+  const compareFn = useCallback((a: typeof filtered[0], b: typeof filtered[0]) => {
+    for (const { key, dir } of sortColumns) {
+      const valA = getVal(a, key);
+      const valB = getVal(b, key);
+      const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
+      if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+    }
+    return 0;
+  }, [sortColumns, getVal]);
 
   // Separate into groups, sort, then flatten with hierarchy
   const grouped = useMemo(() => {
@@ -300,10 +308,15 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-base">
+            <CardTitle className="text-base flex items-center gap-2">
               Tasks ({filtered.length})
               {filterMine && (isAdmin || isPm) && (
-                <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">{isAdmin ? "Admin View" : "PM View"}</Badge>
+                <Badge variant="outline" className="text-[10px] border-primary text-primary">{isAdmin ? "Admin View" : "PM View"}</Badge>
+              )}
+              {sortColumns.length > 1 && (
+                <button onClick={() => setSortColumns([{ key: "taskCode", dir: "asc" }])} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-3 w-3" /> Clear Sort
+                </button>
               )}
             </CardTitle>
             <div className="flex gap-2 flex-wrap items-center">
@@ -377,16 +390,26 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                         key={col.key}
                         className={`relative select-none cursor-pointer hover:bg-accent/50 ${col.align}`}
                         style={{ width: colWidths[col.key], minWidth: 40 }}
-                        onClick={() => handleSort(col.key)}
+                        onClick={(e) => handleSort(col.key, e.shiftKey)}
                       >
-                        <span className="inline-flex items-center gap-1">
-                          {col.label}
-                          {sortKey === col.key ? (
-                            sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                          ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-30" />
-                          )}
-                        </span>
+                        {(() => {
+                          const sortIdx = sortColumns.findIndex(s => s.key === col.key);
+                          const sortInfo = sortIdx !== -1 ? sortColumns[sortIdx] : null;
+                          const priorityLabels = ["①", "②", "③", "④", "⑤"];
+                          return (
+                            <span className="inline-flex items-center gap-1">
+                              {col.label}
+                              {sortInfo ? (
+                                <>
+                                  {sortInfo.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                                  {sortColumns.length > 1 && <span className="text-[10px] text-primary font-bold">{priorityLabels[sortIdx] ?? sortIdx + 1}</span>}
+                                </>
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 opacity-30" />
+                              )}
+                            </span>
+                          );
+                        })()}
                         <ResizeHandle onResize={handleColResize(col.key)} />
                       </TableHead>
                     ))}
