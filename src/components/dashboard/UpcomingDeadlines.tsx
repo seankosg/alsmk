@@ -72,7 +72,7 @@ export function UpcomingDeadlines() {
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Upcoming Deadlines</CardTitle>
+            <CardTitle className="text-base">Upcoming Deadlines ({upcoming.length})</CardTitle>
           </div>
           <p className="text-xs text-muted-foreground">Tasks due within 7 days</p>
         </CardHeader>
