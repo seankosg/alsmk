@@ -197,6 +197,25 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     staleTime: 30_000,
   });
 
+  // Fetch comment counts per task (total + instruction count)
+  const { data: commentCounts = {} } = useQuery({
+    queryKey: ["task_comment_counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_comments")
+        .select("task_id, type");
+      if (error) throw error;
+      const counts: Record<string, { total: number; instructions: number }> = {};
+      for (const row of data) {
+        if (!counts[row.task_id]) counts[row.task_id] = { total: 0, instructions: 0 };
+        counts[row.task_id].total++;
+        if (row.type === "instruction") counts[row.task_id].instructions++;
+      }
+      return counts;
+    },
+    staleTime: 30_000,
+  });
+
   const readOnly = filterMode === "project";
 
   let filtered = [...tasks];
