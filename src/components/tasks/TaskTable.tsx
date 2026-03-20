@@ -107,14 +107,21 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     return { ...DEFAULT_COL_WIDTHS };
   });
 
-  const handleSort = useCallback((key: string) => {
-    setSortKey(prev => {
-      if (prev === key) {
-        setSortDir(d => d === "asc" ? "desc" : "asc");
-        return key;
+  const handleSort = useCallback((key: string, shiftKey: boolean) => {
+    setSortColumns(prev => {
+      if (shiftKey) {
+        const idx = prev.findIndex(s => s.key === key);
+        if (idx === -1) return [...prev, { key, dir: "asc" }];
+        const current = prev[idx];
+        if (current.dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" } : s);
+        // 3rd click: remove
+        return prev.filter((_, i) => i !== idx);
       }
-      setSortDir("asc");
-      return key;
+      // Normal click: single sort
+      if (prev.length === 1 && prev[0].key === key) {
+        return [{ key, dir: prev[0].dir === "asc" ? "desc" : "asc" }];
+      }
+      return [{ key, dir: "asc" }];
     });
   }, []);
 
