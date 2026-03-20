@@ -276,7 +276,7 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
     <div className="space-y-3">
       <h4 className="font-mono text-sm font-semibold">Comments</h4>
 
-      <ScrollArea className="max-h-64 border border-border rounded-md">
+      <ScrollArea className="h-72 border border-border rounded-md">
         <div className="p-2 space-y-2">
           {isLoading && <p className="text-xs text-muted-foreground text-center py-2">Loading...</p>}
           {!isLoading && topLevelComments.length === 0 && (
