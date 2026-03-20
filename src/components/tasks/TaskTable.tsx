@@ -227,30 +227,32 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   }
 
   // Group-aware sorting: summaries+independents sorted together, subtasks inserted after their parent
-  const compareFn = useCallback((a: typeof filtered[0], b: typeof filtered[0]) => {
-    if (!sortKey) return 0;
-    let valA: any, valB: any;
-    switch (sortKey) {
-      case "taskCode": valA = a.task_code ?? ""; valB = b.task_code ?? ""; break;
-      case "category": valA = a.category ?? ""; valB = b.category ?? ""; break;
-      case "subject": valA = a.title; valB = b.title; break;
-      case "actionPlan": valA = a.action_plan ?? ""; valB = b.action_plan ?? ""; break;
-      case "start": valA = a.start_date; valB = b.start_date; break;
-      case "finish": valA = a.end_date; valB = b.end_date; break;
-      case "dday": {
-        valA = a.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(a.end_date), startOfDay(new Date()));
-        valB = b.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(b.end_date), startOfDay(new Date()));
-        break;
-      }
-      case "plan": valA = calcPlannedProgress(a.start_date, a.end_date); valB = calcPlannedProgress(b.start_date, b.end_date); break;
-      case "actual": valA = a.current_progress; valB = b.current_progress; break;
-      case "gap": valA = a.current_progress - calcPlannedProgress(a.start_date, a.end_date); valB = b.current_progress - calcPlannedProgress(b.start_date, b.end_date); break;
-      case "actualFinish": valA = a.actual_finish ?? "zzz"; valB = b.actual_finish ?? "zzz"; break;
-      default: return 0;
+  const getVal = useCallback((t: typeof filtered[0], key: string): any => {
+    switch (key) {
+      case "taskCode": return t.task_code ?? "";
+      case "category": return t.category ?? "";
+      case "subject": return t.title;
+      case "actionPlan": return t.action_plan ?? "";
+      case "start": return t.start_date;
+      case "finish": return t.end_date;
+      case "dday": return t.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
+      case "plan": return calcPlannedProgress(t.start_date, t.end_date);
+      case "actual": return t.current_progress;
+      case "gap": return t.current_progress - calcPlannedProgress(t.start_date, t.end_date);
+      case "actualFinish": return t.actual_finish ?? "zzz";
+      default: return "";
     }
-    const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
-    return sortDir === "asc" ? cmp : -cmp;
-  }, [sortKey, sortDir]);
+  }, []);
+
+  const compareFn = useCallback((a: typeof filtered[0], b: typeof filtered[0]) => {
+    for (const { key, dir } of sortColumns) {
+      const valA = getVal(a, key);
+      const valB = getVal(b, key);
+      const cmp = typeof valA === "number" ? valA - valB : String(valA).localeCompare(String(valB));
+      if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+    }
+    return 0;
+  }, [sortColumns, getVal]);
 
   // Separate into groups, sort, then flatten with hierarchy
   const grouped = useMemo(() => {
