@@ -294,8 +294,9 @@ export function TaskImportComponent() {
     reader.readAsArrayBuffer(file);
   };
 
-  const validRows = parsedRows.filter(r => r.errors.length === 0);
+  const validRows = parsedRows.filter(r => r.errors.length === 0 && (includeDuplicates || !r.isDuplicate));
   const errorRows = parsedRows.filter(r => r.errors.length > 0);
+  const duplicateRows = parsedRows.filter(r => r.errors.length === 0 && r.isDuplicate);
 
   const handleImport = async () => {
     if (validRows.length === 0) {
