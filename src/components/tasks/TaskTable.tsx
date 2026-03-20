@@ -379,6 +379,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                   <TableRow>
                     {[
                       { key: "taskCode", label: "Task Code", align: "" },
+                      { key: "assignee", label: "Assignee", align: "" },
                       { key: "category", label: "Category", align: "" },
                       { key: "subject", label: "Subject", align: "" },
                       { key: "actionPlan", label: "Action Plan", align: "" },
