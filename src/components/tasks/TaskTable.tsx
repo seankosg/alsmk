@@ -60,8 +60,8 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
 
 interface TaskTableProps {
   filterMine?: boolean;
-  /** "mine" = only my assigned tasks, "team" = my team's tasks, undefined = all (legacy behavior) */
-  filterMode?: "mine" | "team";
+  /** "mine" = only my assigned tasks, "team" = my team's tasks, "project" = all tasks read-only */
+  filterMode?: "mine" | "team" | "project";
   /** When toggled, collapse or expand all summary tasks */
   allCollapsed?: boolean;
 }
@@ -196,9 +196,11 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     staleTime: 30_000,
   });
 
+  const readOnly = filterMode === "project";
+
   let filtered = [...tasks];
 
-  if (filterMine && !isAdmin && !isPm) {
+  if (filterMine && !isAdmin && !isPm && filterMode !== "project") {
     if (filterMode === "mine") {
       filtered = filtered.filter(t => t.assignee_id === memberId);
     } else if (filterMode === "team") {
@@ -496,12 +498,13 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                           className={`text-right font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`}
                           style={{ width: colWidths.actual }}
                           onClick={(e) => {
+                            if (readOnly) return;
                             e.stopPropagation();
                             setEditingProgressId(task.id);
                             setEditingProgressValue(String(task.current_progress));
                           }}
                         >
-                          {isEditingThis ? (
+                          {isEditingThis && !readOnly ? (
                             <Input
                               type="number"
                               min={0}
@@ -518,7 +521,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                               onClick={e => e.stopPropagation()}
                             />
                           ) : (
-                            <span className="cursor-text hover:underline">{task.current_progress}%</span>
+                            <span className={readOnly ? "" : "cursor-text hover:underline"}>{task.current_progress}%</span>
                           )}
                         </TableCell>
                         <TableCell className={`text-right font-mono font-bold ${isSummary ? "text-sm" : "text-xs"} ${isCompleted ? 'text-muted-foreground/50' : gap >= 0 ? 'text-primary' : 'text-destructive'}`} style={{ width: colWidths.gap }}>
@@ -541,7 +544,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={((selectedTask as any)?.is_summary === true) || (!isAdmin && selectedTask?.assignee_id !== memberId)}
+        readOnly={readOnly || ((selectedTask as any)?.is_summary === true) || (!isAdmin && selectedTask?.assignee_id !== memberId)}
         isSummary={(selectedTask as any)?.is_summary === true}
         allTasks={tasks}
       />
