@@ -1,11 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import * as XLSX from "xlsx";
@@ -57,6 +58,7 @@ interface ParsedRow {
   assigneeId: string | null;
   milestoneId: string | null;
   errors: string[];
+  isDuplicate: boolean;
 }
 
 const DISPLAY_COLUMNS = ["Subject", "Assignee", "Action Plan", "Team/Part", "Start", "Finish", "Actual %", "Actual Finish"];
@@ -66,6 +68,7 @@ export function TaskImportComponent() {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [validated, setValidated] = useState(false);
+  const [includeDuplicates, setIncludeDuplicates] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -108,6 +111,24 @@ export function TaskImportComponent() {
     },
     staleTime: 30_000,
   });
+
+  const { data: existingTasks = [] } = useQuery({
+    queryKey: ["existing-tasks-for-import"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tasks").select("title, assignee_id, start_date, end_date");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+
+  const existingTaskKeys = useMemo(() => {
+    const keys = new Set<string>();
+    existingTasks.forEach(t => {
+      keys.add(`${t.title}|${t.assignee_id}|${t.start_date}|${t.end_date}`);
+    });
+    return keys;
+  }, [existingTasks]);
 
   const handleDownloadTemplate = () => {
     const link = document.createElement("a");
@@ -252,6 +273,9 @@ export function TaskImportComponent() {
         const milestone = milestoneName ? milestones.find(m => m.name.toLowerCase() === milestoneName.toLowerCase()) : null;
         if (milestoneName && !milestone) errors.push(`Milestone '${milestoneName}' 없음`);
 
+        const isDuplicate = !!(member?.id && startDate && endDate &&
+          existingTaskKeys.has(`${title}|${member.id}|${startDate}|${endDate}`));
+
         return {
           title, category, actionPlan, milestoneName, teamCode, partCode, assigneeName,
           startDate, endDate, actualProgress, actualFinish,
@@ -260,6 +284,7 @@ export function TaskImportComponent() {
           assigneeId: member?.id ?? null,
           milestoneId: milestone?.id ?? null,
           errors,
+          isDuplicate,
         };
       });
 
@@ -269,8 +294,9 @@ export function TaskImportComponent() {
     reader.readAsArrayBuffer(file);
   };
 
-  const validRows = parsedRows.filter(r => r.errors.length === 0);
+  const validRows = parsedRows.filter(r => r.errors.length === 0 && (includeDuplicates || !r.isDuplicate));
   const errorRows = parsedRows.filter(r => r.errors.length > 0);
+  const duplicateRows = parsedRows.filter(r => r.errors.length === 0 && r.isDuplicate);
 
   const handleImport = async () => {
     if (validRows.length === 0) {
@@ -335,6 +361,11 @@ export function TaskImportComponent() {
                 <Badge variant="default" className="gap-1">
                   <CheckCircle className="h-3 w-3" /> {validRows.length} valid
                 </Badge>
+                {duplicateRows.length > 0 && (
+                  <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-500">
+                    <AlertTriangle className="h-3 w-3" /> {duplicateRows.length} duplicates
+                  </Badge>
+                )}
                 {errorRows.length > 0 && (
                   <Badge variant="destructive" className="gap-1">
                     <XCircle className="h-3 w-3" /> {errorRows.length} errors
@@ -361,8 +392,9 @@ export function TaskImportComponent() {
                     const teamName = row.teamId ? teams.find(t => t.id === row.teamId)?.code ?? "—" : "—";
                     const partName = row.partId ? parts.find(p => p.id === row.partId)?.code ?? "" : "";
                     const teamPartLabel = partName ? `${teamName}/${partName}` : teamName;
+                    const rowClass = hasError ? "bg-destructive/10" : row.isDuplicate ? "bg-yellow-500/10" : "";
                     return (
-                      <TableRow key={ri} className={hasError ? "bg-destructive/10" : ""}>
+                      <TableRow key={ri} className={rowClass}>
                         <TableCell className="text-xs font-mono">{ri + 1}</TableCell>
                         <TableCell className="text-xs">{row.title || "—"}</TableCell>
                         <TableCell className="text-xs">{row.assigneeName || "—"}</TableCell>
@@ -375,6 +407,10 @@ export function TaskImportComponent() {
                         <TableCell className="text-xs">
                           {hasError ? (
                             <span className="text-destructive text-[10px]">{row.errors.join(", ")}</span>
+                          ) : row.isDuplicate ? (
+                            <span className="text-yellow-500 text-[10px] flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" /> Duplicate
+                            </span>
                           ) : (
                             <CheckCircle className="h-3.5 w-3.5 text-primary" />
                           )}
@@ -385,13 +421,24 @@ export function TaskImportComponent() {
                 </TableBody>
               </Table>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                onClick={handleImport}
-                disabled={validRows.length === 0 || importing}
-              >
-                {importing ? "Importing..." : `Import ${validRows.length} Tasks`}
-              </Button>
+            <div className="mt-4 flex items-center justify-between gap-2">
+              {duplicateRows.length > 0 && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <Checkbox
+                    checked={includeDuplicates}
+                    onCheckedChange={(v) => setIncludeDuplicates(!!v)}
+                  />
+                  Include {duplicateRows.length} duplicate(s) in import
+                </label>
+              )}
+              <div className="ml-auto">
+                <Button
+                  onClick={handleImport}
+                  disabled={validRows.length === 0 || importing}
+                >
+                  {importing ? "Importing..." : `Import ${validRows.length} Tasks`}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
