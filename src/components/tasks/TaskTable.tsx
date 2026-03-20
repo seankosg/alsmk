@@ -60,8 +60,8 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
 
 interface TaskTableProps {
   filterMine?: boolean;
-  /** "mine" = only my assigned tasks, "team" = my team's tasks, undefined = all (legacy behavior) */
-  filterMode?: "mine" | "team";
+  /** "mine" = only my assigned tasks, "team" = my team's tasks, "project" = all tasks read-only */
+  filterMode?: "mine" | "team" | "project";
   /** When toggled, collapse or expand all summary tasks */
   allCollapsed?: boolean;
 }
