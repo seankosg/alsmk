@@ -196,9 +196,11 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     staleTime: 30_000,
   });
 
+  const readOnly = filterMode === "project";
+
   let filtered = [...tasks];
 
-  if (filterMine && !isAdmin && !isPm) {
+  if (filterMine && !isAdmin && !isPm && filterMode !== "project") {
     if (filterMode === "mine") {
       filtered = filtered.filter(t => t.assignee_id === memberId);
     } else if (filterMode === "team") {
