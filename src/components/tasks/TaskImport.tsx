@@ -392,8 +392,9 @@ export function TaskImportComponent() {
                     const teamName = row.teamId ? teams.find(t => t.id === row.teamId)?.code ?? "—" : "—";
                     const partName = row.partId ? parts.find(p => p.id === row.partId)?.code ?? "" : "";
                     const teamPartLabel = partName ? `${teamName}/${partName}` : teamName;
+                    const rowClass = hasError ? "bg-destructive/10" : row.isDuplicate ? "bg-yellow-500/10" : "";
                     return (
-                      <TableRow key={ri} className={hasError ? "bg-destructive/10" : ""}>
+                      <TableRow key={ri} className={rowClass}>
                         <TableCell className="text-xs font-mono">{ri + 1}</TableCell>
                         <TableCell className="text-xs">{row.title || "—"}</TableCell>
                         <TableCell className="text-xs">{row.assigneeName || "—"}</TableCell>
@@ -406,6 +407,10 @@ export function TaskImportComponent() {
                         <TableCell className="text-xs">
                           {hasError ? (
                             <span className="text-destructive text-[10px]">{row.errors.join(", ")}</span>
+                          ) : row.isDuplicate ? (
+                            <span className="text-yellow-500 text-[10px] flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" /> Duplicate
+                            </span>
                           ) : (
                             <CheckCircle className="h-3.5 w-3.5 text-primary" />
                           )}
@@ -416,13 +421,24 @@ export function TaskImportComponent() {
                 </TableBody>
               </Table>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                onClick={handleImport}
-                disabled={validRows.length === 0 || importing}
-              >
-                {importing ? "Importing..." : `Import ${validRows.length} Tasks`}
-              </Button>
+            <div className="mt-4 flex items-center justify-between gap-2">
+              {duplicateRows.length > 0 && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <Checkbox
+                    checked={includeDuplicates}
+                    onCheckedChange={(v) => setIncludeDuplicates(!!v)}
+                  />
+                  Include {duplicateRows.length} duplicate(s) in import
+                </label>
+              )}
+              <div className="ml-auto">
+                <Button
+                  onClick={handleImport}
+                  disabled={validRows.length === 0 || importing}
+                >
+                  {importing ? "Importing..." : `Import ${validRows.length} Tasks`}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
