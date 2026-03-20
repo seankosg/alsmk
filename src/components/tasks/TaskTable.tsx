@@ -76,8 +76,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [editingProgressValue, setEditingProgressValue] = useState("");
-  const [sortKey, setSortKey] = useState<string | null>("taskCode");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortColumns, setSortColumns] = useState<Array<{ key: string; dir: "asc" | "desc" }>>([{ key: "taskCode", dir: "asc" }]);
   const [collapsedSummaries, setCollapsedSummaries] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem("task-table-collapsed");
