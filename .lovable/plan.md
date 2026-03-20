@@ -1,26 +1,52 @@
 
 
-## 태스크 Import 중복 방지 방안
+## Soft Delete + 사용자별 휴지통 (48시간 자동 정리)
 
-### 중복 판단 기준
+### 1. DB 변경 (마이그레이션)
 
-태스크에는 고유 식별자(task_code)가 DB 트리거로 자동 생성되므로, 업로드 시점에는 사용할 수 없습니다. 따라서 **비즈니스 키 조합**으로 중복을 판단합니다:
+`tasks` 테이블에 컬럼 추가:
+```sql
+ALTER TABLE public.tasks ADD COLUMN deleted_at timestamptz DEFAULT NULL;
+ALTER TABLE public.tasks ADD COLUMN deleted_by uuid DEFAULT NULL;
+```
 
-- **Title + Assignee + Start Date + End Date** — 이 4가지가 동일하면 중복으로 간주
+48시간 자동 정리를 위한 pg_cron 작업 등록 (insert tool 사용):
+```sql
+-- pg_cron + pg_net 확장 활성화 후
+-- 매 시간 실행: deleted_at이 48시간 이상 지난 태스크 영구 삭제
+SELECT cron.schedule('cleanup-soft-deleted-tasks', '0 * * * *',
+  $$DELETE FROM public.tasks WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '48 hours'$$
+);
+```
 
-### 구현 방법
+### 2. 삭제 로직 변경
 
-**파일**: `src/components/tasks/TaskImport.tsx`
+**파일**: `src/components/tasks/TaskDetailDialog.tsx`
+- `.delete()` → `.update({ deleted_at: new Date().toISOString(), deleted_by: memberId })`
+- Summary 삭제 시 하위 태스크도 동일하게 soft delete
+- 삭제 확인 메시지에 "48시간 내 복원 가능" 안내 추가
 
-1. **파일 파싱 후 기존 태스크 조회**: validation 단계에서 현재 DB의 tasks 테이블에서 `title`, `assignee_id`, `start_date`, `end_date`를 조회
-2. **중복 체크 로직 추가**: 파싱된 각 행의 (title + assigneeId + startDate + endDate) 조합이 기존 DB에 이미 존재하면 해당 행에 "중복 태스크" 경고 추가
-3. **UI 표시**:
-   - 중복 행은 노란색 배경 + "Duplicate" 경고 뱃지로 표시
-   - Status 컬럼에 "기존 태스크와 중복" 메시지 표시
-4. **Import 시 처리 옵션**:
-   - 중복 행은 기본적으로 **건너뛰기** (skip)
-   - 사용자가 원하면 중복 포함 Import 가능하도록 "Include duplicates" 체크박스 제공
+### 3. 조회 필터 추가
+
+모든 태스크 조회 쿼리에 `.is("deleted_at", null)` 필터 추가 (약 15개 파일):
+- `Workspace.tsx`, `TaskTable.tsx`, `MyDashboard.tsx`
+- 대시보드 컴포넌트들 (`ProjectHUD`, `CriticalIssueBoard`, `OverdueTasksBoard`, `BehindScheduleBoard`, `TaskDistributionChart`, `IssueTrendChart`, `UpcomingDeadlines`, `TeamHeatmap`, `CategoryProgressChart`, `TeamProgressChart`)
+- `CategoryCombobox.tsx`, `TaskImport.tsx`, `Messages.tsx`
+
+### 4. 사용자별 휴지통 UI
+
+**새 컴포넌트**: `src/components/tasks/DeletedTasksList.tsx`
+- 현재 사용자가 삭제한 태스크만 표시 (`deleted_by = memberId`)
+- Admin은 전체 삭제된 태스크 조회 가능
+- 각 태스크에 **복원** 버튼 (deleted_at, deleted_by를 null로) + **영구 삭제** 버튼 (Admin만)
+- 남은 시간 표시 (48h - elapsed)
+
+**Workspace에 통합**: Workspace 헤더에 휴지통 아이콘 버튼 → Sheet/Dialog로 삭제된 태스크 목록 표시
 
 ### 수정 범위
-- `TaskImport.tsx`: 기존 tasks 조회 쿼리 추가 (~10줄), 중복 체크 로직 (~10줄), UI 경고 표시 (~10줄), 체크박스 옵션 (~5줄)
+- DB 마이그레이션 1건 + cron 등록 1건
+- `TaskDetailDialog.tsx`: 삭제 로직 변경
+- 태스크 조회 ~15개 파일: `.is("deleted_at", null)` 필터 추가
+- 새 컴포넌트 1개 (`DeletedTasksList.tsx`)
+- `Workspace.tsx`: 휴지통 버튼 추가
 
