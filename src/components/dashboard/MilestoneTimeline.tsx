@@ -92,15 +92,27 @@ export function MilestoneTimeline() {
                 />
               </div>
 
-              {/* Today marker */}
-              {elapsedPercent > 0 && elapsedPercent < 100 && (
-                <div
-                  className="absolute top-[calc(50%-12px)] -translate-y-1/2 pointer-events-none"
-                  style={{ left: `calc(16px + ${elapsedPercent}% * (100% - 32px) / 100%)` }}
-                >
-                  {/* Use same wrapper approach */}
-                </div>
-              )}
+              {/* Today marker with elapsed days */}
+              {elapsedPercent > 0 && elapsedPercent < 100 && milestones.length >= 1 && (() => {
+                const firstDate = parseLocalDate(milestones[0].target_date);
+                const elapsed = differenceInDays(today, firstDate);
+                const label = elapsed === 0 ? "Today" : elapsed > 0 ? `+${elapsed}d` : `${elapsed}d`;
+                return (
+                  <div
+                    className="absolute pointer-events-none flex flex-col items-center"
+                    style={{
+                      top: "calc(50% - 12px)",
+                      left: `calc(16px + (100% - 32px) * ${elapsedPercent / 100})`,
+                      transform: "translate(-50%, -100%)",
+                    }}
+                  >
+                    <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 whitespace-nowrap mb-1">
+                      {label}
+                    </span>
+                    <div className="w-0.5 h-2 bg-primary/40 rounded-full" />
+                  </div>
+                );
+              })()}
 
               {/* Milestones */}
               <div className="relative flex items-center gap-0">
