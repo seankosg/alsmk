@@ -1,30 +1,24 @@
 
 
-## Dashboard 카드 재배치 및 Overdue Task 카드 신규 생성
+## Milestone Timeline — 오늘 위치에 경과일수 표시
 
-### 현재 레이아웃
+### 변경 내용
+**파일**: `src/components/dashboard/MilestoneTimeline.tsx`
+
+현재 타임라인의 "Today marker" 위치(진행선 끝)에 경과 일수를 라벨로 표시합니다.
+
+- **계산**: `differenceInDays(today, firstMilestone.target_date)` — 첫 마일스톤 기준 경과일
+- **표시**: 진행선 끝(오늘 위치) 바로 위에 작은 pill 라벨로 `Day 45` 또는 `+45일` 형태
+- **위치**: `elapsedPercent` 값을 이용하여 기존 Today marker와 동일한 left 위치에 배치
+- 현재 비어있는 Today marker div 내부에 라벨 요소 추가
+
 ```text
-Row 1: Behind Schedule | Critical Issues
-Row 2: Upcoming Deadlines | Issue Trend
+Timeline 가로선:
+━━━━━━━━━━━━━━●━━━━━━━━━━━━━
+              [+45d]
+              ↑ 오늘 위치
 ```
 
-### 변경 후 레이아웃
-```text
-Row 1: Overdue Tasks (신규) | Critical Issues
-Row 2: Behind Schedule | Upcoming Deadlines
-```
-
-- **Issue Trend 차트**: 삭제 (import 및 컴포넌트 제거)
-- **IssueTrendChart.tsx 파일**: 유지 (다른 곳에서 사용 가능성)
-
-### 신규: Overdue Tasks 카드
-- **파일**: `src/components/dashboard/OverdueTasksBoard.tsx`
-- **조건**: `end_date < today && current_progress < 100`
-- **UI**: BehindScheduleBoard와 동일한 패턴 — 팀별 그룹핑, Collapsible, 클릭 시 TaskDetailDialog
-- **표시 정보**: task_code, title, assignee, 초과 일수(D+N), progress
-- **기존 쿼리 키 재사용**: `["tasks"]`, `["teams"]`, `["members"]`, `["milestones"]`
-
-### 수정 파일
-1. **`src/pages/Index.tsx`** — import 변경, 카드 배치 순서 변경
-2. **`src/components/dashboard/OverdueTasksBoard.tsx`** — 신규 생성
+### 수정 범위
+- `MilestoneTimeline.tsx` 95~101번 줄 Today marker 영역에 경과일 라벨 추가 (약 10줄)
 
