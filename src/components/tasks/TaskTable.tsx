@@ -198,7 +198,6 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   });
 
   // Fetch comment counts per task (total + instruction count)
-  const queryClient = useQueryClient();
   const { data: commentCounts = {} } = useQuery({
     queryKey: ["task_comment_counts"],
     queryFn: async () => {
