@@ -20,7 +20,7 @@ export function TaskDistributionChart() {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("id, current_progress");
+      const { data, error } = await supabase.from("tasks").select("id, current_progress").is("deleted_at", null);
       if (error) throw error;
       return data;
     },

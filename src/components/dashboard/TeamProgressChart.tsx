@@ -35,7 +35,7 @@ export function TeamProgressChart() {
   const { data: tasks = [], isLoading: ltt, isError: ett } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*");
+      const { data, error } = await supabase.from("tasks").select("*").is("deleted_at", null);
       if (error) throw error;
       return data;
     },

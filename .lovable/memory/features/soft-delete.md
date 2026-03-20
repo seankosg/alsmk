@@ -1,0 +1,1 @@
+Soft delete for tasks: deleted_at + deleted_by columns. 48h auto-cleanup via pg_cron. All task queries filter .is("deleted_at", null). Trash UI in Workspace Sheet. User sees own deleted tasks; admin sees all. Restore sets deleted_at/deleted_by to null.

@@ -18,7 +18,8 @@ export function IssueTrendChart() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
-        .select("id, issue_flag, created_at, updated_at");
+        .select("id, issue_flag, created_at, updated_at")
+        .is("deleted_at", null);
       if (error) throw error;
       return data;
     },

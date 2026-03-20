@@ -548,6 +548,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_progress: number
+          deleted_at: string | null
+          deleted_by: string | null
           end_date: string
           id: string
           is_summary: boolean
@@ -571,6 +573,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_progress?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_date: string
           id?: string
           is_summary?: boolean
@@ -594,6 +598,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_progress?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_date?: string
           id?: string
           is_summary?: boolean

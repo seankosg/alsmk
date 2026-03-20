@@ -23,7 +23,7 @@ export function ProjectHUD() {
   const { data: tasks = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*");
+      const { data, error } = await supabase.from("tasks").select("*").is("deleted_at", null);
       if (error) throw error;
       return data;
     },

@@ -24,6 +24,7 @@ export function CategoryCombobox({ value, onChange, placeholder = "Select or typ
         .from("tasks")
         .select("category")
         .not("category", "is", null)
+        .is("deleted_at", null)
         .order("category");
       const unique = [...new Set((data ?? []).map(d => d.category).filter(Boolean))] as string[];
       return unique;

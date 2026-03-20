@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
+import { DeletedTasksList } from "@/components/tasks/DeletedTasksList";
 import { Button } from "@/components/ui/button";
-import { Upload, FileDown, ListTree, ChevronsUpDown } from "lucide-react";
+import { Upload, FileDown, ListTree, ChevronsUpDown, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { calcPlannedProgress } from "@/lib/mockData";
@@ -45,7 +47,7 @@ const Workspace = () => {
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*").order("title").order("start_date").order("end_date");
+      const { data, error } = await supabase.from("tasks").select("*").is("deleted_at", null).order("title").order("start_date").order("end_date");
       if (error) throw error;
       return data;
     },
@@ -252,6 +254,19 @@ const Workspace = () => {
             <ChevronsUpDown className="mr-2 h-4 w-4" />
             {allCollapsed ? "Expand All" : "Collapse All"}
           </Button>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline">
+                <Trash2 className="mr-2 h-4 w-4" /> Trash
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px]">
+              <SheetHeader>
+                <SheetTitle>휴지통</SheetTitle>
+              </SheetHeader>
+              <DeletedTasksList />
+            </SheetContent>
+          </Sheet>
           <Button variant="outline" onClick={() => navigate("/tasks/import")}>
             <Upload className="mr-2 h-4 w-4" /> Import
           </Button>
