@@ -233,6 +233,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   const getVal = useCallback((t: typeof filtered[0], key: string): any => {
     switch (key) {
       case "taskCode": return t.task_code ?? "";
+      case "assignee": return members.find(m => m.id === t.assignee_id)?.name ?? "";
       case "category": return t.category ?? "";
       case "subject": return t.title;
       case "actionPlan": return t.action_plan ?? "";
