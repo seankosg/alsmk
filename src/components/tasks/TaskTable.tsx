@@ -308,10 +308,15 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-base">
+            <CardTitle className="text-base flex items-center gap-2">
               Tasks ({filtered.length})
               {filterMine && (isAdmin || isPm) && (
-                <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">{isAdmin ? "Admin View" : "PM View"}</Badge>
+                <Badge variant="outline" className="text-[10px] border-primary text-primary">{isAdmin ? "Admin View" : "PM View"}</Badge>
+              )}
+              {sortColumns.length > 1 && (
+                <button onClick={() => setSortColumns([{ key: "taskCode", dir: "asc" }])} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-3 w-3" /> Clear Sort
+                </button>
               )}
             </CardTitle>
             <div className="flex gap-2 flex-wrap items-center">
