@@ -254,6 +254,19 @@ const Workspace = () => {
             <ChevronsUpDown className="mr-2 h-4 w-4" />
             {allCollapsed ? "Expand All" : "Collapse All"}
           </Button>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline">
+                <Trash2 className="mr-2 h-4 w-4" /> Trash
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px]">
+              <SheetHeader>
+                <SheetTitle>휴지통</SheetTitle>
+              </SheetHeader>
+              <DeletedTasksList />
+            </SheetContent>
+          </Sheet>
           <Button variant="outline" onClick={() => navigate("/tasks/import")}>
             <Upload className="mr-2 h-4 w-4" /> Import
           </Button>
