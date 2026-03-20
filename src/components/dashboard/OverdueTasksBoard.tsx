@@ -125,8 +125,13 @@ export function OverdueTasksBoard() {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-sm font-medium truncate">{t.title}</p>
-                          <p className="text-xs text-muted-foreground">{getMemberName(t.assignee_id)}</p>
+                          <div className="flex items-baseline gap-2 min-w-0">
+                            <p className="text-sm font-medium truncate shrink-0 max-w-[40%]">{t.title}</p>
+                            {t.action_plan && (
+                              <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{t.action_plan}</p>
+                            )}
+                            <span className="text-xs text-muted-foreground shrink-0 ml-auto">{getMemberName(t.assignee_id)}</span>
+                          </div>
                         </div>
                         <div className="text-right shrink-0">
                           <span className="text-sm font-mono font-bold text-destructive">D+{t.overdueDays}</span>
