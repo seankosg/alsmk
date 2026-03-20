@@ -1,0 +1,1 @@
+ALTER TABLE public.task_comments ADD COLUMN parent_comment_id uuid REFERENCES public.task_comments(id) ON DELETE CASCADE DEFAULT NULL;

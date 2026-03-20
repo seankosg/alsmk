@@ -493,6 +493,7 @@ export type Database = {
           created_at: string
           id: string
           message: string
+          parent_comment_id: string | null
           task_id: string
           type: string
         }
@@ -501,6 +502,7 @@ export type Database = {
           created_at?: string
           id?: string
           message: string
+          parent_comment_id?: string | null
           task_id: string
           type?: string
         }
@@ -509,6 +511,7 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string
+          parent_comment_id?: string | null
           task_id?: string
           type?: string
         }
@@ -518,6 +521,13 @@ export type Database = {
             columns: ["author_id"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "task_comments"
             referencedColumns: ["id"]
           },
           {
