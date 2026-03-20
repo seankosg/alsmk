@@ -15,7 +15,7 @@ export function CriticalIssueBoard() {
   const { data: tasks = [], isLoading: lt } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*");
+      const { data, error } = await supabase.from("tasks").select("*").is("deleted_at", null);
       if (error) throw error;
       return data;
     },

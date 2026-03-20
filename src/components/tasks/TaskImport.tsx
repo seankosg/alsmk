@@ -115,7 +115,7 @@ export function TaskImportComponent() {
   const { data: existingTasks = [] } = useQuery({
     queryKey: ["existing-tasks-for-import"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("title, assignee_id, start_date, end_date");
+      const { data, error } = await supabase.from("tasks").select("title, assignee_id, start_date, end_date").is("deleted_at", null);
       if (error) throw error;
       return data;
     },

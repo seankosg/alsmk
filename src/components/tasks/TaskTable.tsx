@@ -147,7 +147,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*").order("title", { ascending: true }).order("start_date", { ascending: true }).order("end_date", { ascending: true });
+      const { data, error } = await supabase.from("tasks").select("*").is("deleted_at", null).order("title", { ascending: true }).order("start_date", { ascending: true }).order("end_date", { ascending: true });
       if (error) throw error;
       return data;
     },

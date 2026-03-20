@@ -45,7 +45,7 @@ const Workspace = () => {
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*").order("title").order("start_date").order("end_date");
+      const { data, error } = await supabase.from("tasks").select("*").is("deleted_at", null).order("title").order("start_date").order("end_date");
       if (error) throw error;
       return data;
     },

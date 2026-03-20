@@ -205,19 +205,24 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      // If summary, detach subtasks first
+      const now = new Date().toISOString();
       if (isSummary) {
+        // Soft-delete subtasks too
         const subtaskIds = allTasks.filter(t => t.parent_id === task.id).map(t => t.id);
         if (subtaskIds.length > 0) {
-          const { error: detachError } = await supabase.from("tasks").update({
-            parent_id: null,
+          const { error: softErr } = await supabase.from("tasks").update({
+            deleted_at: now,
+            deleted_by: auth.memberId,
           } as any).in("id", subtaskIds);
-          if (detachError) throw detachError;
+          if (softErr) throw softErr;
         }
       }
-      const { error } = await supabase.from("tasks").delete().eq("id", task.id);
+      const { error } = await supabase.from("tasks").update({
+        deleted_at: now,
+        deleted_by: auth.memberId,
+      } as any).eq("id", task.id);
       if (error) throw error;
-      toast.success("Task deleted.");
+      toast.success("삭제되었습니다. 48시간 내 복원 가능합니다.");
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       onOpenChange(false);
     } catch (err: any) {
