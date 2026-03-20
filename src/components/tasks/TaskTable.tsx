@@ -479,6 +479,26 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                             {isCollapsed && hasChildren && (
                               <span className="shrink-0 text-[10px] text-muted-foreground">({tasks.filter(t => t.parent_id === task.id).length})</span>
                             )}
+                            {(() => {
+                              const cc = commentCounts[task.id];
+                              if (!cc || cc.total === 0) return null;
+                              const hasInstr = cc.instructions > 0;
+                              return (
+                                <TooltipProvider delayDuration={200}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className={`shrink-0 inline-flex items-center gap-0.5 ${hasInstr ? "text-info" : "text-muted-foreground"}`}>
+                                        <MessageSquare className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-semibold">{cc.total}</span>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">
+                                      {cc.total} comment{cc.total > 1 ? "s" : ""}{cc.instructions > 0 ? ` (${cc.instructions} instruction${cc.instructions > 1 ? "s" : ""})` : ""}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })()}
                             {task.issue_flag === "warning" && (
                               <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
                             )}
