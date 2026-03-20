@@ -198,6 +198,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   });
 
   // Fetch comment counts per task (total + instruction count)
+  const queryClient = useQueryClient();
   const { data: commentCounts = {} } = useQuery({
     queryKey: ["task_comment_counts"],
     queryFn: async () => {
@@ -215,6 +216,21 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     },
     staleTime: 30_000,
   });
+
+  // Realtime: refresh comment counts on INSERT/DELETE/UPDATE
+  useEffect(() => {
+    const channel = supabase
+      .channel("task_comment_counts_rt")
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "task_comments",
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ["task_comment_counts"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const readOnly = filterMode === "project";
 
