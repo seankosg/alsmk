@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 const DEFAULT_COL_WIDTHS: Record<string, number> = {
   taskCode: 140,
+  assignee: 100,
   category: 100,
   subject: 260,
   actionPlan: 200,
