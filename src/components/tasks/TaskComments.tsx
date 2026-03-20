@@ -195,6 +195,20 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
     return acc;
   }, {});
 
+  const renderThread = (c: typeof comments[0], depth = 0) => {
+    const replies = repliesByParent[c.id] ?? [];
+    return (
+      <div key={c.id} className="space-y-1">
+        {renderComment(c, depth > 0, depth)}
+        {replies.length > 0 && (
+          <div className="space-y-1">
+            {replies.map((r) => renderThread(r, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderComment = (c: typeof comments[0], isReplyItem = false) => {
     const isEditing = editingId === c.id;
     const showActions = canEditOrDelete(c.author_id);
