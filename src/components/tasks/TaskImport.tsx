@@ -112,6 +112,24 @@ export function TaskImportComponent() {
     staleTime: 30_000,
   });
 
+  const { data: existingTasks = [] } = useQuery({
+    queryKey: ["existing-tasks-for-import"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tasks").select("title, assignee_id, start_date, end_date");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+
+  const existingTaskKeys = useMemo(() => {
+    const keys = new Set<string>();
+    existingTasks.forEach(t => {
+      keys.add(`${t.title}|${t.assignee_id}|${t.start_date}|${t.end_date}`);
+    });
+    return keys;
+  }, [existingTasks]);
+
   const handleDownloadTemplate = () => {
     const link = document.createElement("a");
     link.href = "/templates/ALSMK_Temp.xlsx";
