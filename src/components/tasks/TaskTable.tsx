@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronRight, ChevronDown, X } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronRight, ChevronDown, X, MessageSquare } from "lucide-react";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -193,6 +193,25 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
       const { data, error } = await supabase.from("milestones").select("id, name");
       if (error) throw error;
       return data;
+    },
+    staleTime: 30_000,
+  });
+
+  // Fetch comment counts per task (total + instruction count)
+  const { data: commentCounts = {} } = useQuery({
+    queryKey: ["task_comment_counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_comments")
+        .select("task_id, type");
+      if (error) throw error;
+      const counts: Record<string, { total: number; instructions: number }> = {};
+      for (const row of data) {
+        if (!counts[row.task_id]) counts[row.task_id] = { total: 0, instructions: 0 };
+        counts[row.task_id].total++;
+        if (row.type === "instruction") counts[row.task_id].instructions++;
+      }
+      return counts;
     },
     staleTime: 30_000,
   });
@@ -460,6 +479,26 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                             {isCollapsed && hasChildren && (
                               <span className="shrink-0 text-[10px] text-muted-foreground">({tasks.filter(t => t.parent_id === task.id).length})</span>
                             )}
+                            {(() => {
+                              const cc = commentCounts[task.id];
+                              if (!cc || cc.total === 0) return null;
+                              const hasInstr = cc.instructions > 0;
+                              return (
+                                <TooltipProvider delayDuration={200}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className={`shrink-0 inline-flex items-center gap-0.5 ${hasInstr ? "text-info" : "text-muted-foreground"}`}>
+                                        <MessageSquare className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-semibold">{cc.total}</span>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">
+                                      {cc.total} comment{cc.total > 1 ? "s" : ""}{cc.instructions > 0 ? ` (${cc.instructions} instruction${cc.instructions > 1 ? "s" : ""})` : ""}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })()}
                             {task.issue_flag === "warning" && (
                               <Badge variant="outline" className="shrink-0 border-warning text-warning text-[10px] px-1.5 py-0">Warning</Badge>
                             )}

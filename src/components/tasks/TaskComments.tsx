@@ -92,14 +92,19 @@ export function TaskComments({ taskId, taskAssigneeId }: TaskCommentsProps) {
       });
       if (error) throw error;
 
-      // Send notification for instructions
-      if (commentType === "instruction" && taskAssigneeId && taskAssigneeId !== memberId) {
+      // Send notification for all comment types
+      if (taskAssigneeId && taskAssigneeId !== memberId) {
+        const titleMap: Record<string, string> = {
+          comment: `New comment from ${memberName ?? "User"}`,
+          instruction: `New instruction from ${memberName ?? "PM"}`,
+          reply: `New reply from ${memberName ?? "User"}`,
+        };
         await supabase.from("notifications").insert({
           recipient_id: taskAssigneeId,
           sender_id: memberId,
           task_id: taskId,
-          type: "instruction",
-          title: `New instruction from ${memberName ?? "PM"}`,
+          type: commentType,
+          title: titleMap[commentType] ?? `New ${commentType} from ${memberName ?? "User"}`,
           message: message.trim().substring(0, 200),
         });
       }
