@@ -93,10 +93,12 @@ export function CriticalIssueBoard() {
                           {task.issue_flag}
                         </Badge>
                       </div>
-                      <p className="text-sm font-medium truncate">{task.title}</p>
-                      {task.action_plan && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{task.action_plan}</p>
-                      )}
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <p className="text-sm font-medium truncate shrink-0 max-w-[50%]">{task.title}</p>
+                        {task.action_plan && (
+                          <p className="text-[11px] text-muted-foreground truncate min-w-0">{task.action_plan}</p>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{getMemberName(task.assignee_id)}</p>
                       {task.issue_description && (
                         <p className="text-xs text-muted-foreground mt-1 italic">{task.issue_description}</p>
