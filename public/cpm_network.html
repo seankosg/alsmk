@@ -1302,6 +1302,7 @@ function renderGantt(order, map, projectEnd) {
       <td style="font-weight:500;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
           title="${escHtml(a.name||'')}">${escHtml(a.name||'(미입력)')}</td>
       <td style="font-family:var(--mono);text-align:center">${a.duration}</td>
+      <td style="font-family:var(--mono);font-size:11px;text-align:center;font-weight:600;color:${a.progress!=null?(a.progress>=100?'var(--green)':a.progress>=50?'var(--safe)':'var(--accent)'):'var(--text-dim)'}">${a.progress!=null?a.progress+'%':'-'}</td>
       <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--safe)">${startLabel}</td>
       <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--safe)">${endLabel}</td>
       <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--text-dim)">${a.ls??'-'}</td>
@@ -1311,6 +1312,9 @@ function renderGantt(order, map, projectEnd) {
         <div class="gantt-bar-outer" style="width:${barTotalW}px;position:relative">
           <div class="gantt-bar-fill${a.isCritical?' critical':''}"
             style="left:${fillLeftPct}%;width:${fillWPct}%"></div>
+          ${a.progress!=null && parseFloat(fillWPct)>0
+            ?`<div class="gantt-bar-progress" style="left:${fillLeftPct}%;width:${(parseFloat(fillWPct)*Math.min(100,a.progress)/100).toFixed(2)}%"></div>`:''
+          }
           ${(a.tf>0 && parseFloat(floatWPct)>0)
             ?`<div class="gantt-float-bar" style="left:${floatLeftPct}%;width:${floatWPct}%"></div>`:''}
           ${todayOffset!==null && parseFloat(todayOffset)>=0 && parseFloat(todayOffset)<=100
