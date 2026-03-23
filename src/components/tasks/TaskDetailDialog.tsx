@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Users, MessageSquare, Plus } from "lucide-react";
+import { Trash2, Users, MessageSquare, Plus, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -22,6 +22,7 @@ import { TaskComments } from "./TaskComments";
 import { SendMessageDialog } from "@/components/messages/SendMessageDialog";
 import { AddSubtaskDialog } from "./AddSubtaskDialog";
 import { CategoryCombobox } from "./CategoryCombobox";
+import { MapActivitiesDialog } from "@/components/cpm/MapActivitiesDialog";
 
 interface Task {
   id: string;
@@ -64,6 +65,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   const [deleting, setDeleting] = useState(false);
   const [sendMsgOpen, setSendMsgOpen] = useState(false);
   const [addSubtaskOpen, setAddSubtaskOpen] = useState(false);
+  const [mapActivitiesOpen, setMapActivitiesOpen] = useState(false);
 
   // Editable fields
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -494,6 +496,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
             <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
               <MessageSquare className="mr-1 h-4 w-4" /> Message
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setMapActivitiesOpen(true)}>
+              <Link2 className="mr-1 h-4 w-4" /> CPM
+            </Button>
           </div>
           {(!readOnly || isSummary) && (
             <AlertDialog>
@@ -552,6 +557,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         onOpenChange={setAddSubtaskOpen}
         teams={teams}
         members={members}
+      />
+    )}
+    {task && (
+      <MapActivitiesDialog
+        taskId={task.id}
+        taskTitle={task.task_code || task.title}
+        open={mapActivitiesOpen}
+        onOpenChange={setMapActivitiesOpen}
       />
     )}
     </>
