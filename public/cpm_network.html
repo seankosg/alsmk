@@ -2822,11 +2822,17 @@ function loadFromStorage() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
-// localStorage에 저장된 데이터가 있으면 복원, 없으면 샘플 로드
+// localStorage에 저장된 데이터가 있으면 복원, 없으면 부모에게 DB 스냅샷 요청
 const restored = loadFromStorage();
 if (restored) {
   // 복원된 데이터로 계산 재실행
   calculated = false;
+  calculate();
+} else if (window.parent !== window) {
+  // localStorage 없음 → 부모(React)에 DB 스냅샷 요청
+  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
+  // DB 응답 올 때까지 샘플 로드 (대기 표시)
+  loadSample();
   calculate();
 } else {
   // 샘플 데이터 로드 + 계산
