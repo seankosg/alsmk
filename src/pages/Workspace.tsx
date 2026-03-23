@@ -19,11 +19,29 @@ import * as XLSX from "xlsx";
 
 const Workspace = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { isAdmin, memberId } = useAuthContext();
   const [filterMode, setFilterMode] = useState<"mine" | "team" | "project">("mine");
   const [generating, setGenerating] = useState(false);
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const highlightTaskId = searchParams.get("task");
+
+  // Scroll to highlighted task
+  useEffect(() => {
+    if (!highlightTaskId) return;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-task-id="${highlightTaskId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+        }, 3000);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [highlightTaskId]);
 
   const { data: myMember } = useQuery({
     queryKey: ["my_member", memberId],
