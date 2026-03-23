@@ -288,6 +288,12 @@
     position: absolute; top: 0;
   }
   .gantt-bar-fill.critical { background: var(--critical); }
+  .gantt-bar-progress {
+    height: 100%; border-radius: 3px;
+    background: var(--green);
+    position: absolute; top: 0;
+    opacity: .7;
+  }
   .gantt-float-bar {
     height: 100%; border-radius: 3px;
     background: rgba(61,214,140,.25);
@@ -624,6 +630,7 @@ function addActivity(data) {
     wbs:          data?.wbs          || '1',
     wbsFull:      data?.wbsFull      || data?.wbs || '1',
     mppTaskId:    data?.mppTaskId    || null,
+    progress:     data?.progress     ?? null,
     es: null, ef: null, ls: null, lf: null, tf: null,
     isCritical: false
   };
@@ -985,7 +992,7 @@ function calculate() {
 // ─── Network Diagram ──────────────────────────────────────────────
 // filterWbs: null = 전체, string = 해당 WBS prefix만
 function drawNetwork(order, map, projectEnd, filterWbs) {
-  const NODE_W = 160, NODE_H = 80, GAP_X = 60, GAP_Y = 50;
+  const NODE_W = 160, NODE_H = 92, GAP_X = 60, GAP_Y = 50;
 
 
   // ── WBS 필터 적용 ──────────────────────────────────────────────
@@ -1114,10 +1121,18 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
       name: a.name||'', dur: a.duration,
       es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
       isCritical: a.isCritical, isPT: isPT,
+      progress: a.progress,
       startDate: a.startDate ? fmtDate(a.startDate) : null,
       finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
       predecessors: a.predecessors||''
     }).replace(/"/g,'&quot;');
+
+    // Progress bar rendering
+    const hasProg = a.progress !== null && a.progress !== undefined;
+    const progPct = hasProg ? Math.min(100, Math.max(0, a.progress)) : 0;
+    const progBarW = Math.round((NODE_W - 16) * progPct / 100);
+    const progColor = progPct >= 100 ? '#3dd68c' : progPct >= 50 ? '#4da6ff' : progPct > 0 ? '#e8c547' : '#2a3347';
+    const progBg = 'rgba(255,255,255,.06)';
 
     nodes += `
       <g transform="translate(${p.x},${p.y})" style="cursor:pointer"
@@ -1144,8 +1159,14 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
           : `<text x="8" y="67" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="#7a8ba0">ES:${a.es} EF:${a.ef}</text>
              <text x="${NODE_W-8}" y="67" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="${isC?'#ff6060':'#7a8ba0'}" text-anchor="end">TF:${a.tf}</text>`
         }
-        ${isC ? `<text x="${NODE_W/2}" y="78" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="middle" font-weight="600">★ CRITICAL</text>` : ''}
-        ${isPT ? `<text x="${NODE_W/2}" y="78" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#c97a10" text-anchor="middle" font-weight="600">통과 노드</text>` : ''}
+        <!-- Progress Bar -->
+        ${hasProg ? `
+          <rect x="8" y="${NODE_H - 16}" width="${NODE_W - 16}" height="6" rx="3" fill="${progBg}"/>
+          <rect x="8" y="${NODE_H - 16}" width="${progBarW}" height="6" rx="3" fill="${progColor}"/>
+          <text x="${NODE_W - 8}" y="${NODE_H - 10}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="${progColor}" text-anchor="end" font-weight="600">${progPct}%</text>
+        ` : ''}
+        ${isC ? `<text x="${NODE_W/2}" y="${hasProg ? NODE_H - 22 : 78}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="middle" font-weight="600">★ CRITICAL</text>` : ''}
+        ${isPT ? `<text x="${NODE_W/2}" y="${hasProg ? NODE_H - 22 : 78}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#c97a10" text-anchor="middle" font-weight="600">통과 노드</text>` : ''}
       </g>
     `;
   });
@@ -1232,6 +1253,7 @@ function renderGantt(order, map, projectEnd) {
     <th style="width:52px">ID</th>
     <th style="width:170px;text-align:left">작업명</th>
     <th style="width:44px">기간</th>
+    <th style="width:44px">진행률</th>
     ${hasDates
       ? `<th style="width:88px">시작일</th><th style="width:88px">완료일</th>`
       : `<th style="width:36px">ES</th><th style="width:36px">EF</th>`}
@@ -1280,6 +1302,7 @@ function renderGantt(order, map, projectEnd) {
       <td style="font-weight:500;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
           title="${escHtml(a.name||'')}">${escHtml(a.name||'(미입력)')}</td>
       <td style="font-family:var(--mono);text-align:center">${a.duration}</td>
+      <td style="font-family:var(--mono);font-size:11px;text-align:center;font-weight:600;color:${a.progress!=null?(a.progress>=100?'var(--green)':a.progress>=50?'var(--safe)':'var(--accent)'):'var(--text-dim)'}">${a.progress!=null?a.progress+'%':'-'}</td>
       <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--safe)">${startLabel}</td>
       <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--safe)">${endLabel}</td>
       <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--text-dim)">${a.ls??'-'}</td>
@@ -1289,6 +1312,9 @@ function renderGantt(order, map, projectEnd) {
         <div class="gantt-bar-outer" style="width:${barTotalW}px;position:relative">
           <div class="gantt-bar-fill${a.isCritical?' critical':''}"
             style="left:${fillLeftPct}%;width:${fillWPct}%"></div>
+          ${a.progress!=null && parseFloat(fillWPct)>0
+            ?`<div class="gantt-bar-progress" style="left:${fillLeftPct}%;width:${(parseFloat(fillWPct)*Math.min(100,a.progress)/100).toFixed(2)}%"></div>`:''
+          }
           ${(a.tf>0 && parseFloat(floatWPct)>0)
             ?`<div class="gantt-float-bar" style="left:${floatLeftPct}%;width:${floatWPct}%"></div>`:''}
           ${todayOffset!==null && parseFloat(todayOffset)>=0 && parseFloat(todayOffset)<=100
@@ -1754,6 +1780,10 @@ function parseMSProjectXML(xmlText, fileName) {
       return `${mapped.id}:${lt}:${lag}`;
     }).filter(Boolean).join(',');
 
+    // ── PercentComplete 파싱 ──
+    const pctStr = get(t,'PercentComplete') || get(t,'PercentWorkComplete') || get(t,'PhysicalPercentComplete');
+    const progress = pctStr ? parseInt(pctStr) : null;
+
     const act = {
       id, name,
       duration: dur,
@@ -1768,6 +1798,7 @@ function parseMSProjectXML(xmlText, fileName) {
       wbs,
       wbsFull,
       mppTaskId,
+      progress,
       _uid: uid,
       startDate:  parseDate(startStr),
       finishDate: parseDate(finishStr),
