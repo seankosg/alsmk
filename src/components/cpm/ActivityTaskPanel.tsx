@@ -54,7 +54,7 @@ interface TaskWithMember {
 export function ActivityTaskPanel({ activity, onClose }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+  const { isAdmin, memberId } = useAuthContext();
   const [expandedAssignees, setExpandedAssignees] = useState<Set<string>>(new Set());
 
   // Get DB activity ID
