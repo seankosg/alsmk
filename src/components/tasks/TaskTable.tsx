@@ -476,7 +476,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                           : "text-destructive";
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
-                      <TableRow key={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-primary/10 border-l-2 border-l-primary" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
+                      <TableRow key={task.id} data-task-id={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-primary/10 border-l-2 border-l-primary" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
                         <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
                         <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.assignee }}>{members.find(m => m.id === task.assignee_id)?.name ?? "—"}</TableCell>
                         <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
