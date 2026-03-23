@@ -32,23 +32,17 @@ const CpmScheduler = () => {
     const { data: mappings } = await supabase
       .from("cpm_task_mappings")
       .select("activity_id, task_id");
-    if (!mappings?.length) {
-      iframeRef.current.contentWindow.postMessage({
-        type: "activity-status-update",
-        statuses: [],
-      }, "*");
-      return;
+
+    const taskIds = [...new Set((mappings || []).map(m => m.task_id))];
+    let taskMap: Record<string, any> = {};
+    if (taskIds.length) {
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("id, current_progress, start_date, end_date")
+        .in("id", taskIds)
+        .is("deleted_at", null);
+      taskMap = Object.fromEntries((tasks || []).map(t => [t.id, t]));
     }
-
-    const taskIds = [...new Set(mappings.map(m => m.task_id))];
-    const { data: tasks } = await supabase
-      .from("tasks")
-      .select("id, current_progress, start_date, end_date")
-      .in("id", taskIds)
-      .is("deleted_at", null);
-    if (!tasks?.length) return;
-
-    const taskMap = Object.fromEntries(tasks.map(t => [t.id, t]));
 
     // Group mappings by activity_id
     const activityMappings = new Map<string, string[]>();
