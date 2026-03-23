@@ -987,6 +987,8 @@ function calculate() {
   showToast(`✓ CPM 완료 (${mode}) — 총 공기: ${projectEnd}일 | CP: ${cpCount}개`);
   // 계산 결과 localStorage 저장
   saveToStorage();
+  // postMessage: 계산 완료 데이터를 부모 React에 전송
+  postCpmCalculated();
 }
 
 // ─── Network Diagram ──────────────────────────────────────────────
