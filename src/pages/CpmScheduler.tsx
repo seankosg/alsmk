@@ -179,7 +179,43 @@ const CpmScheduler = () => {
     await supabase
       .from("cpm_activities")
       .upsert(rows, { onConflict: "mpp_task_id,wbs_full" });
-    
+
+    // --- Orphan cleanup: delete DB activities not in current XML ---
+    const validKeys = new Set(
+      activities
+        .filter((a) => a.mppTaskId && a.wbsFull)
+        .map((a) => `${a.mppTaskId}::${a.wbsFull}`)
+    );
+
+    const { data: allDbActivities } = await supabase
+      .from("cpm_activities")
+      .select("id, mpp_task_id, wbs_full");
+
+    if (allDbActivities?.length) {
+      const orphanIds = allDbActivities
+        .filter((db) => {
+          if (!db.mpp_task_id || !db.wbs_full) return false; // keep legacy/manual entries
+          return !validKeys.has(`${db.mpp_task_id}::${db.wbs_full}`);
+        })
+        .map((db) => db.id);
+
+      if (orphanIds.length) {
+        // Delete orphan mappings first (FK constraint)
+        await supabase
+          .from("cpm_task_mappings")
+          .delete()
+          .in("activity_id", orphanIds);
+
+        // Delete orphan activities
+        await supabase
+          .from("cpm_activities")
+          .delete()
+          .in("id", orphanIds);
+
+        console.log(`[CPM] Cleaned ${orphanIds.length} orphan activities`);
+      }
+    }
+
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
     setTimeout(() => sendStatusToIframe(), 500);
   }, [queryClient, sendStatusToIframe]);
