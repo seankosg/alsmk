@@ -2858,25 +2858,54 @@ function handleNodeClick(event, actId, wbsCode) {
     if (a) {
       window.parent.postMessage({
         type: 'activity-click',
-        activity: {
-          id: a.id,
-          mppTaskId: a.mppTaskId || null,
-          mppUid: a._uid || null,
-          name: a.name || '',
-          duration: a.duration,
-          progress: a.progress,
-          wbsFull: a.wbsFull || a.wbs || '',
-          isCritical: a.isCritical,
-          isMilestone: a.isMilestone || false,
-          startDate: a.startDate ? fmtDate(a.startDate) : null,
-          finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
-          es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
-        }
+        activity: buildActivityPayload(a)
       }, '*');
     }
   } else {
     jumpToWbs(actId, wbsCode);
   }
+}
+
+function handleNodeDblClick(event, actId) {
+  event.preventDefault();
+  if (window.parent === window) return;
+  const actMap = {};
+  activities.forEach(a => actMap[a.id] = a);
+  const a = actMap[actId];
+  if (!a) return;
+
+  // Build predecessor details
+  const predNames = (a.predecessors||'').split(',').map(s=>s.trim()).filter(Boolean)
+    .map(pid => {
+      const p = actMap[pid];
+      return p ? { id: pid, mppTaskId: p.mppTaskId||null, name: p.name||'', wbs: p.wbsFull||p.wbs||'' } : { id: pid, mppTaskId: null, name: pid, wbs: '' };
+    });
+
+  window.parent.postMessage({
+    type: 'activity-detail-click',
+    activity: {
+      ...buildActivityPayload(a),
+      predecessors: predNames,
+      isPassThrough: !a.isCritical && a.tf === 0
+    }
+  }, '*');
+}
+
+function buildActivityPayload(a) {
+  return {
+    id: a.id,
+    mppTaskId: a.mppTaskId || null,
+    mppUid: a._uid || null,
+    name: a.name || '',
+    duration: a.duration,
+    progress: a.progress,
+    wbsFull: a.wbsFull || a.wbs || '',
+    isCritical: a.isCritical,
+    isMilestone: a.isMilestone || false,
+    startDate: a.startDate ? fmtDate(a.startDate) : null,
+    finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
+    es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
+  };
 }
 
 // Listen for messages from parent React app
