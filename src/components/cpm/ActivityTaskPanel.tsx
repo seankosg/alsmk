@@ -375,6 +375,22 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
                             >
                               <ExternalLink className="h-3 w-3 text-primary" />
                             </button>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!dbActivity?.id) return;
+                                await supabase
+                                  .from("cpm_task_mappings")
+                                  .delete()
+                                  .eq("activity_id", dbActivity.id)
+                                  .eq("task_id", task.id);
+                                refetchMappings();
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                              title="매핑 해제"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
                           </div>
                         );
                       })}
