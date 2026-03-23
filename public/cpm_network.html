@@ -2880,6 +2880,7 @@ function handleNodeDblClick(event, actId) {
   activities.forEach(a => actMap[a.id] = a);
   const a = actMap[actId];
   if (!a) return;
+  highlightSidebarCard(actId);
 
   // Build predecessor details
   const predNames = (a.predecessors||'').split(',').map(s=>s.trim()).filter(Boolean)
