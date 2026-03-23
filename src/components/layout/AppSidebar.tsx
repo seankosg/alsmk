@@ -26,6 +26,7 @@ export function AppSidebar() {
     { title: "My Workspace", url: "/workspace", icon: Briefcase },
     { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Organization", url: "/organization", icon: Building2 },
+    { title: "CPM Scheduler", url: "/cpm", icon: Network },
     ...(isAdmin ? [
       { title: "Admin", url: "/admin", icon: Settings },
       { title: "Import", url: "/tasks/import", icon: Upload },

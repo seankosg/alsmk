@@ -52,6 +52,7 @@ const App = () => (
                   <Route path="/tasks/import" element={<TaskImport />} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/calendar" element={<Calendar />} />
+                  <Route path="/cpm" element={<CpmScheduler />} />
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
