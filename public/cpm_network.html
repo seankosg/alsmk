@@ -2955,6 +2955,12 @@ window.addEventListener('message', function(e) {
       drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
     }
   }
+  // Parent requests current snapshot for manual save
+  if (e.data.type === 'request-snapshot') {
+    if (!calculated || activities.length === 0) return;
+    const snap = _makeSnapshot('');
+    window.parent.postMessage({ type: 'snapshot-current', snapshot: snap }, '*');
+  }
   // DB에서 복원된 스냅샷 수신
   if (e.data.type === 'snapshot-restore') {
     const snap = e.data.snapshot;
