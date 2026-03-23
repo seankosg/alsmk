@@ -1,4 +1,4 @@
-import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays, Network } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -26,6 +26,7 @@ export function AppSidebar() {
     { title: "My Workspace", url: "/workspace", icon: Briefcase },
     { title: "Messages", url: "/messages", icon: MessageSquare },
     { title: "Organization", url: "/organization", icon: Building2 },
+    { title: "CPM Scheduler", url: "/cpm", icon: Network },
     ...(isAdmin ? [
       { title: "Admin", url: "/admin", icon: Settings },
       { title: "Import", url: "/tasks/import", icon: Upload },

@@ -1,0 +1,2742 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>건설공사 CPM 네트워크 공정표</title>
+<style>
+    :root {
+    --bg: #0f1117;
+    --surface: #161b27;
+    --surface2: #1e2535;
+    --border: #2a3347;
+    --accent: #e8c547;
+    --critical: #ff4d4d;
+    --safe: #4da6ff;
+    --text: #e2e8f0;
+    --text-dim: #7a8ba0;
+    --green: #3dd68c;
+    --mono: 'Consolas', 'D2Coding', 'Courier New', monospace;
+    --sans: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
+            'Nanum Gothic', '맑은 고딕', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    min-height: 56px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+  .logo span { color: var(--text-dim); font-weight: 400; }
+  .header-tabs { display: flex; gap: 0; }
+  .tab-btn {
+    background: none; border: none; cursor: pointer;
+    padding: 0 18px; height: 56px;
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    transition: all .2s;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* ── Layout ── */
+  .app {
+    display: flex;
+    flex: 1;
+    min-height: 0;   /* flex 자식이 overflow scroll 되도록 */
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 380px; min-width: 320px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .sidebar-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sidebar-title { font-size: 12px; font-weight: 600; color: var(--text-dim); letter-spacing: .1em; text-transform: uppercase; }
+  .btn-add {
+    background: var(--accent); color: #000;
+    border: none; border-radius: 4px;
+    padding: 5px 12px; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: var(--sans);
+    transition: opacity .15s;
+  }
+  .btn-add:hover { opacity: .85; }
+
+  .activity-list {
+    flex: 1; overflow-y: auto;
+    padding: 8px;
+  }
+  .activity-list::-webkit-scrollbar { width: 4px; }
+  .activity-list::-webkit-scrollbar-track { background: transparent; }
+  .activity-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .activity-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    position: relative;
+    transition: border-color .15s;
+  }
+  .activity-card.critical { border-left: 3px solid var(--critical); }
+  .activity-card:hover { border-color: #3d4f6e; }
+
+  .card-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .act-id {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    background: var(--border); color: var(--accent);
+    padding: 2px 6px; border-radius: 3px; white-space: nowrap;
+  }
+  .act-name-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--sans); font-size: 13px; font-weight: 500;
+  }
+  .btn-del {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-dim); font-size: 16px; line-height: 1;
+    padding: 2px 4px; border-radius: 3px;
+    transition: color .15s;
+  }
+  .btn-del:hover { color: var(--critical); }
+
+  .card-row2 { display: flex; gap: 8px; }
+  .field-group { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .field-label { font-size: 10px; color: var(--text-dim); letter-spacing: .05em; }
+  .field-input {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px;
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    outline: none; width: 100%;
+    transition: border-color .15s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+
+  .cpm-badge {
+    display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;
+  }
+  .badge {
+    font-family: var(--mono); font-size: 10px;
+    padding: 1px 6px; border-radius: 2px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .badge.tf0 { color: var(--critical); border-color: var(--critical); }
+  .badge.float { color: var(--green); }
+
+  .btn-save { flex:1; background:var(--accent); color:#000; border:none; border-radius:5px;
+    padding:8px; font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer; }
+  .btn-save:hover { opacity:.85; }
+  .btn-danger { background:none; border:1px solid var(--border); color:var(--critical);
+    border-radius:5px; padding:8px 14px; font-family:var(--sans); font-size:12px; cursor:pointer; }
+  .btn-danger:hover { border-color:var(--critical); background:rgba(255,77,77,.08); }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .btn-calc {
+    flex: 1; background: var(--accent); color: #000;
+    border: none; border-radius: 5px;
+    padding: 9px; font-family: var(--sans); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: opacity .15s;
+  }
+  .btn-calc:hover { opacity: .85; }
+  .footer-row { display: flex; gap: 8px; }
+  .btn-sample {
+    flex: 1; background: var(--surface2); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 9px 14px; font-family: var(--sans); font-size: 12px;
+    cursor: pointer; transition: all .15s; text-align: center;
+  }
+  .btn-sample:hover { color: var(--text); border-color: #3d4f6e; }
+
+  /* XML Upload Zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(232,197,71,.05); }
+  .upload-zone input[type=file] { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%; }
+  .upload-label { font-size: 11px; color: var(--text-dim); pointer-events: none; }
+  .upload-label span { color: var(--accent); font-weight: 600; }
+
+  /* ── Main Panel ── */
+  .main { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+  .panel { display: none; flex: 1; min-height: 0; overflow: hidden; }
+  .panel.active { display: flex; flex-direction: column; }
+
+  /* Network Canvas */
+  #networkPanel { position: relative; }
+  #networkCanvas {
+    flex: 1;
+    overflow: auto;
+    background:
+      radial-gradient(circle at 20% 50%, rgba(232,197,71,.03) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(77,166,255,.03) 0%, transparent 40%),
+      var(--bg);
+  }
+  #networkCanvas::-webkit-scrollbar { width: 6px; height: 6px; }
+  #networkCanvas::-webkit-scrollbar-track { background: var(--bg); }
+  #networkCanvas::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  #svgContainer {
+    min-width: 100%; min-height: 100%;
+    padding: 40px;
+  }
+
+  .legend {
+    position: absolute; bottom: 16px; right: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 14px;
+    display: flex; gap: 16px; align-items: center;
+    font-size: 11px; color: var(--text-dim);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Node SVG styles */
+  .node-box { rx: 6; ry: 6; }
+
+  /* Gantt */
+  #ganttPanel { overflow: auto; padding: 24px; }
+  #ganttPanel::-webkit-scrollbar { width: 6px; height: 6px; }
+  #ganttPanel::-webkit-scrollbar-track { background: var(--bg); }
+  #ganttPanel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .gantt-wrap { min-width: 900px; }
+  .gantt-header {
+    font-size: 11px; font-weight: 600; color: var(--text-dim);
+    letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  table.gantt {
+    width: 100%; border-collapse: collapse;
+    font-size: 12px;
+  }
+  table.gantt th {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 7px 10px;
+    font-weight: 600; color: var(--text-dim);
+    font-family: var(--mono); font-size: 11px;
+    text-align: center;
+  }
+  table.gantt td {
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    vertical-align: middle;
+  }
+  table.gantt tr:hover td { background: rgba(255,255,255,.02); }
+  .gantt-bar-cell { padding: 4px 6px; }
+  .gantt-bar-outer {
+    background: var(--surface2);
+    border-radius: 3px; height: 18px;
+    position: relative; overflow: visible;
+  }
+  .gantt-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: var(--safe);
+    position: absolute; top: 0;
+  }
+  .gantt-bar-fill.critical { background: var(--critical); }
+  .gantt-float-bar {
+    height: 100%; border-radius: 3px;
+    background: rgba(61,214,140,.25);
+    border: 1px dashed var(--green);
+    position: absolute; top: 0;
+  }
+  .critical-tag {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--critical); font-weight: 600;
+  }
+
+  /* WBS Panel */
+  #wbsPanel { overflow: auto; padding: 24px; }
+  .wbs-tree { font-size: 13px; }
+  .wbs-node {
+    padding: 7px 12px 7px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    transition: background .2s, border-left .2s;
+  }
+  .wbs-highlight {
+    background: rgba(232,197,71,.18) !important;
+    border-left: 3px solid var(--accent) !important;
+    animation: wbs-pulse .5s ease 2;
+  }
+  .wbs-highlight-path {
+    background: rgba(232,197,71,.07) !important;
+    border-left: 2px solid rgba(232,197,71,.4) !important;
+  }
+  @keyframes wbs-pulse {
+    0%,100% { background: rgba(232,197,71,.18); }
+    50%      { background: rgba(232,197,71,.35); }
+  }
+  .wbs-indent { display: inline-block; }
+  .wbs-label { font-weight: 500; }
+  .wbs-meta { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-left: auto; }
+
+  /* Empty state */
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; color: var(--text-dim);
+  }
+  .empty-icon { font-size: 48px; opacity: .3; }
+  .empty-text { font-size: 14px; }
+
+  /* Toast */
+  /* ── Node Tooltip ── */
+  #nodeTooltip {
+    position: fixed;
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0;
+    transform: scale(.92);
+    transition: opacity .15s, transform .15s;
+    width: 240px;
+  }
+  #nodeTooltip.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .nt-card {
+    background: #1a2235;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07);
+  }
+  .nt-top {
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid #2a3347;
+  }
+  .nt-id-row {
+    display: flex; align-items: center; gap: 7px; margin-bottom: 5px;
+  }
+  .nt-id {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    padding: 2px 7px; border-radius: 3px;
+  }
+  .nt-wbs {
+    font-family: var(--mono); font-size: 10px; color: #5a7a9a;
+  }
+  .nt-name {
+    font-size: 14px; font-weight: 600; color: #e2e8f0;
+    line-height: 1.3; word-break: keep-all;
+  }
+  .nt-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1px; background: #2a3347;
+  }
+  .nt-cell {
+    background: #161b27;
+    padding: 8px 12px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .nt-cell-label {
+    font-size: 9px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: #5a7a9a;
+  }
+  .nt-cell-val {
+    font-family: var(--mono); font-size: 13px; font-weight: 600; color: #e2e8f0;
+  }
+  .nt-footer {
+    padding: 7px 14px;
+    font-family: var(--mono); font-size: 10px;
+    color: #5a7a9a; display: flex; justify-content: space-between;
+    align-items: center;
+  }
+  .nt-cp-badge {
+    font-size: 10px; font-weight: 700; letter-spacing: .05em;
+    padding: 2px 8px; border-radius: 3px;
+  }
+
+  /* ── Project Manager Panel ── */
+  .proj-panel {
+    position: fixed; top: 56px; right: 0; bottom: 0; width: 320px;
+    background: var(--surface); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; z-index: 200;
+    transform: translateX(100%); transition: transform .25s ease;
+  }
+  .proj-panel.open { transform: translateX(0); }
+  .proj-panel-header {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .proj-panel-title { font-size: 12px; font-weight: 600; color: var(--text-dim);
+    letter-spacing: .1em; text-transform: uppercase; }
+  .proj-close { background: none; border: none; color: var(--text-dim);
+    font-size: 20px; cursor: pointer; padding: 0 4px; line-height: 1; }
+  .proj-close:hover { color: var(--text); }
+  .proj-save-row {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; flex-shrink: 0;
+  }
+  .proj-name-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 5px; padding: 7px 10px; color: var(--text);
+    font-family: var(--sans); font-size: 13px; outline: none;
+  }
+  .proj-name-input:focus { border-color: var(--accent); }
+  .proj-save-btn {
+    background: var(--accent); color: #000; border: none;
+    border-radius: 5px; padding: 7px 14px; font-size: 12px;
+    font-weight: 600; cursor: pointer; white-space: nowrap;
+    font-family: var(--sans);
+  }
+  .proj-save-btn:hover { opacity: .85; }
+  .proj-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .proj-list::-webkit-scrollbar { width: 4px; }
+  .proj-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .proj-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 12px; margin-bottom: 6px;
+    cursor: pointer; transition: border-color .15s;
+  }
+  .proj-item:hover { border-color: #3d4f6e; }
+  .proj-item.active { border-color: var(--accent); border-left: 3px solid var(--accent); }
+  .proj-item-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .proj-item-meta { font-size: 10px; font-family: var(--mono); color: var(--text-dim);
+    display: flex; justify-content: space-between; align-items: center; }
+  .proj-item-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .proj-btn-load {
+    flex: 1; background: var(--safe); color: #000; border: none;
+    border-radius: 4px; padding: 5px 8px; font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: var(--sans);
+  }
+  .proj-btn-load:hover { opacity: .85; }
+  .proj-btn-del {
+    background: none; border: 1px solid var(--border); color: var(--critical);
+    border-radius: 4px; padding: 5px 8px; font-size: 11px; cursor: pointer;
+    font-family: var(--sans);
+  }
+  .proj-btn-del:hover { border-color: var(--critical); background: rgba(255,77,77,.08); }
+  .proj-empty { text-align: center; color: var(--text-dim); font-size: 13px;
+    padding: 40px 20px; }
+  .proj-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    z-index: 199; display: none;
+  }
+  .proj-overlay.open { display: block; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 20px;
+    font-size: 13px; color: var(--text);
+    z-index: 999; opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CPM<span> / </span>NETWORK SCHEDULER
+    <span id="saveIndicator" style="font-size:10px;font-weight:400;color:var(--text-dim);margin-left:12px;display:none">
+      ● 저장됨
+    </span>
+  </div>
+  <div class="header-tabs">
+    <button class="tab-btn active" onclick="switchTab('network',event)">네트워크 다이어그램</button>
+    <button class="tab-btn" onclick="switchTab('gantt',event)">간트차트</button>
+    <button class="tab-btn" onclick="switchTab('wbs',event)">WBS</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-dim)">
+      <div id="autoCalcToggle" onclick="toggleAutoCalc()"
+        style="width:32px;height:18px;border-radius:9px;background:var(--border);
+               position:relative;cursor:pointer;transition:background .2s;flex-shrink:0">
+        <div id="autoCalcThumb"
+          style="position:absolute;top:2px;left:2px;width:14px;height:14px;
+                 border-radius:50%;background:#fff;transition:transform .2s"></div>
+      </div>
+      자동계산
+    </label>
+    <button onclick="toggleProjPanel()"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;
+             padding:5px 12px;font-size:12px;font-weight:600;color:var(--accent);
+             cursor:pointer;font-family:var(--sans);transition:all .15s"
+      onmouseover="this.style.borderColor='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)'">
+      📁 프로젝트
+    </button>
+  </div>
+</header>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Activity 목록</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;color:var(--text-dim)">착공일</span>
+        <input type="date" id="projectStartInput"
+          style="background:var(--bg);border:1px solid var(--border);border-radius:4px;
+                 padding:3px 6px;color:var(--text);font-size:11px;font-family:var(--mono);cursor:pointer"
+          onchange="window._projectStartDate = this.value ? new Date(this.value) : null">
+      </div>
+      <button class="btn-add" onclick="addActivity()">+ 추가</button>
+    </div>
+    <div class="activity-list" id="activityList"></div>
+    <div class="sidebar-footer">
+      <div class="upload-zone" id="uploadZone"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleDrop(event)">
+        <input type="file" accept=".xml" onchange="handleFile(this.files[0])">
+        <div class="upload-label">📂 <span>MS Project XML</span> 업로드<br>(.xml 드래그 또는 클릭)</div>
+      </div>
+      <button class="btn-calc" onclick="calculate()">▶ CPM 계산 &amp; 생성</button>
+      <div class="footer-row">
+        <button class="btn-sample" onclick="loadSample()">공정 초기화</button>
+        <button class="btn-sample" onclick="clearAll()">전체 초기화</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Network -->
+    <div class="panel active" id="networkPanel">
+      <div id="networkCanvas">
+        <div id="svgContainer">
+          <div class="empty-state" id="emptyNetwork">
+            <div class="empty-icon">⬡</div>
+            <div class="empty-text">Activity를 입력하고 CPM 계산을 실행하세요</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend" id="legend" style="display:none">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--critical)"></div>Critical Path</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--safe)"></div>일반 공정</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#c97a10"></div>CP 통과 노드 (타 WBS)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green);opacity:.5"></div>Float</div>
+        <div class="legend-item" id="filterLabel" style="display:none;color:var(--accent);font-weight:600"></div>
+      </div>
+    </div>
+
+    <!-- Gantt -->
+    <div class="panel" id="ganttPanel">
+      <div class="gantt-wrap" id="ganttContent">
+        <div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">CPM 계산 후 간트차트가 표시됩니다</div></div>
+      </div>
+    </div>
+
+    <!-- WBS -->
+    <div class="panel" id="wbsPanel">
+      <div id="wbsContent">
+        <div class="empty-state"><div class="empty-icon">🌲</div><div class="empty-text">CPM 계산 후 WBS가 표시됩니다</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Project Manager Overlay & Panel -->
+<div class="proj-overlay" id="projOverlay" onclick="toggleProjPanel()"></div>
+<div class="proj-panel" id="projPanel">
+  <div class="proj-panel-header">
+    <span class="proj-panel-title">프로젝트 관리</span>
+    <button class="proj-close" onclick="toggleProjPanel()">×</button>
+  </div>
+  <div class="proj-save-row">
+    <input class="proj-name-input" id="projNameInput" placeholder="프로젝트 이름 입력..." maxlength="50">
+    <button class="proj-save-btn" onclick="saveProject()">저장</button>
+  </div>
+  <div class="proj-list" id="projList">
+    <div class="proj-empty">저장된 프로젝트가 없습니다</div>
+  </div>
+</div>
+
+<div id="nodeTooltip">
+  <div class="nt-card" id="ntCard"></div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────
+let activities = [];
+let idCounter = 1;
+let calculated = false;
+
+// ─── Activity CRUD ────────────────────────────────────────────────
+function genId() { return 'A' + String(idCounter++).padStart(2,'0'); }
+
+function addActivity(data) {
+  const id = data ? data.id : genId();
+  const act = {
+    id,
+    name:         data?.name         || '',
+    duration:     data?.duration     ?? 3,
+    predecessors: data?.predecessors || '',
+    wbs:          data?.wbs          || '1',
+    wbsFull:      data?.wbsFull      || data?.wbs || '1',
+    mppTaskId:    data?.mppTaskId    || null,
+    es: null, ef: null, ls: null, lf: null, tf: null,
+    isCritical: false
+  };
+  activities.push(act);
+  renderSidebar();
+  return act;
+}
+
+function removeActivity(id) {
+  activities = activities.filter(a => a.id !== id);
+  renderSidebar();
+  scheduleAutoCalc();
+}
+
+function syncFromDOM() {
+  activities.forEach(a => {
+    const nameEl = document.getElementById('name_' + a.id);
+    const durEl  = document.getElementById('dur_'  + a.id);
+    const predEl = document.getElementById('pred_' + a.id);
+    const wbsEl  = document.getElementById('wbs_'  + a.id);
+    if (nameEl) a.name         = nameEl.value;
+    if (durEl)  a.duration     = parseInt(durEl.value) || 1;
+    if (predEl) a.predecessors = predEl.value || '';
+    if (wbsEl)  { a.wbs = wbsEl.value; a.wbsFull = wbsEl.value; }
+  });
+}
+
+function renderSidebar() {
+  const list = document.getElementById('activityList');
+  list.innerHTML = '';
+  activities.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'activity-card' + (a.isCritical ? ' critical' : '');
+    card.innerHTML = `
+      <div class="card-row1">
+        <span class="act-id" title="내부ID: ${a.id}">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</span>
+        ${a.wbsFull ? `<span style="font-family:var(--mono);font-size:10px;color:#5a7a9a;padding:2px 5px;background:var(--bg);border-radius:3px">${a.wbsFull}</span>` : ''}
+        <input class="act-name-input" id="name_${a.id}" placeholder="작업명 입력" value="${(a.name||'').replace(/"/g,'&quot;')}"
+          onchange="scheduleAutoCalc()">
+        <button class="btn-del" onclick="removeActivity('${a.id}')">×</button>
+      </div>
+      <div class="card-row2">
+        <div class="field-group">
+          <span class="field-label">기간(일)</span>
+          <input class="field-input" id="dur_${a.id}" type="number" min="1" value="${a.duration}" style="text-align:center"
+            onchange="scheduleAutoCalc()">
+        </div>
+        <div class="field-group" style="flex:2">
+          <span class="field-label">선행작업 (A01 또는 A01:SS:2)</span>
+          <input class="field-input" id="pred_${a.id}" placeholder="예: A01 또는 A01:SS:2"
+            value="${(a.predecessors||'')}"
+            onblur="validatePred(this,'${a.id}')" onchange="scheduleAutoCalc()">
+        </div>
+        <div class="field-group" style="flex:.8">
+          <span class="field-label">WBS</span>
+          <input class="field-input" id="wbs_${a.id}" placeholder="1.1" value="${a.wbsFull||a.wbs||''}">
+        </div>
+      </div>
+      ${a.es !== null ? `
+      <div class="cpm-badge">
+        <span class="badge">ES:${a.es}</span>
+        <span class="badge">EF:${a.ef}</span>
+        <span class="badge">LS:${a.ls}</span>
+        <span class="badge">LF:${a.lf}</span>
+        <span class="badge ${a.tf===0?'tf0':'float'}">TF:${a.tf}</span>
+        ${a.isCritical ? '<span class="badge tf0">★ CRITICAL</span>' : ''}
+      </div>` : ''}
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ─── CPM Engine ───────────────────────────────────────────────────
+
+// ─── addWorkDays utility ─────────────────────────────────────────
+function addWorkDays(startDate, days) {
+  const d = new Date(startDate);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+// ─── XSS escape utility ─────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function calculate() {
+  if (activities.length === 0) { showToast('Activity를 먼저 추가하세요'); return; }
+
+  const map = {};
+  activities.forEach(a => {
+    map[a.id] = a;
+    a.es=0; a.ef=0; a.ls=0; a.lf=0; a.tf=0; a.isCritical=false;
+    a.successors = [];
+  });
+
+  // ── 선행작업 링크 파싱 ──────────────────────────────────────────
+  // predLinks: "A01:1:0,A02:0:2" 형식 (id:linkType:lagDays)
+  // predecessors: 단순 id 목록 (수동 입력용)
+  // linkType: 1=FS, 0=FF, 3=SS, 2=SF
+  const predLinkMap = {};  // actId → [{id, type, lag}]
+  activities.forEach(a => {
+    const links = [];
+    // predLinks와 predecessors 모두 동일한 파서로 처리
+    // 지원 포맷: "A01" (FS 기본), "A01:SS:2" (타입:Lag), "A01:FF", "A01::3"
+    const rawStr = (a.predLinks && a.predLinks.trim())
+      ? a.predLinks          // XML 업로드: predLinks 우선
+      : (a.predecessors||''); // 수동 입력: predecessors
+
+    rawStr.split(',').forEach(token => {
+      const parts = token.trim().split(':');
+      const pid  = parts[0].trim();
+      if (!pid) return;
+      const lt   = parts[1] ? parts[1].trim().toUpperCase() : 'FS';
+      const lag  = parseInt(parts[2]||'0') || 0;
+      // 링크 타입 정규화: FS=1, FF=0, SS=3, SF=2
+      const typeMap = {'FS':'1','FF':'0','SS':'3','SF':'2','1':'1','0':'0','3':'3','2':'2'};
+      const linkType = typeMap[lt] || '1';
+      if (map[pid]) {
+        links.push({id:pid, type:linkType, lag:lag});
+      } else if (pid) {
+        // 존재하지 않는 ID: 경고 수집 (Silent Failure 방지)
+        if (!window._invalidPreds) window._invalidPreds = [];
+        window._invalidPreds.push(`${a.id}→${pid}`);
+      }
+    });
+    predLinkMap[a.id] = links;
+    // successor 구성
+    links.forEach(p => { if(map[p.id]) map[p.id].successors.push(a.id); });
+  });
+
+  // ── 날짜 기반 여부 판단 ──────────────────────────────────────────
+  const hasRealDates = activities.some(a => a.startDate && a.finishDate);
+
+  // ── Topological Sort (Kahn's) ────────────────────────────────────
+  const inDeg = {};
+  activities.forEach(a => { inDeg[a.id] = 0; });
+  activities.forEach(a => {
+    predLinkMap[a.id].forEach(p => { if(map[p.id]) inDeg[a.id]++; });
+  });
+  const queue = activities.filter(a => inDeg[a.id]===0).map(a=>a.id);
+  const order = [];
+  while (queue.length) {
+    const cur = queue.shift(); order.push(cur);
+    map[cur].successors.forEach(sid => { inDeg[sid]--; if(inDeg[sid]===0) queue.push(sid); });
+  }
+  if (order.length !== activities.length) {
+    // 순환에 포함된 Task 식별
+    const inOrder = new Set(order);
+    const cycleActs = activities.filter(a => !inOrder.has(a.id));
+    const cycleNames = cycleActs.slice(0,5).map(a => `${a.mppTaskId?'#'+a.mppTaskId:a.id} ${a.name||''}`).join(', ');
+    showToast(`❌ 순환 의존성 감지 — 확인 필요: ${cycleNames}${cycleActs.length>5?` 외 ${cycleActs.length-5}개`:''}`);
+    // 순환 Task 카드 시각적 표시
+    cycleActs.forEach(a => {
+      const card = document.querySelector(`[id="name_${a.id}"]`)?.closest('.activity-card');
+      if (card) { card.style.borderColor='#ff4d4d'; card.style.borderWidth='2px'; }
+    });
+    return;
+  }
+  // 유효하지 않은 선행작업 경고
+  if (window._invalidPreds && window._invalidPreds.length) {
+    showToast(`⚠ 존재하지 않는 선행작업 무시됨: ${window._invalidPreds.slice(0,3).join(', ')}`);
+    window._invalidPreds = [];
+  }
+
+  let projectEnd;
+
+  if (hasRealDates) {
+    // ── 날짜 기반 CPM (FS/FF/SS + Constraint 완전 반영) ─────────────
+    const allStarts = activities.map(a=>a.startDate).filter(Boolean);
+    const projStart = new Date(Math.min(...allStarts.map(d=>d.getTime())));
+    window._projStart = projStart;
+    const toDay = d => Math.round((d.getTime()-projStart.getTime())/86400000);
+
+    // 원본 날짜 기반 초기 ES/EF
+    activities.forEach(a => {
+      if (a.startDate) {
+        a.es = toDay(a.startDate);
+        a.ef = a.finishDate ? toDay(a.finishDate) : a.es;
+        a.duration = Math.max(0, a.ef - a.es);
+      } else {
+        a.es = 0; a.ef = a.duration;
+      }
+    });
+
+    // Forward pass (링크 타입 + Constraint)
+    order.forEach(id => {
+      const a = map[id];
+      const links = predLinkMap[id];
+      if (links.length > 0) {
+        let es_min = 0;
+        links.forEach(p => {
+          const pa = map[p.id]; if(!pa) return;
+          const lag = p.lag || 0;
+          let cand;
+          if      (p.type==='1') cand = pa.ef + lag;           // FS
+          else if (p.type==='0') cand = pa.ef + lag - a.duration; // FF
+          else if (p.type==='3') cand = pa.es + lag;           // SS
+          else if (p.type==='2') cand = pa.es + lag - a.duration; // SF
+          else                   cand = pa.ef + lag;
+          es_min = Math.max(es_min, cand);
+        });
+        // MSO (Must Start On = constraintType 4): 날짜 고정
+        if (a.constraintType==='4' && a.constraintDate) {
+          a.es = toDay(a.constraintDate);
+        } else {
+          a.es = Math.max(a.es, es_min);
+        }
+      } else {
+        // 선행 없는 경우도 MSO 적용
+        if (a.constraintType==='4' && a.constraintDate) {
+          a.es = toDay(a.constraintDate);
+        }
+      }
+      a.ef = a.es + a.duration;
+    });
+
+    projectEnd = Math.max(...activities.map(a=>a.ef));
+
+    // Backward pass 초기화
+    activities.forEach(a => { a.lf = projectEnd; a.ls = projectEnd - a.duration; });
+
+    // Backward pass (링크 타입 반영)
+    [...order].reverse().forEach(id => {
+      const a = map[id];
+      if (a.successors.length === 0) {
+        a.lf = projectEnd;
+      } else {
+        const lf_cands = [];
+        a.successors.forEach(sid => {
+          const sa = map[sid];
+          predLinkMap[sid].forEach(p => {
+            if (p.id !== id) return;
+            const lag = p.lag||0;
+            if      (p.type==='1') lf_cands.push(sa.ls - lag);   // FS
+            else if (p.type==='0') lf_cands.push(sa.lf - lag);   // FF
+            else if (p.type==='3') lf_cands.push(sa.ls - lag);   // SS
+            else if (p.type==='2') lf_cands.push(sa.lf - lag);   // SF
+            else                   lf_cands.push(sa.ls - lag);
+          });
+        });
+        a.lf = lf_cands.length ? Math.min(...lf_cands) : projectEnd;
+      }
+      // MSO: ls도 고정
+      if (a.constraintType==='4' && a.constraintDate) {
+        const msoDay = toDay(a.constraintDate);
+        a.ls = msoDay;
+        a.lf = msoDay + a.duration;
+      } else {
+        a.ls = a.lf - a.duration;
+      }
+      a.tf = a.ls - a.es;
+      a.isCritical = a.tf === 0;
+    });
+
+    // 날짜 역산 (ES/EF → Date)
+    activities.forEach(a => {
+      if (!a.startDate) {
+        const d = new Date(projStart); d.setDate(d.getDate()+a.es);
+        a.startDate = d;
+      }
+      if (!a.finishDate) {
+        const d = new Date(projStart); d.setDate(d.getDate()+a.ef);
+        a.finishDate = d;
+      }
+    });
+
+  } else {
+    // ── 상대 공기 기반 CPM (수동 입력, FS만) ───────────────────────
+    order.forEach(id => {
+      const a = map[id];
+      const links = predLinkMap[id];
+      if (links.length) {
+        const esCands = links.map(p => {
+          const pred = map[p.id];
+          if (!pred) return 0;
+          const lag = p.lag || 0;
+          if      (p.type==='1') return pred.ef + lag;  // FS
+          else if (p.type==='0') return pred.ef + lag - a.duration; // FF
+          else if (p.type==='3') return pred.es + lag;  // SS
+          else if (p.type==='2') return pred.es + lag - a.duration; // SF
+          else                   return pred.ef + lag;  // default FS
+        });
+        a.es = Math.max(0, ...esCands);
+      } else {
+        a.es = 0;
+      }
+      a.ef = a.es + a.duration;
+    });
+    projectEnd = Math.max(...activities.map(a=>a.ef));
+    activities.forEach(a => { a.lf=projectEnd; a.ls=projectEnd-a.duration; });
+    [...order].reverse().forEach(id => {
+      const a = map[id];
+      if (a.successors.length === 0) {
+        a.lf = projectEnd;
+      } else {
+        const lfCands = [];
+        a.successors.forEach(sid => {
+          const sa = map[sid];
+          predLinkMap[sid].forEach(p => {
+            if (p.id !== id) return;
+            const lag = p.lag || 0;
+            if      (p.type==='1') lfCands.push(sa.ls - lag);           // FS
+            else if (p.type==='0') lfCands.push(sa.lf - lag);           // FF
+            else if (p.type==='3') lfCands.push(sa.ls - lag + a.duration); // SS
+            else if (p.type==='2') lfCands.push(sa.lf - lag);           // SF
+            else                   lfCands.push(sa.ls - lag);
+          });
+        });
+        a.lf = lfCands.length ? Math.min(...lfCands) : projectEnd;
+      }
+      a.ls = a.lf - a.duration;
+      a.tf = a.ls - a.es;
+      a.isCritical = a.tf===0;
+    });
+    if (window._projectStartDate) {
+      const ps = window._projectStartDate;
+      activities.forEach(a => {
+        a.startDate  = addWorkDays(ps, a.es);
+        a.finishDate = addWorkDays(ps, a.ef);
+      });
+    }
+  }
+
+  // mppCritical 조건부 적용:
+  // - mppCritical 필드가 있는 Activity(XML 업로드) → 원본 MS Project CP 우선
+  // - mppCritical 없는 Activity(수동 추가) → CPM 계산 결과(tf===0) 그대로 유지
+  activities.forEach(a => {
+    if (a.mppCritical !== undefined && a.mppCritical !== null) {
+      // XML 업로드 Activity: 원본 MPP 기준
+      a.isCritical = a.mppCritical === true;
+      if (a.mppTF !== null && a.mppTF !== undefined) a.tf = a.mppTF;
+      if (a.mppES) {
+        const p = window._projStart;
+        if (p) {
+          a.es = Math.round((a.mppES-p)/86400000);
+          a.ef = Math.round((a.mppEF-p)/86400000);
+          a.ls = Math.round((a.mppLS-p)/86400000);
+          a.lf = Math.round((a.mppLF-p)/86400000);
+        }
+      }
+    }
+    // mppCritical 없는 수동 추가 Activity: CPM 계산 결과 유지 (isCritical=tf===0)
+  });
+  const cpCount = activities.filter(a=>a.isCritical).length;
+  calculated = true;
+  renderSidebar();
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
+  renderGantt(order, map, projectEnd);
+  renderWBS(order, map);
+  document.getElementById('legend').style.display = 'flex';
+  const mode = hasRealDates ? '날짜 기반' : '상대 공기';
+  showToast(`✓ CPM 완료 (${mode}) — 총 공기: ${projectEnd}일 | CP: ${cpCount}개`);
+  // 계산 결과 localStorage 저장
+  saveToStorage();
+}
+
+// ─── Network Diagram ──────────────────────────────────────────────
+// filterWbs: null = 전체, string = 해당 WBS prefix만
+function drawNetwork(order, map, projectEnd, filterWbs) {
+  const NODE_W = 160, NODE_H = 80, GAP_X = 60, GAP_Y = 50;
+
+
+  // ── WBS 필터 적용 ──────────────────────────────────────────────
+  // 1) 선택 WBS에 속하는 노드
+  // 2) CP 경로 위에 있으면서 선택 WBS 밖인 노드 → "통과 노드"
+  const isInFilter = id => {
+    if (!filterWbs) return true;
+    const a = map[id];
+    const code = a.wbsFull || a.wbs || '';
+    return code === filterWbs || code.startsWith(filterWbs + '.');
+  };
+
+  // CP 경로 추적: CP 노드들의 연결 집합
+  const cpSet = new Set(order.filter(id => map[id].isCritical));
+
+  // 통과 노드: CP에 속하지만 필터 밖인 노드
+  const isPassThrough = id => filterWbs && cpSet.has(id) && !isInFilter(id);
+
+  // 표시 대상 = 필터 내 노드 + 통과 노드
+  const visibleSet = new Set(order.filter(id => isInFilter(id) || isPassThrough(id)));
+
+  // filterLabel 업데이트
+  const lbl = document.getElementById('filterLabel');
+  if (filterWbs) {
+    lbl.style.display = 'flex';
+    lbl.textContent = `필터: WBS ${filterWbs}`;
+  } else {
+    lbl.style.display = 'none';
+  }
+
+  // 표시할 order만 추림
+  const visOrder = order.filter(id => visibleSet.has(id));
+
+  // Assign columns (levels) via longest path from start (visible only)
+  // predLinks 우선, 없으면 predecessors fallback
+  const getPredIds = id => {
+    const a = map[id]; if(!a) return [];
+    // predLinks: "A01:1:0,A02:0:2" 형식
+    if (a.predLinks && a.predLinks.trim()) {
+      return a.predLinks.split(',').map(t=>t.split(':')[0].trim()).filter(s=>map[s]&&visibleSet.has(s));
+    }
+    return (a.predecessors||'').split(',').map(s=>s.trim()).filter(s=>map[s]&&visibleSet.has(s));
+  };
+
+  const level = {};
+  visOrder.forEach(id => {
+    const a = map[id];
+    if (!a) { level[id] = 0; return; }
+    const preds = getPredIds(id);
+    level[id] = preds.length ? Math.max(...preds.map(p => (level[p]??0)+1)) : 0;
+  });
+
+  // Assign rows within each column
+  const cols = {};
+  visOrder.forEach(id => {
+    const l = level[id];
+    if (!cols[l]) cols[l] = [];
+    cols[l].push(id);
+  });
+
+  const pos = {};
+  Object.keys(cols).sort((a,b)=>a-b).forEach(col => {
+    const ids = cols[col];
+    ids.forEach((id, row) => {
+      pos[id] = {
+        x: col * (NODE_W + GAP_X) + 40,
+        y: row * (NODE_H + GAP_Y) + 40
+      };
+    });
+  });
+
+  const colCount = Object.keys(cols).length;
+  const maxRow   = Math.max(...Object.values(cols).map(c=>c.length), 1);
+  const svgW = colCount * (NODE_W + GAP_X) + 80;
+  const svgH = maxRow  * (NODE_H + GAP_Y) + 80;
+
+  // Build SVG
+  let arrows = '';
+  let nodes  = '';
+
+  // Draw arrows first — predLinks 우선, fallback predecessors
+  visOrder.forEach(id => {
+    const a = map[id];
+    if (!a) return;
+    const predIds = getPredIds(id);
+    if (!predIds.length) return;
+    predIds.forEach(pid => {
+      const src = pos[pid], dst = pos[id];
+      if (!src || !dst) return;
+      const x1 = src.x + NODE_W, y1 = src.y + NODE_H/2;
+      const x2 = dst.x,          y2 = dst.y + NODE_H/2;
+      const cx1 = x1 + (x2-x1)*0.5, cx2 = x2 - (x2-x1)*0.5;
+      const isCrit = map[pid].isCritical && a.isCritical;
+      const color = isCrit ? '#ff4d4d' : '#3d4f6e';
+      const strokeW = isCrit ? 2.5 : 1.5;
+      const markerId = isCrit ? 'arr-crit' : 'arr-norm';
+      arrows += `
+        <path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}"
+          fill="none" stroke="${color}" stroke-width="${strokeW}"
+          marker-end="url(#${markerId})"
+          ${isCrit ? 'stroke-dasharray="none"' : 'stroke-dasharray="5,3"'}
+          opacity="${isCrit?1:.7}"/>
+      `;
+    });
+  });
+
+  // Draw nodes — visOrder is an array of IDs
+
+  visOrder.forEach(id => {
+    const a = map[id];
+    if (!a) return;
+    const p = pos[id];
+    if (!p) return;
+    const isC  = a.isCritical;
+    const isPT = isPassThrough(id);
+    const fill   = isPT ? '#1a1200' : isC ? '#1f1010' : '#131b2a';
+    const stroke = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#2a3347';
+    const strokeW = (isC || isPT) ? 2 : 1;
+    const hColor  = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#4da6ff';
+    const nameShort = escHtml((a.name||'').length > 14 ? (a.name||'').slice(0,13)+'…' : (a.name||''));
+    const displayId  = a.mppTaskId ? `#${a.mppTaskId}` : id;
+    const displayWbs = a.wbsFull || a.wbs || '';
+
+    const ntData = JSON.stringify({
+      id: displayId, wbs: displayWbs,
+      name: a.name||'', dur: a.duration,
+      es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
+      isCritical: a.isCritical, isPT: isPT,
+      startDate: a.startDate ? fmtDate(a.startDate) : null,
+      finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
+      predecessors: a.predecessors||''
+    }).replace(/"/g,'&quot;');
+
+    nodes += `
+      <g transform="translate(${p.x},${p.y})" style="cursor:pointer"
+        onclick="jumpToWbs('${id}','${displayWbs}')"
+        onmouseenter="showNodeTooltip(event,'${id}')"
+        onmouseleave="hideNodeTooltip()"
+        onmousemove="moveNodeTooltip(event)">
+        <rect x="3" y="4" width="${NODE_W}" height="${NODE_H}" rx="6" fill="rgba(0,0,0,.4)"/>
+        <rect width="${NODE_W}" height="${NODE_H}" rx="6"
+          fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>
+        <rect width="${NODE_W}" height="4" rx="3" fill="${hColor}" opacity=".8"/>
+        <text x="8" y="18" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" font-weight="600"
+          fill="${hColor}">${displayId}</text>
+        <text x="${NODE_W-8}" y="18" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9"
+          fill="${isC?'#ff8080':'#5a7a9a'}" text-anchor="end">${displayWbs}</text>
+        <text x="${NODE_W/2}" y="34" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="11" font-weight="500"
+          fill="#e2e8f0" text-anchor="middle">${nameShort}</text>
+        <text x="${NODE_W/2}" y="48" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="10"
+          fill="#7a8ba0" text-anchor="middle">${a.duration}일</text>
+        <line x1="8" y1="55" x2="${NODE_W-8}" y2="55" stroke="#2a3347" stroke-width="1"/>
+        ${a.startDate
+          ? `<text x="${NODE_W/2}" y="65" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0" text-anchor="middle">${fmtDate(a.startDate)} ~</text>
+             <text x="${NODE_W/2}" y="75" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0" text-anchor="middle">${fmtDate(a.finishDate)}</text>`
+          : `<text x="8" y="67" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="#7a8ba0">ES:${a.es} EF:${a.ef}</text>
+             <text x="${NODE_W-8}" y="67" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="${isC?'#ff6060':'#7a8ba0'}" text-anchor="end">TF:${a.tf}</text>`
+        }
+        ${isC ? `<text x="${NODE_W/2}" y="78" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="middle" font-weight="600">★ CRITICAL</text>` : ''}
+        ${isPT ? `<text x="${NODE_W/2}" y="78" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#c97a10" text-anchor="middle" font-weight="600">통과 노드</text>` : ''}
+      </g>
+    `;
+  });
+
+  const container = document.getElementById('svgContainer');
+  container.innerHTML = `
+    <svg width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">
+      ${arrows}
+      ${nodes}
+    </svg>
+  `;
+  document.getElementById('emptyNetwork') && document.getElementById('emptyNetwork').remove();
+  // Show empty state if nothing visible
+  if (visOrder.length === 0) {
+    document.getElementById('svgContainer').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">⬡</div><div class="empty-text">해당 WBS에 표시할 Activity가 없습니다</div></div>';
+  }
+}
+
+// ─── Gantt Chart ──────────────────────────────────────────────────
+function fmtDate(d) {
+  if (!d) return '-';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function addDays(d, n) {
+  const r = new Date(d); r.setDate(r.getDate()+n); return r;
+}
+function daysBetween(a, b) {
+  return Math.round((b - a) / 86400000);
+}
+
+function renderGantt(order, map, projectEnd) {
+  // Detect if we have real dates (from MS Project XML)
+  const hasDates = order.some(id => map[id].startDate);
+
+  let projectStart = null, projectFinish = null, totalDays = projectEnd;
+
+  if (hasDates) {
+    // Use actual MS Project dates
+    const starts  = order.map(id => map[id].startDate).filter(Boolean);
+    const finishes= order.map(id => map[id].finishDate).filter(Boolean);
+    projectStart  = new Date(Math.min(...starts.map(d=>d.getTime())));
+    projectFinish = new Date(Math.max(...finishes.map(d=>d.getTime())));
+    totalDays     = daysBetween(projectStart, projectFinish) || 1;
+  }
+
+  const modeLabel = hasDates
+    ? `달력 기반 — ${fmtDate(projectStart)} ~ ${fmtDate(projectFinish)} (${totalDays}일)`
+    : `CPM 상대 공기 기준 — 총 ${projectEnd}일`;
+
+  const CELL_W = Math.max(14, Math.floor(800 / totalDays));
+  const barTotalW = CELL_W * totalDays;
+
+  // Build month header for calendar mode
+  let monthHeader = '';
+  if (hasDates && totalDays <= 1500) {
+    let cur = new Date(projectStart);
+    cur.setDate(1);
+    while (cur <= projectFinish) {
+      const left = Math.max(0, daysBetween(projectStart, cur));
+      const label = `${cur.getFullYear()}.${String(cur.getMonth()+1).padStart(2,'0')}`;
+      const w = Math.min(CELL_W * 30, barTotalW - left * CELL_W);
+      if (w > 0) {
+        monthHeader += `<div style="position:absolute;left:${left*CELL_W}px;width:${w}px;
+          border-right:1px solid var(--border);padding:2px 4px;
+          font-family:var(--mono);font-size:9px;color:var(--text-dim);
+          white-space:nowrap;overflow:hidden">${label}</div>`;
+      }
+      cur.setMonth(cur.getMonth()+1);
+    }
+  }
+
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="gantt-header" style="margin:0">간트차트</div>
+      <div style="font-family:var(--mono);font-size:11px;color:${hasDates?'var(--accent)':'var(--text-dim)'};
+        background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 10px">
+        ${hasDates ? '📅 실제 날짜 모드' : '⏱ 상대 공기 모드'}
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px;font-family:var(--mono)">${modeLabel}</div>`;
+
+  html += `<table class="gantt"><thead><tr>
+    <th style="width:52px">ID</th>
+    <th style="width:170px;text-align:left">작업명</th>
+    <th style="width:44px">기간</th>
+    ${hasDates
+      ? `<th style="width:88px">시작일</th><th style="width:88px">완료일</th>`
+      : `<th style="width:36px">ES</th><th style="width:36px">EF</th>`}
+    <th style="width:36px">LS</th><th style="width:36px">LF</th>
+    <th style="width:36px">TF</th>
+    <th style="min-width:200px">
+      ${hasDates && monthHeader
+        ? `<div style="position:relative;height:18px;overflow:hidden">${monthHeader}</div>`
+        : '일정 바'}
+    </th>
+  </tr></thead><tbody>`;
+
+  order.forEach(id => {
+    const a = map[id];
+    let fillLeftPct, fillWPct, floatLeftPct, floatWPct;
+    let startLabel, endLabel;
+
+    if (hasDates && a.startDate && a.finishDate) {
+      const taskStart  = daysBetween(projectStart, a.startDate);
+      const taskFinish = daysBetween(projectStart, a.finishDate);
+      const taskDays   = Math.max(1, taskFinish - taskStart);
+      fillLeftPct  = (taskStart  / totalDays * 100).toFixed(2);
+      fillWPct     = (taskDays   / totalDays * 100).toFixed(2);
+      // Float bar: from finishDate to finishDate + TF days
+      const floatDays = a.tf || 0;
+      floatLeftPct = (taskFinish / totalDays * 100).toFixed(2);
+      floatWPct    = (floatDays  / totalDays * 100).toFixed(2);
+      startLabel   = fmtDate(a.startDate);
+      endLabel     = fmtDate(a.finishDate);
+    } else {
+      fillLeftPct  = (a.es / projectEnd * 100).toFixed(2);
+      fillWPct     = (Math.max(a.duration, 0.5) / projectEnd * 100).toFixed(2);
+      floatLeftPct = (a.ef / projectEnd * 100).toFixed(2);
+      floatWPct    = (a.tf  / projectEnd * 100).toFixed(2);
+      startLabel   = String(a.es);
+      endLabel     = String(a.ef);
+    }
+
+    // Today line offset (calendar mode only)
+    const todayOffset = hasDates
+      ? (daysBetween(projectStart, new Date()) / totalDays * 100).toFixed(2)
+      : null;
+
+    html += `<tr>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--accent);text-align:center">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</td>
+      <td style="font-weight:500;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          title="${escHtml(a.name||'')}">${escHtml(a.name||'(미입력)')}</td>
+      <td style="font-family:var(--mono);text-align:center">${a.duration}</td>
+      <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--safe)">${startLabel}</td>
+      <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--safe)">${endLabel}</td>
+      <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--text-dim)">${a.ls??'-'}</td>
+      <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--text-dim)">${a.lf??'-'}</td>
+      <td style="font-family:var(--mono);font-size:11px;text-align:center;${a.tf===0?'color:var(--critical);font-weight:600':''}">${a.tf??'-'}</td>
+      <td class="gantt-bar-cell">
+        <div class="gantt-bar-outer" style="width:${barTotalW}px;position:relative">
+          <div class="gantt-bar-fill${a.isCritical?' critical':''}"
+            style="left:${fillLeftPct}%;width:${fillWPct}%"></div>
+          ${(a.tf>0 && parseFloat(floatWPct)>0)
+            ?`<div class="gantt-float-bar" style="left:${floatLeftPct}%;width:${floatWPct}%"></div>`:''}
+          ${todayOffset!==null && parseFloat(todayOffset)>=0 && parseFloat(todayOffset)<=100
+            ?`<div style="position:absolute;top:0;left:${todayOffset}%;width:1.5px;height:100%;background:var(--accent);opacity:.7;z-index:2"></div>`:''}
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('ganttContent').innerHTML = html;
+}
+
+// ─── WBS ──────────────────────────────────────────────────────────
+function renderWBS(order, map) {
+  // wbsNames: XML에서 수집한 코드→원본이름 맵 (없으면 빈 객체)
+  const wbsNames = window._wbsNames || {};
+
+  // wbsFull 기준 자연수 정렬
+  const naturalSort = (a, b) => {
+    const pa = a.split('.').map(n=>parseInt(n)||0);
+    const pb = b.split('.').map(n=>parseInt(n)||0);
+    for (let i=0; i<Math.max(pa.length,pb.length); i++) {
+      const d=(pa[i]||0)-(pb[i]||0); if(d!==0) return d;
+    }
+    return 0;
+  };
+
+  const sorted = [...order].sort((a,b) =>
+    naturalSort(map[a].wbsFull||map[a].wbs||'', map[b].wbsFull||map[b].wbs||'')
+  );
+
+  // ── WBS 트리 구조 빌드 ──────────────────────────────────────────
+  // tree: { code, name, children:[], activities:[] }
+  const root = { code:'', name:'root', children:[], activities:[] };
+  const nodeMap = { '': root };
+
+  const getOrCreate = (code) => {
+    if (nodeMap[code]) return nodeMap[code];
+    const parts  = code.split('.');
+    const parent = parts.slice(0,-1).join('.');
+    const pNode  = getOrCreate(parent);
+    const node   = {
+      code,
+      name: wbsNames[code] || code,   // 원본 Summary Task 이름 우선
+      children: [],
+      activities: []
+    };
+    pNode.children.push(node);
+    nodeMap[code] = node;
+    return node;
+  };
+
+  // 부모 노드 먼저 생성 (OutlineNumber 경로 전체)
+  sorted.forEach(id => {
+    const a = map[id];
+    const full = a.wbsFull || a.wbs || '1';
+    // 각 상위 경로 노드 생성
+    full.split('.').forEach((_, i, arr) => {
+      getOrCreate(arr.slice(0,i+1).join('.'));
+    });
+    // activity는 자신의 코드 노드에 등록
+    nodeMap[full].activities.push(a);
+  });
+
+  // 레벨별 색상
+  const levelColors = ['#e8c547','#4da6ff','#3dd68c','#c97a10','#bf5af2','#ff7eb3'];
+  const levelBg     = ['rgba(232,197,71,.06)','rgba(77,166,255,.04)','rgba(61,214,140,.03)',
+                       'rgba(201,122,16,.03)','rgba(191,90,242,.03)','transparent'];
+
+  // ── 재귀 렌더링 ────────────────────────────────────────────────
+  function renderNode(node, depth) {
+    if (node.code === '') {
+      return node.children.map(c => renderNode(c, 0)).join('');
+    }
+
+    const color   = levelColors[Math.min(depth, levelColors.length-1)];
+    const bg      = levelBg[Math.min(depth, levelBg.length-1)];
+    const indent  = depth * 18;
+    const allActs = getAllActs(node);
+    const totDur  = allActs.reduce((s,a)=>s+a.duration,0);
+    const cpCnt   = allActs.filter(a=>a.isCritical).length;
+    const hasChildren = node.children.length > 0;
+
+    // WBS 그룹 헤더 (children이 있거나 activities가 없는 경우)
+    let html = '';
+    if (hasChildren || node.activities.length === 0) {
+      html += `<div class="wbs-node" data-wbs="${node.code}" style="cursor:pointer;background:${bg};border-left:2px solid ${color}20"
+        onclick="applyWbsFilter('${node.code}')" title="WBS ${node.code} 전체 → 네트워크 필터">
+        <span class="wbs-indent" style="width:${indent}px"></span>
+        <span style="font-family:var(--mono);font-size:${Math.max(9,11-depth)}px;font-weight:600;
+          color:${color};border:1px solid ${color}40;padding:1px 6px;border-radius:3px;
+          margin-right:8px;flex-shrink:0">${node.code}</span>
+        <span style="font-size:${Math.max(11,13-depth)}px;font-weight:${depth===0?600:500};
+          color:var(--text);margin-right:auto">${node.name}</span>
+        <span class="wbs-meta" style="flex-shrink:0">${allActs.length}개 | ${totDur}일
+          ${cpCnt>0?`| <span style="color:var(--critical)">CP ${cpCnt}</span>`:''}
+          <span style="color:${color};margin-left:6px;font-size:10px">▶</span>
+        </span>
+      </div>`;
+      html += node.children.map(c => renderNode(c, depth+1)).join('');
+    }
+
+    // Activity 행
+    node.activities.forEach(a => {
+      const mppRef = a.mppTaskId
+        ? `<span style="font-family:var(--mono);font-size:10px;color:#4da6ff;
+            background:rgba(77,166,255,.12);padding:1px 5px;border-radius:3px;
+            margin-right:5px;flex-shrink:0">#${a.mppTaskId}</span>`
+        : '';
+      const wbsBadge = `<span style="font-family:var(--mono);font-size:9px;
+        color:#5a7a9a;margin-right:6px;flex-shrink:0">${node.code}</span>`;
+      const cpBadge = a.isCritical
+        ? `<span style="font-family:var(--mono);font-size:9px;
+            color:var(--critical);margin-left:4px;flex-shrink:0">★CP</span>` : '';
+      const actIndent = (depth + (hasChildren ? 1 : 0)) * 18;
+      html += `<div class="wbs-node" data-wbs="${node.code}" data-actid="${a.mppTaskId||a.id}" style="cursor:pointer"
+        onclick="applyWbsFilter('${node.code}')"
+        title="#${a.mppTaskId||a.id} ${a.name}">
+        <span class="wbs-indent" style="width:${actIndent}px"></span>
+        ${mppRef}${wbsBadge}
+        <span class="wbs-label" style="margin-right:auto;${a.isCritical?'color:var(--critical)':''}">${a.name||'(미입력)'}</span>
+        <span class="wbs-meta" style="flex-shrink:0">${a.duration}일
+          | ${a.startDate?fmtDate(a.startDate):'ES:'+a.es}
+          | TF:${a.tf??'-'}${cpBadge}
+        </span>
+      </div>`;
+    });
+
+    return html;
+  }
+
+  function getAllActs(node) {
+    return [...node.activities, ...node.children.flatMap(c => getAllActs(c))];
+  }
+
+  document.getElementById('wbsContent').innerHTML =
+    '<div class="wbs-tree">' + renderNode(root, 0) + '</div>';
+}
+
+// ─── WBS Filter ──────────────────────────────────────────────────
+function applyWbsFilter(wbsCode) {
+  if (!calculated) { showToast('먼저 CPM 계산을 실행하세요'); return; }
+  const map = {};
+  activities.forEach(a => { map[a.id] = a; });
+  const order = getOrder(map);
+  if (!order) return;
+  const projectEnd = Math.max(...activities.map(a => a.ef || 0));
+
+  // 전체 보기 토글
+  if (window._activeWbsFilter === wbsCode) {
+    window._activeWbsFilter = null;
+    showToast('전체 공정 표시');
+  } else {
+    window._activeWbsFilter = wbsCode;
+    showToast(`WBS ${wbsCode} 필터 적용`);
+  }
+
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter);
+
+  // 네트워크 탭으로 자동 전환
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('networkPanel').classList.add('active');
+  document.querySelector('.tab-btn').classList.add('active');
+}
+
+function getOrder(map) {
+  // Build predecessor list from both predecessors field AND predLinks
+  const inDeg = {};
+  const predOf = {};
+  activities.forEach(a => { inDeg[a.id] = 0; predOf[a.id] = new Set(); });
+  activities.forEach(a => {
+    // From predecessors field
+    (a.predecessors||'').split(',').map(s=>s.trim()).filter(s=>map[s])
+      .forEach(pid => { predOf[a.id].add(pid); });
+    // From predLinks field (XML upload data)
+    if (a.predLinks) {
+      a.predLinks.split(',').map(s=>s.trim()).filter(Boolean)
+        .forEach(link => {
+          const pid = link.split(':')[0];
+          if (map[pid]) predOf[a.id].add(pid);
+        });
+    }
+  });
+  activities.forEach(a => { inDeg[a.id] = predOf[a.id].size; });
+  const queue = activities.filter(a => inDeg[a.id]===0).map(a=>a.id);
+  const order = [];
+  while (queue.length) {
+    const cur = queue.shift();
+    order.push(cur);
+    (map[cur].successors||[]).forEach(sid => {
+      if (predOf[sid] && predOf[sid].has(cur)) {
+        inDeg[sid]--;
+        if (inDeg[sid]===0) queue.push(sid);
+      }
+    });
+  }
+  return order;
+}
+
+// ─── Node Tooltip ─────────────────────────────────────────────────
+let _tooltipTimer = null;
+
+function showNodeTooltip(e, actId) {
+  clearTimeout(_tooltipTimer);
+  const map = {};
+  activities.forEach(a => map[a.id] = a);
+  const a = map[actId];
+  if (!a) return;
+
+  const isC  = a.isCritical;
+  const isPT = !isC && a.tf === 0;  // 간단 판별
+  const accentColor = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#4da6ff';
+  const predNames = (a.predecessors||'').split(',').map(s=>s.trim()).filter(Boolean)
+    .map(pid => { const p = map[pid]; return p ? (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name : pid; })
+    .join(', ') || '없음 (시작)';
+
+  const dateRow = a.startDate
+    ? `<div class="nt-cell" style="grid-column:1/-1">
+         <div class="nt-cell-label">기간</div>
+         <div class="nt-cell-val" style="font-size:11px">${fmtDate(a.startDate)} ~ ${fmtDate(a.finishDate)}</div>
+       </div>`
+    : `<div class="nt-cell"><div class="nt-cell-label">ES</div><div class="nt-cell-val">${a.es??'-'}</div></div>
+       <div class="nt-cell"><div class="nt-cell-label">EF</div><div class="nt-cell-val">${a.ef??'-'}</div></div>
+       <div class="nt-cell"><div class="nt-cell-label">LS</div><div class="nt-cell-val" style="color:#7a8ba0">${a.ls??'-'}</div></div>
+       <div class="nt-cell"><div class="nt-cell-label">LF</div><div class="nt-cell-val" style="color:#7a8ba0">${a.lf??'-'}</div></div>`;
+
+  const tfColor = a.tf===0 ? '#ff4d4d' : '#3dd68c';
+  const badge = isC
+    ? `<span class="nt-cp-badge" style="background:rgba(255,77,77,.2);color:#ff4d4d">★ CRITICAL PATH</span>`
+    : isPT
+    ? `<span class="nt-cp-badge" style="background:rgba(201,122,16,.2);color:#c97a10">통과 노드</span>`
+    : `<span style="font-size:10px;color:#5a7a9a">TF: <span style="color:${tfColor}">${a.tf??'-'}일</span> 여유</span>`;
+
+  document.getElementById('ntCard').innerHTML = `
+    <div class="nt-top">
+      <div class="nt-id-row">
+        <span class="nt-id" style="background:${accentColor}20;color:${accentColor}">${a.mppTaskId?'#'+a.mppTaskId:actId}</span>
+        <span class="nt-wbs">${a.wbsFull||a.wbs||''}</span>
+      </div>
+      <div class="nt-name">${a.name||'(미입력)'}</div>
+    </div>
+    <div class="nt-grid">
+      <div class="nt-cell">
+        <div class="nt-cell-label">기간</div>
+        <div class="nt-cell-val">${a.duration}일</div>
+      </div>
+      <div class="nt-cell">
+        <div class="nt-cell-label">TF (여유)</div>
+        <div class="nt-cell-val" style="color:${tfColor}">${a.tf??'-'}일</div>
+      </div>
+      ${dateRow}
+    </div>
+    <div class="nt-footer">
+      <span style="color:#5a7a9a;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+        title="${predNames}">선행: ${predNames}</span>
+      ${badge}
+    </div>
+  `;
+
+  const tt = document.getElementById('nodeTooltip');
+  tt.classList.add('visible');
+  moveNodeTooltip(e);
+}
+
+function hideNodeTooltip() {
+  _tooltipTimer = setTimeout(() => {
+    document.getElementById('nodeTooltip').classList.remove('visible');
+  }, 120);
+}
+
+function moveNodeTooltip(e) {
+  const tt = document.getElementById('nodeTooltip');
+  const W = tt.offsetWidth || 240;
+  const H = tt.offsetHeight || 200;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  // 마우스 우측 하단 기본, 경계에서 뒤집기
+  let x = e.clientX + 16;
+  let y = e.clientY + 16;
+  if (x + W > vw - 8) x = e.clientX - W - 16;
+  if (y + H > vh - 8) y = e.clientY - H - 16;
+  tt.style.left = x + 'px';
+  tt.style.top  = y + 'px';
+}
+
+// ─── Jump to WBS from Network Node ──────────────────────────────
+function jumpToWbs(actId, wbsCode) {
+  if (!wbsCode) return;
+
+  // 1) WBS 탭으로 전환
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('wbsPanel').classList.add('active');
+  document.querySelectorAll('.tab-btn')[2].classList.add('active');
+
+  // 2) 해당 WBS 행 찾아서 스크롤 + 하이라이트
+  setTimeout(() => {
+    // activity 행 우선, 없으면 WBS 헤더 행
+    const actEl  = document.querySelector(`[data-actid="${actId}"]`);
+    const wbsEl  = document.querySelector(`[data-wbs="${wbsCode}"]`);
+    const target = actEl || wbsEl;
+    if (!target) return;
+
+    // 기존 하이라이트 제거
+    document.querySelectorAll('.wbs-highlight').forEach(el => {
+      el.classList.remove('wbs-highlight');
+    });
+
+    // 하이라이트 적용
+    target.classList.add('wbs-highlight');
+
+    // 부모 WBS 헤더들도 함께 강조 (경로 추적)
+    const parts = wbsCode.split('.');
+    for (let i = 1; i < parts.length; i++) {
+      const parentCode = parts.slice(0, i).join('.');
+      const parentEl = document.querySelector(`[data-wbs="${parentCode}"]`);
+      if (parentEl) parentEl.classList.add('wbs-highlight-path');
+    }
+
+    // 스크롤
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // 3초 후 하이라이트 페이드 아웃
+    setTimeout(() => {
+      document.querySelectorAll('.wbs-highlight, .wbs-highlight-path').forEach(el => {
+        el.classList.remove('wbs-highlight', 'wbs-highlight-path');
+      });
+    }, 3000);
+  }, 50);
+}
+
+// ─── Tab Switch ───────────────────────────────────────────────────
+function switchTab(tab, evt) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tab+'Panel').classList.add('active');
+  if (evt && evt.target) evt.target.classList.add('active');
+  else document.querySelector('.tab-btn[onclick*="'+tab+'"]')?.classList.add('active');
+}
+
+// ─── XML Upload (MS Project) ──────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+}
+
+function handleFile(file) {
+  if (!file || !file.name.endsWith('.xml')) { showToast('⚠ .xml 파일만 지원합니다'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => parseMSProjectXML(e.target.result, file.name);
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseMSProjectXML(xmlText, fileName) {
+  let doc;
+  try { doc = new DOMParser().parseFromString(xmlText, 'text/xml'); }
+  catch(e) { showToast('❌ XML 파싱 오류'); return; }
+
+  const ns = 'http://schemas.microsoft.com/project';
+  const get = (el, tag) => {
+    const found = el.getElementsByTagNameNS(ns, tag)[0] || el.getElementsByTagName(tag)[0];
+    return found ? found.textContent.trim() : '';
+  };
+
+  // Build UID→Task map first
+  const tasks = Array.from(doc.getElementsByTagNameNS(ns, 'Task').length
+    ? doc.getElementsByTagNameNS(ns, 'Task')
+    : doc.getElementsByTagName('Task'));
+
+  const uidMap = {};
+  tasks.forEach(t => { uidMap[get(t,'UID')] = t; });
+
+  // ── Summary Task 이름 수집: WBS코드 → 원본 이름 ──
+  // 예) '1.2' → '토목공사', '1.2.1' → '터파기'
+  window._wbsNames = {};
+  tasks.forEach(t => {
+    const uid     = get(t,'UID');
+    const name    = get(t,'Name');
+    const summary = get(t,'Summary');
+    const outline = get(t,'OutlineNumber') || get(t,'WBS') || '';
+    if (uid==='0' || !name || !outline) return;
+    // Summary task와 leaf task 모두 이름 저장 (leaf가 있으면 덮어쓰지 않음)
+    if (!window._wbsNames[outline]) window._wbsNames[outline] = name;
+  });
+
+  activities = []; idCounter = 1;
+  let imported = 0, skipped = 0;
+
+  tasks.forEach(t => {
+    const uid  = get(t, 'UID');
+    const name = get(t, 'Name');
+    const lvl  = parseInt(get(t,'OutlineLevel')||'0');
+    const summary = get(t,'Summary');
+    const milestone = get(t,'Milestone');
+
+    // Skip project summary (UID=0), summary tasks only (마일스톤은 포함)
+    if (uid==='0' || summary==='1' || !name) { skipped++; return; }
+
+    // Milestone 여부
+    const isMilestone = milestone === '1';
+
+    // Duration: 마일스톤=0, 일반=달력일(Finish-Start)
+    const startStrTmp  = get(t,'Start');
+    const finishStrTmp = get(t,'Finish');
+    const parseDateTmp = s => { if(!s) return null; const d=new Date(s); return isNaN(d)?null:d; };
+    const sdTmp = parseDateTmp(startStrTmp);
+    const fdTmp = parseDateTmp(finishStrTmp);
+    let dur = 0;
+    if (!isMilestone) {
+      if (sdTmp && fdTmp) {
+        dur = Math.max(1, Math.round((fdTmp - sdTmp) / 86400000));
+      } else {
+        const durStr = get(t,'Duration');
+        const hrMatch = durStr.match(/PT([\d.]+)H/);
+        const minMatch = durStr.match(/PT([\d.]+)M/);
+        if (hrMatch)  dur = Math.max(1, Math.round(parseFloat(hrMatch[1]) / 8));
+        else if (minMatch) dur = Math.max(1, Math.round(parseFloat(minMatch[1]) / 480));
+        else dur = 1;
+      }
+    }
+
+    // Constraint (MSO=4)
+    const constraintType = get(t,'ConstraintType') || '0';
+    const constraintDateStr = get(t,'ConstraintDate');
+    const constraintDateParsed = parseDateTmp(constraintDateStr);
+
+    // Predecessors: 링크 타입(FS/FF/SS/SF) + Lag 포함
+    const predLinkEls = Array.from(t.getElementsByTagNameNS(ns,'PredecessorLink').length
+      ? t.getElementsByTagNameNS(ns,'PredecessorLink')
+      : t.getElementsByTagName('PredecessorLink'));
+
+    const predIds = predLinkEls
+      .map(pl => get(pl,'PredecessorUID'))
+      .filter(pu => pu && pu!=='0' && uidMap[pu] && get(uidMap[pu],'Summary')!=='1');
+
+    // WBS — 원본 전체 코드 그대로 보존
+    const wbsFull = get(t,'OutlineNumber') || get(t,'WBS') || String(lvl||1);
+    const wbs = wbsFull;  // 잘라내지 않고 원본 그대로
+
+    // Original MS Project Task ID (sequential number in project)
+    const mppTaskId = get(t,'ID');   // <ID> tag = row number in MSP
+
+    // Generate internal app ID
+    const id = 'A' + String(idCounter++).padStart(2,'0');
+
+    // Actual dates from MS Project (ISO format: 2024-01-15T08:00:00)
+    const startStr  = get(t,'Start');
+    const finishStr = get(t,'Finish');
+    const parseDate = s => { if(!s) return null; const d=new Date(s); return isNaN(d)?null:d; };
+
+    // predLinks: "A01:1:0,A02:0:2" 형식
+    const predLinksStr = predLinkEls.map(pl => {
+      const puid = get(pl,'PredecessorUID');
+      if (!puid || puid==='0' || !uidMap[puid] || get(uidMap[puid],'Summary')==='1') return '';
+      const mapped = activities.find(a => a._uid === puid);
+      if (!mapped) return '';
+      const lt   = get(pl,'Type') || '1';
+      const lagStr = get(pl,'LinkLag');
+      const lag  = lagStr ? Math.round(parseInt(lagStr)/4800) : 0;
+      return `${mapped.id}:${lt}:${lag}`;
+    }).filter(Boolean).join(',');
+
+    const act = {
+      id, name,
+      duration: dur,
+      isMilestone,
+      predecessors: predIds.map(pu => {
+        const mapped = activities.find(a => a._uid === pu);
+        return mapped ? mapped.id : '';
+      }).filter(Boolean).join(',') || '',
+      predLinks: predLinksStr,
+      constraintType,
+      constraintDate: constraintDateParsed,
+      wbs,
+      wbsFull,
+      mppTaskId,
+      _uid: uid,
+      startDate:  parseDate(startStr),
+      finishDate: parseDate(finishStr),
+      // MS Project 원본 CP 필드
+      mppCritical: get(t,'Critical') === '1',
+      mppES:  parseDate(get(t,'EarlyStart')),
+      mppEF:  parseDate(get(t,'EarlyFinish')),
+      mppLS:  parseDate(get(t,'LateStart')),
+      mppLF:  parseDate(get(t,'LateFinish')),
+      mppTF:  (() => { const ts=get(t,'TotalSlack'); try{return Math.round(parseInt(ts)/480);}catch{return null;} })(),
+      es:null, ef:null, ls:null, lf:null, tf:null, isCritical:false
+    };
+    activities.push(act);
+    imported++;
+  });
+
+  // Second pass: fix predecessors that were added after the activity was created
+  activities.forEach(a => {
+    const t = uidMap[a._uid];
+    if (!t) return;
+    const predLinks = Array.from(t.getElementsByTagNameNS(ns,'PredecessorLink').length
+      ? t.getElementsByTagNameNS(ns,'PredecessorLink')
+      : t.getElementsByTagName('PredecessorLink'));
+    const predIds = predLinks
+      .map(pl => get(pl,'PredecessorUID'))
+      .filter(pu => pu && pu!=='0' && uidMap[pu] && get(uidMap[pu],'Summary')!=='1' && get(uidMap[pu],'Milestone')!=='1');
+    a.predecessors = predIds
+      .map(pu => { const m = activities.find(x => x._uid===pu); return m?m.id:''; })
+      .filter(Boolean).join(',');
+  });
+
+  if (imported === 0) { showToast('⚠ 가져올 수 있는 활동이 없습니다. XML 구조를 확인하세요.'); return; }
+
+  renderSidebar();
+  showToast(`✓ "${fileName}" 로드 완료 — ${imported}개 활동 (${skipped}개 제외)`);
+  document.getElementById('uploadZone').querySelector('.upload-label').innerHTML =
+    `✓ <span>${fileName}</span> (${imported}개 활동)`;
+}
+
+// ─── Clear All ────────────────────────────────────────────────────
+function clearAll() {
+  activities = []; idCounter = 1;
+  renderSidebar();
+  document.getElementById('svgContainer').innerHTML =
+    '<div class="empty-state" id="emptyNetwork"><div class="empty-icon">⬡</div><div class="empty-text">Activity를 입력하고 CPM 계산을 실행하세요</div></div>';
+  document.getElementById('ganttContent').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">CPM 계산 후 간트차트가 표시됩니다</div></div>';
+  document.getElementById('wbsContent').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">🌲</div><div class="empty-text">CPM 계산 후 WBS가 표시됩니다</div></div>';
+  document.getElementById('legend').style.display = 'none';
+  document.getElementById('uploadZone').querySelector('.upload-label').innerHTML =
+    '📂 <span>MS Project XML</span> 업로드<br>(.xml 드래그 또는 클릭)';
+  window._activeWbsFilter = null;
+  localStorage.removeItem(STORAGE_KEY);
+  loadSample();
+  calculate();
+  showToast('초기화 완료');
+}
+
+// ─── Sample Data ──────────────────────────────────────────────────
+function loadSample() {
+  activities = []; idCounter = 1;
+  const sample = [
+    { id:'A001', name:'CONTRACT', duration:0, predecessors:'', predLinks:'', wbs:'1.1', wbsFull:'1.1.1', mppTaskId:'3', isMilestone:true, constraintType:'4', constraintDate:'2025-11-01', startDate:'2025-11-01', finishDate:'2025-11-01', mppES:'2025-11-01', mppEF:'2025-11-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:13980, mppCritical:false },
+    { id:'A002', name:'PILE WORK START', duration:0, predecessors:'', predLinks:'', wbs:'1.1', wbsFull:'1.1.2', mppTaskId:'4', isMilestone:true, constraintType:'4', constraintDate:'2026-09-01', startDate:'2026-09-01', finishDate:'2026-09-01', mppES:'2026-09-01', mppEF:'2026-09-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:10940, mppCritical:false },
+    { id:'A003', name:'STEEL STR. START', duration:0, predecessors:'', predLinks:'', wbs:'1.1', wbsFull:'1.1.3', mppTaskId:'5', isMilestone:true, constraintType:'4', constraintDate:'2027-03-01', startDate:'2027-03-01', finishDate:'2027-03-01', mppES:'2027-03-01', mppEF:'2027-03-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:9130, mppCritical:false },
+    { id:'A004', name:'COMMISSIONING START', duration:0, predecessors:'', predLinks:'', wbs:'1.1', wbsFull:'1.1.4', mppTaskId:'6', isMilestone:true, constraintType:'4', constraintDate:'2028-07-01', startDate:'2028-07-01', finishDate:'2028-07-01', mppES:'2028-07-01', mppEF:'2028-07-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:4250, mppCritical:false },
+    { id:'A005', name:'S.O.P', duration:0, predecessors:'', predLinks:'', wbs:'1.1', wbsFull:'1.1.5', mppTaskId:'7', isMilestone:true, constraintType:'4', constraintDate:'2029-01-15', startDate:'2029-01-15', finishDate:'2029-01-15', mppES:'2029-01-15', mppEF:'2029-01-15', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:2270, mppCritical:false },
+    { id:'A006', name:'EARLY WORK START', duration:0, predecessors:'', predLinks:'', wbs:'1.2', wbsFull:'1.2.1', mppTaskId:'9', isMilestone:true, constraintType:'4', constraintDate:'2025-04-01', startDate:'2025-04-01', finishDate:'2025-04-01', mppES:'2025-04-01', mppEF:'2025-04-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:16120, mppCritical:false },
+    { id:'A007', name:'CONTRACT', duration:0, predecessors:'', predLinks:'', wbs:'1.2', wbsFull:'1.2.2', mppTaskId:'10', isMilestone:true, constraintType:'4', constraintDate:'2025-12-31', startDate:'2025-12-31', finishDate:'2025-12-31', mppES:'2025-12-31', mppEF:'2025-12-31', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:13380, mppCritical:false },
+    { id:'A008', name:'CONSTRUCTION START', duration:0, predecessors:'', predLinks:'', wbs:'1.2', wbsFull:'1.2.3', mppTaskId:'11', isMilestone:true, constraintType:'4', constraintDate:'2026-11-01', startDate:'2026-11-01', finishDate:'2026-11-01', mppES:'2026-11-01', mppEF:'2026-11-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:10330, mppCritical:false },
+    { id:'A009', name:'STEEL START', duration:0, predecessors:'', predLinks:'', wbs:'1.2', wbsFull:'1.2.4', mppTaskId:'12', isMilestone:true, constraintType:'4', constraintDate:'2027-08-01', startDate:'2027-08-01', finishDate:'2027-08-01', mppES:'2027-08-01', mppEF:'2027-08-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:7600, mppCritical:false },
+    { id:'A010', name:'COLD RUN START', duration:0, predecessors:'', predLinks:'', wbs:'1.2', wbsFull:'1.2.5', mppTaskId:'13', isMilestone:true, constraintType:'4', constraintDate:'2028-06-01', startDate:'2028-06-01', finishDate:'2028-06-01', mppES:'2028-06-01', mppEF:'2028-06-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:4550, mppCritical:false },
+    { id:'A011', name:'1st SOP', duration:0, predecessors:'A092,A193,A220,A245,A059', predLinks:'A092:1:0,A193:1:0,A220:1:0,A245:1:0,A059:1:0', wbs:'1.2', wbsFull:'1.2.6', mppTaskId:'14', isMilestone:true, constraintType:'7', constraintDate:'2029-08-31', startDate:'2029-03-29', finishDate:'2029-03-29', mppES:'2029-03-29', mppEF:'2029-03-29', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:1530, mppCritical:false },
+    { id:'A012', name:'2nd SOP', duration:0, predecessors:'A107,A246,A058', predLinks:'A107:1:0,A246:1:0,A058:1:0', wbs:'1.2', wbsFull:'1.2.7', mppTaskId:'15', isMilestone:true, constraintType:'7', constraintDate:'2029-08-31', startDate:'2029-08-29', finishDate:'2029-08-29', mppES:'2029-08-29', mppEF:'2029-08-29', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:0, mppCritical:true },
+    { id:'A013', name:'Air Permit', duration:160, predecessors:'', predLinks:'', wbs:'1.3', wbsFull:'1.3.1', mppTaskId:'17', isMilestone:false, constraintType:'4', constraintDate:'2025-12-23', startDate:'2025-12-23', finishDate:'2026-06-01', mppES:'2025-12-23', mppEF:'2026-06-01', mppLS:'2029-03-22', mppLF:'2029-08-29', mppTF:11850, mppCritical:false },
+    { id:'A014', name:'ENGINEERING', duration:153, predecessors:'', predLinks:'', wbs:'1.4', wbsFull:'1.4.1.1', mppTaskId:'20', isMilestone:false, constraintType:'4', constraintDate:'2026-01-15', startDate:'2026-01-15', finishDate:'2026-06-17', mppES:'2026-01-15', mppEF:'2026-06-17', mppLS:'2028-09-21', mppLF:'2029-02-21', mppTF:9800, mppCritical:false },
+    { id:'A015', name:'PROCUREMENT', duration:76, predecessors:'A014', predLinks:'A014:0:0', wbs:'1.4', wbsFull:'1.4.1.2', mppTaskId:'21', isMilestone:false, constraintType:'4', constraintDate:'2026-04-15', startDate:'2026-04-15', finishDate:'2026-06-30', mppES:'2026-04-15', mppEF:'2026-06-30', mppLS:'2029-06-14', mppLF:'2029-08-29', mppTF:11560, mppCritical:false },
+    { id:'A016', name:'BUILDING PERMIT', duration:55, predecessors:'A014', predLinks:'A014:3:0', wbs:'1.4', wbsFull:'1.4.1.3', mppTaskId:'22', isMilestone:false, constraintType:'4', constraintDate:'2026-04-01', startDate:'2026-04-01', finishDate:'2026-05-26', mppES:'2026-04-01', mppEF:'2026-05-26', mppLS:'2028-10-05', mppLF:'2028-11-29', mppTF:9180, mppCritical:false },
+    { id:'A017', name:'Site Preparation Ph.1', duration:118, predecessors:'A014', predLinks:'A014:3:0', wbs:'1.4', wbsFull:'1.4.2.1', mppTaskId:'24', isMilestone:false, constraintType:'4', constraintDate:'2026-03-15', startDate:'2026-03-15', finishDate:'2026-07-11', mppES:'2026-03-15', mppEF:'2026-07-11', mppLS:'2028-09-21', mppLF:'2029-01-17', mppTF:9210, mppCritical:false },
+    { id:'A018', name:'TCF PKG Work Ph.1', duration:48, predecessors:'A016,A017', predLinks:'A016:1:0,A017:0:0', wbs:'1.4', wbsFull:'1.4.2.2', mppTaskId:'25', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-05-27', finishDate:'2026-07-14', mppES:'2026-05-27', mppEF:'2026-07-14', mppLS:'2028-11-30', mppLF:'2029-01-17', mppTF:9180, mppCritical:false },
+    { id:'A019', name:'TCF PKG Work Ph.2', duration:167, predecessors:'A018', predLinks:'A018:1:0', wbs:'1.4', wbsFull:'1.4.2.3', mppTaskId:'26', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-07-15', finishDate:'2026-12-29', mppES:'2026-07-15', mppEF:'2026-12-29', mppLS:'2029-01-18', mppLF:'2029-07-04', mppTF:9180, mppCritical:false },
+    { id:'A020', name:'TCF PKG Work Ph.3', duration:55, predecessors:'A019', predLinks:'A019:1:0', wbs:'1.4', wbsFull:'1.4.2.4', mppTaskId:'27', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-30', finishDate:'2027-02-23', mppES:'2026-12-30', mppEF:'2027-02-23', mppLS:'2029-07-05', mppLF:'2029-08-29', mppTF:9180, mppCritical:false },
+    { id:'A021', name:'(M+3) Inform for Overall (Outsourcing)', duration:0, predecessors:'', predLinks:'', wbs:'1.5', wbsFull:'1.5.1.1', mppTaskId:'30', isMilestone:true, constraintType:'4', constraintDate:'2026-03-31', startDate:'2026-03-31', finishDate:'2026-03-31', mppES:'2026-03-31', mppEF:'2026-03-31', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:12480, mppCritical:false },
+    { id:'A022', name:'1st Inform for Overall', duration:0, predecessors:'', predLinks:'', wbs:'1.5', wbsFull:'1.5.1.2', mppTaskId:'31', isMilestone:true, constraintType:'4', constraintDate:'2026-03-31', startDate:'2026-03-31', finishDate:'2026-03-31', mppES:'2026-03-31', mppEF:'2026-03-31', mppLS:'2028-02-03', mppLF:'2028-02-03', mppTF:6740, mppCritical:false },
+    { id:'A023', name:'Engineering Service Agreement', duration:0, predecessors:'', predLinks:'', wbs:'1.5', wbsFull:'1.5.1.3', mppTaskId:'32', isMilestone:true, constraintType:'4', constraintDate:'2026-02-15', startDate:'2026-02-15', finishDate:'2026-02-15', mppES:'2026-02-15', mppEF:'2026-02-15', mppLS:'2028-02-03', mppLF:'2028-02-03', mppTF:7180, mppCritical:false },
+    { id:'A024', name:'IFR(Preliminary) for Drainage, Utility', duration:90, predecessors:'A023,A022', predLinks:'A023:1:0,A022:1:0', wbs:'1.5', wbsFull:'1.5.1.4', mppTaskId:'33', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-03-31', finishDate:'2026-06-29', mppES:'2026-03-31', mppEF:'2026-06-29', mppLS:'2028-02-03', mppLF:'2028-05-03', mppTF:6740, mppCritical:false },
+    { id:'A025', name:'IFC(Construction) for Drainage, Utility', duration:90, predecessors:'A024', predLinks:'A024:1:28', wbs:'1.5', wbsFull:'1.5.1.5', mppTaskId:'34', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-07-28', finishDate:'2026-10-26', mppES:'2026-07-28', mppEF:'2026-10-26', mppLS:'2029-05-31', mppLF:'2029-08-29', mppTF:10380, mppCritical:false },
+    { id:'A026', name:'Site Planning Permit', duration:90, predecessors:'A024', predLinks:'A024:1:0', wbs:'1.5', wbsFull:'1.5.1.6', mppTaskId:'35', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-06-30', finishDate:'2026-09-28', mppES:'2026-06-30', mppEF:'2026-09-28', mppLS:'2028-05-04', mppLF:'2028-08-02', mppTF:6740, mppCritical:false },
+    { id:'A027', name:'Piling for Overall', duration:391, predecessors:'A026', predLinks:'A026:1:0', wbs:'1.5', wbsFull:'1.5.2.1', mppTaskId:'37', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-09-29', finishDate:'2027-10-25', mppES:'2026-09-29', mppEF:'2027-10-25', mppLS:'2028-08-03', mppLF:'2029-08-29', mppTF:6740, mppCritical:false },
+    { id:'A028', name:'1st Inform for Pile/FDN', duration:0, predecessors:'', predLinks:'', wbs:'1.6', wbsFull:'1.6.1.1', mppTaskId:'40', isMilestone:true, constraintType:'4', constraintDate:'2026-02-28', startDate:'2026-02-28', finishDate:'2026-02-28', mppES:'2026-02-28', mppEF:'2026-02-28', mppLS:'2028-11-30', mppLF:'2028-11-30', mppTF:10060, mppCritical:false },
+    { id:'A029', name:'Engineering Service Agreement', duration:0, predecessors:'', predLinks:'', wbs:'1.6', wbsFull:'1.6.1.2', mppTaskId:'41', isMilestone:true, constraintType:'4', constraintDate:'2026-02-15', startDate:'2026-02-15', finishDate:'2026-02-15', mppES:'2026-02-15', mppEF:'2026-02-15', mppLS:'2028-11-30', mppLF:'2028-11-30', mppTF:10190, mppCritical:false },
+    { id:'A030', name:'IFR(Permit) for Pile/FDN', duration:90, predecessors:'A028,A029', predLinks:'A028:1:0,A029:1:0', wbs:'1.6', wbsFull:'1.6.1.3', mppTaskId:'42', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-02-28', finishDate:'2026-05-29', mppES:'2026-02-28', mppEF:'2026-05-29', mppLS:'2028-11-30', mppLF:'2029-02-28', mppTF:10060, mppCritical:false },
+    { id:'A031', name:'Pile/FDN Permit', duration:90, predecessors:'A030', predLinks:'A030:1:28', wbs:'1.6', wbsFull:'1.6.1.4', mppTaskId:'43', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-06-27', finishDate:'2026-09-25', mppES:'2026-06-27', mppEF:'2026-09-25', mppLS:'2029-03-29', mppLF:'2029-06-27', mppTF:10060, mppCritical:false },
+    { id:'A032', name:'2nd Inform for Steel', duration:0, predecessors:'A028', predLinks:'A028:1:0', wbs:'1.6', wbsFull:'1.6.2.1', mppTaskId:'45', isMilestone:true, constraintType:'4', constraintDate:'2026-06-30', startDate:'2026-06-30', finishDate:'2026-06-30', mppES:'2026-06-30', mppEF:'2026-06-30', mppLS:'2029-01-25', mppLF:'2029-01-25', mppTF:9400, mppCritical:false },
+    { id:'A033', name:'IFR(Permit) for Steel', duration:62, predecessors:'A032', predLinks:'A032:1:0', wbs:'1.6', wbsFull:'1.6.2.2', mppTaskId:'46', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-06-30', finishDate:'2026-08-31', mppES:'2026-06-30', mppEF:'2026-08-31', mppLS:'2029-01-25', mppLF:'2029-03-28', mppTF:9400, mppCritical:false },
+    { id:'A034', name:'Arch/STR Permit', duration:90, predecessors:'A033', predLinks:'A033:1:0', wbs:'1.6', wbsFull:'1.6.2.3', mppTaskId:'47', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-09-01', finishDate:'2026-11-30', mppES:'2026-09-01', mppEF:'2026-11-30', mppLS:'2029-03-29', mppLF:'2029-06-27', mppTF:9400, mppCritical:false },
+    { id:'A035', name:'Ready for STR Work', duration:0, predecessors:'A034', predLinks:'A034:1:0', wbs:'1.6', wbsFull:'1.6.2.4', mppTaskId:'48', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-11-30', finishDate:'2026-11-30', mppES:'2026-11-30', mppEF:'2026-11-30', mppLS:'2029-06-28', mppLF:'2029-06-28', mppTF:9400, mppCritical:false },
+    { id:'A036', name:'3rd Inform for Revision', duration:0, predecessors:'A032', predLinks:'A032:1:0', wbs:'1.6', wbsFull:'1.6.2.5', mppTaskId:'49', isMilestone:true, constraintType:'4', constraintDate:'2026-10-31', startDate:'2026-10-31', finishDate:'2026-10-31', mppES:'2026-10-31', mppEF:'2026-10-31', mppLS:'2029-08-02', mppLF:'2029-08-02', mppTF:10060, mppCritical:false },
+    { id:'A037', name:'Engineering Revision', duration:27, predecessors:'A036', predLinks:'A036:1:0', wbs:'1.6', wbsFull:'1.6.2.6', mppTaskId:'50', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-10-31', finishDate:'2026-11-27', mppES:'2026-10-31', mppEF:'2026-11-27', mppLS:'2029-08-02', mppLF:'2029-08-29', mppTF:10060, mppCritical:false },
+    { id:'A038', name:'Piling Work', duration:62, predecessors:'A031', predLinks:'A031:1:0', wbs:'1.6', wbsFull:'1.6.3.1', mppTaskId:'52', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-09-26', finishDate:'2026-11-27', mppES:'2026-09-26', mppEF:'2026-11-27', mppLS:'2029-06-28', mppLF:'2029-08-29', mppTF:10060, mppCritical:false },
+    { id:'A039', name:'STR Work', duration:62, predecessors:'A031,A035', predLinks:'A031:1:0,A035:1:0', wbs:'1.6', wbsFull:'1.6.3.2', mppTaskId:'53', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-01', finishDate:'2027-02-01', mppES:'2026-12-01', mppEF:'2027-02-01', mppLS:'2029-06-28', mppLF:'2029-08-29', mppTF:9400, mppCritical:false },
+    { id:'A040', name:'Engineering Service Agreement for DRP', duration:0, predecessors:'', predLinks:'', wbs:'1.7', wbsFull:'1.7.1.1', mppTaskId:'56', isMilestone:true, constraintType:'4', constraintDate:'2026-01-01', startDate:'2026-01-01', finishDate:'2026-01-01', mppES:'2026-01-01', mppEF:'2026-01-01', mppLS:'2026-10-01', mppLF:'2026-10-01', mppTF:2730, mppCritical:false },
+    { id:'A041', name:'1st(M+1) Inform for DRP', duration:0, predecessors:'A040', predLinks:'A040:1:0', wbs:'1.7', wbsFull:'1.7.1.2', mppTaskId:'57', isMilestone:true, constraintType:'4', constraintDate:'2026-01-31', startDate:'2026-01-31', finishDate:'2026-01-31', mppES:'2026-01-31', mppEF:'2026-01-31', mppLS:'2026-10-01', mppLF:'2026-10-01', mppTF:2430, mppCritical:false },
+    { id:'A042', name:'2nd(M+4) Inform for DRP', duration:0, predecessors:'A041', predLinks:'A041:1:0', wbs:'1.7', wbsFull:'1.7.1.3', mppTaskId:'58', isMilestone:true, constraintType:'4', constraintDate:'2026-04-30', startDate:'2026-04-30', finishDate:'2026-04-30', mppES:'2026-04-30', mppEF:'2026-04-30', mppLS:'2026-10-01', mppLF:'2026-10-01', mppTF:1540, mppCritical:false },
+    { id:'A043', name:'Engineering Service Agreement', duration:0, predecessors:'A041', predLinks:'A041:1:0', wbs:'1.7', wbsFull:'1.7.1.4', mppTaskId:'59', isMilestone:true, constraintType:'4', constraintDate:'2026-03-15', startDate:'2026-03-15', finishDate:'2026-03-15', mppES:'2026-03-15', mppEF:'2026-03-15', mppLS:'2027-01-28', mppLF:'2027-01-28', mppTF:3190, mppCritical:false },
+    { id:'A044', name:'IFR(Permit) for Pile/FDN', duration:153, predecessors:'A043,A042', predLinks:'A043:1:0,A042:1:0', wbs:'1.7', wbsFull:'1.7.1.5', mppTaskId:'60', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-04-30', finishDate:'2026-09-30', mppES:'2026-04-30', mppEF:'2026-09-30', mppLS:'2027-01-28', mppLF:'2027-06-30', mppTF:2730, mppCritical:false },
+    { id:'A045', name:'Pile/FDN Permit', duration:90, predecessors:'A044', predLinks:'A044:1:0', wbs:'1.7', wbsFull:'1.7.1.6', mppTaskId:'61', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-10-01', finishDate:'2026-12-30', mppES:'2026-10-01', mppEF:'2026-12-30', mppLS:'2027-07-01', mppLF:'2027-09-29', mppTF:2730, mppCritical:false },
+    { id:'A046', name:'Ready for Pile/FDN', duration:0, predecessors:'A045', predLinks:'A045:1:0', wbs:'1.7', wbsFull:'1.7.1.7', mppTaskId:'62', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-12-30', finishDate:'2026-12-30', mppES:'2026-12-30', mppEF:'2026-12-30', mppLS:'2027-09-30', mppLF:'2027-09-30', mppTF:2730, mppCritical:false },
+    { id:'A047', name:'3rd(M+7) Inform for DRP', duration:0, predecessors:'A042', predLinks:'A042:1:0', wbs:'1.7', wbsFull:'1.7.2.1', mppTaskId:'64', isMilestone:true, constraintType:'4', constraintDate:'2026-07-31', startDate:'2026-07-31', finishDate:'2026-07-31', mppES:'2026-07-31', mppEF:'2026-07-31', mppLS:'2026-10-01', mppLF:'2026-10-01', mppTF:620, mppCritical:false },
+    { id:'A048', name:'IFR(Permit) for Steel', duration:153, predecessors:'A047', predLinks:'A047:1:0', wbs:'1.7', wbsFull:'1.7.2.2', mppTaskId:'65', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-07-31', finishDate:'2026-12-31', mppES:'2026-07-31', mppEF:'2026-12-31', mppLS:'2026-10-01', mppLF:'2027-03-03', mppTF:620, mppCritical:false },
+    { id:'A049', name:'Arch/STR Permit', duration:83, predecessors:'A048', predLinks:'A048:1:0', wbs:'1.7', wbsFull:'1.7.2.3', mppTaskId:'66', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-01-01', finishDate:'2027-03-25', mppES:'2027-01-01', mppEF:'2027-03-25', mppLS:'2027-03-04', mppLF:'2027-05-26', mppTF:620, mppCritical:false },
+    { id:'A050', name:'Ready for STR Work', duration:0, predecessors:'A049', predLinks:'A049:1:0', wbs:'1.7', wbsFull:'1.7.2.4', mppTaskId:'67', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2027-03-25', finishDate:'2027-03-25', mppES:'2027-03-25', mppEF:'2027-03-25', mppLS:'2027-09-30', mppLF:'2027-09-30', mppTF:1880, mppCritical:false },
+    { id:'A051', name:'4th(M+12) Inform for DRP', duration:0, predecessors:'A047', predLinks:'A047:1:0', wbs:'1.7', wbsFull:'1.7.2.5', mppTaskId:'68', isMilestone:true, constraintType:'4', constraintDate:'2026-12-31', startDate:'2026-12-31', finishDate:'2026-12-31', mppES:'2026-12-31', mppEF:'2026-12-31', mppLS:'2029-08-02', mppLF:'2029-08-02', mppTF:9450, mppCritical:false },
+    { id:'A052', name:'Engineering Revision', duration:27, predecessors:'A051', predLinks:'A051:1:0', wbs:'1.7', wbsFull:'1.7.2.6', mppTaskId:'69', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-31', finishDate:'2027-01-27', mppES:'2026-12-31', mppEF:'2027-01-27', mppLS:'2029-08-02', mppLF:'2029-08-29', mppTF:9450, mppCritical:false },
+    { id:'A053', name:'Piling Work', duration:153, predecessors:'A046', predLinks:'A046:1:0', wbs:'1.7', wbsFull:'1.7.3.1', mppTaskId:'71', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-31', finishDate:'2027-06-02', mppES:'2026-12-31', mppEF:'2027-06-02', mppLS:'2027-09-30', mppLF:'2028-03-01', mppTF:2730, mppCritical:false },
+    { id:'A054', name:'FDN Work', duration:279, predecessors:'A049,A053', predLinks:'A049:1:0,A053:0:0', wbs:'1.7', wbsFull:'1.7.3.2', mppTaskId:'72', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-03-26', finishDate:'2027-12-30', mppES:'2027-03-26', mppEF:'2027-12-30', mppLS:'2027-05-27', mppLF:'2028-03-01', mppTF:620, mppCritical:false },
+    { id:'A055', name:'Main Steel Work', duration:335, predecessors:'A054,A050', predLinks:'A054:3:126,A050:1:0', wbs:'1.7', wbsFull:'1.7.3.3', mppTaskId:'73', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-07-30', finishDate:'2028-06-29', mppES:'2027-07-30', mppEF:'2028-06-29', mppLS:'2027-09-30', mppLF:'2028-08-30', mppTF:620, mppCritical:false },
+    { id:'A056', name:'Equipment Install', duration:370, predecessors:'A055', predLinks:'A055:3:56', wbs:'1.7', wbsFull:'1.7.3.4', mppTaskId:'74', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-24', finishDate:'2028-09-28', mppES:'2027-09-24', mppEF:'2028-09-28', mppLS:'2027-11-25', mppLF:'2028-11-29', mppTF:620, mppCritical:false },
+    { id:'A057', name:'Cold Run', duration:153, predecessors:'A056', predLinks:'A056:1:0', wbs:'1.7', wbsFull:'1.7.3.5', mppTaskId:'75', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-09-29', finishDate:'2029-03-01', mppES:'2028-09-29', mppEF:'2029-03-01', mppLS:'2028-11-30', mppLF:'2029-05-02', mppTF:620, mppCritical:false },
+    { id:'A058', name:'Hot Run in DRP', duration:118, predecessors:'A057', predLinks:'A057:1:0', wbs:'1.7', wbsFull:'1.7.3.6', mppTaskId:'76', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-03-02', finishDate:'2029-06-28', mppES:'2029-03-02', mppEF:'2029-06-28', mppLS:'2029-05-03', mppLF:'2029-08-29', mppTF:620, mppCritical:false },
+    { id:'A059', name:'1st DRI', duration:0, predecessors:'A058', predLinks:'A058:3:28', wbs:'1.7', wbsFull:'1.7.3.7', mppTaskId:'77', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2029-03-29', finishDate:'2029-03-29', mppES:'2029-03-29', mppEF:'2029-03-29', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:1530, mppCritical:false },
+    { id:'A060', name:'Engineering Service Agreement for SMP/CCM', duration:0, predecessors:'', predLinks:'', wbs:'1.8', wbsFull:'1.8.1.1', mppTaskId:'80', isMilestone:true, constraintType:'4', constraintDate:'2026-01-01', startDate:'2026-01-01', finishDate:'2026-01-01', mppES:'2026-01-01', mppEF:'2026-01-01', mppLS:'2026-03-31', mppLF:'2026-03-31', mppTF:890, mppCritical:false },
+    { id:'A061', name:'1st(M+1) Inform for SMP/CCM', duration:0, predecessors:'A060', predLinks:'A060:1:0', wbs:'1.8', wbsFull:'1.8.1.2', mppTaskId:'81', isMilestone:true, constraintType:'4', constraintDate:'2026-01-31', startDate:'2026-01-31', finishDate:'2026-01-31', mppES:'2026-01-31', mppEF:'2026-01-31', mppLS:'2026-03-31', mppLF:'2026-03-31', mppTF:590, mppCritical:false },
+    { id:'A062', name:'2nd(M+3) Inform for SMP/CCM', duration:0, predecessors:'A061', predLinks:'A061:1:0', wbs:'1.8', wbsFull:'1.8.1.3', mppTaskId:'82', isMilestone:true, constraintType:'4', constraintDate:'2026-03-31', startDate:'2026-03-31', finishDate:'2026-03-31', mppES:'2026-03-31', mppEF:'2026-03-31', mppLS:'2026-03-31', mppLF:'2026-03-31', mppTF:0, mppCritical:true },
+    { id:'A063', name:'(M+3) Inform for SMP/CCM (Outsourcing)', duration:0, predecessors:'', predLinks:'', wbs:'1.8', wbsFull:'1.8.1.4', mppTaskId:'83', isMilestone:true, constraintType:'4', constraintDate:'2026-03-31', startDate:'2026-03-31', finishDate:'2026-03-31', mppES:'2026-03-31', mppEF:'2026-03-31', mppLS:'2026-03-31', mppLF:'2026-03-31', mppTF:0, mppCritical:true },
+    { id:'A064', name:'Engineering Service Agreement', duration:0, predecessors:'A061', predLinks:'A061:1:0', wbs:'1.8', wbsFull:'1.8.1.5', mppTaskId:'84', isMilestone:true, constraintType:'4', constraintDate:'2026-02-15', startDate:'2026-02-15', finishDate:'2026-02-15', mppES:'2026-02-15', mppEF:'2026-02-15', mppLS:'2026-03-31', mppLF:'2026-03-31', mppTF:440, mppCritical:false },
+    { id:'A065', name:'IFR(Permit) for Pile/FDN', duration:125, predecessors:'A062,A064,A063', predLinks:'A062:1:0,A064:1:0,A063:1:0', wbs:'1.8', wbsFull:'1.8.1.6', mppTaskId:'85', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-03-31', finishDate:'2026-08-03', mppES:'2026-03-31', mppEF:'2026-08-03', mppLS:'2026-03-31', mppLF:'2026-08-03', mppTF:0, mppCritical:true },
+    { id:'A066', name:'Pile/FDN Permit', duration:90, predecessors:'A065', predLinks:'A065:1:0', wbs:'1.8', wbsFull:'1.8.1.7', mppTaskId:'86', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-08-04', finishDate:'2026-11-02', mppES:'2026-08-04', mppEF:'2026-11-02', mppLS:'2026-08-04', mppLF:'2026-11-02', mppTF:0, mppCritical:true },
+    { id:'A067', name:'Ready for Pile Work', duration:0, predecessors:'A066', predLinks:'A066:1:0', wbs:'1.8', wbsFull:'1.8.1.8', mppTaskId:'87', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-11-02', finishDate:'2026-11-02', mppES:'2026-11-02', mppEF:'2026-11-02', mppLS:'2026-11-03', mppLF:'2026-11-03', mppTF:0, mppCritical:true },
+    { id:'A068', name:'Pile/FDN Permit Rev.', duration:27, predecessors:'A066', predLinks:'A066:1:0', wbs:'1.8', wbsFull:'1.8.1.9', mppTaskId:'88', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2026-11-30', mppES:'2026-11-03', mppEF:'2026-11-30', mppLS:'2027-03-04', mppLF:'2027-03-31', mppTF:1210, mppCritical:false },
+    { id:'A069', name:'Ready for FDN Work', duration:0, predecessors:'A068', predLinks:'A068:1:0', wbs:'1.8', wbsFull:'1.8.1.10', mppTaskId:'89', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-11-30', finishDate:'2026-11-30', mppES:'2026-11-30', mppEF:'2026-11-30', mppLS:'2027-04-01', mppLF:'2027-04-01', mppTF:1210, mppCritical:false },
+    { id:'A070', name:'3rd(M+6) Inform for SMP/CCM', duration:0, predecessors:'A062', predLinks:'A062:1:0', wbs:'1.8', wbsFull:'1.8.2.1', mppTaskId:'91', isMilestone:true, constraintType:'4', constraintDate:'2026-06-30', startDate:'2026-06-30', finishDate:'2026-06-30', mppES:'2026-06-30', mppEF:'2026-06-30', mppLS:'2026-09-03', mppLF:'2026-09-03', mppTF:650, mppCritical:false },
+    { id:'A071', name:'IFR(Permit) for Steel', duration:125, predecessors:'A070', predLinks:'A070:1:0', wbs:'1.8', wbsFull:'1.8.2.2', mppTaskId:'92', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-06-30', finishDate:'2026-11-02', mppES:'2026-06-30', mppEF:'2026-11-02', mppLS:'2026-09-03', mppLF:'2027-01-06', mppTF:650, mppCritical:false },
+    { id:'A072', name:'Arch/STR Permit', duration:83, predecessors:'A071', predLinks:'A071:1:0', wbs:'1.8', wbsFull:'1.8.2.3', mppTaskId:'93', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-01-25', mppES:'2026-11-03', mppEF:'2027-01-25', mppLS:'2027-01-07', mppLF:'2027-03-31', mppTF:650, mppCritical:false },
+    { id:'A073', name:'Ready for STR Work', duration:0, predecessors:'A072', predLinks:'A072:1:0', wbs:'1.8', wbsFull:'1.8.2.4', mppTaskId:'94', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2027-01-25', finishDate:'2027-01-25', mppES:'2027-01-25', mppEF:'2027-01-25', mppLS:'2027-12-16', mppLF:'2027-12-16', mppTF:3240, mppCritical:false },
+    { id:'A074', name:'4th(M+12) Inform for SMP/CCM', duration:0, predecessors:'A070', predLinks:'A070:1:0', wbs:'1.8', wbsFull:'1.8.2.5', mppTaskId:'95', isMilestone:true, constraintType:'4', constraintDate:'2026-12-31', startDate:'2026-12-31', finishDate:'2026-12-31', mppES:'2026-12-31', mppEF:'2026-12-31', mppLS:'2029-07-05', mppLF:'2029-07-05', mppTF:9170, mppCritical:false },
+    { id:'A075', name:'Engineering Revision', duration:27, predecessors:'A074', predLinks:'A074:1:0', wbs:'1.8', wbsFull:'1.8.2.6', mppTaskId:'96', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-31', finishDate:'2027-01-27', mppES:'2026-12-31', mppEF:'2027-01-27', mppLS:'2029-07-05', mppLF:'2029-08-01', mppTF:9170, mppCritical:false },
+    { id:'A076', name:'5th(M+14) Inform for SMP/CCM', duration:0, predecessors:'A074', predLinks:'A074:1:0', wbs:'1.8', wbsFull:'1.8.2.7', mppTaskId:'97', isMilestone:true, constraintType:'4', constraintDate:'2027-02-28', startDate:'2027-02-28', finishDate:'2027-02-28', mppES:'2027-02-28', mppEF:'2027-02-28', mppLS:'2029-08-02', mppLF:'2029-08-02', mppTF:8860, mppCritical:false },
+    { id:'A077', name:'Engineering Revision', duration:27, predecessors:'A076,A075', predLinks:'A076:1:0,A075:1:0', wbs:'1.8', wbsFull:'1.8.2.8', mppTaskId:'98', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-02-28', finishDate:'2027-03-27', mppES:'2027-02-28', mppEF:'2027-03-27', mppLS:'2029-08-02', mppLF:'2029-08-29', mppTF:8860, mppCritical:false },
+    { id:'A078', name:'Piling Work', duration:265, predecessors:'A067', predLinks:'A067:1:0', wbs:'1.8', wbsFull:'1.8.3.1', mppTaskId:'100', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-07-26', mppES:'2026-11-03', mppEF:'2027-07-26', mppLS:'2027-01-05', mppLF:'2027-09-27', mppTF:630, mppCritical:false },
+    { id:'A079', name:'Excavation - Backfill 1st H/O', duration:237, predecessors:'A072,A078,A069', predLinks:'A072:1:0,A078:3:149,A069:1:0', wbs:'1.8', wbsFull:'1.8.3.2', mppTaskId:'101', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-04-01', finishDate:'2027-11-24', mppES:'2027-04-01', mppEF:'2027-11-24', mppLS:'2027-06-03', mppLF:'2028-01-26', mppTF:630, mppCritical:false },
+    { id:'A080', name:'Excavation - Backfill Last H/O', duration:160, predecessors:'A079', predLinks:'A079:1:0', wbs:'1.8', wbsFull:'1.8.3.3', mppTaskId:'102', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-11-25', finishDate:'2028-05-03', mppES:'2027-11-25', mppEF:'2028-05-03', mppLS:'2028-06-22', mppLF:'2028-11-29', mppTF:2100, mppCritical:false },
+    { id:'A081', name:'Excavation - Backfill Remaining', duration:118, predecessors:'A080', predLinks:'A080:1:0', wbs:'1.8', wbsFull:'1.8.3.4', mppTaskId:'103', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-04', finishDate:'2028-08-30', mppES:'2028-05-04', mppEF:'2028-08-30', mppLS:'2028-11-30', mppLF:'2029-03-28', mppTF:2100, mppCritical:false },
+    { id:'A082', name:'Main Steel Work', duration:370, predecessors:'A079,A073', predLinks:'A079:1:0,A073:1:0', wbs:'1.8', wbsFull:'1.8.3.5', mppTaskId:'104', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-11-25', finishDate:'2028-11-29', mppES:'2027-11-25', mppEF:'2028-11-29', mppLS:'2028-01-27', mppLF:'2029-01-31', mppTF:630, mppCritical:false },
+    { id:'A083', name:'Equipment Install (incl. E.I,P)', duration:209, predecessors:'A082', predLinks:'A082:3:175', wbs:'1.8', wbsFull:'1.8.3.6', mppTaskId:'105', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-18', finishDate:'2028-12-13', mppES:'2028-05-18', mppEF:'2028-12-13', mppLS:'2028-07-20', mppLF:'2029-02-14', mppTF:630, mppCritical:false },
+    { id:'A084', name:'Cold Run', duration:90, predecessors:'A083,A081', predLinks:'A083:0:42,A081:0:0', wbs:'1.8', wbsFull:'1.8.3.7', mppTaskId:'106', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-10-26', finishDate:'2029-01-24', mppES:'2028-10-26', mppEF:'2029-01-24', mppLS:'2028-12-28', mppLF:'2029-03-28', mppTF:630, mppCritical:false },
+    { id:'A085', name:'Piling Work', duration:265, predecessors:'A067', predLinks:'A067:1:0', wbs:'1.8', wbsFull:'1.8.4.1', mppTaskId:'108', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-07-26', mppES:'2026-11-03', mppEF:'2027-07-26', mppLS:'2027-01-05', mppLF:'2027-09-27', mppTF:630, mppCritical:false },
+    { id:'A086', name:'Excavation - Backfill 1st H/O', duration:216, predecessors:'A085,A072,A069', predLinks:'A085:3:149,A072:1:0,A069:1:0', wbs:'1.8', wbsFull:'1.8.4.2', mppTaskId:'109', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-04-01', finishDate:'2027-11-03', mppES:'2027-04-01', mppEF:'2027-11-03', mppLS:'2027-06-03', mppLF:'2028-01-05', mppTF:630, mppCritical:false },
+    { id:'A087', name:'Excavation - Backfill Last H/O', duration:160, predecessors:'A086', predLinks:'A086:1:0', wbs:'1.8', wbsFull:'1.8.4.3', mppTaskId:'110', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-11-04', finishDate:'2028-04-12', mppES:'2027-11-04', mppEF:'2028-04-12', mppLS:'2028-05-25', mppLF:'2028-11-01', mppTF:2030, mppCritical:false },
+    { id:'A088', name:'Excavation - Backfill Remaining', duration:146, predecessors:'A087', predLinks:'A087:1:0', wbs:'1.8', wbsFull:'1.8.4.4', mppTaskId:'111', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-04-13', finishDate:'2028-09-06', mppES:'2028-04-13', mppEF:'2028-09-06', mppLS:'2028-11-02', mppLF:'2029-03-28', mppTF:2030, mppCritical:false },
+    { id:'A089', name:'Main Steel Work', duration:377, predecessors:'A086,A073', predLinks:'A086:1:0,A073:1:0', wbs:'1.8', wbsFull:'1.8.4.5', mppTaskId:'112', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-11-04', finishDate:'2028-11-15', mppES:'2027-11-04', mppEF:'2028-11-15', mppLS:'2028-01-06', mppLF:'2029-01-17', mppTF:630, mppCritical:false },
+    { id:'A090', name:'Equipment Install (incl. E.I,P)', duration:216, predecessors:'A089', predLinks:'A089:3:189', wbs:'1.8', wbsFull:'1.8.4.6', mppTaskId:'113', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-11', finishDate:'2028-12-13', mppES:'2028-05-11', mppEF:'2028-12-13', mppLS:'2028-07-13', mppLF:'2029-02-14', mppTF:630, mppCritical:false },
+    { id:'A091', name:'Cold Run', duration:90, predecessors:'A090,A088', predLinks:'A090:0:42,A088:0:0', wbs:'1.8', wbsFull:'1.8.4.7', mppTaskId:'114', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-10-26', finishDate:'2029-01-24', mppES:'2028-10-26', mppEF:'2029-01-24', mppLS:'2028-12-28', mppLF:'2029-03-28', mppTF:630, mppCritical:false },
+    { id:'A092', name:'HOT-RUN in SMP/CCM Phase 1', duration:62, predecessors:'A083,A091,A084', predLinks:'A083:1:28,A091:1:0,A084:1:0', wbs:'1.8', wbsFull:'1.8.5', mppTaskId:'115', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-01-25', finishDate:'2029-03-28', mppES:'2029-01-25', mppEF:'2029-03-28', mppLS:'2029-03-29', mppLF:'2029-05-30', mppTF:630, mppCritical:false },
+    { id:'A093', name:'Piling Work', duration:265, predecessors:'A067', predLinks:'A067:1:0', wbs:'1.8', wbsFull:'1.8.6.1', mppTaskId:'117', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-07-26', mppES:'2026-11-03', mppEF:'2027-07-26', mppLS:'2026-11-03', mppLF:'2027-07-26', mppTF:0, mppCritical:true },
+    { id:'A094', name:'Excavation - Backfill 1st H/O', duration:258, predecessors:'A093,A072,A069', predLinks:'A093:3:149,A072:1:0,A069:1:0', wbs:'1.8', wbsFull:'1.8.6.2', mppTaskId:'118', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-04-01', finishDate:'2027-12-15', mppES:'2027-04-01', mppEF:'2027-12-15', mppLS:'2027-04-01', mppLF:'2027-12-15', mppTF:0, mppCritical:true },
+    { id:'A095', name:'Excavation - Backfill Last H/O', duration:160, predecessors:'A094', predLinks:'A094:1:0', wbs:'1.8', wbsFull:'1.8.6.3', mppTaskId:'119', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-12-16', finishDate:'2028-05-24', mppES:'2027-12-16', mppEF:'2028-05-24', mppLS:'2028-09-07', mppLF:'2029-02-14', mppTF:2660, mppCritical:false },
+    { id:'A096', name:'Excavation - Backfill Remaining', duration:104, predecessors:'A095', predLinks:'A095:1:0', wbs:'1.8', wbsFull:'1.8.6.4', mppTaskId:'120', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-25', finishDate:'2028-09-06', mppES:'2028-05-25', mppEF:'2028-09-06', mppLS:'2029-02-15', mppLF:'2029-05-30', mppTF:2660, mppCritical:false },
+    { id:'A097', name:'Main Steel Work', duration:377, predecessors:'A094,A073', predLinks:'A094:1:0,A073:1:0', wbs:'1.8', wbsFull:'1.8.6.5', mppTaskId:'121', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-12-16', finishDate:'2028-12-27', mppES:'2027-12-16', mppEF:'2028-12-27', mppLS:'2027-12-16', mppLF:'2028-12-27', mppTF:0, mppCritical:true },
+    { id:'A098', name:'Equipment Install (incl. E.I,P)', duration:307, predecessors:'A097', predLinks:'A097:3:196', wbs:'1.8', wbsFull:'1.8.6.6', mppTaskId:'122', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-06-29', finishDate:'2029-05-02', mppES:'2028-06-29', mppEF:'2029-05-02', mppLS:'2028-06-29', mppLF:'2029-05-02', mppTF:0, mppCritical:true },
+    { id:'A099', name:'Cold Run', duration:90, predecessors:'A098,A096', predLinks:'A098:0:28,A096:0:0', wbs:'1.8', wbsFull:'1.8.6.7', mppTaskId:'123', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-03-01', finishDate:'2029-05-30', mppES:'2029-03-01', mppEF:'2029-05-30', mppLS:'2029-03-01', mppLF:'2029-05-30', mppTF:0, mppCritical:true },
+    { id:'A100', name:'Piling Work', duration:265, predecessors:'A067', predLinks:'A067:1:0', wbs:'1.8', wbsFull:'1.8.7.1', mppTaskId:'125', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-07-26', mppES:'2026-11-03', mppEF:'2027-07-26', mppLS:'2026-11-03', mppLF:'2027-07-26', mppTF:0, mppCritical:true },
+    { id:'A101', name:'Excavation - Backfill 1st H/O', duration:258, predecessors:'A100,A072,A069', predLinks:'A100:3:149,A072:1:0,A069:1:0', wbs:'1.8', wbsFull:'1.8.7.2', mppTaskId:'126', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-04-01', finishDate:'2027-12-15', mppES:'2027-04-01', mppEF:'2027-12-15', mppLS:'2027-04-01', mppLF:'2027-12-15', mppTF:0, mppCritical:true },
+    { id:'A102', name:'Excavation - Backfill Last H/O', duration:160, predecessors:'A101', predLinks:'A101:1:0', wbs:'1.8', wbsFull:'1.8.7.3', mppTaskId:'127', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-12-16', finishDate:'2028-05-24', mppES:'2027-12-16', mppEF:'2028-05-24', mppLS:'2028-09-07', mppLF:'2029-02-14', mppTF:2660, mppCritical:false },
+    { id:'A103', name:'Excavation - Backfill Remaining', duration:104, predecessors:'A102', predLinks:'A102:1:0', wbs:'1.8', wbsFull:'1.8.7.4', mppTaskId:'128', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-25', finishDate:'2028-09-06', mppES:'2028-05-25', mppEF:'2028-09-06', mppLS:'2029-02-15', mppLF:'2029-05-30', mppTF:2660, mppCritical:false },
+    { id:'A104', name:'Main Steel Work', duration:377, predecessors:'A101,A073', predLinks:'A101:1:0,A073:1:0', wbs:'1.8', wbsFull:'1.8.7.5', mppTaskId:'129', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-12-16', finishDate:'2028-12-27', mppES:'2027-12-16', mppEF:'2028-12-27', mppLS:'2027-12-16', mppLF:'2028-12-27', mppTF:0, mppCritical:true },
+    { id:'A105', name:'Equipment Install (incl. E.I,P)', duration:272, predecessors:'A104', predLinks:'A104:3:196', wbs:'1.8', wbsFull:'1.8.7.6', mppTaskId:'130', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-06-29', finishDate:'2029-03-28', mppES:'2028-06-29', mppEF:'2029-03-28', mppLS:'2028-06-29', mppLF:'2029-03-28', mppTF:0, mppCritical:true },
+    { id:'A106', name:'Cold Run', duration:90, predecessors:'A105,A103', predLinks:'A105:0:63,A103:0:0', wbs:'1.8', wbsFull:'1.8.7.7', mppTaskId:'131', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-03-01', finishDate:'2029-05-30', mppES:'2029-03-01', mppEF:'2029-05-30', mppLS:'2029-03-01', mppLF:'2029-05-30', mppTF:0, mppCritical:true },
+    { id:'A107', name:'HOT-RUN in SMP/CCM Phase 2', duration:90, predecessors:'A106,A099,A092', predLinks:'A106:1:0,A099:1:0,A092:1:0', wbs:'1.8', wbsFull:'1.8.7.8', mppTaskId:'132', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-05-31', finishDate:'2029-08-29', mppES:'2029-05-31', mppEF:'2029-08-29', mppLS:'2029-05-31', mppLF:'2029-08-29', mppTF:0, mppCritical:true },
+    { id:'A108', name:'Engineering Service Agreement for HRM', duration:0, predecessors:'', predLinks:'', wbs:'1.9', wbsFull:'1.9.1.1', mppTaskId:'135', isMilestone:true, constraintType:'4', constraintDate:'2026-01-01', startDate:'2026-01-01', finishDate:'2026-01-01', mppES:'2026-01-01', mppEF:'2026-01-01', mppLS:'2026-09-03', mppLF:'2026-09-03', mppTF:2450, mppCritical:false },
+    { id:'A109', name:'1st(M+1) Inform for HRM', duration:0, predecessors:'A108', predLinks:'A108:1:0', wbs:'1.9', wbsFull:'1.9.1.2', mppTaskId:'136', isMilestone:true, constraintType:'4', constraintDate:'2026-01-31', startDate:'2026-01-31', finishDate:'2026-01-31', mppES:'2026-01-31', mppEF:'2026-01-31', mppLS:'2026-09-03', mppLF:'2026-09-03', mppTF:2150, mppCritical:false },
+    { id:'A110', name:'2nd(M+3) Inform for HRM', duration:0, predecessors:'A109', predLinks:'A109:1:0', wbs:'1.9', wbsFull:'1.9.1.3', mppTaskId:'137', isMilestone:true, constraintType:'4', constraintDate:'2026-03-31', startDate:'2026-03-31', finishDate:'2026-03-31', mppES:'2026-03-31', mppEF:'2026-03-31', mppLS:'2026-09-03', mppLF:'2026-09-03', mppTF:1560, mppCritical:false },
+    { id:'A111', name:'(M+3) Inform for HRM (Outsourcing)', duration:0, predecessors:'', predLinks:'', wbs:'1.9', wbsFull:'1.9.1.4', mppTaskId:'138', isMilestone:true, constraintType:'4', constraintDate:'2026-03-31', startDate:'2026-03-31', finishDate:'2026-03-31', mppES:'2026-03-31', mppEF:'2026-03-31', mppLS:'2026-09-03', mppLF:'2026-09-03', mppTF:1560, mppCritical:false },
+    { id:'A112', name:'Engineering Service Agreement', duration:0, predecessors:'A109', predLinks:'A109:1:0', wbs:'1.9', wbsFull:'1.9.1.5', mppTaskId:'139', isMilestone:true, constraintType:'4', constraintDate:'2026-02-15', startDate:'2026-02-15', finishDate:'2026-02-15', mppES:'2026-02-15', mppEF:'2026-02-15', mppLS:'2026-09-03', mppLF:'2026-09-03', mppTF:2000, mppCritical:false },
+    { id:'A113', name:'IFR(Permit) for Pile/FDN', duration:125, predecessors:'A110,A112,A111', predLinks:'A110:1:0,A112:1:0,A111:1:0', wbs:'1.9', wbsFull:'1.9.1.6', mppTaskId:'140', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-03-31', finishDate:'2026-08-03', mppES:'2026-03-31', mppEF:'2026-08-03', mppLS:'2026-09-03', mppLF:'2027-01-06', mppTF:1560, mppCritical:false },
+    { id:'A114', name:'Pile/FDN Permit', duration:90, predecessors:'A113', predLinks:'A113:1:0', wbs:'1.9', wbsFull:'1.9.1.7', mppTaskId:'141', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-08-04', finishDate:'2026-11-02', mppES:'2026-08-04', mppEF:'2026-11-02', mppLS:'2027-01-07', mppLF:'2027-04-07', mppTF:1560, mppCritical:false },
+    { id:'A115', name:'Ready for Pile Work', duration:0, predecessors:'A114', predLinks:'A114:1:0', wbs:'1.9', wbsFull:'1.9.1.8', mppTaskId:'142', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-11-02', finishDate:'2026-11-02', mppES:'2026-11-02', mppEF:'2026-11-02', mppLS:'2027-04-08', mppLF:'2027-04-08', mppTF:1560, mppCritical:false },
+    { id:'A116', name:'Pile/FDN Permit Rev.', duration:27, predecessors:'A114', predLinks:'A114:1:0', wbs:'1.9', wbsFull:'1.9.1.9', mppTaskId:'143', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2026-11-30', mppES:'2026-11-03', mppEF:'2026-11-30', mppLS:'2027-07-08', mppLF:'2027-08-04', mppTF:2470, mppCritical:false },
+    { id:'A117', name:'Ready for FDN Work', duration:0, predecessors:'A116', predLinks:'A116:1:0', wbs:'1.9', wbsFull:'1.9.1.10', mppTaskId:'144', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-11-30', finishDate:'2026-11-30', mppES:'2026-11-30', mppEF:'2026-11-30', mppLS:'2027-08-05', mppLF:'2027-08-05', mppTF:2470, mppCritical:false },
+    { id:'A118', name:'3rd(M+6) Inform for HRM', duration:0, predecessors:'', predLinks:'', wbs:'1.9', wbsFull:'1.9.2.1', mppTaskId:'146', isMilestone:true, constraintType:'4', constraintDate:'2026-06-30', startDate:'2026-06-30', finishDate:'2026-06-30', mppES:'2026-06-30', mppEF:'2026-06-30', mppLS:'2027-01-07', mppLF:'2027-01-07', mppTF:1910, mppCritical:false },
+    { id:'A119', name:'IFR(Permit) for Steel', duration:125, predecessors:'A118', predLinks:'A118:1:0', wbs:'1.9', wbsFull:'1.9.2.2', mppTaskId:'147', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-06-30', finishDate:'2026-11-02', mppES:'2026-06-30', mppEF:'2026-11-02', mppLS:'2027-01-07', mppLF:'2027-05-12', mppTF:1910, mppCritical:false },
+    { id:'A120', name:'Arch/STR Permit', duration:83, predecessors:'A119', predLinks:'A119:1:0', wbs:'1.9', wbsFull:'1.9.2.3', mppTaskId:'148', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-01-25', mppES:'2026-11-03', mppEF:'2027-01-25', mppLS:'2027-05-13', mppLF:'2027-08-04', mppTF:1910, mppCritical:false },
+    { id:'A121', name:'Ready for STR Work', duration:0, predecessors:'A120', predLinks:'A120:1:0', wbs:'1.9', wbsFull:'1.9.2.4', mppTaskId:'149', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2027-01-25', finishDate:'2027-01-25', mppES:'2027-01-25', mppEF:'2027-01-25', mppLS:'2028-05-04', mppLF:'2028-05-04', mppTF:4640, mppCritical:false },
+    { id:'A122', name:'4th(M+12) Inform for HRM', duration:0, predecessors:'', predLinks:'', wbs:'1.9', wbsFull:'1.9.2.5', mppTaskId:'150', isMilestone:true, constraintType:'4', constraintDate:'2026-12-31', startDate:'2026-12-31', finishDate:'2026-12-31', mppES:'2026-12-31', mppEF:'2026-12-31', mppLS:'2029-07-05', mppLF:'2029-07-05', mppTF:9170, mppCritical:false },
+    { id:'A123', name:'Engineering Revision', duration:27, predecessors:'A122', predLinks:'A122:1:0', wbs:'1.9', wbsFull:'1.9.2.6', mppTaskId:'151', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-31', finishDate:'2027-01-27', mppES:'2026-12-31', mppEF:'2027-01-27', mppLS:'2029-07-05', mppLF:'2029-08-01', mppTF:9170, mppCritical:false },
+    { id:'A124', name:'5th(M+14) Inform for HRM', duration:0, predecessors:'', predLinks:'', wbs:'1.9', wbsFull:'1.9.2.7', mppTaskId:'152', isMilestone:true, constraintType:'4', constraintDate:'2027-02-28', startDate:'2027-02-28', finishDate:'2027-02-28', mppES:'2027-02-28', mppEF:'2027-02-28', mppLS:'2029-08-02', mppLF:'2029-08-02', mppTF:8860, mppCritical:false },
+    { id:'A125', name:'Engineering Revision', duration:27, predecessors:'A124,A123', predLinks:'A124:1:0,A123:1:0', wbs:'1.9', wbsFull:'1.9.2.8', mppTaskId:'153', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-02-28', finishDate:'2027-03-27', mppES:'2027-02-28', mppEF:'2027-03-27', mppLS:'2029-08-02', mppLF:'2029-08-29', mppTF:8860, mppCritical:false },
+    { id:'A126', name:'Piling Work', duration:181, predecessors:'A115', predLinks:'A115:1:0', wbs:'1.9', wbsFull:'1.9.3.1', mppTaskId:'155', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-05-03', mppES:'2026-11-03', mppEF:'2027-05-03', mppLS:'2027-04-08', mppLF:'2027-10-06', mppTF:1560, mppCritical:false },
+    { id:'A127', name:'Excavation - Backfill 1st H/O', duration:300, predecessors:'A120,A126,A117', predLinks:'A120:1:0,A126:3:119,A117:1:0', wbs:'1.9', wbsFull:'1.9.3.2', mppTaskId:'156', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-03-02', finishDate:'2027-12-27', mppES:'2027-03-02', mppEF:'2027-12-27', mppLS:'2027-08-05', mppLF:'2028-05-31', mppTF:1560, mppCritical:false },
+    { id:'A128', name:'Excavation - Backfill Last H/O', duration:146, predecessors:'A127', predLinks:'A127:1:0', wbs:'1.9', wbsFull:'1.9.3.3', mppTaskId:'157', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-12-28', finishDate:'2028-05-22', mppES:'2027-12-28', mppEF:'2028-05-22', mppLS:'2028-12-28', mppLF:'2029-05-23', mppTF:3660, mppCritical:false },
+    { id:'A129', name:'Excavation - Backfill Remaining', duration:55, predecessors:'A128', predLinks:'A128:1:0', wbs:'1.9', wbsFull:'1.9.3.4', mppTaskId:'158', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-23', finishDate:'2028-07-17', mppES:'2028-05-23', mppEF:'2028-07-17', mppLS:'2029-05-24', mppLF:'2029-07-18', mppTF:3660, mppCritical:false },
+    { id:'A130', name:'Main Steel Work', duration:202, predecessors:'A127,A121', predLinks:'A127:1:0,A121:1:0', wbs:'1.9', wbsFull:'1.9.3.5', mppTaskId:'159', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-12-28', finishDate:'2028-07-17', mppES:'2027-12-28', mppEF:'2028-07-17', mppLS:'2028-06-01', mppLF:'2028-12-20', mppTF:1560, mppCritical:false },
+    { id:'A131', name:'Equipment Install (incl. E.I,P)', duration:209, predecessors:'A130', predLinks:'A130:3:126', wbs:'1.9', wbsFull:'1.9.3.6', mppTaskId:'160', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-02', finishDate:'2028-11-27', mppES:'2028-05-02', mppEF:'2028-11-27', mppLS:'2028-10-05', mppLF:'2029-05-02', mppTF:1560, mppCritical:false },
+    { id:'A132', name:'Cold Run / Hot Run (Dry Out)', duration:104, predecessors:'A131,A129', predLinks:'A131:0:77,A129:0:0', wbs:'1.9', wbsFull:'1.9.3.7', mppTaskId:'161', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-10-31', finishDate:'2029-02-12', mppES:'2028-10-31', mppEF:'2029-02-12', mppLS:'2029-04-05', mppLF:'2029-07-18', mppTF:1560, mppCritical:false },
+    { id:'A133', name:'Piling Work', duration:209, predecessors:'A115', predLinks:'A115:1:0', wbs:'1.9', wbsFull:'1.9.4.1', mppTaskId:'163', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-05-31', mppES:'2026-11-03', mppEF:'2027-05-31', mppLS:'2027-04-08', mppLF:'2027-11-03', mppTF:1560, mppCritical:false },
+    { id:'A134', name:'Excavation - Backfill 1st H/O', duration:258, predecessors:'A120,A133,A117', predLinks:'A120:1:0,A133:3:133,A117:1:0', wbs:'1.9', wbsFull:'1.9.4.2', mppTaskId:'164', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-03-16', finishDate:'2027-11-29', mppES:'2027-03-16', mppEF:'2027-11-29', mppLS:'2027-08-19', mppLF:'2028-05-03', mppTF:1560, mppCritical:false },
+    { id:'A135', name:'Excavation - Backfill Last H/O', duration:167, predecessors:'A134', predLinks:'A134:1:0', wbs:'1.9', wbsFull:'1.9.4.3', mppTaskId:'165', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-11-30', finishDate:'2028-05-15', mppES:'2027-11-30', mppEF:'2028-05-15', mppLS:'2028-11-02', mppLF:'2029-04-18', mppTF:3380, mppCritical:false },
+    { id:'A136', name:'Excavation - Backfill Remaining', duration:90, predecessors:'A135', predLinks:'A135:1:0', wbs:'1.9', wbsFull:'1.9.4.4', mppTaskId:'166', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-16', finishDate:'2028-08-14', mppES:'2028-05-16', mppEF:'2028-08-14', mppLS:'2029-04-19', mppLF:'2029-07-18', mppTF:3380, mppCritical:false },
+    { id:'A137', name:'Main Steel Work', duration:223, predecessors:'A134,A121', predLinks:'A134:1:0,A121:1:0', wbs:'1.9', wbsFull:'1.9.4.5', mppTaskId:'167', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-11-30', finishDate:'2028-07-10', mppES:'2027-11-30', mppEF:'2028-07-10', mppLS:'2028-05-04', mppLF:'2028-12-13', mppTF:1560, mppCritical:false },
+    { id:'A138', name:'Equipment Install (incl. E.I,P)', duration:181, predecessors:'A137', predLinks:'A137:3:182', wbs:'1.9', wbsFull:'1.9.4.6', mppTaskId:'168', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-30', finishDate:'2028-11-27', mppES:'2028-05-30', mppEF:'2028-11-27', mppLS:'2028-11-02', mppLF:'2029-05-02', mppTF:1560, mppCritical:false },
+    { id:'A139', name:'Cold Run', duration:104, predecessors:'A138,A136', predLinks:'A138:0:77,A136:0:0', wbs:'1.9', wbsFull:'1.9.4.7', mppTaskId:'169', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-10-31', finishDate:'2029-02-12', mppES:'2028-10-31', mppEF:'2029-02-12', mppLS:'2029-04-05', mppLF:'2029-07-18', mppTF:1560, mppCritical:false },
+    { id:'A140', name:'Piling Work', duration:209, predecessors:'A115', predLinks:'A115:1:0', wbs:'1.9', wbsFull:'1.9.5.1', mppTaskId:'171', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-05-31', mppES:'2026-11-03', mppEF:'2027-05-31', mppLS:'2027-06-03', mppLF:'2027-12-29', mppTF:2120, mppCritical:false },
+    { id:'A141', name:'Excavation - Backfill 1st H/O', duration:230, predecessors:'A120,A140,A117', predLinks:'A120:1:0,A140:3:119,A117:1:0', wbs:'1.9', wbsFull:'1.9.5.2', mppTaskId:'172', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-03-02', finishDate:'2027-10-18', mppES:'2027-03-02', mppEF:'2027-10-18', mppLS:'2027-09-30', mppLF:'2028-05-17', mppTF:2120, mppCritical:false },
+    { id:'A142', name:'Excavation - Backfill Last H/O', duration:167, predecessors:'A141', predLinks:'A141:1:0', wbs:'1.9', wbsFull:'1.9.5.3', mppTaskId:'173', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-19', finishDate:'2028-04-03', mppES:'2027-10-19', mppEF:'2028-04-03', mppLS:'2028-09-28', mppLF:'2029-03-14', mppTF:3450, mppCritical:false },
+    { id:'A143', name:'Excavation - Backfill Remaining', duration:125, predecessors:'A142', predLinks:'A142:1:0', wbs:'1.9', wbsFull:'1.9.5.4', mppTaskId:'174', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-04-04', finishDate:'2028-08-07', mppES:'2028-04-04', mppEF:'2028-08-07', mppLS:'2029-03-15', mppLF:'2029-07-18', mppTF:3450, mppCritical:false },
+    { id:'A144', name:'Main Steel Work', duration:237, predecessors:'A141,A121', predLinks:'A141:1:0,A121:1:0', wbs:'1.9', wbsFull:'1.9.5.5', mppTaskId:'175', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-19', finishDate:'2028-06-12', mppES:'2027-10-19', mppEF:'2028-06-12', mppLS:'2028-05-18', mppLF:'2029-01-10', mppTF:2120, mppCritical:false },
+    { id:'A145', name:'Equipment Install (incl. E.I,P)', duration:181, predecessors:'A144', predLinks:'A144:3:168', wbs:'1.9', wbsFull:'1.9.5.6', mppTaskId:'176', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-04-04', finishDate:'2028-10-02', mppES:'2028-04-04', mppEF:'2028-10-02', mppLS:'2028-11-02', mppLF:'2029-05-02', mppTF:2120, mppCritical:false },
+    { id:'A146', name:'Cold Run', duration:104, predecessors:'A145,A143,A139', predLinks:'A145:0:77,A143:0:0,A139:3:0', wbs:'1.9', wbsFull:'1.9.5.7', mppTaskId:'177', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-10-31', finishDate:'2029-02-12', mppES:'2028-10-31', mppEF:'2029-02-12', mppLS:'2029-04-05', mppLF:'2029-07-18', mppTF:1560, mppCritical:false },
+    { id:'A147', name:'Soil Impr. - Surcharge Completion', duration:125, predecessors:'', predLinks:'', wbs:'1.9', wbsFull:'1.9.6.1', mppTaskId:'179', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-03-01', finishDate:'2026-07-04', mppES:'2026-03-01', mppEF:'2026-07-04', mppLS:'2027-01-19', mppLF:'2027-05-24', mppTF:3240, mppCritical:false },
+    { id:'A148', name:'Soil Impr. - H/O', duration:118, predecessors:'A147', predLinks:'A147:1:0', wbs:'1.9', wbsFull:'1.9.6.2', mppTaskId:'180', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-07-05', finishDate:'2026-10-31', mppES:'2026-07-05', mppEF:'2026-10-31', mppLS:'2027-05-25', mppLF:'2027-09-20', mppTF:3240, mppCritical:false },
+    { id:'A149', name:'Piling Work', duration:209, predecessors:'A115,A148', predLinks:'A115:1:0,A148:1:0', wbs:'1.9', wbsFull:'1.9.6.3', mppTaskId:'181', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-11-03', finishDate:'2027-05-31', mppES:'2026-11-03', mppEF:'2027-05-31', mppLS:'2027-09-21', mppLF:'2028-04-17', mppTF:3220, mppCritical:false },
+    { id:'A150', name:'Excavation - Backfill 1st H/O', duration:160, predecessors:'A120,A149,A117', predLinks:'A120:1:0,A149:3:163,A117:1:0', wbs:'1.9', wbsFull:'1.9.6.4', mppTaskId:'182', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-04-15', finishDate:'2027-09-22', mppES:'2027-04-15', mppEF:'2027-09-22', mppLS:'2028-03-02', mppLF:'2028-08-09', mppTF:3220, mppCritical:false },
+    { id:'A151', name:'Excavation - Backfill Last H/O', duration:104, predecessors:'A150', predLinks:'A150:1:0', wbs:'1.9', wbsFull:'1.9.6.5', mppTaskId:'183', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-23', finishDate:'2028-01-05', mppES:'2027-09-23', mppEF:'2028-01-05', mppLS:'2028-12-14', mppLF:'2029-03-28', mppTF:4480, mppCritical:false },
+    { id:'A152', name:'Excavation - Backfill Remaining', duration:111, predecessors:'A151', predLinks:'A151:1:0', wbs:'1.9', wbsFull:'1.9.6.6', mppTaskId:'184', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-01-06', finishDate:'2028-04-26', mppES:'2028-01-06', mppEF:'2028-04-26', mppLS:'2029-03-29', mppLF:'2029-07-18', mppTF:4480, mppCritical:false },
+    { id:'A153', name:'Main Steel Work', duration:174, predecessors:'A150,A121', predLinks:'A150:1:0,A121:1:0', wbs:'1.9', wbsFull:'1.9.6.7', mppTaskId:'185', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-23', finishDate:'2028-03-15', mppES:'2027-09-23', mppEF:'2028-03-15', mppLS:'2028-08-10', mppLF:'2029-01-31', mppTF:3220, mppCritical:false },
+    { id:'A154', name:'Equipment Install (incl. E.I,P)', duration:188, predecessors:'A153', predLinks:'A153:3:126', wbs:'1.9', wbsFull:'1.9.6.8', mppTaskId:'186', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-01-27', finishDate:'2028-08-02', mppES:'2028-01-27', mppEF:'2028-08-02', mppLS:'2028-12-14', mppLF:'2029-06-20', mppTF:3220, mppCritical:false },
+    { id:'A155', name:'Cold Run', duration:104, predecessors:'A154,A152,A146', predLinks:'A154:0:28,A152:0:0,A146:3:0', wbs:'1.9', wbsFull:'1.9.6.9', mppTaskId:'187', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-10-31', finishDate:'2029-02-12', mppES:'2028-10-31', mppEF:'2029-02-12', mppLS:'2029-04-05', mppLF:'2029-07-18', mppTF:1560, mppCritical:false },
+    { id:'A156', name:'HOT-RUN in HRM', duration:41, predecessors:'A146,A155,A132,A139', predLinks:'A146:1:0,A155:1:0,A132:1:0,A139:1:0', wbs:'1.9', wbsFull:'1.9.7', mppTaskId:'188', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-02-13', finishDate:'2029-03-26', mppES:'2029-02-13', mppEF:'2029-03-26', mppLS:'2029-07-19', mppLF:'2029-08-29', mppTF:1560, mppCritical:false },
+    { id:'A157', name:'Engineering Service Agreement for CRM', duration:0, predecessors:'', predLinks:'', wbs:'1.10', wbsFull:'1.10.1.1', mppTaskId:'191', isMilestone:true, constraintType:'4', constraintDate:'2026-01-01', startDate:'2026-01-01', finishDate:'2026-01-01', mppES:'2026-01-01', mppEF:'2026-01-01', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:13370, mppCritical:false },
+    { id:'A158', name:'1st(M+1) Inform for CRM', duration:0, predecessors:'', predLinks:'', wbs:'1.10', wbsFull:'1.10.1.2', mppTaskId:'192', isMilestone:true, constraintType:'4', constraintDate:'2026-01-31', startDate:'2026-01-31', finishDate:'2026-01-31', mppES:'2026-01-31', mppEF:'2026-01-31', mppLS:'2026-07-02', mppLF:'2026-07-02', mppTF:1520, mppCritical:false },
+    { id:'A159', name:'2nd(M+4) Inform for CRM', duration:0, predecessors:'A158', predLinks:'A158:1:0', wbs:'1.10', wbsFull:'1.10.1.3', mppTaskId:'193', isMilestone:true, constraintType:'4', constraintDate:'2026-04-30', startDate:'2026-04-30', finishDate:'2026-04-30', mppES:'2026-04-30', mppEF:'2026-04-30', mppLS:'2026-07-02', mppLF:'2026-07-02', mppTF:630, mppCritical:false },
+    { id:'A160', name:'(M+3) Inform for CRM (Outsourcing)', duration:0, predecessors:'', predLinks:'', wbs:'1.10', wbsFull:'1.10.1.4', mppTaskId:'194', isMilestone:true, constraintType:'4', constraintDate:'2026-03-31', startDate:'2026-03-31', finishDate:'2026-03-31', mppES:'2026-03-31', mppEF:'2026-03-31', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:12480, mppCritical:false },
+    { id:'A161', name:'Engineering Service Agreement', duration:0, predecessors:'A158', predLinks:'A158:1:0', wbs:'1.10', wbsFull:'1.10.1.5', mppTaskId:'195', isMilestone:true, constraintType:'4', constraintDate:'2026-02-15', startDate:'2026-02-15', finishDate:'2026-02-15', mppES:'2026-02-15', mppEF:'2026-02-15', mppLS:'2026-07-02', mppLF:'2026-07-02', mppTF:1370, mppCritical:false },
+    { id:'A162', name:'IFR(Permit) for Pile/FDN', duration:125, predecessors:'A159,A161', predLinks:'A159:1:0,A161:1:0', wbs:'1.10', wbsFull:'1.10.1.6', mppTaskId:'196', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-04-30', finishDate:'2026-09-02', mppES:'2026-04-30', mppEF:'2026-09-02', mppLS:'2026-07-02', mppLF:'2026-11-04', mppTF:630, mppCritical:false },
+    { id:'A163', name:'Pile/FDN Permit', duration:90, predecessors:'A162', predLinks:'A162:1:0', wbs:'1.10', wbsFull:'1.10.1.7', mppTaskId:'197', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-09-03', finishDate:'2026-12-02', mppES:'2026-09-03', mppEF:'2026-12-02', mppLS:'2026-11-05', mppLF:'2027-02-03', mppTF:630, mppCritical:false },
+    { id:'A164', name:'Ready for Pile Work', duration:0, predecessors:'A163', predLinks:'A163:1:0', wbs:'1.10', wbsFull:'1.10.1.8', mppTaskId:'198', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-12-02', finishDate:'2026-12-02', mppES:'2026-12-02', mppEF:'2026-12-02', mppLS:'2027-02-04', mppLF:'2027-02-04', mppTF:630, mppCritical:false },
+    { id:'A165', name:'Pile/FDN Permit Rev.', duration:27, predecessors:'A163', predLinks:'A163:1:0', wbs:'1.10', wbsFull:'1.10.1.9', mppTaskId:'199', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2026-12-30', mppES:'2026-12-03', mppEF:'2026-12-30', mppLS:'2027-03-11', mppLF:'2027-04-07', mppTF:980, mppCritical:false },
+    { id:'A166', name:'Ready for FDN Work', duration:0, predecessors:'A165', predLinks:'A165:1:0', wbs:'1.10', wbsFull:'1.10.1.10', mppTaskId:'200', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-12-30', finishDate:'2026-12-30', mppES:'2026-12-30', mppEF:'2026-12-30', mppLS:'2027-04-08', mppLF:'2027-04-08', mppTF:980, mppCritical:false },
+    { id:'A167', name:'3rd(M+6) Inform for CRM', duration:0, predecessors:'A159', predLinks:'A159:1:0', wbs:'1.10', wbsFull:'1.10.2.1', mppTaskId:'202', isMilestone:true, constraintType:'4', constraintDate:'2026-06-30', startDate:'2026-06-30', finishDate:'2026-06-30', mppES:'2026-06-30', mppEF:'2026-06-30', mppLS:'2027-04-29', mppLF:'2027-04-29', mppTF:3030, mppCritical:false },
+    { id:'A168', name:'IFR(Permit) for Steel', duration:125, predecessors:'A167', predLinks:'A167:1:28', wbs:'1.10', wbsFull:'1.10.2.2', mppTaskId:'203', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-07-28', finishDate:'2026-11-30', mppES:'2026-07-28', mppEF:'2026-11-30', mppLS:'2027-05-27', mppLF:'2027-09-29', mppTF:3030, mppCritical:false },
+    { id:'A169', name:'Arch/STR Permit', duration:90, predecessors:'A168', predLinks:'A168:1:0', wbs:'1.10', wbsFull:'1.10.2.3', mppTaskId:'204', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-01', finishDate:'2027-03-01', mppES:'2026-12-01', mppEF:'2027-03-01', mppLS:'2027-09-30', mppLF:'2027-12-29', mppTF:3030, mppCritical:false },
+    { id:'A170', name:'Ready for STR Work', duration:0, predecessors:'A169', predLinks:'A169:1:0', wbs:'1.10', wbsFull:'1.10.2.4', mppTaskId:'205', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2027-03-01', finishDate:'2027-03-01', mppES:'2027-03-01', mppEF:'2027-03-01', mppLS:'2027-12-30', mppLF:'2027-12-30', mppTF:3030, mppCritical:false },
+    { id:'A171', name:'4th(M+12) Inform for CRM', duration:0, predecessors:'A167', predLinks:'A167:1:0', wbs:'1.10', wbsFull:'1.10.2.5', mppTaskId:'206', isMilestone:true, constraintType:'4', constraintDate:'2026-12-31', startDate:'2026-12-31', finishDate:'2026-12-31', mppES:'2026-12-31', mppEF:'2026-12-31', mppLS:'2029-05-10', mppLF:'2029-05-10', mppTF:8610, mppCritical:false },
+    { id:'A172', name:'Engineering Revision', duration:27, predecessors:'A171', predLinks:'A171:1:0', wbs:'1.10', wbsFull:'1.10.2.6', mppTaskId:'207', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-31', finishDate:'2027-01-27', mppES:'2026-12-31', mppEF:'2027-01-27', mppLS:'2029-05-10', mppLF:'2029-06-06', mppTF:8610, mppCritical:false },
+    { id:'A173', name:'5th(M+14) Inform for CRM', duration:0, predecessors:'A171', predLinks:'A171:1:0', wbs:'1.10', wbsFull:'1.10.2.7', mppTaskId:'208', isMilestone:true, constraintType:'4', constraintDate:'2027-02-28', startDate:'2027-02-28', finishDate:'2027-02-28', mppES:'2027-02-28', mppEF:'2027-02-28', mppLS:'2029-06-07', mppLF:'2029-06-07', mppTF:8300, mppCritical:false },
+    { id:'A174', name:'Engineering Revision', duration:27, predecessors:'A173,A172', predLinks:'A173:1:0,A172:1:0', wbs:'1.10', wbsFull:'1.10.2.8', mppTaskId:'209', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-02-28', finishDate:'2027-03-27', mppES:'2027-02-28', mppEF:'2027-03-27', mppLS:'2029-06-07', mppLF:'2029-07-04', mppTF:8300, mppCritical:false },
+    { id:'A175', name:'Soil Impr. - Surcharge Completion', duration:125, predecessors:'', predLinks:'', wbs:'1.10', wbsFull:'1.10.3.1', mppTaskId:'211', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-03-01', finishDate:'2026-07-04', mppES:'2026-03-01', mppEF:'2026-07-04', mppLS:'2026-09-03', mppLF:'2027-01-06', mppTF:1860, mppCritical:false },
+    { id:'A176', name:'Soil Impr. - H/O', duration:118, predecessors:'A175', predLinks:'A175:1:0', wbs:'1.10', wbsFull:'1.10.3.2', mppTaskId:'212', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-07-05', finishDate:'2026-10-31', mppES:'2026-07-05', mppEF:'2026-10-31', mppLS:'2027-01-07', mppLF:'2027-05-05', mppTF:1860, mppCritical:false },
+    { id:'A177', name:'Piling Work', duration:209, predecessors:'A164,A176,A185', predLinks:'A164:1:0,A176:1:0,A185:1:0', wbs:'1.10', wbsFull:'1.10.3.3', mppTaskId:'213', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2027-06-30', mppES:'2026-12-03', mppEF:'2027-06-30', mppLS:'2027-05-06', mppLF:'2027-12-01', mppTF:1540, mppCritical:false },
+    { id:'A178', name:'Excavation - Backfill 1st H/O', duration:195, predecessors:'A166,A177', predLinks:'A166:1:0,A177:3:133', wbs:'1.10', wbsFull:'1.10.3.4', mppTaskId:'214', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-04-15', finishDate:'2027-10-27', mppES:'2027-04-15', mppEF:'2027-10-27', mppLS:'2027-09-16', mppLF:'2028-03-29', mppTF:1540, mppCritical:false },
+    { id:'A179', name:'Excavation - Backfill Last H/O', duration:209, predecessors:'A178', predLinks:'A178:1:0', wbs:'1.10', wbsFull:'1.10.3.5', mppTaskId:'215', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-28', finishDate:'2028-05-24', mppES:'2027-10-28', mppEF:'2028-05-24', mppLS:'2028-08-17', mppLF:'2029-03-14', mppTF:2940, mppCritical:false },
+    { id:'A180', name:'Excavation - Backfill Remaining', duration:111, predecessors:'A179', predLinks:'A179:1:0', wbs:'1.10', wbsFull:'1.10.3.6', mppTaskId:'216', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-05-25', finishDate:'2028-09-13', mppES:'2028-05-25', mppEF:'2028-09-13', mppLS:'2029-03-15', mppLF:'2029-07-04', mppTF:2940, mppCritical:false },
+    { id:'A181', name:'Main Steel Work', duration:258, predecessors:'A178,A170', predLinks:'A178:1:0,A170:1:0', wbs:'1.10', wbsFull:'1.10.3.7', mppTaskId:'217', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-28', finishDate:'2028-07-12', mppES:'2027-10-28', mppEF:'2028-07-12', mppLS:'2028-03-30', mppLF:'2028-12-13', mppTF:1540, mppCritical:false },
+    { id:'A182', name:'Equipment Install (incl. E.I,P)', duration:188, predecessors:'A181', predLinks:'A181:3:182', wbs:'1.10', wbsFull:'1.10.3.8', mppTaskId:'218', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-04-27', finishDate:'2028-11-01', mppES:'2028-04-27', mppEF:'2028-11-01', mppLS:'2028-09-28', mppLF:'2029-04-04', mppTF:1540, mppCritical:false },
+    { id:'A183', name:'Cold Run', duration:90, predecessors:'A182,A180,A174', predLinks:'A182:1:0,A180:0:0,A174:0:0', wbs:'1.10', wbsFull:'1.10.3.9', mppTaskId:'219', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-11-02', finishDate:'2029-01-31', mppES:'2028-11-02', mppEF:'2029-01-31', mppLS:'2029-04-05', mppLF:'2029-07-04', mppTF:1540, mppCritical:false },
+    { id:'A184', name:'Soil Impr. - Surcharge Completion', duration:90, predecessors:'', predLinks:'', wbs:'1.10', wbsFull:'1.10.4.1', mppTaskId:'221', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-03-01', finishDate:'2026-05-30', mppES:'2026-03-01', mppEF:'2026-05-30', mppLS:'2026-10-01', mppLF:'2026-12-30', mppTF:2140, mppCritical:false },
+    { id:'A185', name:'Soil Impr. - H/O', duration:125, predecessors:'A184', predLinks:'A184:1:0', wbs:'1.10', wbsFull:'1.10.4.2', mppTaskId:'222', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-05-31', finishDate:'2026-10-03', mppES:'2026-05-31', mppEF:'2026-10-03', mppLS:'2026-12-31', mppLF:'2027-05-05', mppTF:2140, mppCritical:false },
+    { id:'A186', name:'Piling Work', duration:146, predecessors:'A164', predLinks:'A164:1:0', wbs:'1.10', wbsFull:'1.10.4.3', mppTaskId:'223', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2027-04-28', mppES:'2026-12-03', mppEF:'2027-04-28', mppLS:'2027-09-13', mppLF:'2028-02-06', mppTF:2840, mppCritical:false },
+    { id:'A187', name:'Excavation - Backfill 1st H/O', duration:251, predecessors:'A166,A186', predLinks:'A166:1:0,A186:3:70', wbs:'1.10', wbsFull:'1.10.4.4', mppTaskId:'224', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-02-11', finishDate:'2027-10-20', mppES:'2027-02-11', mppEF:'2027-10-20', mppLS:'2027-11-22', mppLF:'2028-07-30', mppTF:2840, mppCritical:false },
+    { id:'A188', name:'Excavation - Backfill Last H/O', duration:125, predecessors:'A187', predLinks:'A187:1:0', wbs:'1.10', wbsFull:'1.10.4.5', mppTaskId:'225', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-21', finishDate:'2028-02-23', mppES:'2027-10-21', mppEF:'2028-02-23', mppLS:'2028-10-12', mppLF:'2029-02-14', mppTF:3570, mppCritical:false },
+    { id:'A189', name:'Excavation - Backfill Remaining', duration:139, predecessors:'A188', predLinks:'A188:1:0', wbs:'1.10', wbsFull:'1.10.4.6', mppTaskId:'226', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-02-24', finishDate:'2028-07-12', mppES:'2028-02-24', mppEF:'2028-07-12', mppLS:'2029-02-15', mppLF:'2029-07-04', mppTF:3570, mppCritical:false },
+    { id:'A190', name:'Main Steel Work', duration:230, predecessors:'A187,A170', predLinks:'A187:1:0,A170:1:0', wbs:'1.10', wbsFull:'1.10.4.7', mppTaskId:'227', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-21', finishDate:'2028-06-07', mppES:'2027-10-21', mppEF:'2028-06-07', mppLS:'2028-07-31', mppLF:'2029-03-18', mppTF:2840, mppCritical:false },
+    { id:'A191', name:'Equipment Install (incl. E.I,P)', duration:181, predecessors:'A190', predLinks:'A190:3:129', wbs:'1.10', wbsFull:'1.10.4.8', mppTaskId:'228', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-02-27', finishDate:'2028-08-26', mppES:'2028-02-27', mppEF:'2028-08-26', mppLS:'2028-12-07', mppLF:'2029-06-06', mppTF:2840, mppCritical:false },
+    { id:'A192', name:'Cold Run', duration:90, predecessors:'A191,A189,A183', predLinks:'A191:0:28,A189:0:0,A183:3:0', wbs:'1.10', wbsFull:'1.10.4.9', mppTaskId:'229', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-11-02', finishDate:'2029-01-31', mppES:'2028-11-02', mppEF:'2029-01-31', mppLS:'2029-04-05', mppLF:'2029-07-04', mppTF:1540, mppCritical:false },
+    { id:'A193', name:'HOT-RUN in PLTCM', duration:55, predecessors:'A183,A192', predLinks:'A183:1:0,A192:1:0', wbs:'1.10', wbsFull:'1.10.5', mppTaskId:'230', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-02-01', finishDate:'2029-03-28', mppES:'2029-02-01', mppEF:'2029-03-28', mppLS:'2029-07-05', mppLF:'2029-08-29', mppTF:1540, mppCritical:false },
+    { id:'A194', name:'Piling Work', duration:209, predecessors:'A164', predLinks:'A164:1:0', wbs:'1.10', wbsFull:'1.10.6.1', mppTaskId:'232', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2027-06-30', mppES:'2026-12-03', mppEF:'2027-06-30', mppLS:'2027-07-08', mppLF:'2028-02-02', mppTF:2170, mppCritical:false },
+    { id:'A195', name:'Excavation - Backfill 1st H/O', duration:188, predecessors:'A194,A166', predLinks:'A194:3:91,A166:1:0', wbs:'1.10', wbsFull:'1.10.6.2', mppTaskId:'233', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-03-04', finishDate:'2027-09-08', mppES:'2027-03-04', mppEF:'2027-09-08', mppLS:'2027-10-07', mppLF:'2028-04-12', mppTF:2170, mppCritical:false },
+    { id:'A196', name:'Excavation - Backfill Last H/O', duration:209, predecessors:'A195', predLinks:'A195:1:0', wbs:'1.10', wbsFull:'1.10.6.3', mppTaskId:'234', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-09', finishDate:'2028-04-05', mppES:'2027-09-09', mppEF:'2028-04-05', mppLS:'2028-07-27', mppLF:'2029-02-21', mppTF:3220, mppCritical:false },
+    { id:'A197', name:'Excavation - Backfill Remaining', duration:132, predecessors:'A196', predLinks:'A196:1:0', wbs:'1.10', wbsFull:'1.10.6.4', mppTaskId:'235', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-04-06', finishDate:'2028-08-16', mppES:'2028-04-06', mppEF:'2028-08-16', mppLS:'2029-02-22', mppLF:'2029-07-04', mppTF:3220, mppCritical:false },
+    { id:'A198', name:'Main Steel Work - Zone 3', duration:202, predecessors:'A195,A170', predLinks:'A195:1:0,A170:1:0', wbs:'1.10', wbsFull:'1.10.6.5', mppTaskId:'236', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-09', finishDate:'2028-03-29', mppES:'2027-09-09', mppEF:'2028-03-29', mppLS:'2028-04-13', mppLF:'2028-11-01', mppTF:2170, mppCritical:false },
+    { id:'A199', name:'Main Steel Work - Zone 2', duration:230, predecessors:'A198', predLinks:'A198:3:49', wbs:'1.10', wbsFull:'1.10.6.6', mppTaskId:'237', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-28', finishDate:'2028-06-14', mppES:'2027-10-28', mppEF:'2028-06-14', mppLS:'2028-06-01', mppLF:'2029-01-17', mppTF:2170, mppCritical:false },
+    { id:'A200', name:'Main Steel Work - Zone 1', duration:160, predecessors:'A199', predLinks:'A199:3:70', wbs:'1.10', wbsFull:'1.10.6.7', mppTaskId:'238', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-01-06', finishDate:'2028-06-14', mppES:'2028-01-06', mppEF:'2028-06-14', mppLS:'2028-08-10', mppLF:'2029-01-17', mppTF:2170, mppCritical:false },
+    { id:'A201', name:'Equipment Install (incl. E.I,P) / FIVES', duration:209, predecessors:'A200', predLinks:'A200:3:28', wbs:'1.10', wbsFull:'1.10.6.8', mppTaskId:'239', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-02-03', finishDate:'2028-08-30', mppES:'2028-02-03', mppEF:'2028-08-30', mppLS:'2028-09-07', mppLF:'2029-04-04', mppTF:2170, mppCritical:false },
+    { id:'A202', name:'Cold Run', duration:118, predecessors:'A201,A197', predLinks:'A201:0:91,A197:0:0', wbs:'1.10', wbsFull:'1.10.6.9', mppTaskId:'240', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-08-03', finishDate:'2028-11-29', mppES:'2028-08-03', mppEF:'2028-11-29', mppLS:'2029-03-08', mppLF:'2029-07-04', mppTF:2170, mppCritical:false },
+    { id:'A203', name:'Piling Work', duration:209, predecessors:'A164', predLinks:'A164:1:0', wbs:'1.10', wbsFull:'1.10.7.1', mppTaskId:'242', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2027-06-30', mppES:'2026-12-03', mppEF:'2027-06-30', mppLS:'2027-05-13', mppLF:'2027-12-08', mppTF:1610, mppCritical:false },
+    { id:'A204', name:'Excavation - Backfill 1st H/O', duration:209, predecessors:'A166,A203', predLinks:'A166:1:0,A203:3:91', wbs:'1.10', wbsFull:'1.10.7.2', mppTaskId:'243', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-03-04', finishDate:'2027-09-29', mppES:'2027-03-04', mppEF:'2027-09-29', mppLS:'2027-08-12', mppLF:'2028-03-08', mppTF:1610, mppCritical:false },
+    { id:'A205', name:'Excavation - Backfill Last H/O', duration:195, predecessors:'A204', predLinks:'A204:1:0', wbs:'1.10', wbsFull:'1.10.7.3', mppTaskId:'244', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-30', finishDate:'2028-04-12', mppES:'2027-09-30', mppEF:'2028-04-12', mppLS:'2028-08-17', mppLF:'2029-02-28', mppTF:3220, mppCritical:false },
+    { id:'A206', name:'Excavation - Backfill Remaining', duration:125, predecessors:'A205', predLinks:'A205:1:0', wbs:'1.10', wbsFull:'1.10.7.4', mppTaskId:'245', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-04-13', finishDate:'2028-08-16', mppES:'2028-04-13', mppEF:'2028-08-16', mppLS:'2029-03-01', mppLF:'2029-07-04', mppTF:3220, mppCritical:false },
+    { id:'A207', name:'Main Steel Work - Zone 4', duration:300, predecessors:'A204,A170', predLinks:'A204:1:0,A170:1:0', wbs:'1.10', wbsFull:'1.10.7.5', mppTaskId:'246', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-30', finishDate:'2028-07-26', mppES:'2027-09-30', mppEF:'2028-07-26', mppLS:'2028-03-09', mppLF:'2029-01-03', mppTF:1610, mppCritical:false },
+    { id:'A208', name:'Main Steel Work - Zone 5', duration:223, predecessors:'A170,A207', predLinks:'A170:1:0,A207:3:77', wbs:'1.10', wbsFull:'1.10.7.6', mppTaskId:'247', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-12-16', finishDate:'2028-07-26', mppES:'2027-12-16', mppEF:'2028-07-26', mppLS:'2028-05-25', mppLF:'2029-01-03', mppTF:1610, mppCritical:false },
+    { id:'A209', name:'Equipment Install (incl. E.I,P) / FIVES', duration:251, predecessors:'A208', predLinks:'A208:3:77', wbs:'1.10', wbsFull:'1.10.7.7', mppTaskId:'248', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-03-02', finishDate:'2028-11-08', mppES:'2028-03-02', mppEF:'2028-11-08', mppLS:'2028-08-10', mppLF:'2029-04-18', mppTF:1610, mppCritical:false },
+    { id:'A210', name:'Cold Run', duration:104, predecessors:'A209,A206', predLinks:'A209:0:77,A206:0:0', wbs:'1.10', wbsFull:'1.10.7.8', mppTaskId:'249', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-10-12', finishDate:'2029-01-24', mppES:'2028-10-12', mppEF:'2029-01-24', mppLS:'2029-03-22', mppLF:'2029-07-04', mppTF:1610, mppCritical:false },
+    { id:'A211', name:'Soil Impr. - Surcharge Completion', duration:153, predecessors:'', predLinks:'', wbs:'1.10', wbsFull:'1.10.8.1', mppTaskId:'251', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-03-01', finishDate:'2026-08-01', mppES:'2026-03-01', mppEF:'2026-08-01', mppLS:'2027-02-18', mppLF:'2027-07-21', mppTF:3540, mppCritical:false },
+    { id:'A212', name:'Soil Impr. - H/O', duration:125, predecessors:'A211', predLinks:'A211:1:0', wbs:'1.10', wbsFull:'1.10.8.2', mppTaskId:'252', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-08-02', finishDate:'2026-12-05', mppES:'2026-08-02', mppEF:'2026-12-05', mppLS:'2027-07-22', mppLF:'2027-11-24', mppTF:3540, mppCritical:false },
+    { id:'A213', name:'Piling Work', duration:83, predecessors:'A164,A212', predLinks:'A164:1:0,A212:0:0', wbs:'1.10', wbsFull:'1.10.8.3', mppTaskId:'253', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2027-02-24', mppES:'2026-12-03', mppEF:'2027-02-24', mppLS:'2027-09-02', mppLF:'2027-11-24', mppTF:2730, mppCritical:false },
+    { id:'A214', name:'Excavation - Backfill 1st H/O', duration:188, predecessors:'A166,A213', predLinks:'A166:1:0,A213:3:42', wbs:'1.10', wbsFull:'1.10.8.4', mppTaskId:'254', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-01-14', finishDate:'2027-07-21', mppES:'2027-01-14', mppEF:'2027-07-21', mppLS:'2027-10-14', mppLF:'2028-04-19', mppTF:2730, mppCritical:false },
+    { id:'A215', name:'Excavation - Backfill Last H/O', duration:125, predecessors:'A214', predLinks:'A214:1:0', wbs:'1.10', wbsFull:'1.10.8.5', mppTaskId:'255', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-07-22', finishDate:'2027-11-24', mppES:'2027-07-22', mppEF:'2027-11-24', mppLS:'2028-10-05', mppLF:'2029-02-07', mppTF:4410, mppCritical:false },
+    { id:'A216', name:'Excavation - Backfill Remaining', duration:202, predecessors:'A215', predLinks:'A215:1:0', wbs:'1.10', wbsFull:'1.10.8.6', mppTaskId:'256', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-11-25', finishDate:'2028-06-14', mppES:'2027-11-25', mppEF:'2028-06-14', mppLS:'2029-02-08', mppLF:'2029-08-29', mppTF:4410, mppCritical:false },
+    { id:'A217', name:'Main Steel Work', duration:167, predecessors:'A214,A170', predLinks:'A214:1:0,A170:1:0', wbs:'1.10', wbsFull:'1.10.8.7', mppTaskId:'257', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-07-22', finishDate:'2028-01-05', mppES:'2027-07-22', mppEF:'2028-01-05', mppLS:'2028-04-20', mppLF:'2028-10-04', mppTF:2730, mppCritical:false },
+    { id:'A218', name:'Equipment Install (incl. E.I,P)', duration:181, predecessors:'A217', predLinks:'A217:3:91', wbs:'1.10', wbsFull:'1.10.8.8', mppTaskId:'258', isMilestone:false, constraintType:'4', constraintDate:'2028-02-01', startDate:'2028-02-01', finishDate:'2028-07-31', mppES:'2028-02-01', mppEF:'2028-07-31', mppLS:'2028-07-20', mppLF:'2029-01-17', mppTF:1700, mppCritical:false },
+    { id:'A219', name:'Cold Run', duration:167, predecessors:'A218', predLinks:'A218:1:0', wbs:'1.10', wbsFull:'1.10.8.9', mppTaskId:'259', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-08-01', finishDate:'2029-01-15', mppES:'2028-08-01', mppEF:'2029-01-15', mppLS:'2029-01-18', mppLF:'2029-07-04', mppTF:1700, mppCritical:false },
+    { id:'A220', name:'HOT-RUN in CVGL', duration:55, predecessors:'A183,A192,A219,A210,A202,A216', predLinks:'A183:1:0,A192:1:0,A219:1:0,A210:1:0,A202:1:0,A216:0:0', wbs:'1.10', wbsFull:'1.10.9', mppTaskId:'260', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-02-01', finishDate:'2029-03-28', mppES:'2029-02-01', mppEF:'2029-03-28', mppLS:'2029-07-05', mppLF:'2029-08-29', mppTF:1540, mppCritical:false },
+    { id:'A221', name:'Soil Impr. - Surcharge Completion', duration:83, predecessors:'', predLinks:'', wbs:'1.10', wbsFull:'1.10.10.1', mppTaskId:'262', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-03-01', finishDate:'2026-05-23', mppES:'2026-03-01', mppEF:'2026-05-23', mppLS:'2026-12-31', mppLF:'2027-03-24', mppTF:3050, mppCritical:false },
+    { id:'A222', name:'Soil Impr. - H/O', duration:125, predecessors:'A221', predLinks:'A221:1:0', wbs:'1.10', wbsFull:'1.10.10.2', mppTaskId:'263', isMilestone:false, constraintType:'4', constraintDate:'2026-03-01', startDate:'2026-05-24', finishDate:'2026-09-26', mppES:'2026-05-24', mppEF:'2026-09-26', mppLS:'2027-03-25', mppLF:'2027-07-28', mppTF:3050, mppCritical:false },
+    { id:'A223', name:'Piling Work', duration:118, predecessors:'A164,A222', predLinks:'A164:1:0,A222:1:0', wbs:'1.10', wbsFull:'1.10.10.3', mppTaskId:'264', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2027-03-31', mppES:'2026-12-03', mppEF:'2027-03-31', mppLS:'2027-07-29', mppLF:'2027-11-24', mppTF:2380, mppCritical:false },
+    { id:'A224', name:'Excavation - Backfill 1st H/O', duration:216, predecessors:'A223,A166', predLinks:'A223:3:70,A166:1:0', wbs:'1.10', wbsFull:'1.10.10.4', mppTaskId:'265', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-02-11', finishDate:'2027-09-15', mppES:'2027-02-11', mppEF:'2027-09-15', mppLS:'2027-10-07', mppLF:'2028-05-10', mppTF:2380, mppCritical:false },
+    { id:'A225', name:'Excavation - Backfill Last H/O', duration:188, predecessors:'A224', predLinks:'A224:1:0', wbs:'1.10', wbsFull:'1.10.10.5', mppTaskId:'266', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-16', finishDate:'2028-03-22', mppES:'2027-09-16', mppEF:'2028-03-22', mppLS:'2028-08-24', mppLF:'2029-02-28', mppTF:3430, mppCritical:false },
+    { id:'A226', name:'Excavation - Backfill Remaining', duration:118, predecessors:'A225', predLinks:'A225:1:0', wbs:'1.10', wbsFull:'1.10.10.6', mppTaskId:'267', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-03-23', finishDate:'2028-07-19', mppES:'2028-03-23', mppEF:'2028-07-19', mppLS:'2029-03-01', mppLF:'2029-06-27', mppTF:3430, mppCritical:false },
+    { id:'A227', name:'Main Steel Work', duration:237, predecessors:'A224,A170', predLinks:'A224:1:0,A170:1:0', wbs:'1.10', wbsFull:'1.10.10.7', mppTaskId:'268', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-09-16', finishDate:'2028-05-10', mppES:'2027-09-16', mppEF:'2028-05-10', mppLS:'2028-05-11', mppLF:'2029-01-03', mppTF:2380, mppCritical:false },
+    { id:'A228', name:'Equipment Install (incl. E.I,P) / FIVES', duration:195, predecessors:'A227', predLinks:'A227:3:182', wbs:'1.10', wbsFull:'1.10.10.8', mppTaskId:'269', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-03-16', finishDate:'2028-09-27', mppES:'2028-03-16', mppEF:'2028-09-27', mppLS:'2028-11-09', mppLF:'2029-05-23', mppTF:2380, mppCritical:false },
+    { id:'A229', name:'Cold Run', duration:62, predecessors:'A228,A226', predLinks:'A228:0:35,A226:0:0', wbs:'1.10', wbsFull:'1.10.10.9', mppTaskId:'270', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-08-31', finishDate:'2028-11-01', mppES:'2028-08-31', mppEF:'2028-11-01', mppLS:'2029-04-26', mppLF:'2029-06-27', mppTF:2380, mppCritical:false },
+    { id:'A230', name:'Piling Work', duration:181, predecessors:'A164', predLinks:'A164:1:0', wbs:'1.10', wbsFull:'1.10.11.1', mppTaskId:'272', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2027-06-02', mppES:'2026-12-03', mppEF:'2027-06-02', mppLS:'2027-02-04', mppLF:'2027-08-04', mppTF:630, mppCritical:false },
+    { id:'A231', name:'Excavation - Backfill 1st H/O', duration:265, predecessors:'A230,A166', predLinks:'A230:3:63,A166:1:0', wbs:'1.10', wbsFull:'1.10.11.2', mppTaskId:'273', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-02-04', finishDate:'2027-10-27', mppES:'2027-02-04', mppEF:'2027-10-27', mppLS:'2027-04-08', mppLF:'2027-12-29', mppTF:630, mppCritical:false },
+    { id:'A232', name:'Excavation - Backfill Last H/O', duration:167, predecessors:'A231', predLinks:'A231:1:0', wbs:'1.10', wbsFull:'1.10.11.3', mppTaskId:'274', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-28', finishDate:'2028-04-12', mppES:'2027-10-28', mppEF:'2028-04-12', mppLS:'2028-05-25', mppLF:'2028-11-08', mppTF:2100, mppCritical:false },
+    { id:'A233', name:'Excavation - Backfill Remaining', duration:139, predecessors:'A232', predLinks:'A232:1:0', wbs:'1.10', wbsFull:'1.10.11.4', mppTaskId:'275', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-04-13', finishDate:'2028-08-30', mppES:'2028-04-13', mppEF:'2028-08-30', mppLS:'2028-11-09', mppLF:'2029-03-28', mppTF:2100, mppCritical:false },
+    { id:'A234', name:'Main Steel Work', duration:314, predecessors:'A231,A170', predLinks:'A231:1:0,A170:1:0', wbs:'1.10', wbsFull:'1.10.11.5', mppTaskId:'276', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-10-28', finishDate:'2028-09-06', mppES:'2027-10-28', mppEF:'2028-09-06', mppLS:'2027-12-30', mppLF:'2028-11-08', mppTF:630, mppCritical:false },
+    { id:'A235', name:'Equipment Install (incl. E.I,P) / FIVES', duration:209, predecessors:'A234', predLinks:'A234:3:154', wbs:'1.10', wbsFull:'1.10.11.6', mppTaskId:'277', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-03-30', finishDate:'2028-10-25', mppES:'2028-03-30', mppEF:'2028-10-25', mppLS:'2028-06-01', mppLF:'2028-12-27', mppTF:630, mppCritical:false },
+    { id:'A236', name:'Cold Run Ph.1', duration:132, predecessors:'A235,A233', predLinks:'A235:0:91,A233:0:0', wbs:'1.10', wbsFull:'1.10.11.7', mppTaskId:'278', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-09-14', finishDate:'2029-01-24', mppES:'2028-09-14', mppEF:'2029-01-24', mppLS:'2028-11-16', mppLF:'2029-03-28', mppTF:630, mppCritical:false },
+    { id:'A237', name:'Cold Run Ph.2', duration:132, predecessors:'A236', predLinks:'A236:0:91', wbs:'1.10', wbsFull:'1.10.11.8', mppTaskId:'279', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-12-14', finishDate:'2029-04-25', mppES:'2028-12-14', mppEF:'2029-04-25', mppLS:'2029-02-15', mppLF:'2029-06-27', mppTF:630, mppCritical:false },
+    { id:'A238', name:'Piling Work', duration:83, predecessors:'A164', predLinks:'A164:1:0', wbs:'1.10', wbsFull:'1.10.12.1', mppTaskId:'281', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-12-03', finishDate:'2027-02-24', mppES:'2026-12-03', mppEF:'2027-02-24', mppLS:'2027-06-03', mppLF:'2027-08-25', mppTF:1820, mppCritical:false },
+    { id:'A239', name:'Excavation - Backfill 1st H/O', duration:216, predecessors:'A238,A166', predLinks:'A238:3:42,A166:1:0', wbs:'1.10', wbsFull:'1.10.12.2', mppTaskId:'282', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-01-14', finishDate:'2027-08-18', mppES:'2027-01-14', mppEF:'2027-08-18', mppLS:'2027-07-15', mppLF:'2028-02-16', mppTF:1820, mppCritical:false },
+    { id:'A240', name:'Excavation - Backfill Last H/O', duration:188, predecessors:'A239', predLinks:'A239:1:0', wbs:'1.10', wbsFull:'1.10.12.3', mppTaskId:'283', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-08-19', finishDate:'2028-02-23', mppES:'2027-08-19', mppEF:'2028-02-23', mppLS:'2028-08-31', mppLF:'2029-03-07', mppTF:3780, mppCritical:false },
+    { id:'A241', name:'Excavation - Backfill Remaining', duration:111, predecessors:'A240', predLinks:'A240:1:0', wbs:'1.10', wbsFull:'1.10.12.4', mppTaskId:'284', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-02-24', finishDate:'2028-06-14', mppES:'2028-02-24', mppEF:'2028-06-14', mppLS:'2029-03-08', mppLF:'2029-06-27', mppTF:3780, mppCritical:false },
+    { id:'A242', name:'Main Steel Work', duration:244, predecessors:'A239,A170', predLinks:'A239:1:0,A170:1:0', wbs:'1.10', wbsFull:'1.10.12.5', mppTaskId:'285', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-08-19', finishDate:'2028-04-19', mppES:'2027-08-19', mppEF:'2028-04-19', mppLS:'2028-02-17', mppLF:'2028-10-18', mppTF:1820, mppCritical:false },
+    { id:'A243', name:'Equipment Install (incl. E.I,P)', duration:272, predecessors:'A242', predLinks:'A242:3:133', wbs:'1.10', wbsFull:'1.10.12.6', mppTaskId:'286', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-12-30', finishDate:'2028-09-27', mppES:'2027-12-30', mppEF:'2028-09-27', mppLS:'2028-06-29', mppLF:'2029-03-28', mppTF:1820, mppCritical:false },
+    { id:'A244', name:'Cold Run', duration:118, predecessors:'A243,A241', predLinks:'A243:0:91,A241:0:0', wbs:'1.10', wbsFull:'1.10.12.7', mppTaskId:'287', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-08-31', finishDate:'2028-12-27', mppES:'2028-08-31', mppEF:'2028-12-27', mppLS:'2029-03-01', mppLF:'2029-06-27', mppTF:1820, mppCritical:false },
+    { id:'A245', name:'HOT-RUN in CGL 1', duration:62, predecessors:'A236,A229,A244', predLinks:'A236:1:0,A229:1:0,A244:1:0', wbs:'1.10', wbsFull:'1.10.13', mppTaskId:'288', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-01-25', finishDate:'2029-03-28', mppES:'2029-01-25', mppEF:'2029-03-28', mppLS:'2029-06-28', mppLF:'2029-08-29', mppTF:1540, mppCritical:false },
+    { id:'A246', name:'HOT-RUN in CGL 2', duration:62, predecessors:'A237', predLinks:'A237:1:0', wbs:'1.10', wbsFull:'1.10.14', mppTaskId:'289', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2029-04-26', finishDate:'2029-06-27', mppES:'2029-04-26', mppEF:'2029-06-27', mppLS:'2029-06-28', mppLF:'2029-08-29', mppTF:630, mppCritical:false },
+    { id:'A247', name:'1st Inform for Overall', duration:0, predecessors:'', predLinks:'', wbs:'1.11', wbsFull:'1.11.1.1', mppTaskId:'292', isMilestone:true, constraintType:'4', constraintDate:'2026-01-31', startDate:'2026-01-31', finishDate:'2026-01-31', mppES:'2026-01-31', mppEF:'2026-01-31', mppLS:'2027-08-19', mppLF:'2027-08-19', mppTF:5650, mppCritical:false },
+    { id:'A248', name:'Engineering Service Agreement', duration:0, predecessors:'', predLinks:'', wbs:'1.11', wbsFull:'1.11.1.2', mppTaskId:'293', isMilestone:true, constraintType:'4', constraintDate:'2026-02-14', startDate:'2026-02-14', finishDate:'2026-02-14', mppES:'2026-02-14', mppEF:'2026-02-14', mppLS:'2027-08-19', mppLF:'2027-08-19', mppTF:5510, mppCritical:false },
+    { id:'A249', name:'IFR(Permit) for Pile/FDN', duration:167, predecessors:'A247,A248', predLinks:'A247:1:0,A248:1:0', wbs:'1.11', wbsFull:'1.11.1.3', mppTaskId:'294', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-02-14', finishDate:'2026-07-31', mppES:'2026-02-14', mppEF:'2026-07-31', mppLS:'2027-08-19', mppLF:'2028-02-02', mppTF:5510, mppCritical:false },
+    { id:'A250', name:'Pile/FDN Permit', duration:27, predecessors:'A249,A253', predLinks:'A249:1:0,A253:1:0', wbs:'1.11', wbsFull:'1.11.1.4', mppTaskId:'295', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-09-29', finishDate:'2026-10-26', mppES:'2026-09-29', mppEF:'2026-10-26', mppLS:'2028-02-03', mppLF:'2028-03-01', mppTF:4920, mppCritical:false },
+    { id:'A251', name:'Ready for Pile Work', duration:0, predecessors:'A250', predLinks:'A250:1:0', wbs:'1.11', wbsFull:'1.11.1.5', mppTaskId:'296', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-10-26', finishDate:'2026-10-26', mppES:'2026-10-26', mppEF:'2026-10-26', mppLS:'2028-03-02', mppLF:'2028-03-02', mppTF:4920, mppCritical:false },
+    { id:'A252', name:'(M+3) Inform for Overall (Outsourcing)', duration:0, predecessors:'', predLinks:'', wbs:'1.11', wbsFull:'1.11.2.1', mppTaskId:'298', isMilestone:true, constraintType:'4', constraintDate:'2026-03-31', startDate:'2026-03-31', finishDate:'2026-03-31', mppES:'2026-03-31', mppEF:'2026-03-31', mppLS:'2027-07-01', mppLF:'2027-07-01', mppTF:4570, mppCritical:false },
+    { id:'A253', name:'IFC(Permit) for Arch/STR', duration:181, predecessors:'A252', predLinks:'A252:1:0', wbs:'1.11', wbsFull:'1.11.2.2', mppTaskId:'299', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-03-31', finishDate:'2026-09-28', mppES:'2026-03-31', mppEF:'2026-09-28', mppLS:'2027-07-01', mppLF:'2027-12-29', mppTF:4570, mppCritical:false },
+    { id:'A254', name:'Arch/STR Permit', duration:62, predecessors:'A250', predLinks:'A250:1:0', wbs:'1.11', wbsFull:'1.11.2.3', mppTaskId:'300', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-10-27', finishDate:'2026-12-28', mppES:'2026-10-27', mppEF:'2026-12-28', mppLS:'2028-03-30', mppLF:'2028-05-31', mppTF:5200, mppCritical:false },
+    { id:'A255', name:'Ready for Arch Work', duration:0, predecessors:'A254', predLinks:'A254:1:0', wbs:'1.11', wbsFull:'1.11.2.4', mppTaskId:'301', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2026-12-28', finishDate:'2026-12-28', mppES:'2026-12-28', mppEF:'2026-12-28', mppLS:'2028-06-01', mppLF:'2028-06-01', mppTF:5200, mppCritical:false },
+    { id:'A256', name:'Piling Work', duration:90, predecessors:'A251', predLinks:'A251:1:0', wbs:'1.11', wbsFull:'1.11.3.1', mppTaskId:'303', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-10-27', finishDate:'2027-01-25', mppES:'2026-10-27', mppEF:'2027-01-25', mppLS:'2028-03-02', mppLF:'2028-05-31', mppTF:4920, mppCritical:false },
+    { id:'A257', name:'Subcontracting', duration:153, predecessors:'A253', predLinks:'A253:1:0', wbs:'1.11', wbsFull:'1.11.3.2', mppTaskId:'304', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2026-09-29', finishDate:'2027-03-01', mppES:'2026-09-29', mppEF:'2027-03-01', mppLS:'2027-12-30', mppLF:'2028-05-31', mppTF:4570, mppCritical:false },
+    { id:'A258', name:'Building Work', duration:363, predecessors:'A257,A256,A255', predLinks:'A257:1:0,A256:1:0,A255:1:0', wbs:'1.11', wbsFull:'1.11.3.3', mppTaskId:'305', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2027-03-02', finishDate:'2028-02-28', mppES:'2027-03-02', mppEF:'2028-02-28', mppLS:'2028-06-01', mppLF:'2029-05-30', mppTF:4570, mppCritical:false },
+    { id:'A259', name:'Permitting', duration:90, predecessors:'A258', predLinks:'A258:1:0', wbs:'1.11', wbsFull:'1.11.3.4', mppTaskId:'306', isMilestone:false, constraintType:'0', constraintDate:null, startDate:'2028-02-29', finishDate:'2028-05-29', mppES:'2028-02-29', mppEF:'2028-05-29', mppLS:'2029-05-31', mppLF:'2029-08-29', mppTF:4570, mppCritical:false },
+    { id:'A260', name:'Ready for Occupancy', duration:0, predecessors:'A259', predLinks:'A259:1:0', wbs:'1.11', wbsFull:'1.11.3.5', mppTaskId:'307', isMilestone:true, constraintType:'0', constraintDate:null, startDate:'2028-05-29', finishDate:'2028-05-29', mppES:'2028-05-29', mppEF:'2028-05-29', mppLS:'2029-08-29', mppLF:'2029-08-29', mppTF:4570, mppCritical:false },
+  ];
+  sample.forEach(s => {
+    const a = addActivity(s);
+    if (s.startDate)      a.startDate      = new Date(s.startDate);
+    if (s.finishDate)     a.finishDate     = new Date(s.finishDate);
+    if (s.constraintDate) a.constraintDate = new Date(s.constraintDate);
+    if (s.mppES)  a.mppES  = new Date(s.mppES);
+    if (s.mppEF)  a.mppEF  = new Date(s.mppEF);
+    if (s.mppLS)  a.mppLS  = new Date(s.mppLS);
+    if (s.mppLF)  a.mppLF  = new Date(s.mppLF);
+    a.constraintType = s.constraintType || '0';
+    a.predLinks      = s.predLinks || '';
+    a.isMilestone    = s.isMilestone || false;
+    a.mppTF          = s.mppTF;
+    a.mppCritical    = s.mppCritical || false;
+  });
+  window._wbsNames = {
+    '1': 'HSLA MASTER SCHEDULE DRAFT Rev.F1',
+    '1.1': 'MILESTONE',
+    '1.1.1': 'CONTRACT',
+    '1.1.2': 'PILE WORK START',
+    '1.1.3': 'STEEL STR. START',
+    '1.1.4': 'COMMISSIONING START',
+    '1.1.5': 'S.O.P',
+    '1.2': 'MAIN CONSTRUCTION MILESTONE',
+    '1.2.1': 'EARLY WORK START',
+    '1.2.2': 'CONTRACT',
+    '1.2.3': 'CONSTRUCTION START',
+    '1.2.4': 'STEEL START',
+    '1.2.5': 'COLD RUN START',
+    '1.2.6': '1st SOP',
+    '1.2.7': '2nd SOP',
+    '1.3': 'PERMIT',
+    '1.3.1': 'Air Permit',
+    '1.4': 'TEMPORAY CONSTRUCTION',
+    '1.4.1': 'ENGINEERING & PERMIT',
+    '1.4.1.1': 'ENGINEERING',
+    '1.4.1.2': 'PROCUREMENT',
+    '1.4.1.3': 'BUILDING PERMIT',
+    '1.4.2': 'CONSTRUCTION',
+    '1.4.2.1': 'Site Preparation Ph.1',
+    '1.4.2.2': 'TCF PKG Work Ph.1',
+    '1.4.2.3': 'TCF PKG Work Ph.2',
+    '1.4.2.4': 'TCF PKG Work Ph.3',
+    '1.5': 'OVERALL',
+    '1.5.1': 'ENGINEERING & PERMIT for Drainage, Utility',
+    '1.5.1.1': '(M+3) Inform for Overall (Outsourcing)',
+    '1.5.1.2': '1st Inform for Overall',
+    '1.5.1.3': 'Engineering Service Agreement',
+    '1.5.1.4': 'IFR(Preliminary) for Drainage, Utility',
+    '1.5.1.5': 'IFC(Construction) for Drainage, Utility',
+    '1.5.1.6': 'Site Planning Permit',
+    '1.5.2': 'CONSTRUCTION',
+    '1.5.2.1': 'Piling for Overall',
+    '1.6': 'SSM/CCM ALLOY STORAGE WAREHOUSE',
+    '1.6.1': 'ENGINEERING & PERMIT for Pile/FDN',
+    '1.6.1.1': '1st Inform for Pile/FDN',
+    '1.6.1.2': 'Engineering Service Agreement',
+    '1.6.1.3': 'IFR(Permit) for Pile/FDN',
+    '1.6.1.4': 'Pile/FDN Permit',
+    '1.6.2': 'ENGINEERING & PERMIT for Arch/STR',
+    '1.6.2.1': '2nd Inform for Steel',
+    '1.6.2.2': 'IFR(Permit) for Steel',
+    '1.6.2.3': 'Arch/STR Permit',
+    '1.6.2.4': 'Ready for STR Work',
+    '1.6.2.5': '3rd Inform for Revision',
+    '1.6.2.6': 'Engineering Revision',
+    '1.6.3': 'CONSTRUCTION',
+    '1.6.3.1': 'Piling Work',
+    '1.6.3.2': 'STR Work',
+    '1.7': 'DRP(DIRECT REDUCTION PLANT)',
+    '1.7.1': 'ENGINEERING & PERMIT for Pile/FDN',
+    '1.7.1.1': 'Engineering Service Agreement for DRP',
+    '1.7.1.2': '1st(M+1) Inform for DRP',
+    '1.7.1.3': '2nd(M+4) Inform for DRP',
+    '1.7.1.4': 'Engineering Service Agreement',
+    '1.7.1.5': 'IFR(Permit) for Pile/FDN',
+    '1.7.1.6': 'Pile/FDN Permit',
+    '1.7.1.7': 'Ready for Pile/FDN',
+    '1.7.2': 'ENGINEERING & PERMIT for Arch/STR',
+    '1.7.2.1': '3rd(M+7) Inform for DRP',
+    '1.7.2.2': 'IFR(Permit) for Steel',
+    '1.7.2.3': 'Arch/STR Permit',
+    '1.7.2.4': 'Ready for STR Work',
+    '1.7.2.5': '4th(M+12) Inform for DRP',
+    '1.7.2.6': 'Engineering Revision',
+    '1.7.3': 'CONSTRUCTION',
+    '1.7.3.1': 'Piling Work',
+    '1.7.3.2': 'FDN Work',
+    '1.7.3.3': 'Main Steel Work',
+    '1.7.3.4': 'Equipment Install',
+    '1.7.3.5': 'Cold Run',
+    '1.7.3.6': 'Hot Run in DRP',
+    '1.7.3.7': '1st DRI',
+    '1.8': 'SMP/CCM(STEEL MAKING PLANT/CONT\' CASTING MILL)',
+    '1.8.1': 'ENGINEERING & PERMIT for Pile/FDN',
+    '1.8.1.1': 'Engineering Service Agreement for SMP/CCM',
+    '1.8.1.2': '1st(M+1) Inform for SMP/CCM',
+    '1.8.1.3': '2nd(M+3) Inform for SMP/CCM',
+    '1.8.1.4': '(M+3) Inform for SMP/CCM (Outsourcing)',
+    '1.8.1.5': 'Engineering Service Agreement',
+    '1.8.1.6': 'IFR(Permit) for Pile/FDN',
+    '1.8.1.7': 'Pile/FDN Permit',
+    '1.8.1.8': 'Ready for Pile Work',
+    '1.8.1.9': 'Pile/FDN Permit Rev.',
+    '1.8.1.10': 'Ready for FDN Work',
+    '1.8.2': 'ENGINEERING & PERMIT for Arch/STR',
+    '1.8.2.1': '3rd(M+6) Inform for SMP/CCM',
+    '1.8.2.2': 'IFR(Permit) for Steel',
+    '1.8.2.3': 'Arch/STR Permit',
+    '1.8.2.4': 'Ready for STR Work',
+    '1.8.2.5': '4th(M+12) Inform for SMP/CCM',
+    '1.8.2.6': 'Engineering Revision',
+    '1.8.2.7': '5th(M+14) Inform for SMP/CCM',
+    '1.8.2.8': 'Engineering Revision',
+    '1.8.3': 'CONSTRUCTION - PKG 5-3 SMP (CCSM-A1)',
+    '1.8.3.1': 'Piling Work',
+    '1.8.3.2': 'Excavation - Backfill 1st H/O',
+    '1.8.3.3': 'Excavation - Backfill Last H/O',
+    '1.8.3.4': 'Excavation - Backfill Remaining',
+    '1.8.3.5': 'Main Steel Work',
+    '1.8.3.6': 'Equipment Install (incl. E.I,P)',
+    '1.8.3.7': 'Cold Run',
+    '1.8.4': 'CONSTRUCTION - PKG 5-2 CCM (CCSM-B2)',
+    '1.8.4.1': 'Piling Work',
+    '1.8.4.2': 'Excavation - Backfill 1st H/O',
+    '1.8.4.3': 'Excavation - Backfill Last H/O',
+    '1.8.4.4': 'Excavation - Backfill Remaining',
+    '1.8.4.5': 'Main Steel Work',
+    '1.8.4.6': 'Equipment Install (incl. E.I,P)',
+    '1.8.4.7': 'Cold Run',
+    '1.8.5': 'HOT-RUN in SMP/CCM Phase 1',
+    '1.8.6': 'CONSTRUCTION - PKG 5-4 SMP (CCSM-A2)',
+    '1.8.6.1': 'Piling Work',
+    '1.8.6.2': 'Excavation - Backfill 1st H/O',
+    '1.8.6.3': 'Excavation - Backfill Last H/O',
+    '1.8.6.4': 'Excavation - Backfill Remaining',
+    '1.8.6.5': 'Main Steel Work',
+    '1.8.6.6': 'Equipment Install (incl. E.I,P)',
+    '1.8.6.7': 'Cold Run',
+    '1.8.7': 'CONSTRUCTION - PKG 5-1 CCM (CCSM-B1)',
+    '1.8.7.1': 'Piling Work',
+    '1.8.7.2': 'Excavation - Backfill 1st H/O',
+    '1.8.7.3': 'Excavation - Backfill Last H/O',
+    '1.8.7.4': 'Excavation - Backfill Remaining',
+    '1.8.7.5': 'Main Steel Work',
+    '1.8.7.6': 'Equipment Install (incl. E.I,P)',
+    '1.8.7.7': 'Cold Run',
+    '1.8.7.8': 'HOT-RUN in SMP/CCM Phase 2',
+    '1.9': 'HRM (HOT ROLLING MILL)',
+    '1.9.1': 'ENGINEERING & PERMIT for Pile/FDN',
+    '1.9.1.1': 'Engineering Service Agreement for HRM',
+    '1.9.1.2': '1st(M+1) Inform for HRM',
+    '1.9.1.3': '2nd(M+3) Inform for HRM',
+    '1.9.1.4': '(M+3) Inform for HRM (Outsourcing)',
+    '1.9.1.5': 'Engineering Service Agreement',
+    '1.9.1.6': 'IFR(Permit) for Pile/FDN',
+    '1.9.1.7': 'Pile/FDN Permit',
+    '1.9.1.8': 'Ready for Pile Work',
+    '1.9.1.9': 'Pile/FDN Permit Rev.',
+    '1.9.1.10': 'Ready for FDN Work',
+    '1.9.2': 'ENGINEERING & PERMIT for Arch/STR',
+    '1.9.2.1': '3rd(M+6) Inform for HRM',
+    '1.9.2.2': 'IFR(Permit) for Steel',
+    '1.9.2.3': 'Arch/STR Permit',
+    '1.9.2.4': 'Ready for STR Work',
+    '1.9.2.5': '4th(M+12) Inform for HRM',
+    '1.9.2.6': 'Engineering Revision',
+    '1.9.2.7': '5th(M+14) Inform for HRM',
+    '1.9.2.8': 'Engineering Revision',
+    '1.9.3': 'CONSTRUCTION - PKG 1-1 HRM (HR-A)',
+    '1.9.3.1': 'Piling Work',
+    '1.9.3.2': 'Excavation - Backfill 1st H/O',
+    '1.9.3.3': 'Excavation - Backfill Last H/O',
+    '1.9.3.4': 'Excavation - Backfill Remaining',
+    '1.9.3.5': 'Main Steel Work',
+    '1.9.3.6': 'Equipment Install (incl. E.I,P)',
+    '1.9.3.7': 'Cold Run / Hot Run (Dry Out)',
+    '1.9.4': 'CONSTRUCTION - PKG 1-2 - HRM (HR-B1)',
+    '1.9.4.1': 'Piling Work',
+    '1.9.4.2': 'Excavation - Backfill 1st H/O',
+    '1.9.4.3': 'Excavation - Backfill Last H/O',
+    '1.9.4.4': 'Excavation - Backfill Remaining',
+    '1.9.4.5': 'Main Steel Work',
+    '1.9.4.6': 'Equipment Install (incl. E.I,P)',
+    '1.9.4.7': 'Cold Run',
+    '1.9.5': 'CONSTRUCTION - PKG 1-3 - HRM (HR-B2)',
+    '1.9.5.1': 'Piling Work',
+    '1.9.5.2': 'Excavation - Backfill 1st H/O',
+    '1.9.5.3': 'Excavation - Backfill Last H/O',
+    '1.9.5.4': 'Excavation - Backfill Remaining',
+    '1.9.5.5': 'Main Steel Work',
+    '1.9.5.6': 'Equipment Install (incl. E.I,P)',
+    '1.9.5.7': 'Cold Run',
+    '1.9.6': 'CONSTRUCTION - PKG 1-4 - HRM (HR-C)',
+    '1.9.6.1': 'Soil Impr. - Surcharge Completion',
+    '1.9.6.2': 'Soil Impr. - H/O',
+    '1.9.6.3': 'Piling Work',
+    '1.9.6.4': 'Excavation - Backfill 1st H/O',
+    '1.9.6.5': 'Excavation - Backfill Last H/O',
+    '1.9.6.6': 'Excavation - Backfill Remaining',
+    '1.9.6.7': 'Main Steel Work',
+    '1.9.6.8': 'Equipment Install (incl. E.I,P)',
+    '1.9.6.9': 'Cold Run',
+    '1.9.7': 'HOT-RUN in HRM',
+    '1.10': 'CRM (HOT ROLLING MILL)',
+    '1.10.1': 'ENGINEERING & PERMIT for Pile/FDN',
+    '1.10.1.1': 'Engineering Service Agreement for CRM',
+    '1.10.1.2': '1st(M+1) Inform for CRM',
+    '1.10.1.3': '2nd(M+4) Inform for CRM',
+    '1.10.1.4': '(M+3) Inform for CRM (Outsourcing)',
+    '1.10.1.5': 'Engineering Service Agreement',
+    '1.10.1.6': 'IFR(Permit) for Pile/FDN',
+    '1.10.1.7': 'Pile/FDN Permit',
+    '1.10.1.8': 'Ready for Pile Work',
+    '1.10.1.9': 'Pile/FDN Permit Rev.',
+    '1.10.1.10': 'Ready for FDN Work',
+    '1.10.2': 'ENGINEERING & PERMIT for Arch/STR',
+    '1.10.2.1': '3rd(M+6) Inform for CRM',
+    '1.10.2.2': 'IFR(Permit) for Steel',
+    '1.10.2.3': 'Arch/STR Permit',
+    '1.10.2.4': 'Ready for STR Work',
+    '1.10.2.5': '4th(M+12) Inform for CRM',
+    '1.10.2.6': 'Engineering Revision',
+    '1.10.2.7': '5th(M+14) Inform for CRM',
+    '1.10.2.8': 'Engineering Revision',
+    '1.10.3': 'CONSTRUCTION - PKG 2-1 - CRM (CR-A1)',
+    '1.10.3.1': 'Soil Impr. - Surcharge Completion',
+    '1.10.3.2': 'Soil Impr. - H/O',
+    '1.10.3.3': 'Piling Work',
+    '1.10.3.4': 'Excavation - Backfill 1st H/O',
+    '1.10.3.5': 'Excavation - Backfill Last H/O',
+    '1.10.3.6': 'Excavation - Backfill Remaining',
+    '1.10.3.7': 'Main Steel Work',
+    '1.10.3.8': 'Equipment Install (incl. E.I,P)',
+    '1.10.3.9': 'Cold Run',
+    '1.10.4': 'CONSTRUCTION - PKG 2-2 - CRM (CR-A2/B)',
+    '1.10.4.1': 'Soil Impr. - Surcharge Completion',
+    '1.10.4.2': 'Soil Impr. - H/O',
+    '1.10.4.3': 'Piling Work',
+    '1.10.4.4': 'Excavation - Backfill 1st H/O',
+    '1.10.4.5': 'Excavation - Backfill Last H/O',
+    '1.10.4.6': 'Excavation - Backfill Remaining',
+    '1.10.4.7': 'Main Steel Work',
+    '1.10.4.8': 'Equipment Install (incl. E.I,P)',
+    '1.10.4.9': 'Cold Run',
+    '1.10.5': 'HOT-RUN in PLTCM',
+    '1.10.6': 'CONSTRUCTION - PKG 3-1 - CRM (CR-C1)',
+    '1.10.6.1': 'Piling Work',
+    '1.10.6.2': 'Excavation - Backfill 1st H/O',
+    '1.10.6.3': 'Excavation - Backfill Last H/O',
+    '1.10.6.4': 'Excavation - Backfill Remaining',
+    '1.10.6.5': 'Main Steel Work - Zone 3',
+    '1.10.6.6': 'Main Steel Work - Zone 2',
+    '1.10.6.7': 'Main Steel Work - Zone 1',
+    '1.10.6.8': 'Equipment Install (incl. E.I,P) / FIVES',
+    '1.10.6.9': 'Cold Run',
+    '1.10.7': 'CONSTRUCTION - PKG 3-2 - CRM (CR-C2)',
+    '1.10.7.1': 'Piling Work',
+    '1.10.7.2': 'Excavation - Backfill 1st H/O',
+    '1.10.7.3': 'Excavation - Backfill Last H/O',
+    '1.10.7.4': 'Excavation - Backfill Remaining',
+    '1.10.7.5': 'Main Steel Work - Zone 4',
+    '1.10.7.6': 'Main Steel Work - Zone 5',
+    '1.10.7.7': 'Equipment Install (incl. E.I,P) / FIVES',
+    '1.10.7.8': 'Cold Run',
+    '1.10.8': 'CONSTRUCTION - PKG 3-3 - CRM (CR-F)',
+    '1.10.8.1': 'Soil Impr. - Surcharge Completion',
+    '1.10.8.2': 'Soil Impr. - H/O',
+    '1.10.8.3': 'Piling Work',
+    '1.10.8.4': 'Excavation - Backfill 1st H/O',
+    '1.10.8.5': 'Excavation - Backfill Last H/O',
+    '1.10.8.6': 'Excavation - Backfill Remaining',
+    '1.10.8.7': 'Main Steel Work',
+    '1.10.8.8': 'Equipment Install (incl. E.I,P)',
+    '1.10.8.9': 'Cold Run',
+    '1.10.9': 'HOT-RUN in CVGL',
+    '1.10.10': 'CONSTRUCTION - PKG 4-1 CRM (CR-D1)',
+    '1.10.10.1': 'Soil Impr. - Surcharge Completion',
+    '1.10.10.2': 'Soil Impr. - H/O',
+    '1.10.10.3': 'Piling Work',
+    '1.10.10.4': 'Excavation - Backfill 1st H/O',
+    '1.10.10.5': 'Excavation - Backfill Last H/O',
+    '1.10.10.6': 'Excavation - Backfill Remaining',
+    '1.10.10.7': 'Main Steel Work',
+    '1.10.10.8': 'Equipment Install (incl. E.I,P) / FIVES',
+    '1.10.10.9': 'Cold Run',
+    '1.10.11': 'CONSTRUCTION - PKG 4-2 CRM (CR-D2)',
+    '1.10.11.1': 'Piling Work',
+    '1.10.11.2': 'Excavation - Backfill 1st H/O',
+    '1.10.11.3': 'Excavation - Backfill Last H/O',
+    '1.10.11.4': 'Excavation - Backfill Remaining',
+    '1.10.11.5': 'Main Steel Work',
+    '1.10.11.6': 'Equipment Install (incl. E.I,P) / FIVES',
+    '1.10.11.7': 'Cold Run Ph.1',
+    '1.10.11.8': 'Cold Run Ph.2',
+    '1.10.12': 'CONSTRUCTION - PKG 4-3 CRM (CR-D3)',
+    '1.10.12.1': 'Piling Work',
+    '1.10.12.2': 'Excavation - Backfill 1st H/O',
+    '1.10.12.3': 'Excavation - Backfill Last H/O',
+    '1.10.12.4': 'Excavation - Backfill Remaining',
+    '1.10.12.5': 'Main Steel Work',
+    '1.10.12.6': 'Equipment Install (incl. E.I,P)',
+    '1.10.12.7': 'Cold Run',
+    '1.10.13': 'HOT-RUN in CGL 1',
+    '1.10.14': 'HOT-RUN in CGL 2',
+    '1.11': 'ADMIN BLDG / GUARD HOUSE',
+    '1.11.1': 'ENGINEERING & PERMIT for Pile/FDN',
+    '1.11.1.1': '1st Inform for Overall',
+    '1.11.1.2': 'Engineering Service Agreement',
+    '1.11.1.3': 'IFR(Permit) for Pile/FDN',
+    '1.11.1.4': 'Pile/FDN Permit',
+    '1.11.1.5': 'Ready for Pile Work',
+    '1.11.2': 'ENGINEERING & PERMIT for Arch/STR',
+    '1.11.2.1': '(M+3) Inform for Overall (Outsourcing)',
+    '1.11.2.2': 'IFC(Permit) for Arch/STR',
+    '1.11.2.3': 'Arch/STR Permit',
+    '1.11.2.4': 'Ready for Arch Work',
+    '1.11.3': 'CONSTRUCTION',
+    '1.11.3.1': 'Piling Work',
+    '1.11.3.2': 'Subcontracting',
+    '1.11.3.3': 'Building Work',
+    '1.11.3.4': 'Permitting',
+    '1.11.3.5': 'Ready for Occupancy',
+  };
+  renderSidebar();
+  // 자동 실행 시 calculate()의 toast로 통합
+  // 샘플 데이터임을 표시 (복원 시 제외)
+  try {
+    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    existing.isSample = true;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+  } catch(e) {}
+}
+
+// ─── Toast ────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ─── Auto Calculate (Debounce) ────────────────────────────────────
+let _autoCalc = false;
+let _debounceTimer = null;
+
+function toggleAutoCalc() {
+  _autoCalc = !_autoCalc;
+  const track = document.getElementById('autoCalcToggle');
+  const thumb = document.getElementById('autoCalcThumb');
+  if (_autoCalc) {
+    track.style.background = 'var(--accent)';
+    thumb.style.transform = 'translateX(14px)';
+    showToast('자동계산 켜짐 — 입력 변경 시 500ms 후 자동 재계산');
+  } else {
+    track.style.background = 'var(--border)';
+    thumb.style.transform = 'translateX(0)';
+    showToast('자동계산 꺼짐');
+  }
+}
+
+function scheduleAutoCalc() {
+  if (!_autoCalc) return;
+  clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(() => {
+    syncFromDOM();
+    calculate();
+  }, 500);
+}
+
+// ─── Validation ──────────────────────────────────────────────────
+function validatePred(inputEl, actId) {
+  const val = inputEl.value.trim();
+  if (!val) { inputEl.style.borderColor=''; return; }
+
+  const map = {};
+  activities.forEach(a => map[a.id] = a);
+
+  const invalid = [];
+  val.split(',').forEach(token => {
+    const pid = token.trim().split(':')[0].trim();
+    if (pid && !map[pid]) invalid.push(pid);
+  });
+
+  if (invalid.length) {
+    inputEl.style.borderColor = 'var(--critical)';
+    inputEl.title = `존재하지 않는 ID: ${invalid.join(', ')}`;
+    showToast(`⚠ 선행작업 오류 — 없는 ID: ${invalid.join(', ')}`);
+  } else {
+    inputEl.style.borderColor = 'var(--green)';
+    inputEl.title = '';
+    setTimeout(() => { inputEl.style.borderColor=''; }, 1500);
+  }
+}
+
+// ─── Project Manager ─────────────────────────────────────────────
+const PROJ_PREFIX = 'cpm_proj_';   // localStorage key prefix
+let _currentProjKey = null;         // 현재 열린 프로젝트 키
+
+function toggleProjPanel() {
+  const panel   = document.getElementById('projPanel');
+  const overlay = document.getElementById('projOverlay');
+  const isOpen  = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  overlay.classList.toggle('open', !isOpen);
+  if (!isOpen) renderProjList();
+}
+
+function _makeSnapshot(name) {
+  // 현재 activities + 계산 결과를 JSON으로 직렬화
+  const reDate = d => d instanceof Date ? d.toISOString() : d;
+  return {
+    name,
+    savedAt: new Date().toISOString(),
+    actCount: activities.length,
+    cpCount: activities.filter(a=>a.isCritical).length,
+    wbsNames: window._wbsNames || {},
+    wbsFilter: window._activeWbsFilter || null,
+    projStart: window._projStart ? window._projStart.toISOString() : null,
+    activities: activities.map(a => ({
+      ...a,
+      startDate:      reDate(a.startDate),
+      finishDate:     reDate(a.finishDate),
+      constraintDate: reDate(a.constraintDate),
+      mppES: reDate(a.mppES), mppEF: reDate(a.mppEF),
+      mppLS: reDate(a.mppLS), mppLF: reDate(a.mppLF),
+    }))
+  };
+}
+
+function _restoreSnapshot(snap) {
+  const reDate = s => s ? new Date(s) : null;
+  activities = snap.activities.map(a => ({
+    ...a,
+    startDate:      reDate(a.startDate),
+    finishDate:     reDate(a.finishDate),
+    constraintDate: reDate(a.constraintDate),
+    mppES: reDate(a.mppES), mppEF: reDate(a.mppEF),
+    mppLS: reDate(a.mppLS), mppLF: reDate(a.mppLF),
+  }));
+  idCounter            = Math.max(...activities.map(a=>parseInt(a.id.replace(/\D/g,''))||0)) + 1;
+  window._wbsNames     = snap.wbsNames || {};
+  window._activeWbsFilter = snap.wbsFilter || null;
+  window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
+}
+
+function saveProject() {
+  const nameEl = document.getElementById('projNameInput');
+  const name   = (nameEl.value || '').trim();
+  if (!name) { showToast('⚠ 프로젝트 이름을 입력하세요'); nameEl.focus(); return; }
+  if (!calculated || activities.length === 0) {
+    showToast('⚠ CPM 계산 후 저장해주세요'); return;
+  }
+
+  // 동일 이름 존재 여부 확인
+  const existKey = getAllProjKeys().find(k => {
+    try { return JSON.parse(localStorage.getItem(k))?.name === name; } catch { return false; }
+  });
+
+  const key = existKey || (PROJ_PREFIX + Date.now());
+  try {
+    localStorage.setItem(key, JSON.stringify(_makeSnapshot(name)));
+    _currentProjKey = key;
+    nameEl.value = '';
+    renderProjList();
+    showToast(`✓ "${name}" 저장 완료`);
+    // 저장 표시 갱신
+    const ind = document.getElementById('saveIndicator');
+    if (ind) { ind.textContent = `● ${name}`; ind.style.display='inline'; ind.style.color='var(--green)'; }
+  } catch(e) {
+    showToast('❌ 저장 실패 (저장 공간 부족)');
+  }
+}
+
+function loadProject(key) {
+  try {
+    const snap = JSON.parse(localStorage.getItem(key));
+    if (!snap) { showToast('❌ 프로젝트를 찾을 수 없습니다'); return; }
+    _restoreSnapshot(snap);
+    _currentProjKey = key;
+    calculated = false;
+    calculate();
+    toggleProjPanel();
+    showToast(`✓ "${snap.name}" 로드 완료 (${snap.actCount}개 Activity)`);
+    const ind = document.getElementById('saveIndicator');
+    if (ind) { ind.textContent = `● ${snap.name}`; ind.style.display='inline'; ind.style.color='var(--accent)'; }
+  } catch(e) {
+    showToast('❌ 프로젝트 로드 실패');
+  }
+}
+
+function deleteProject(key, name, e) {
+  e.stopPropagation();
+  if (!confirm(`"${name}" 프로젝트를 삭제하시겠습니까?`)) return;
+  localStorage.removeItem(key);
+  if (_currentProjKey === key) _currentProjKey = null;
+  renderProjList();
+  showToast(`"${name}" 삭제됨`);
+}
+
+function renameProject(key, oldName, e) {
+  e.stopPropagation();
+  const newName = prompt('새 이름 입력:', oldName);
+  if (!newName || !newName.trim() || newName.trim() === oldName) return;
+  try {
+    const snap = JSON.parse(localStorage.getItem(key));
+    snap.name = newName.trim();
+    localStorage.setItem(key, JSON.stringify(snap));
+    renderProjList();
+    showToast(`이름 변경: "${newName.trim()}"`);
+  } catch(e) { showToast('변경 실패'); }
+}
+
+function getAllProjKeys() {
+  return Object.keys(localStorage)
+    .filter(k => k.startsWith(PROJ_PREFIX))
+    .sort((a,b) => {
+      // 저장 시간 역순 (최신 먼저)
+      try {
+        const ta = JSON.parse(localStorage.getItem(a))?.savedAt || '';
+        const tb = JSON.parse(localStorage.getItem(b))?.savedAt || '';
+        return tb.localeCompare(ta);
+      } catch { return 0; }
+    });
+}
+
+function renderProjList() {
+  const list = document.getElementById('projList');
+  const keys = getAllProjKeys();
+  if (!keys.length) {
+    list.innerHTML = '<div class="proj-empty">저장된 프로젝트가 없습니다<br><br><small>XML 업로드 후 계산하고<br>이름을 입력해 저장하세요</small></div>';
+    return;
+  }
+
+  list.innerHTML = keys.map(key => {
+    let snap;
+    try { snap = JSON.parse(localStorage.getItem(key)); } catch { return ''; }
+    if (!snap) return '';
+    const isActive = key === _currentProjKey;
+    const saved = new Date(snap.savedAt);
+    const dateStr = `${saved.getFullYear()}-${String(saved.getMonth()+1).padStart(2,'0')}-${String(saved.getDate()).padStart(2,'0')} ${String(saved.getHours()).padStart(2,'0')}:${String(saved.getMinutes()).padStart(2,'0')}`;
+    const cpStr = snap.cpCount > 0 ? `CP ${snap.cpCount}개` : 'CP 없음';
+
+    return `<div class="proj-item${isActive?' active':''}" title="${snap.name}">
+      <div class="proj-item-name">${snap.name}</div>
+      <div class="proj-item-meta">
+        <span>${snap.actCount}개 Activity · ${cpStr}</span>
+        <span>${dateStr}</span>
+      </div>
+      <div class="proj-item-actions">
+        <button class="proj-btn-load" onclick="loadProject('${key}')">불러오기</button>
+        <button class="proj-btn-del" onclick="renameProject('${key}','${snap.name.replace(/'/g,"\'")}',event)" style="color:var(--text-dim)">이름변경</button>
+        <button class="proj-btn-del" onclick="deleteProject('${key}','${snap.name.replace(/'/g,"\'")}',event)">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Storage ──────────────────────────────────────────────────────
+const STORAGE_KEY = 'cpm_network_data';
+
+function saveToStorage() {
+  try {
+    // Date 객체를 문자열로 변환해서 저장
+    const data = {
+      activities: activities.map(a => ({
+        ...a,
+        startDate:      a.startDate      ? a.startDate.toISOString()      : null,
+        finishDate:     a.finishDate     ? a.finishDate.toISOString()     : null,
+        constraintDate: a.constraintDate ? a.constraintDate.toISOString() : null,
+        mppES: a.mppES ? a.mppES.toISOString() : null,
+        mppEF: a.mppEF ? a.mppEF.toISOString() : null,
+        mppLS: a.mppLS ? a.mppLS.toISOString() : null,
+        mppLF: a.mppLF ? a.mppLF.toISOString() : null,
+      })),
+      idCounter:    idCounter,
+      wbsNames:     window._wbsNames || {},
+      wbsFilter:    window._activeWbsFilter || null,
+      projStart:    window._projStart ? window._projStart.toISOString() : null,
+      isSample:     false,
+      savedAt:      new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // 저장 상태 표시 (프로젝트명 있으면 표시, 없으면 날짜)
+    const ind = document.getElementById('saveIndicator');
+    if (ind) {
+      const t = data.savedAt ? new Date(data.savedAt) : new Date();
+      const label = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+      if (!_currentProjKey) {
+        ind.textContent = `● 임시저장 ${label}`;
+        ind.style.display = 'inline';
+        ind.style.color = 'var(--text-dim)';
+      }
+    }
+  } catch(e) {
+    console.warn('저장 실패:', e);
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data.activities || !data.activities.length) return false;
+    // 샘플 데이터였으면 복원 안 함 (항상 최신 샘플 사용)
+    if (data.isSample) return false;
+
+    // Date 문자열 복원
+    const reDate = s => s ? new Date(s) : null;
+    activities = data.activities.map(a => ({
+      ...a,
+      startDate:      reDate(a.startDate),
+      finishDate:     reDate(a.finishDate),
+      constraintDate: reDate(a.constraintDate),
+      mppES: reDate(a.mppES), mppEF: reDate(a.mppEF),
+      mppLS: reDate(a.mppLS), mppLF: reDate(a.mppLF),
+    }));
+    idCounter            = data.idCounter || activities.length + 1;
+    window._wbsNames     = data.wbsNames || {};
+    window._activeWbsFilter = data.wbsFilter || null;
+    if (data.projStart)  window._projStart = new Date(data.projStart);
+
+    const saved = new Date(data.savedAt);
+    const label = `${saved.getFullYear()}-${String(saved.getMonth()+1).padStart(2,'0')}-${String(saved.getDate()).padStart(2,'0')} ${String(saved.getHours()).padStart(2,'0')}:${String(saved.getMinutes()).padStart(2,'0')}`;
+    console.log(`[복원] ${activities.length}개 Activity (저장: ${label})`);
+    // 복원 표시는 calculate() 완료 후 saveToStorage()가 갱신
+    return true;
+  } catch(e) {
+    console.warn('복원 실패:', e);
+    return false;
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────
+// localStorage에 저장된 데이터가 있으면 복원, 없으면 샘플 로드
+const restored = loadFromStorage();
+if (restored) {
+  // 복원된 데이터로 계산 재실행
+  calculated = false;
+  calculate();
+} else {
+  // 샘플 데이터 로드 + 계산
+  loadSample();
+  calculate();
+}
+</script>
+</body>
+</html>
