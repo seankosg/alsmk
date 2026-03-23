@@ -1139,7 +1139,8 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
 
     nodes += `
       <g transform="translate(${p.x},${p.y})" style="cursor:pointer"
-        onclick="handleNodeClick(event,'${id}','${displayWbs}')"
+        onclick="handleNodeSingleClick(event,'${id}','${displayWbs}')"
+        ondblclick="handleNodeDblClick(event,'${id}','${displayWbs}')"
         onmouseenter="showNodeTooltip(event,'${id}')"
         onmouseleave="hideNodeTooltip()"
         onmousemove="moveNodeTooltip(event)">
@@ -2792,13 +2793,20 @@ function postCpmCalculated() {
   window.parent.postMessage({ type: 'cpm-calculated', activities: data }, '*');
 }
 
-function handleNodeClick(event, actId, wbsCode) {
-  // Shift+click: 네트워크 내 WBS 점프 (기존 동작)
-  if (event.shiftKey) {
+let _nodeClickTimer = null;
+
+function handleNodeSingleClick(event, actId, wbsCode) {
+  // 싱글클릭: WBS 이동
+  if (_nodeClickTimer) clearTimeout(_nodeClickTimer);
+  _nodeClickTimer = setTimeout(() => {
+    _nodeClickTimer = null;
     jumpToWbs(actId, wbsCode);
-    return;
-  }
-  // 일반 클릭: React 부모에 activity-click 전송
+  }, 250);
+}
+
+function handleNodeDblClick(event, actId, wbsCode) {
+  // 더블클릭: 사이드 패널 (React 부모에 전송)
+  if (_nodeClickTimer) { clearTimeout(_nodeClickTimer); _nodeClickTimer = null; }
   if (window.parent !== window) {
     const map = {};
     activities.forEach(a => map[a.id] = a);
@@ -2822,8 +2830,6 @@ function handleNodeClick(event, actId, wbsCode) {
         }
       }, '*');
     }
-  } else {
-    jumpToWbs(actId, wbsCode);
   }
 }
 

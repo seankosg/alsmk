@@ -14,8 +14,8 @@ Phase 2 CPM-Task integration: cpm_activities + cpm_task_mappings tables with pos
 - src/components/cpm/MapTasksDialog.tsx: searchable task picker with checkbox multi-select
 
 ## Node Click Behavior
-- Normal click: sends activity-click to React parent (opens side panel)
-- Shift+click: original jumpToWbs behavior (WBS tab navigation)
+- Single click: jumpToWbs (WBS tab navigation)
+- Double click: sends activity-click to React parent (opens side panel)
 
 ## Workspace Deep Link
 - ?task={id} scrolls to and highlights the matching task row (data-task-id attribute)
