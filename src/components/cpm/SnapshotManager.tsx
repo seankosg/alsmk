@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Database, Save, Upload, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { format } from "date-fns";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 interface Snapshot {
   id: string;
