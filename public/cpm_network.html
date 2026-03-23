@@ -1761,6 +1761,10 @@ function parseMSProjectXML(xmlText, fileName) {
       return `${mapped.id}:${lt}:${lag}`;
     }).filter(Boolean).join(',');
 
+    // ── PercentComplete 파싱 ──
+    const pctStr = get(t,'PercentComplete') || get(t,'PercentWorkComplete') || get(t,'PhysicalPercentComplete');
+    const progress = pctStr ? parseInt(pctStr) : null;
+
     const act = {
       id, name,
       duration: dur,
@@ -1775,6 +1779,7 @@ function parseMSProjectXML(xmlText, fileName) {
       wbs,
       wbsFull,
       mppTaskId,
+      progress,
       _uid: uid,
       startDate:  parseDate(startStr),
       finishDate: parseDate(finishStr),
