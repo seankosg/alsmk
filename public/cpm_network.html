@@ -132,14 +132,14 @@
   .act-name-input {
     flex: 1; background: transparent; border: none; outline: none;
     color: var(--text); font-family: var(--sans); font-size: 13px; font-weight: 500;
+    cursor: default;
   }
   .btn-del {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-dim); font-size: 16px; line-height: 1;
-    padding: 2px 4px; border-radius: 3px;
-    transition: color .15s;
+    display: none;
   }
-  .btn-del:hover { color: var(--critical); }
+  .field-input[readonly] {
+    cursor: default; opacity: 0.8; pointer-events: none;
+  }
 
   .card-row2 { display: flex; gap: 8px; }
   .field-group { display: flex; flex-direction: column; gap: 3px; flex: 1; }
