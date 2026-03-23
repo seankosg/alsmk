@@ -682,9 +682,15 @@ function renderSidebar() {
             readonly>
         </div>
         <div class="field-group" style="flex:2">
-          <span class="field-label">선행작업 (A01 또는 A01:SS:2)</span>
-          <input class="field-input" id="pred_${a.id}" placeholder="예: A01 또는 A01:SS:2"
+          <span class="field-label">선행작업</span>
+          <input class="field-input" id="pred_${a.id}" placeholder="-"
             value="${(a.predecessors||'')}"
+            readonly>
+        </div>
+        <div class="field-group" style="flex:2">
+          <span class="field-label">후행작업</span>
+          <input class="field-input" id="succ_${a.id}" placeholder="-"
+            value="${(a.successors||[]).join(', ')}"
             readonly>
         </div>
         <div class="field-group" style="flex:.8">
