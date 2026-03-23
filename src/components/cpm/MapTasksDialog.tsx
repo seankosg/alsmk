@@ -132,7 +132,7 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
           <Link2 className="h-3.5 w-3.5" /> Task 매핑
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+      <DialogContent className="flex max-h-[80vh] max-w-lg min-h-0 flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="text-sm">
             Task 매핑 — {activityName}
@@ -153,7 +153,7 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
           {selectedIds.size}개 선택됨 · {filtered.length}개 표시
         </div>
 
-        <ScrollArea className="flex-1 max-h-[400px] border rounded" scrollbarClassName="w-3">
+        <ScrollArea className="min-h-0 flex-1 border rounded" scrollbarClassName="w-3">
           <div className="divide-y divide-border pr-4">
             {filtered.map(t => (
               <label

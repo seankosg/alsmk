@@ -3,18 +3,67 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 
 import { cn } from "@/lib/utils";
 
+function useCombinedRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
+  return React.useCallback((node: T | null) => {
+    refs.forEach((ref) => {
+      if (!ref) return;
+      if (typeof ref === "function") {
+        ref(node);
+        return;
+      }
+      (ref as React.MutableRefObject<T | null>).current = node;
+    });
+  }, [refs]);
+}
+
 const ScrollArea = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
     scrollbarClassName?: string;
+    viewportClassName?: string;
   }
->(({ className, children, scrollbarClassName, ...props }, ref) => (
-  <ScrollAreaPrimitive.Root ref={ref} type="always" className={cn("relative overflow-hidden", className)} {...props}>
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">{children}</ScrollAreaPrimitive.Viewport>
-    <ScrollBar className={scrollbarClassName} />
-    <ScrollAreaPrimitive.Corner />
-  </ScrollAreaPrimitive.Root>
-));
+>(({ className, children, scrollbarClassName, viewportClassName, ...props }, ref) => {
+  const localRef = React.useRef<React.ElementRef<typeof ScrollAreaPrimitive.Root> | null>(null);
+  const mergedRef = useCombinedRefs(ref, localRef);
+  const [viewportHeight, setViewportHeight] = React.useState<number | undefined>(undefined);
+
+  React.useLayoutEffect(() => {
+    const root = localRef.current;
+    if (!root) return;
+
+    const updateViewportHeight = () => {
+      const nextHeight = root.clientHeight;
+      setViewportHeight(nextHeight > 0 ? nextHeight : undefined);
+    };
+
+    updateViewportHeight();
+
+    const observer = new ResizeObserver(() => {
+      updateViewportHeight();
+    });
+
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <ScrollAreaPrimitive.Root
+      ref={mergedRef}
+      type="always"
+      className={cn("relative min-h-0 overflow-hidden", className)}
+      {...props}
+    >
+      <ScrollAreaPrimitive.Viewport
+        className={cn("w-full min-h-0 rounded-[inherit]", viewportClassName)}
+        style={viewportHeight ? { height: viewportHeight } : undefined}
+      >
+        {children}
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar className={scrollbarClassName} />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  );
+});
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName;
 
 const ScrollBar = React.forwardRef<
