@@ -23,6 +23,10 @@ export interface CpmActivity {
   startDate: string | null;
   finishDate: string | null;
   es: number; ef: number; ls: number; lf: number; tf: number;
+  // Extended fields from dblclick
+  showDetail?: boolean;
+  isPassThrough?: boolean;
+  predecessors?: Array<{ id: string; mppTaskId: string | null; name: string; wbs: string }>;
 }
 
 interface Props {
