@@ -145,25 +145,27 @@ export function SnapshotManager({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Save new */}
-        <div className="flex gap-2">
-          <Input
-            placeholder="스냅샷 이름 입력..."
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            className="text-sm h-9"
-          />
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving || !saveName.trim()}
-            className="gap-1.5 shrink-0"
-          >
-            <Save className="h-3.5 w-3.5" />
-            저장
-          </Button>
-        </div>
+        {/* Save new — Admin only */}
+        {isAdmin && (
+          <div className="flex gap-2">
+            <Input
+              placeholder="스냅샷 이름 입력..."
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              className="text-sm h-9"
+            />
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || !saveName.trim()}
+              className="gap-1.5 shrink-0"
+            >
+              <Save className="h-3.5 w-3.5" />
+              저장
+            </Button>
+          </div>
+        )}
 
         {/* List */}
         <ScrollArea className="max-h-[360px]">
