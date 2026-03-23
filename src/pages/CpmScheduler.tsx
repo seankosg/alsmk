@@ -146,7 +146,7 @@ const CpmScheduler = () => {
   const handleLoadSnapshot = useCallback((snapshotData: any) => {
     if (!iframeRef.current?.contentWindow) return;
     iframeRef.current.contentWindow.postMessage(
-      { type: "snapshot-restore", snapshot: snapshotData, dbUpdatedAt: new Date().toISOString() },
+      { type: "snapshot-restore", snapshot: snapshotData, forceRestore: true },
       "*",
     );
   }, []);
