@@ -2,11 +2,104 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
+import { calcPlannedProgress } from "@/lib/mockData";
+
+interface ActivityStatus {
+  activityName: string;
+  totalTasks: number;
+  onTrack: number;
+  delayed: number;
+  actualPct: number;
+  plannedPct: number;
+}
 
 const CpmScheduler = () => {
   const [selectedActivity, setSelectedActivity] = useState<CpmActivity | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const queryClient = useQueryClient();
+
+  // Send activity status data to iframe
+  const sendStatusToIframe = useCallback(async () => {
+    if (!iframeRef.current?.contentWindow) return;
+
+    // Get all activities
+    const { data: activities } = await supabase
+      .from("cpm_activities")
+      .select("id, name");
+    if (!activities?.length) return;
+
+    // Get all mappings with task data
+    const { data: mappings } = await supabase
+      .from("cpm_task_mappings")
+      .select("activity_id, task_id");
+    if (!mappings?.length) {
+      iframeRef.current.contentWindow.postMessage({
+        type: "activity-status-update",
+        statuses: [],
+      }, "*");
+      return;
+    }
+
+    const taskIds = [...new Set(mappings.map(m => m.task_id))];
+    const { data: tasks } = await supabase
+      .from("tasks")
+      .select("id, current_progress, start_date, end_date")
+      .in("id", taskIds)
+      .is("deleted_at", null);
+    if (!tasks?.length) return;
+
+    const taskMap = Object.fromEntries(tasks.map(t => [t.id, t]));
+
+    // Group mappings by activity_id
+    const activityMappings = new Map<string, string[]>();
+    mappings.forEach(m => {
+      if (!activityMappings.has(m.activity_id)) activityMappings.set(m.activity_id, []);
+      activityMappings.get(m.activity_id)!.push(m.task_id);
+    });
+
+    // Build activity name → id map
+    const actNameMap = Object.fromEntries(activities.map(a => [a.id, a.name]));
+
+    const statuses: ActivityStatus[] = [];
+    activityMappings.forEach((tIds, actId) => {
+      const actName = actNameMap[actId];
+      if (!actName) return;
+
+      const validTasks = tIds.map(id => taskMap[id]).filter(Boolean);
+      if (!validTasks.length) return;
+
+      let totalDur = 0, weightedActual = 0, weightedPlanned = 0;
+      let onTrack = 0, delayed = 0;
+
+      validTasks.forEach(t => {
+        const dur = Math.max(1, Math.round((new Date(t.end_date).getTime() - new Date(t.start_date).getTime()) / 86400000) + 1);
+        const planned = calcPlannedProgress(t.start_date, t.end_date);
+        totalDur += dur;
+        weightedActual += t.current_progress * dur;
+        weightedPlanned += planned * dur;
+
+        if (t.current_progress < planned - 5) {
+          delayed++;
+        } else {
+          onTrack++;
+        }
+      });
+
+      statuses.push({
+        activityName: actName,
+        totalTasks: validTasks.length,
+        onTrack,
+        delayed,
+        actualPct: totalDur ? Math.round(weightedActual / totalDur) : 0,
+        plannedPct: totalDur ? Math.round(weightedPlanned / totalDur) : 0,
+      });
+    });
+
+    iframeRef.current.contentWindow.postMessage({
+      type: "activity-status-update",
+      statuses,
+    }, "*");
+  }, []);
 
   // Upsert activities to DB when CPM calculates
   const upsertActivities = useCallback(async (activities: CpmActivity[]) => {
@@ -28,7 +121,6 @@ const CpmScheduler = () => {
         updated_at: new Date().toISOString(),
       };
 
-      // Upsert by name (since mpp_uid may not be unique across uploads)
       const { data: existing } = await supabase
         .from("cpm_activities")
         .select("id")
@@ -43,7 +135,10 @@ const CpmScheduler = () => {
     }
     
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-  }, [queryClient]);
+
+    // Send status data to iframe after upsert
+    setTimeout(() => sendStatusToIframe(), 500);
+  }, [queryClient, sendStatusToIframe]);
 
   // Listen for messages from iframe
   useEffect(() => {
