@@ -161,35 +161,24 @@ const CpmScheduler = () => {
   const upsertActivities = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
     
-    for (const a of activities) {
-      const row = {
-        mpp_uid: a.mppUid,
-        mpp_task_id: a.mppTaskId,
-        name: a.name,
-        duration: a.duration,
-        progress: a.progress,
-        wbs_full: a.wbsFull,
-        is_critical: a.isCritical,
-        is_milestone: a.isMilestone,
-        start_date: a.startDate,
-        finish_date: a.finishDate,
-        es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
-        updated_at: new Date().toISOString(),
-      };
+    const rows = activities.map((a) => ({
+      mpp_uid: a.mppUid,
+      mpp_task_id: a.mppTaskId,
+      name: a.name,
+      duration: a.duration,
+      progress: a.progress,
+      wbs_full: a.wbsFull,
+      is_critical: a.isCritical,
+      is_milestone: a.isMilestone,
+      start_date: a.startDate,
+      finish_date: a.finishDate,
+      es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
+      updated_at: new Date().toISOString(),
+    }));
 
-      const { data: existing } = await supabase
-        .from("cpm_activities")
-        .select("id")
-        .eq("mpp_task_id", a.mppTaskId || '')
-        .eq("wbs_full", a.wbsFull || '')
-        .maybeSingle();
-
-      if (existing) {
-        await supabase.from("cpm_activities").update(row).eq("id", existing.id);
-      } else {
-        await supabase.from("cpm_activities").insert(row);
-      }
-    }
+    await supabase
+      .from("cpm_activities")
+      .upsert(rows, { onConflict: "mpp_task_id,wbs_full" });
     
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
     setTimeout(() => sendStatusToIframe(), 500);
