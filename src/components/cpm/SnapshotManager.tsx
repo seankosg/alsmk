@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Database, Save, Upload, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 interface Snapshot {
   id: string;
@@ -29,6 +30,7 @@ export function SnapshotManager({
   pendingSnapshot,
   onSnapshotHandled,
 }: SnapshotManagerProps) {
+  const { isAdmin } = useAuthContext();
   const [open, setOpen] = useState(false);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [saveName, setSaveName] = useState("");
@@ -143,25 +145,27 @@ export function SnapshotManager({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Save new */}
-        <div className="flex gap-2">
-          <Input
-            placeholder="스냅샷 이름 입력..."
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            className="text-sm h-9"
-          />
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving || !saveName.trim()}
-            className="gap-1.5 shrink-0"
-          >
-            <Save className="h-3.5 w-3.5" />
-            저장
-          </Button>
-        </div>
+        {/* Save new — Admin only */}
+        {isAdmin && (
+          <div className="flex gap-2">
+            <Input
+              placeholder="스냅샷 이름 입력..."
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              className="text-sm h-9"
+            />
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || !saveName.trim()}
+              className="gap-1.5 shrink-0"
+            >
+              <Save className="h-3.5 w-3.5" />
+              저장
+            </Button>
+          </div>
+        )}
 
         {/* List */}
         <ScrollArea className="max-h-[360px]">
@@ -203,14 +207,16 @@ export function SnapshotManager({
                     >
                       <Upload className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                      onClick={(e) => handleDelete(snap, e)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        onClick={(e) => handleDelete(snap, e)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
