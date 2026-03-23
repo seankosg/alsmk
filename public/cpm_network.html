@@ -2931,6 +2931,17 @@ window.addEventListener('message', function(e) {
     }
   }
 });
+
+// ─── Sidebar card highlight helper ───────────────────────────────
+function highlightSidebarCard(actId) {
+  document.querySelectorAll('.activity-card.selected').forEach(el => el.classList.remove('selected'));
+  const selCard = document.querySelector('.activity-card[data-act-id="' + actId + '"]');
+  if (selCard) {
+    selCard.classList.add('selected');
+    selCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
 </script>
 </body>
 </html>
