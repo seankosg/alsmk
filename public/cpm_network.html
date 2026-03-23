@@ -1133,9 +1133,63 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
     // Progress bar rendering
     const hasProg = a.progress !== null && a.progress !== undefined;
     const progPct = hasProg ? Math.min(100, Math.max(0, a.progress)) : 0;
-    const progBarW = Math.round((NODE_W - 16) * progPct / 100);
-    const progColor = progPct >= 100 ? '#3dd68c' : progPct >= 50 ? '#4da6ff' : progPct > 0 ? '#e8c547' : '#2a3347';
-    const progBg = 'rgba(255,255,255,.06)';
+
+    // Check for mapped task status data
+    const statusData = window._activityStatusMap && window._activityStatusMap[a.name];
+    const hasStatus = statusData && statusData.totalTasks > 0;
+
+    // Determine progress values
+    const actualPct = hasStatus ? statusData.actualPct : progPct;
+    const plannedPct = hasStatus ? statusData.plannedPct : progPct;
+    const barW = NODE_W - 16;
+
+    // Status indicator row (task counts)
+    let statusRow = '';
+    if (hasStatus) {
+      const s = statusData;
+      statusRow = `
+        <text x="10" y="18" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0">
+          <tspan fill="#e2e8f0">●</tspan><tspan fill="#aaa"> ${s.totalTasks}</tspan>
+          <tspan dx="4" fill="#3dd68c">●</tspan><tspan fill="#3dd68c"> ${s.onTrack}</tspan>
+          <tspan dx="4" fill="#ff4d4d">●</tspan><tspan fill="#ff4d4d"> ${s.delayed}</tspan>
+        </text>
+      `;
+    }
+
+    // Y offsets: push content down by 12 when status row exists
+    const yOff = hasStatus ? 12 : 0;
+
+    // Layered progress bar
+    let progressBar = '';
+    if (hasProg || hasStatus) {
+      const barY = NODE_H - 16;
+      const plannedW = Math.round(barW * plannedPct / 100);
+      const actualW = Math.round(barW * actualPct / 100);
+      const progBg = 'rgba(255,255,255,.06)';
+
+      progressBar = `
+        <rect x="8" y="${barY}" width="${barW}" height="6" rx="3" fill="${progBg}"/>
+        <rect x="8" y="${barY}" width="${plannedW}" height="6" rx="3" fill="#555"/>
+      `;
+
+      if (actualPct < plannedPct) {
+        // Gap portion in red (from actual to planned)
+        progressBar += `<rect x="${8 + actualW}" y="${barY}" width="${Math.max(0, plannedW - actualW)}" height="6" rx="3" fill="#ff4d4d"/>`;
+        // Actual in blue
+        progressBar += `<rect x="8" y="${barY}" width="${actualW}" height="6" rx="3" fill="#4da6ff"/>`;
+      } else {
+        // Actual >= planned: blue covers planned
+        progressBar += `<rect x="8" y="${barY}" width="${actualW}" height="6" rx="3" fill="#4da6ff"/>`;
+      }
+
+      // Label: actual%/planned% for mapped, just pct% for unmapped
+      if (hasStatus) {
+        progressBar += `<text x="${NODE_W - 8}" y="${barY - 2}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="${actualPct < plannedPct ? '#ff4d4d' : '#4da6ff'}" text-anchor="end" font-weight="600">${actualPct}/${plannedPct}%</text>`;
+      } else {
+        const progColor = progPct >= 100 ? '#3dd68c' : progPct >= 50 ? '#4da6ff' : progPct > 0 ? '#e8c547' : '#2a3347';
+        progressBar += `<text x="${NODE_W - 8}" y="${barY - 2}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="${progColor}" text-anchor="end" font-weight="600">${progPct}%</text>`;
+      }
+    }
 
     nodes += `
       <g transform="translate(${p.x},${p.y})" style="cursor:pointer"
@@ -1147,29 +1201,25 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
         <rect width="${NODE_W}" height="${NODE_H}" rx="6"
           fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>
         <rect width="${NODE_W}" height="4" rx="3" fill="${hColor}" opacity=".8"/>
-        <text x="8" y="18" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" font-weight="600"
+        ${statusRow}
+        <text x="8" y="${18 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" font-weight="600"
           fill="${hColor}">${displayId}</text>
-        <text x="${NODE_W-8}" y="18" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9"
+        <text x="${NODE_W-8}" y="${18 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9"
           fill="${isC?'#ff8080':'#5a7a9a'}" text-anchor="end">${displayWbs}</text>
-        <text x="${NODE_W/2}" y="34" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="11" font-weight="500"
+        <text x="${NODE_W/2}" y="${34 + yOff}" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="11" font-weight="500"
           fill="#e2e8f0" text-anchor="middle">${nameShort}</text>
-        <text x="${NODE_W/2}" y="48" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="10"
+        <text x="${NODE_W/2}" y="${48 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="10"
           fill="#7a8ba0" text-anchor="middle">${a.duration}일</text>
-        <line x1="8" y1="55" x2="${NODE_W-8}" y2="55" stroke="#2a3347" stroke-width="1"/>
+        <line x1="8" y1="${55 + yOff}" x2="${NODE_W-8}" y2="${55 + yOff}" stroke="#2a3347" stroke-width="1"/>
         ${a.startDate
-          ? `<text x="${NODE_W/2}" y="65" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0" text-anchor="middle">${fmtDate(a.startDate)} ~</text>
-             <text x="${NODE_W/2}" y="75" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0" text-anchor="middle">${fmtDate(a.finishDate)}</text>`
-          : `<text x="8" y="67" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="#7a8ba0">ES:${a.es} EF:${a.ef}</text>
-             <text x="${NODE_W-8}" y="67" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="${isC?'#ff6060':'#7a8ba0'}" text-anchor="end">TF:${a.tf}</text>`
+          ? `<text x="${NODE_W/2}" y="${65 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0" text-anchor="middle">${fmtDate(a.startDate)} ~</text>
+             <text x="${NODE_W/2}" y="${75 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0" text-anchor="middle">${fmtDate(a.finishDate)}</text>`
+          : `<text x="8" y="${67 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="#7a8ba0">ES:${a.es} EF:${a.ef}</text>
+             <text x="${NODE_W-8}" y="${67 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="${isC?'#ff6060':'#7a8ba0'}" text-anchor="end">TF:${a.tf}</text>`
         }
-        <!-- Progress Bar -->
-        ${hasProg ? `
-          <rect x="8" y="${NODE_H - 16}" width="${NODE_W - 16}" height="6" rx="3" fill="${progBg}"/>
-          <rect x="8" y="${NODE_H - 16}" width="${progBarW}" height="6" rx="3" fill="${progColor}"/>
-          <text x="${NODE_W - 8}" y="${NODE_H - 10}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="${progColor}" text-anchor="end" font-weight="600">${progPct}%</text>
-        ` : ''}
-        ${isC ? `<text x="${NODE_W/2}" y="${hasProg ? NODE_H - 22 : 78}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="middle" font-weight="600">★ CRITICAL</text>` : ''}
-        ${isPT ? `<text x="${NODE_W/2}" y="${hasProg ? NODE_H - 22 : 78}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#c97a10" text-anchor="middle" font-weight="600">통과 노드</text>` : ''}
+        ${progressBar}
+        ${isC ? `<text x="${NODE_W/2}" y="${(hasProg || hasStatus) ? NODE_H - 22 : 88}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="middle" font-weight="600">★ CRITICAL</text>` : ''}
+        ${isPT ? `<text x="${NODE_W/2}" y="${(hasProg || hasStatus) ? NODE_H - 22 : 88}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#c97a10" text-anchor="middle" font-weight="600">통과 노드</text>` : ''}
       </g>
     `;
   });
