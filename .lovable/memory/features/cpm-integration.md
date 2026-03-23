@@ -1,18 +1,25 @@
-Phase 2+3 CPM-Task integration: cpm_activities + cpm_task_mappings tables with postMessage bridge + node risk visualization.
+Phase 2+3+4 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_snapshots tables with postMessage bridge + node risk visualization.
 
 ## Tables
 - cpm_activities: mpp_uid, mpp_task_id, name, duration, progress, wbs_full, is_critical, is_milestone, start/finish dates, ES/EF/LS/LF/TF
 - cpm_task_mappings: activity_id → task_id (many-to-many, unique constraint)
+- cpm_snapshots: name, data (jsonb full network state), created_by, timestamps — shared across all users
 
 ## postMessage Protocol
-- iframe → parent: `cpm-calculated`, `activity-click` (single click), `activity-detail-click` (dblclick with predecessors)
-- parent → iframe: `request-cpm-data`, `activity-status-update` (statuses array with activityKey)
+- iframe → parent: `cpm-calculated`, `activity-click`, `activity-detail-click`, `snapshot-save`, `request-db-snapshot`
+- parent → iframe: `request-cpm-data`, `activity-status-update`, `snapshot-restore`
+
+## Data Persistence (Phase 4)
+- localStorage: fast local cache, saved on every calculate()
+- DB (cpm_snapshots): full network state as JSONB, saved on every calculate() via postSnapshotSave()
+- On load: localStorage first → if empty, request DB snapshot → if DB newer than localStorage, restore from DB
+- All logged-in users share the same CPM network
 
 ## Activity Status Key
 - Format: `${mpp_task_id}::${wbs_full}::${name}` — avoids duplicate name collisions
 
 ## Components
-- src/pages/CpmScheduler.tsx: iframe + side panel layout, message listener, DB upsert, status aggregation + postMessage
+- src/pages/CpmScheduler.tsx: iframe + side panel layout, message listener, DB upsert, status aggregation + postMessage, snapshot save/load
 - src/components/cpm/ActivityTaskPanel.tsx: detail header (dblclick) + 3-tier task hierarchy with GAP%
 - src/components/cpm/MapTasksDialog.tsx: searchable task picker with checkbox multi-select
 - src/components/cpm/MapActivitiesDialog.tsx: reverse mapping (Task → Activity) from TaskDetailDialog

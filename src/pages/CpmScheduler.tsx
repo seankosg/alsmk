@@ -97,6 +97,57 @@ const CpmScheduler = () => {
     );
   }, []);
 
+  // Save snapshot to DB
+  const saveSnapshotToDb = useCallback(async (snapshotData: any) => {
+    const name = snapshotData.name || "default";
+    
+    // Check if snapshot with this name exists
+    const { data: existing } = await supabase
+      .from("cpm_snapshots")
+      .select("id")
+      .eq("name", name)
+      .maybeSingle();
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (existing) {
+      await supabase
+        .from("cpm_snapshots")
+        .update({ data: snapshotData, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+    } else {
+      await supabase
+        .from("cpm_snapshots")
+        .insert({ name, data: snapshotData, created_by: user?.id || null });
+    }
+    
+    console.log(`[CPM Snapshot] Saved to DB: "${name}"`);
+  }, []);
+
+  // Load latest snapshot from DB and send to iframe
+  const loadSnapshotFromDb = useCallback(async () => {
+    if (!iframeRef.current?.contentWindow) return;
+
+    const { data: snapshot } = await supabase
+      .from("cpm_snapshots")
+      .select("data, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (snapshot?.data) {
+      console.log(`[CPM Snapshot] Loaded from DB (updated: ${snapshot.updated_at})`);
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: "snapshot-restore",
+          snapshot: snapshot.data,
+          dbUpdatedAt: snapshot.updated_at,
+        },
+        "*",
+      );
+    }
+  }, []);
+
   // Upsert activities to DB when CPM calculates
   const upsertActivities = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
@@ -153,11 +204,21 @@ const CpmScheduler = () => {
       if (e.data.type === "activity-detail-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
       }
+
+      // Snapshot save request from iframe
+      if (e.data.type === "snapshot-save") {
+        saveSnapshotToDb(e.data.snapshot);
+      }
+
+      // iframe requests DB snapshot (localStorage was empty)
+      if (e.data.type === "request-db-snapshot") {
+        loadSnapshotFromDb();
+      }
     };
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [upsertActivities]);
+  }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb]);
 
   return (
     <div className="h-[calc(100vh-48px)] -m-3 sm:-m-4 md:-m-6 flex">

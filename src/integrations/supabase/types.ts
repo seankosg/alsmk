@@ -220,6 +220,33 @@ export type Database = {
         }
         Relationships: []
       }
+      cpm_snapshots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cpm_task_mappings: {
         Row: {
           activity_id: string

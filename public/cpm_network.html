@@ -998,6 +998,8 @@ function calculate() {
   saveToStorage();
   // postMessage: 계산 완료 데이터를 부모 React에 전송
   postCpmCalculated();
+  // 서버(DB)에도 스냅샷 자동 저장
+  postSnapshotSave();
 }
 
 // ─── Network Diagram ──────────────────────────────────────────────
@@ -2820,11 +2822,17 @@ function loadFromStorage() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
-// localStorage에 저장된 데이터가 있으면 복원, 없으면 샘플 로드
+// localStorage에 저장된 데이터가 있으면 복원, 없으면 부모에게 DB 스냅샷 요청
 const restored = loadFromStorage();
 if (restored) {
   // 복원된 데이터로 계산 재실행
   calculated = false;
+  calculate();
+} else if (window.parent !== window) {
+  // localStorage 없음 → 부모(React)에 DB 스냅샷 요청
+  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
+  // DB 응답 올 때까지 샘플 로드 (대기 표시)
+  loadSample();
   calculate();
 } else {
   // 샘플 데이터 로드 + 계산
@@ -2850,6 +2858,17 @@ function postCpmCalculated() {
     es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
   }));
   window.parent.postMessage({ type: 'cpm-calculated', activities: data }, '*');
+}
+
+// DB 스냅샷 저장 요청 → parent React가 Supabase에 저장
+function postSnapshotSave() {
+  if (window.parent === window) return;
+  if (!calculated || activities.length === 0) return;
+  const snapName = _currentProjKey
+    ? (function() { try { return JSON.parse(localStorage.getItem(_currentProjKey))?.name; } catch { return null; } })() || 'default'
+    : 'default';
+  const snapshot = _makeSnapshot(snapName);
+  window.parent.postMessage({ type: 'snapshot-save', snapshot }, '*');
 }
 
 function handleNodeClick(event, actId, wbsCode) {
@@ -2934,6 +2953,32 @@ window.addEventListener('message', function(e) {
     // Re-render network if calculated
     if (typeof calculated !== 'undefined' && calculated && typeof order !== 'undefined') {
       drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
+    }
+  }
+  // DB에서 복원된 스냅샷 수신
+  if (e.data.type === 'snapshot-restore') {
+    const snap = e.data.snapshot;
+    if (!snap || !snap.activities || !snap.activities.length) return;
+    // DB 스냅샷이 localStorage보다 새로운 경우에만 복원
+    const localRaw = localStorage.getItem(STORAGE_KEY);
+    if (localRaw) {
+      try {
+        const localData = JSON.parse(localRaw);
+        if (localData.savedAt && snap.savedAt && new Date(localData.savedAt) >= new Date(snap.savedAt)) {
+          console.log('[CPM Snapshot] localStorage is newer, skipping DB restore');
+          return;
+        }
+      } catch {}
+    }
+    console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities)');
+    _restoreSnapshot(snap);
+    calculated = false;
+    calculate();
+    const ind = document.getElementById('saveIndicator');
+    if (ind) {
+      ind.textContent = '● 서버에서 복원됨';
+      ind.style.display = 'inline';
+      ind.style.color = 'var(--green)';
     }
   }
 });
