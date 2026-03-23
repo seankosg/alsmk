@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, ChevronDown, ExternalLink, AlertTriangle, CheckCircle2, Link2, Info, Calendar, Clock, ArrowRight } from "lucide-react";
+import { ChevronRight, ChevronDown, ExternalLink, AlertTriangle, CheckCircle2, Link2, Info, Calendar, Clock, ArrowRight, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
