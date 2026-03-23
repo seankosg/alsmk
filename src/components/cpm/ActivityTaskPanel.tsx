@@ -62,11 +62,17 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
   const { data: dbActivity } = useQuery({
     queryKey: ["cpm_activity_by_mpp", activity.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("cpm_activities")
-        .select("id")
-        .eq("name", activity.name)
-        .maybeSingle();
+      let query = supabase.from("cpm_activities").select("id");
+      if (activity.mppTaskId) {
+        query = query.eq("mpp_task_id", activity.mppTaskId);
+      }
+      if (activity.wbsFull) {
+        query = query.eq("wbs_full", activity.wbsFull);
+      }
+      if (!activity.mppTaskId && !activity.wbsFull) {
+        query = query.eq("name", activity.name);
+      }
+      const { data } = await query.maybeSingle();
       return data;
     },
   });
