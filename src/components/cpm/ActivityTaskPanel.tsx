@@ -1,14 +1,16 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, ChevronDown, ExternalLink, AlertTriangle, CheckCircle2, Link2, Info, Calendar, Clock, ArrowRight, X } from "lucide-react";
+import { ChevronRight, ChevronDown, AlertTriangle, Link2, Calendar, Clock, ArrowRight, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { useNavigate } from "react-router-dom";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { MapTasksDialog } from "./MapTasksDialog";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 export interface CpmActivity {
   id: string;
