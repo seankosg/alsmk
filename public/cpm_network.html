@@ -630,6 +630,7 @@ function addActivity(data) {
     wbs:          data?.wbs          || '1',
     wbsFull:      data?.wbsFull      || data?.wbs || '1',
     mppTaskId:    data?.mppTaskId    || null,
+    progress:     data?.progress     ?? null,
     es: null, ef: null, ls: null, lf: null, tf: null,
     isCritical: false
   };
