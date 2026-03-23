@@ -1,34 +1,43 @@
 
 
-# CPM Manager UI 변경 계획 (수정)
+# ActivityTaskPanel 매핑 Task 관리 개선
 
-## 변경 1: 사이드바 이름 및 위치 변경
+## 변경 사항 요약
 
-**파일**: `src/components/layout/AppSidebar.tsx`
+### 1. 삭제(X) 버튼 위치 변경 — task_code 좌측으로 이동
+현재 행 우측 끝에 있는 매핑 해제(X) 버튼을 task_code 좌측으로 이동합니다.
 
-- `title`을 `"CPM Manager"`로 변경
-- navItems 순서를 My Workspace → **CPM Manager** → Messages 순으로 재배치
+### 2. 삭제 버튼 권한 제어
+- `useAuthContext`에서 `isAdmin`, `memberId`를 가져옴
+- 해당 task의 `assignee_id`가 현재 로그인 사용자의 `memberId`와 같거나, `isAdmin`인 경우에만 삭제 버튼 표시
+- 권한이 없는 사용자에게는 버튼이 렌더링되지 않음
 
-## 변경 2: 스냅샷 저장을 Admin 전용으로 제한
+### 3. Hover 시 Task 상세 정보 툴팁 (HoverCard)
+`@radix-ui/react-hover-card`(이미 설치됨)를 활용하여 각 Task 행에 마우스를 올리면 상세 정보 카드를 표시:
+- Task Code, Title (전체 텍스트)
+- 담당자, 팀명
+- 시작일 ~ 종료일
+- 실제 진행률 vs 계획 진행률, GAP
+- Issue flag (있을 경우)
 
-**파일**: `src/components/cpm/SnapshotManager.tsx`
+### 4. ExternalLink 버튼 제거
+행 전체를 클릭하면 `/workspace?task=${task.id}`로 이동하도록 변경. 기존 ExternalLink 아이콘 버튼 제거.
 
-- `useAuthContext()`로 `isAdmin` 확인
-- 저장 입력 영역 + 삭제 버튼을 Admin에게만 렌더링
-- 비-Admin은 목록 조회 및 불러오기만 가능
+## 기술 상세
 
-## 변경 3: 왼쪽 사이드패널의 Activity 추가 버튼 숨기기
+### 수정 파일: `src/components/cpm/ActivityTaskPanel.tsx`
 
-**파일**: `public/cpm_network.html`
+1. **Import 추가**: `useAuthContext` from AppLayout, `HoverCard/HoverCardTrigger/HoverCardContent` from ui/hover-card
+2. **컴포넌트 내부**: `useAuthContext()`로 `isAdmin`, `memberId` 획득
+3. **Task 행 구조 변경** (lines 358-394):
 
-- 538행의 `<button class="btn-add" onclick="addActivity()">+ 추가</button>` 를 `display:none` 또는 제거
-- 사이드패널의 각 Activity 카드 내 삭제 버튼(`×`)도 이미 이전 계획에서 readonly 처리 예정이므로, 추가 버튼만 숨기면 사이드패널은 조회 전용이 됨
+```text
+변경 전:  [task_code] [title] [progress] [gap] [ExternalLink] [X]
+변경 후:  [X(조건부)] [task_code] [title] [progress] [gap]
+          행 전체 클릭 → Workspace 이동
+          행 hover → HoverCard로 상세정보 표시
+```
 
-### 변경 파일 요약
-
-| 파일 | 변경 |
-|------|------|
-| `src/components/layout/AppSidebar.tsx` | 이름 변경 + 순서 재배치 |
-| `src/components/cpm/SnapshotManager.tsx` | Admin 전용 저장/삭제 |
-| `public/cpm_network.html` | `+ 추가` 버튼 숨김 |
+4. **HoverCard 내용**: task의 전체 title, team_name, assignee_name, start_date~end_date, current_progress/planned, gap, issue 정보
+5. **TaskWithMember 인터페이스**에 `issue_flag`, `issue_description` 필드 추가 (tasks 테이블에서 select 시 포함)
 
