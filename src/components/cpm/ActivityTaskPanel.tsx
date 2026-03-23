@@ -84,7 +84,7 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
       const taskIds = mappings.map(m => m.task_id);
       const { data: tasks } = await supabase
         .from("tasks")
-        .select("id, title, task_code, current_progress, start_date, end_date, team_id, assignee_id")
+        .select("id, title, task_code, current_progress, start_date, end_date, team_id, assignee_id, issue_flag, issue_description")
         .in("id", taskIds)
         .is("deleted_at", null);
 
