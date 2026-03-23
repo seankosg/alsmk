@@ -359,44 +359,98 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
                       {aExpanded && aTasks.map(task => {
                         const planned = calcPlannedProgress(task.start_date, task.end_date);
                         const tGap = task.current_progress - planned;
+                        const canUnmap = isAdmin || (memberId && task.assignee_id === memberId);
 
                         return (
-                          <div
-                            key={task.id}
-                            className="ml-6 flex items-center gap-2 px-3 py-1.5 rounded hover:bg-muted/20 transition-colors group"
-                          >
-                            <span className="text-[10px] font-mono text-primary truncate max-w-[100px]">
-                              {task.task_code || '-'}
-                            </span>
-                            <span className="text-xs text-foreground flex-1 truncate">{task.title}</span>
-                            <span className="text-[10px] font-mono text-muted-foreground">
-                              {task.current_progress}/{planned}%
-                            </span>
-                            <GapBadge gap={tGap} />
-                            <button
-                              onClick={() => navigate(`/workspace?task=${task.id}`)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Workspace로 이동"
-                            >
-                              <ExternalLink className="h-3 w-3 text-primary" />
-                            </button>
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (!dbActivity?.id) return;
-                                await supabase
-                                  .from("cpm_task_mappings")
-                                  .delete()
-                                  .eq("activity_id", dbActivity.id)
-                                  .eq("task_id", task.id);
-                                refetchMappings();
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                              title="매핑 해제"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
+                          <HoverCard key={task.id} openDelay={300} closeDelay={100}>
+                            <HoverCardTrigger asChild>
+                              <div
+                                className="ml-6 flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-muted/30 transition-colors cursor-pointer"
+                                onClick={() => navigate(`/workspace?task=${task.id}`)}
+                              >
+                                {canUnmap && (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (!dbActivity?.id) return;
+                                      await supabase
+                                        .from("cpm_task_mappings")
+                                        .delete()
+                                        .eq("activity_id", dbActivity.id)
+                                        .eq("task_id", task.id);
+                                      refetchMappings();
+                                    }}
+                                    className="text-destructive/60 hover:text-destructive transition-colors shrink-0"
+                                    title="매핑 해제"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                                <span className="text-[10px] font-mono text-primary truncate max-w-[80px] shrink-0">
+                                  {task.task_code || '-'}
+                                </span>
+                                <span className="text-xs text-foreground flex-1 truncate">{task.title}</span>
+                                <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                                  {task.current_progress}/{planned}%
+                                </span>
+                                <GapBadge gap={tGap} />
+                              </div>
+                            </HoverCardTrigger>
+                            <HoverCardContent side="left" align="start" className="w-72 p-3 space-y-2">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {task.task_code && (
+                                    <Badge variant="outline" className="font-mono text-[10px]">{task.task_code}</Badge>
+                                  )}
+                                  {task.issue_flag !== 'normal' && (
+                                    <Badge variant={task.issue_flag === 'critical' ? 'destructive' : 'secondary'} className="text-[10px]">
+                                      <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                      {task.issue_flag}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm font-medium text-foreground">{task.title}</p>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1 text-xs">
+                                <div className="bg-muted/50 rounded px-2 py-1">
+                                  <span className="text-muted-foreground">팀</span>
+                                  <span className="ml-1 text-foreground">{task.team_name}</span>
+                                </div>
+                                <div className="bg-muted/50 rounded px-2 py-1">
+                                  <span className="text-muted-foreground">담당</span>
+                                  <span className="ml-1 text-foreground">{task.assignee_name}</span>
+                                </div>
+                              </div>
+                              <div className="bg-muted/50 rounded px-2 py-1 flex items-center gap-1.5 text-xs">
+                                <Calendar className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-mono text-foreground">{task.start_date}</span>
+                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-mono text-foreground">{task.end_date}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-muted-foreground">실적</span>
+                                <Progress value={task.current_progress} className="flex-1 h-1.5" />
+                                <span className="font-mono font-semibold">{task.current_progress}%</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-muted-foreground">계획</span>
+                                <Progress value={planned} className="flex-1 h-1.5" />
+                                <span className="font-mono font-semibold">{planned}%</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs">
+                                <span className="text-muted-foreground">GAP</span>
+                                <span className={`font-mono font-semibold ${tGap >= 0 ? 'text-success' : tGap > -10 ? 'text-warning' : 'text-destructive'}`}>
+                                  {tGap > 0 ? '+' : ''}{tGap}%
+                                </span>
+                              </div>
+                              {task.issue_description && (
+                                <div className="bg-destructive/10 rounded px-2 py-1 text-xs text-destructive">
+                                  {task.issue_description}
+                                </div>
+                              )}
+                              <p className="text-[10px] text-muted-foreground">클릭하여 Workspace로 이동</p>
+                            </HoverCardContent>
+                          </HoverCard>
                         );
                       })}
                     </div>
