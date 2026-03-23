@@ -157,6 +157,105 @@ export type Database = {
         }
         Relationships: []
       }
+      cpm_activities: {
+        Row: {
+          created_at: string
+          duration: number
+          ef: number | null
+          es: number | null
+          finish_date: string | null
+          id: string
+          is_critical: boolean
+          is_milestone: boolean
+          lf: number | null
+          ls: number | null
+          mpp_task_id: string | null
+          mpp_uid: string | null
+          name: string
+          progress: number | null
+          start_date: string | null
+          tf: number | null
+          updated_at: string
+          wbs_full: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration?: number
+          ef?: number | null
+          es?: number | null
+          finish_date?: string | null
+          id?: string
+          is_critical?: boolean
+          is_milestone?: boolean
+          lf?: number | null
+          ls?: number | null
+          mpp_task_id?: string | null
+          mpp_uid?: string | null
+          name: string
+          progress?: number | null
+          start_date?: string | null
+          tf?: number | null
+          updated_at?: string
+          wbs_full?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration?: number
+          ef?: number | null
+          es?: number | null
+          finish_date?: string | null
+          id?: string
+          is_critical?: boolean
+          is_milestone?: boolean
+          lf?: number | null
+          ls?: number | null
+          mpp_task_id?: string | null
+          mpp_uid?: string | null
+          name?: string
+          progress?: number | null
+          start_date?: string | null
+          tf?: number | null
+          updated_at?: string
+          wbs_full?: string | null
+        }
+        Relationships: []
+      }
+      cpm_task_mappings: {
+        Row: {
+          activity_id: string
+          created_at: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cpm_task_mappings_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "cpm_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cpm_task_mappings_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       direct_messages: {
         Row: {
           conversation_id: string
