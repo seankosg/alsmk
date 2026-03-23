@@ -163,6 +163,10 @@ const CpmScheduler = () => {
           className="w-full h-full border-0"
           title="CPM Network Scheduler"
           sandbox="allow-scripts allow-same-origin allow-popups"
+          onLoad={() => {
+            iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
+            setTimeout(() => sendStatusToIframe(), 300);
+          }}
         />
       </div>
       {selectedActivity && (
