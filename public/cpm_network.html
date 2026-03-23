@@ -1138,7 +1138,7 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
 
     nodes += `
       <g transform="translate(${p.x},${p.y})" style="cursor:pointer"
-        onclick="jumpToWbs('${id}','${displayWbs}')"
+        onclick="handleNodeClick(event,'${id}','${displayWbs}')"
         onmouseenter="showNodeTooltip(event,'${id}')"
         onmouseleave="hideNodeTooltip()"
         onmousemove="moveNodeTooltip(event)">
