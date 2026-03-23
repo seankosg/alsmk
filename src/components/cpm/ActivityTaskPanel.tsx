@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, ChevronDown, ExternalLink, AlertTriangle, CheckCircle2, Link2, Info, Calendar, Clock, ArrowRight } from "lucide-react";
+import { ChevronRight, ChevronDown, ExternalLink, AlertTriangle, CheckCircle2, Link2, Info, Calendar, Clock, ArrowRight, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -49,6 +49,7 @@ interface TaskWithMember {
 
 export function ActivityTaskPanel({ activity, onClose }: Props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [expandedAssignees, setExpandedAssignees] = useState<Set<string>>(new Set());
 
@@ -373,6 +374,22 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
                               title="Workspace로 이동"
                             >
                               <ExternalLink className="h-3 w-3 text-primary" />
+                            </button>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!dbActivity?.id) return;
+                                await supabase
+                                  .from("cpm_task_mappings")
+                                  .delete()
+                                  .eq("activity_id", dbActivity.id)
+                                  .eq("task_id", task.id);
+                                refetchMappings();
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                              title="매핑 해제"
+                            >
+                              <X className="h-3 w-3" />
                             </button>
                           </div>
                         );
