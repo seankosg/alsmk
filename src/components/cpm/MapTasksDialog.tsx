@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Link2, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -153,8 +153,8 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
           {selectedIds.size}개 선택됨 · {filtered.length}개 표시
         </div>
 
-        <ScrollArea className="flex-1 max-h-[400px] border rounded [&>[data-radix-scroll-area-viewport]]:!overflow-y-scroll">
-          <div className="divide-y divide-border pr-3">
+        <ScrollArea className="flex-1 max-h-[400px] border rounded" scrollbarClassName="w-3">
+          <div className="divide-y divide-border pr-4">
             {filtered.map(t => (
               <label
                 key={t.id}
@@ -173,7 +173,6 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
               </label>
             ))}
           </div>
-          <ScrollBar orientation="vertical" className="w-3" />
         </ScrollArea>
 
         <div className="flex justify-end gap-2 pt-2">
