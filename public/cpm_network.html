@@ -132,14 +132,14 @@
   .act-name-input {
     flex: 1; background: transparent; border: none; outline: none;
     color: var(--text); font-family: var(--sans); font-size: 13px; font-weight: 500;
+    cursor: default;
   }
   .btn-del {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-dim); font-size: 16px; line-height: 1;
-    padding: 2px 4px; border-radius: 3px;
-    transition: color .15s;
+    display: none;
   }
-  .btn-del:hover { color: var(--critical); }
+  .field-input[readonly] {
+    cursor: default; opacity: 0.8; pointer-events: none;
+  }
 
   .card-row2 { display: flex; gap: 8px; }
   .field-group { display: flex; flex-direction: column; gap: 3px; flex: 1; }
@@ -672,24 +672,24 @@ function renderSidebar() {
         <span class="act-id" title="내부ID: ${a.id}">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</span>
         ${a.wbsFull ? `<span style="font-family:var(--mono);font-size:10px;color:#5a7a9a;padding:2px 5px;background:var(--bg);border-radius:3px">${a.wbsFull}</span>` : ''}
         <input class="act-name-input" id="name_${a.id}" placeholder="작업명 입력" value="${(a.name||'').replace(/"/g,'&quot;')}"
-          onchange="scheduleAutoCalc()">
+          readonly>
         <button class="btn-del" onclick="removeActivity('${a.id}')">×</button>
       </div>
       <div class="card-row2">
         <div class="field-group">
           <span class="field-label">기간(일)</span>
           <input class="field-input" id="dur_${a.id}" type="number" min="1" value="${a.duration}" style="text-align:center"
-            onchange="scheduleAutoCalc()">
+            readonly>
         </div>
         <div class="field-group" style="flex:2">
           <span class="field-label">선행작업 (A01 또는 A01:SS:2)</span>
           <input class="field-input" id="pred_${a.id}" placeholder="예: A01 또는 A01:SS:2"
             value="${(a.predecessors||'')}"
-            onblur="validatePred(this,'${a.id}')" onchange="scheduleAutoCalc()">
+            readonly>
         </div>
         <div class="field-group" style="flex:.8">
           <span class="field-label">WBS</span>
-          <input class="field-input" id="wbs_${a.id}" placeholder="1.1" value="${a.wbsFull||a.wbs||''}">
+          <input class="field-input" id="wbs_${a.id}" placeholder="1.1" value="${a.wbsFull||a.wbs||''}" readonly>
         </div>
       </div>
       ${a.es !== null ? `
