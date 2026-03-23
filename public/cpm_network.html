@@ -1139,8 +1139,7 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
 
     nodes += `
       <g transform="translate(${p.x},${p.y})" style="cursor:pointer"
-        onclick="handleNodeSingleClick(event,'${id}','${displayWbs}')"
-        ondblclick="handleNodeDblClick(event,'${id}','${displayWbs}')"
+        onclick="handleNodeClick(event,'${id}','${displayWbs}')"
         onmouseenter="showNodeTooltip(event,'${id}')"
         onmouseleave="hideNodeTooltip()"
         onmousemove="moveNodeTooltip(event)">
@@ -2794,41 +2793,49 @@ function postCpmCalculated() {
 }
 
 let _nodeClickTimer = null;
+let _nodeClickCount = 0;
 
-function handleNodeSingleClick(event, actId, wbsCode) {
-  // 싱글클릭: WBS 이동
-  if (_nodeClickTimer) clearTimeout(_nodeClickTimer);
-  _nodeClickTimer = setTimeout(() => {
+function handleNodeClick(event, actId, wbsCode) {
+  event.preventDefault();
+  event.stopPropagation();
+  _nodeClickCount++;
+
+  if (_nodeClickCount === 1) {
+    // 첫 클릭: 250ms 대기 후 싱글클릭(WBS 이동) 처리
+    _nodeClickTimer = setTimeout(() => {
+      _nodeClickCount = 0;
+      _nodeClickTimer = null;
+      jumpToWbs(actId, wbsCode);
+    }, 300);
+  } else if (_nodeClickCount >= 2) {
+    // 더블클릭: 사이드 패널
+    clearTimeout(_nodeClickTimer);
     _nodeClickTimer = null;
-    jumpToWbs(actId, wbsCode);
-  }, 250);
-}
+    _nodeClickCount = 0;
 
-function handleNodeDblClick(event, actId, wbsCode) {
-  // 더블클릭: 사이드 패널 (React 부모에 전송)
-  if (_nodeClickTimer) { clearTimeout(_nodeClickTimer); _nodeClickTimer = null; }
-  if (window.parent !== window) {
-    const map = {};
-    activities.forEach(a => map[a.id] = a);
-    const a = map[actId];
-    if (a) {
-      window.parent.postMessage({
-        type: 'activity-click',
-        activity: {
-          id: a.id,
-          mppTaskId: a.mppTaskId || null,
-          mppUid: a._uid || null,
-          name: a.name || '',
-          duration: a.duration,
-          progress: a.progress,
-          wbsFull: a.wbsFull || a.wbs || '',
-          isCritical: a.isCritical,
-          isMilestone: a.isMilestone || false,
-          startDate: a.startDate ? fmtDate(a.startDate) : null,
-          finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
-          es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
-        }
-      }, '*');
+    if (window.parent !== window) {
+      const map = {};
+      activities.forEach(a => map[a.id] = a);
+      const a = map[actId];
+      if (a) {
+        window.parent.postMessage({
+          type: 'activity-click',
+          activity: {
+            id: a.id,
+            mppTaskId: a.mppTaskId || null,
+            mppUid: a._uid || null,
+            name: a.name || '',
+            duration: a.duration,
+            progress: a.progress,
+            wbsFull: a.wbsFull || a.wbs || '',
+            isCritical: a.isCritical,
+            isMilestone: a.isMilestone || false,
+            startDate: a.startDate ? fmtDate(a.startDate) : null,
+            finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
+            es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
+          }
+        }, '*');
+      }
     }
   }
 }
