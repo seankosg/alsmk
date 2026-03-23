@@ -1,27 +1,34 @@
 
 
-# 사이드바 Activity 카드 수정/삭제 비활성화
+# CPM Manager UI 변경 계획 (수정)
 
-## 변경 내용
+## 변경 1: 사이드바 이름 및 위치 변경
 
-### `public/cpm_network.html` — `renderSidebar()` (663행대)
+**파일**: `src/components/layout/AppSidebar.tsx`
 
-현재 각 카드에는:
-- 이름 input (`act-name-input`) — 편집 가능
-- 기간 input — 편집 가능
-- 선행작업 input — 편집 가능
-- WBS input — 편집 가능
-- 삭제 버튼 (`btn-del`, `×`) — 클릭 가능
+- `title`을 `"CPM Manager"`로 변경
+- navItems 순서를 My Workspace → **CPM Manager** → Messages 순으로 재배치
 
-**수정:**
-1. 삭제 버튼 (`×`) 제거 또는 `display:none` 처리
-2. 모든 input에 `readonly` 속성 추가 (이름, 기간, 선행작업, WBS)
-3. readonly input 스타일: 커서/배경을 비활성화 느낌으로 변경 (예: `cursor:default; opacity:0.8`)
+## 변경 2: 스냅샷 저장을 Admin 전용으로 제한
 
-이렇게 하면 카드는 정보 표시 전용이 되고, Activity 데이터는 XML import를 통해서만 변경됩니다.
+**파일**: `src/components/cpm/SnapshotManager.tsx`
 
-### 변경 파일
+- `useAuthContext()`로 `isAdmin` 확인
+- 저장 입력 영역 + 삭제 버튼을 Admin에게만 렌더링
+- 비-Admin은 목록 조회 및 불러오기만 가능
+
+## 변경 3: 왼쪽 사이드패널의 Activity 추가 버튼 숨기기
+
+**파일**: `public/cpm_network.html`
+
+- 538행의 `<button class="btn-add" onclick="addActivity()">+ 추가</button>` 를 `display:none` 또는 제거
+- 사이드패널의 각 Activity 카드 내 삭제 버튼(`×`)도 이미 이전 계획에서 readonly 처리 예정이므로, 추가 버튼만 숨기면 사이드패널은 조회 전용이 됨
+
+### 변경 파일 요약
+
 | 파일 | 변경 |
 |------|------|
-| `public/cpm_network.html` | renderSidebar 내 input readonly + 삭제버튼 제거 |
+| `src/components/layout/AppSidebar.tsx` | 이름 변경 + 순서 재배치 |
+| `src/components/cpm/SnapshotManager.tsx` | Admin 전용 저장/삭제 |
+| `public/cpm_network.html` | `+ 추가` 버튼 숨김 |
 
