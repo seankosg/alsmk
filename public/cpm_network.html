@@ -2852,6 +2852,14 @@ function handleNodeClick(event, actId, wbsCode) {
     jumpToWbs(actId, wbsCode);
     return;
   }
+  // 사이드바 카드 선택 + 스크롤
+  document.querySelectorAll('.activity-card.selected').forEach(el => el.classList.remove('selected'));
+  const selCard = document.querySelector(`.activity-card[data-act-id="${actId}"]`);
+  if (selCard) {
+    selCard.classList.add('selected');
+    selCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   // 일반 클릭: React 부모에 activity-click 전송
   if (window.parent !== window) {
     const map = {};
