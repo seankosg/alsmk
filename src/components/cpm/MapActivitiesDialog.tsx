@@ -132,7 +132,7 @@ export function MapActivitiesDialog({ taskId, taskTitle, open, onOpenChange }: P
           {selectedIds.size}개 선택됨 · {filtered.length}개 표시
         </div>
 
-        <ScrollArea className="flex-1 max-h-[400px] border rounded [&>[data-radix-scroll-area-viewport]]:!overflow-y-scroll">
+        <ScrollArea className="flex-1 max-h-[400px] border rounded [&>[data-radix-scroll-area-viewport]]:!overflow-y-scroll [&>[data-radix-scroll-area-viewport]]:!overflow-x-hidden">
           <div className="divide-y divide-border pr-3">
             {filtered.map(a => (
               <label
