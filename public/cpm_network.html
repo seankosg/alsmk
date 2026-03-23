@@ -987,6 +987,8 @@ function calculate() {
   showToast(`✓ CPM 완료 (${mode}) — 총 공기: ${projectEnd}일 | CP: ${cpCount}개`);
   // 계산 결과 localStorage 저장
   saveToStorage();
+  // postMessage: 계산 완료 데이터를 부모 React에 전송
+  postCpmCalculated();
 }
 
 // ─── Network Diagram ──────────────────────────────────────────────
@@ -1136,7 +1138,7 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
 
     nodes += `
       <g transform="translate(${p.x},${p.y})" style="cursor:pointer"
-        onclick="jumpToWbs('${id}','${displayWbs}')"
+        onclick="handleNodeClick(event,'${id}','${displayWbs}')"
         onmouseenter="showNodeTooltip(event,'${id}')"
         onmouseleave="hideNodeTooltip()"
         onmousemove="moveNodeTooltip(event)">
@@ -2768,6 +2770,69 @@ if (restored) {
   loadSample();
   calculate();
 }
+
+// ─── postMessage Bridge ──────────────────────────────────────────
+function postCpmCalculated() {
+  if (window.parent === window) return;
+  const data = activities.map(a => ({
+    id: a.id,
+    mppTaskId: a.mppTaskId || null,
+    mppUid: a._uid || null,
+    name: a.name || '',
+    duration: a.duration,
+    progress: a.progress,
+    wbsFull: a.wbsFull || a.wbs || '',
+    isCritical: a.isCritical,
+    isMilestone: a.isMilestone || false,
+    startDate: a.startDate ? fmtDate(a.startDate) : null,
+    finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
+    es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
+  }));
+  window.parent.postMessage({ type: 'cpm-calculated', activities: data }, '*');
+}
+
+function handleNodeClick(event, actId, wbsCode) {
+  // Shift+click: 네트워크 내 WBS 점프 (기존 동작)
+  if (event.shiftKey) {
+    jumpToWbs(actId, wbsCode);
+    return;
+  }
+  // 일반 클릭: React 부모에 activity-click 전송
+  if (window.parent !== window) {
+    const map = {};
+    activities.forEach(a => map[a.id] = a);
+    const a = map[actId];
+    if (a) {
+      window.parent.postMessage({
+        type: 'activity-click',
+        activity: {
+          id: a.id,
+          mppTaskId: a.mppTaskId || null,
+          mppUid: a._uid || null,
+          name: a.name || '',
+          duration: a.duration,
+          progress: a.progress,
+          wbsFull: a.wbsFull || a.wbs || '',
+          isCritical: a.isCritical,
+          isMilestone: a.isMilestone || false,
+          startDate: a.startDate ? fmtDate(a.startDate) : null,
+          finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
+          es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
+        }
+      }, '*');
+    }
+  } else {
+    jumpToWbs(actId, wbsCode);
+  }
+}
+
+// Listen for messages from parent React app
+window.addEventListener('message', function(e) {
+  if (!e.data || !e.data.type) return;
+  if (e.data.type === 'request-cpm-data') {
+    postCpmCalculated();
+  }
+});
 </script>
 </body>
 </html>
