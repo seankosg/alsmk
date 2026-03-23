@@ -2854,6 +2854,17 @@ function postCpmCalculated() {
   window.parent.postMessage({ type: 'cpm-calculated', activities: data }, '*');
 }
 
+// DB 스냅샷 저장 요청 → parent React가 Supabase에 저장
+function postSnapshotSave() {
+  if (window.parent === window) return;
+  if (!calculated || activities.length === 0) return;
+  const snapName = _currentProjKey
+    ? (function() { try { return JSON.parse(localStorage.getItem(_currentProjKey))?.name; } catch { return null; } })() || 'default'
+    : 'default';
+  const snapshot = _makeSnapshot(snapName);
+  window.parent.postMessage({ type: 'snapshot-save', snapshot }, '*');
+}
+
 function handleNodeClick(event, actId, wbsCode) {
   // Shift+click: 네트워크 내 WBS 점프 (기존 동작)
   if (event.shiftKey) {
