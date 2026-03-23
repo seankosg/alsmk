@@ -2955,20 +2955,30 @@ window.addEventListener('message', function(e) {
       drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
     }
   }
+  // Parent requests current snapshot for manual save
+  if (e.data.type === 'request-snapshot') {
+    if (!calculated || activities.length === 0) return;
+    const snap = _makeSnapshot('');
+    window.parent.postMessage({ type: 'snapshot-current', snapshot: snap }, '*');
+  }
   // DB에서 복원된 스냅샷 수신
   if (e.data.type === 'snapshot-restore') {
     const snap = e.data.snapshot;
     if (!snap || !snap.activities || !snap.activities.length) return;
-    // DB 스냅샷이 localStorage보다 새로운 경우에만 복원
-    const localRaw = localStorage.getItem(STORAGE_KEY);
-    if (localRaw) {
-      try {
-        const localData = JSON.parse(localRaw);
-        if (localData.savedAt && snap.savedAt && new Date(localData.savedAt) >= new Date(snap.savedAt)) {
-          console.log('[CPM Snapshot] localStorage is newer, skipping DB restore');
-          return;
-        }
-      } catch {}
+    // 자동 로드(request-db-snapshot 응답)의 경우 localStorage보다 새로운 경우에만 복원
+    // 수동 로드(SnapshotManager)의 경우 항상 복원 (dbUpdatedAt이 현재 시간)
+    const forceRestore = e.data.forceRestore === true;
+    if (!forceRestore) {
+      const localRaw = localStorage.getItem(STORAGE_KEY);
+      if (localRaw) {
+        try {
+          const localData = JSON.parse(localRaw);
+          if (localData.savedAt && snap.savedAt && new Date(localData.savedAt) >= new Date(snap.savedAt)) {
+            console.log('[CPM Snapshot] localStorage is newer, skipping DB restore');
+            return;
+          }
+        } catch {}
+      }
     }
     console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities)');
     _restoreSnapshot(snap);
