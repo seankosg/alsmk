@@ -120,7 +120,8 @@ const CpmScheduler = () => {
       const { data: existing } = await supabase
         .from("cpm_activities")
         .select("id")
-        .eq("name", a.name)
+        .eq("mpp_task_id", a.mppTaskId || '')
+        .eq("wbs_full", a.wbsFull || '')
         .maybeSingle();
 
       if (existing) {
