@@ -146,7 +146,7 @@ const CpmScheduler = () => {
       }
 
       if (e.data.type === "activity-click") {
-        setSelectedActivity({ ...e.data.activity, showDetail: false });
+        setSelectedActivity({ ...e.data.activity, showDetail: true });
       }
 
       if (e.data.type === "activity-detail-click") {
