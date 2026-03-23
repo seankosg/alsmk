@@ -559,6 +559,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
         members={members}
       />
     )}
+    {task && (
+      <MapActivitiesDialog
+        taskId={task.id}
+        taskTitle={task.task_code || task.title}
+        open={mapActivitiesOpen}
+        onOpenChange={setMapActivitiesOpen}
+      />
+    )}
     </>
   );
 }
