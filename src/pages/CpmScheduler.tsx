@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
+import { SnapshotManager } from "@/components/cpm/SnapshotManager";
 import { calcPlannedProgress } from "@/lib/mockData";
 
 interface ActivityStatus {
@@ -21,6 +22,7 @@ const getActivityStatusKey = (activity: {
 
 const CpmScheduler = () => {
   const [selectedActivity, setSelectedActivity] = useState<CpmActivity | null>(null);
+  const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const queryClient = useQueryClient();
 
@@ -89,19 +91,15 @@ const CpmScheduler = () => {
     });
 
     iframeRef.current.contentWindow.postMessage(
-      {
-        type: "activity-status-update",
-        statuses,
-      },
+      { type: "activity-status-update", statuses },
       "*",
     );
   }, []);
 
-  // Save snapshot to DB
+  // Save snapshot to DB (auto-save from iframe calculate)
   const saveSnapshotToDb = useCallback(async (snapshotData: any) => {
     const name = snapshotData.name || "default";
     
-    // Check if snapshot with this name exists
     const { data: existing } = await supabase
       .from("cpm_snapshots")
       .select("id")
@@ -138,14 +136,25 @@ const CpmScheduler = () => {
     if (snapshot?.data) {
       console.log(`[CPM Snapshot] Loaded from DB (updated: ${snapshot.updated_at})`);
       iframeRef.current.contentWindow.postMessage(
-        {
-          type: "snapshot-restore",
-          snapshot: snapshot.data,
-          dbUpdatedAt: snapshot.updated_at,
-        },
+        { type: "snapshot-restore", snapshot: snapshot.data, dbUpdatedAt: snapshot.updated_at },
         "*",
       );
     }
+  }, []);
+
+  // Send specific snapshot to iframe (from SnapshotManager)
+  const handleLoadSnapshot = useCallback((snapshotData: any) => {
+    if (!iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      { type: "snapshot-restore", snapshot: snapshotData, dbUpdatedAt: new Date().toISOString() },
+      "*",
+    );
+  }, []);
+
+  // Request current snapshot from iframe (for manual save)
+  const handleRequestCurrentSnapshot = useCallback(() => {
+    if (!iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage({ type: "request-snapshot" }, "*");
   }, []);
 
   // Upsert activities to DB when CPM calculates
@@ -183,8 +192,6 @@ const CpmScheduler = () => {
     }
     
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-
-    // Send status data to iframe after upsert
     setTimeout(() => sendStatusToIframe(), 500);
   }, [queryClient, sendStatusToIframe]);
 
@@ -196,23 +203,21 @@ const CpmScheduler = () => {
       if (e.data.type === "cpm-calculated") {
         upsertActivities(e.data.activities);
       }
-
       if (e.data.type === "activity-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
       }
-
       if (e.data.type === "activity-detail-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
       }
-
-      // Snapshot save request from iframe
       if (e.data.type === "snapshot-save") {
         saveSnapshotToDb(e.data.snapshot);
       }
-
-      // iframe requests DB snapshot (localStorage was empty)
       if (e.data.type === "request-db-snapshot") {
         loadSnapshotFromDb();
+      }
+      // Response to "request-snapshot" — current iframe state for manual save
+      if (e.data.type === "snapshot-current") {
+        setPendingSnapshot(e.data.snapshot);
       }
     };
 
@@ -221,28 +226,40 @@ const CpmScheduler = () => {
   }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb]);
 
   return (
-    <div className="h-[calc(100vh-48px)] -m-3 sm:-m-4 md:-m-6 flex">
-      <div className={`${selectedActivity ? 'flex-1' : 'w-full'} transition-all`}>
-        <iframe
-          ref={iframeRef}
-          src="/cpm_network.html"
-          className="w-full h-full border-0"
-          title="CPM Network Scheduler"
-          sandbox="allow-scripts allow-same-origin allow-popups"
-          onLoad={() => {
-            iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
-            setTimeout(() => sendStatusToIframe(), 300);
-          }}
+    <div className="h-[calc(100vh-48px)] -m-3 sm:-m-4 md:-m-6 flex flex-col">
+      {/* Floating toolbar */}
+      <div className="absolute top-2 right-2 z-10">
+        <SnapshotManager
+          onLoadSnapshot={handleLoadSnapshot}
+          onRequestCurrentSnapshot={handleRequestCurrentSnapshot}
+          pendingSnapshot={pendingSnapshot}
+          onSnapshotHandled={() => setPendingSnapshot(null)}
         />
       </div>
-      {selectedActivity && (
-        <div className="w-[360px] flex-shrink-0 h-full">
-          <ActivityTaskPanel
-            activity={selectedActivity}
-            onClose={() => setSelectedActivity(null)}
+
+      <div className="flex flex-1 min-h-0">
+        <div className={`${selectedActivity ? 'flex-1' : 'w-full'} transition-all`}>
+          <iframe
+            ref={iframeRef}
+            src="/cpm_network.html"
+            className="w-full h-full border-0"
+            title="CPM Network Scheduler"
+            sandbox="allow-scripts allow-same-origin allow-popups"
+            onLoad={() => {
+              iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
+              setTimeout(() => sendStatusToIframe(), 300);
+            }}
           />
         </div>
-      )}
+        {selectedActivity && (
+          <div className="w-[360px] flex-shrink-0 h-full">
+            <ActivityTaskPanel
+              activity={selectedActivity}
+              onClose={() => setSelectedActivity(null)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
