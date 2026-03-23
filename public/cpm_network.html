@@ -1135,7 +1135,8 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
     const progPct = hasProg ? Math.min(100, Math.max(0, a.progress)) : 0;
 
     // Check for mapped task status data
-    const statusData = window._activityStatusMap && window._activityStatusMap[a.name];
+    const activityStatusKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
+    const statusData = window._activityStatusMap && window._activityStatusMap[activityStatusKey];
     const hasStatus = !!statusData;
 
     // Determine progress values
