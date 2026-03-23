@@ -32,41 +32,29 @@ const CpmScheduler = () => {
     const { data: mappings } = await supabase
       .from("cpm_task_mappings")
       .select("activity_id, task_id");
-    if (!mappings?.length) {
-      iframeRef.current.contentWindow.postMessage({
-        type: "activity-status-update",
-        statuses: [],
-      }, "*");
-      return;
+
+    const taskIds = [...new Set((mappings || []).map(m => m.task_id))];
+    let taskMap: Record<string, any> = {};
+    if (taskIds.length) {
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("id, current_progress, start_date, end_date")
+        .in("id", taskIds)
+        .is("deleted_at", null);
+      taskMap = Object.fromEntries((tasks || []).map(t => [t.id, t]));
     }
-
-    const taskIds = [...new Set(mappings.map(m => m.task_id))];
-    const { data: tasks } = await supabase
-      .from("tasks")
-      .select("id, current_progress, start_date, end_date")
-      .in("id", taskIds)
-      .is("deleted_at", null);
-    if (!tasks?.length) return;
-
-    const taskMap = Object.fromEntries(tasks.map(t => [t.id, t]));
 
     // Group mappings by activity_id
     const activityMappings = new Map<string, string[]>();
-    mappings.forEach(m => {
+    (mappings || []).forEach(m => {
       if (!activityMappings.has(m.activity_id)) activityMappings.set(m.activity_id, []);
       activityMappings.get(m.activity_id)!.push(m.task_id);
     });
 
-    // Build activity name → id map
-    const actNameMap = Object.fromEntries(activities.map(a => [a.id, a.name]));
-
-    const statuses: ActivityStatus[] = [];
-    activityMappings.forEach((tIds, actId) => {
-      const actName = actNameMap[actId];
-      if (!actName) return;
-
+    // Build statuses for ALL activities (not just mapped ones)
+    const statuses: ActivityStatus[] = activities.map(act => {
+      const tIds = activityMappings.get(act.id) || [];
       const validTasks = tIds.map(id => taskMap[id]).filter(Boolean);
-      if (!validTasks.length) return;
 
       let totalDur = 0, weightedActual = 0, weightedPlanned = 0;
       let onTrack = 0, delayed = 0;
@@ -85,14 +73,14 @@ const CpmScheduler = () => {
         }
       });
 
-      statuses.push({
-        activityName: actName,
+      return {
+        activityName: act.name,
         totalTasks: validTasks.length,
         onTrack,
         delayed,
         actualPct: totalDur ? Math.round(weightedActual / totalDur) : 0,
         plannedPct: totalDur ? Math.round(weightedPlanned / totalDur) : 0,
-      });
+      };
     });
 
     iframeRef.current.contentWindow.postMessage({
