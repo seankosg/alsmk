@@ -998,6 +998,8 @@ function calculate() {
   saveToStorage();
   // postMessage: 계산 완료 데이터를 부모 React에 전송
   postCpmCalculated();
+  // 서버(DB)에도 스냅샷 자동 저장
+  postSnapshotSave();
 }
 
 // ─── Network Diagram ──────────────────────────────────────────────
