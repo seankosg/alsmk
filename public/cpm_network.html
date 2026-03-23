@@ -2883,6 +2883,16 @@ window.addEventListener('message', function(e) {
   if (e.data.type === 'request-cpm-data') {
     postCpmCalculated();
   }
+  if (e.data.type === 'activity-status-update') {
+    window._activityStatusMap = {};
+    (e.data.statuses || []).forEach(function(s) {
+      window._activityStatusMap[s.activityName] = s;
+    });
+    // Re-render network if calculated
+    if (typeof calculated !== 'undefined' && calculated && typeof order !== 'undefined') {
+      drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
+    }
+  }
 });
 </script>
 </body>
