@@ -163,22 +163,105 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
 
   return (
     <div className="flex flex-col h-full bg-card border-l border-border">
-      {/* Activity Header */}
+      {/* Activity Header — Detail Mode */}
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {activity.mppTaskId && (
               <Badge variant="outline" className="font-mono text-xs">
                 #{activity.mppTaskId}
               </Badge>
             )}
+            {activity.wbsFull && (
+              <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+                {activity.wbsFull}
+              </Badge>
+            )}
             {activity.isCritical && (
               <Badge variant="destructive" className="text-xs">★ CP</Badge>
+            )}
+            {activity.isPassThrough && (
+              <Badge className="text-xs bg-warning/20 text-warning border-warning/30">통과</Badge>
+            )}
+            {activity.isMilestone && (
+              <Badge className="text-xs bg-accent/20 text-accent border-accent/30">◆ MS</Badge>
             )}
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
         </div>
         <h3 className="text-sm font-semibold text-foreground">{activity.name}</h3>
+
+        {/* Detailed info grid — always shown on dblclick, collapsible otherwise */}
+        {activity.showDetail && (
+          <div className="space-y-2">
+            {/* Schedule info */}
+            <div className="grid grid-cols-2 gap-1.5 text-xs">
+              <div className="bg-muted/50 rounded px-2 py-1.5 flex items-center gap-1.5">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">기간</span>
+                <span className="ml-auto font-mono font-semibold text-foreground">{activity.duration}일</span>
+              </div>
+              <div className="bg-muted/50 rounded px-2 py-1.5 flex items-center gap-1.5">
+                <span className={`font-mono font-semibold ${activity.tf === 0 ? 'text-destructive' : 'text-success'}`}>
+                  TF: {activity.tf}일
+                </span>
+              </div>
+            </div>
+
+            {/* Dates */}
+            {activity.startDate && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 flex items-center gap-1.5 text-xs">
+                <Calendar className="h-3 w-3 text-muted-foreground" />
+                <span className="font-mono text-foreground">{activity.startDate}</span>
+                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                <span className="font-mono text-foreground">{activity.finishDate}</span>
+              </div>
+            )}
+
+            {/* ES/EF/LS/LF */}
+            <div className="grid grid-cols-4 gap-1 text-xs">
+              {[
+                { label: 'ES', value: activity.es },
+                { label: 'EF', value: activity.ef },
+                { label: 'LS', value: activity.ls },
+                { label: 'LF', value: activity.lf },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-muted/50 rounded px-1.5 py-1 text-center">
+                  <div className="text-[10px] text-muted-foreground">{label}</div>
+                  <div className="font-mono font-semibold text-foreground">{value ?? '-'}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Progress */}
+            {activity.progress !== null && activity.progress !== undefined && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">MPP 진행률</span>
+                <Progress value={activity.progress} className="flex-1 h-1.5" />
+                <span className="font-mono font-semibold text-foreground">{activity.progress}%</span>
+              </div>
+            )}
+
+            {/* Predecessors */}
+            {activity.predecessors && activity.predecessors.length > 0 && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 text-xs space-y-1">
+                <div className="text-[10px] text-muted-foreground font-semibold">선행 Activity ({activity.predecessors.length})</div>
+                {activity.predecessors.map((p, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-foreground">
+                    {p.mppTaskId && <span className="font-mono text-primary">#{p.mppTaskId}</span>}
+                    <span className="truncate">{p.name}</span>
+                    {p.wbs && <span className="text-muted-foreground font-mono ml-auto">{p.wbs}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {activity.predecessors && activity.predecessors.length === 0 && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 text-xs text-muted-foreground">
+                선행 Activity 없음 (시작 노드)
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Key metrics */}
         <div className="grid grid-cols-3 gap-2 text-center">
