@@ -496,6 +496,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
             <Button variant="outline" size="sm" onClick={() => setSendMsgOpen(true)}>
               <MessageSquare className="mr-1 h-4 w-4" /> Message
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setMapActivitiesOpen(true)}>
+              <Link2 className="mr-1 h-4 w-4" /> CPM
+            </Button>
           </div>
           {(!readOnly || isSummary) && (
             <AlertDialog>
