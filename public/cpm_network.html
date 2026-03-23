@@ -2853,16 +2853,8 @@ function handleNodeClick(event, actId, wbsCode) {
     return;
   }
   // 사이드바 카드 선택 + 스크롤
-  console.log('[CPM] handleNodeClick actId:', actId);
-  document.querySelectorAll('.activity-card.selected').forEach(el => el.classList.remove('selected'));
-  const allCards = document.querySelectorAll('.activity-card[data-act-id]');
-  console.log('[CPM] total cards with data-act-id:', allCards.length, [...allCards].map(c => c.getAttribute('data-act-id')));
-  const selCard = document.querySelector(`.activity-card[data-act-id="${actId}"]`);
-  console.log('[CPM] selCard found:', !!selCard);
-  if (selCard) {
-    selCard.classList.add('selected');
-    selCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+  highlightSidebarCard(actId);
+
 
   // 일반 클릭: React 부모에 activity-click 전송
   if (window.parent !== window) {
