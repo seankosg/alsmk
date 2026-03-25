@@ -1,43 +1,55 @@
 
 
-# ActivityTaskPanel 매핑 Task 관리 개선
+# CPM 저장/불러오기 통합 구현
 
-## 변경 사항 요약
+## 변경 사항
 
-### 1. 삭제(X) 버튼 위치 변경 — task_code 좌측으로 이동
-현재 행 우측 끝에 있는 매핑 해제(X) 버튼을 task_code 좌측으로 이동합니다.
+### 1. `public/cpm_network.html` — 프로젝트 버튼/패널 제거 + postSnapshotSave 단순화
 
-### 2. 삭제 버튼 권한 제어
-- `useAuthContext`에서 `isAdmin`, `memberId`를 가져옴
-- 해당 task의 `assignee_id`가 현재 로그인 사용자의 `memberId`와 같거나, `isAdmin`인 경우에만 삭제 버튼 표시
-- 권한이 없는 사용자에게는 버튼이 렌더링되지 않음
+**HTML 제거:**
+- Lines 515-522: `📁 프로젝트` 버튼 제거
+- Lines 596-610: `projOverlay` + `projPanel` HTML 전체 제거
+- Lines 493-497: `saveIndicator` 스팬 제거 (프로젝트 기능과만 연결됨)
 
-### 3. Hover 시 Task 상세 정보 툴팁 (HoverCard)
-`@radix-ui/react-hover-card`(이미 설치됨)를 활용하여 각 Task 행에 마우스를 올리면 상세 정보 카드를 표시:
-- Task Code, Title (전체 텍스트)
-- 담당자, 팀명
-- 시작일 ~ 종료일
-- 실제 진행률 vs 계획 진행률, GAP
-- Issue flag (있을 경우)
+**CSS 제거:**
+- Lines 411-478: `.proj-panel`, `.proj-overlay`, `.proj-item` 등 모든 프로젝트 관련 스타일 제거
 
-### 4. ExternalLink 버튼 제거
-행 전체를 클릭하면 `/workspace?task=${task.id}`로 이동하도록 변경. 기존 ExternalLink 아이콘 버튼 제거.
+**JS 제거:**
+- Lines 2585-2746: `PROJ_PREFIX`, `_currentProjKey`, `toggleProjPanel`, `saveProject`, `loadProject`, `deleteProject`, `renameProject`, `getAllProjKeys`, `renderProjList`, `_makeSnapshot`, `_restoreSnapshot` 전체 제거
+  - 단, `_makeSnapshot`과 `_restoreSnapshot`은 DB 스냅샷 복원에도 사용되므로 **유지**
 
-## 기술 상세
+**JS 수정:**
+- `postSnapshotSave()` (line 2864-2872): `_currentProjKey` 참조 제거, 항상 `name: "auto"` 사용
+- `saveToStorage()` (lines 2773-2783): `_currentProjKey` 참조하는 saveIndicator 로직 제거
+- `loadProject` 호출부가 있는 snapshot-restore 핸들러에서 `_currentProjKey` 참조 제거
 
-### 수정 파일: `src/components/cpm/ActivityTaskPanel.tsx`
+### 2. `src/components/cpm/SnapshotManager.tsx` — "auto" 스냅샷 라벨 구분
 
-1. **Import 추가**: `useAuthContext` from AppLayout, `HoverCard/HoverCardTrigger/HoverCardContent` from ui/hover-card
-2. **컴포넌트 내부**: `useAuthContext()`로 `isAdmin`, `memberId` 획득
-3. **Task 행 구조 변경** (lines 358-394):
+- 스냅샷 목록에서 `name === "auto"`인 항목에 "(자동저장)" 부가 라벨 표시
+- 자동저장 스냅샷은 시각적으로 구분 (예: 이름 옆에 작은 뱃지)
 
-```text
-변경 전:  [task_code] [title] [progress] [gap] [ExternalLink] [X]
-변경 후:  [X(조건부)] [task_code] [title] [progress] [gap]
-          행 전체 클릭 → Workspace 이동
-          행 hover → HoverCard로 상세정보 표시
+## 수정 파일
+
+| 파일 | 변경 |
+|------|------|
+| `public/cpm_network.html` | 프로젝트 버튼, 패널, 오버레이, CSS, JS 함수 제거; `postSnapshotSave` 단순화 |
+| `src/components/cpm/SnapshotManager.tsx` | "auto" 스냅샷에 "(자동저장)" 라벨 추가 |
+
+## 기술 세부사항
+
+**유지되는 기능:**
+- `_makeSnapshot()` / `_restoreSnapshot()`: DB 스냅샷 저장/복원에 필요하므로 유지
+- `saveToStorage()` / `loadFromStorage()`: localStorage 캐시로 유지 (빠른 복원용)
+- `postSnapshotSave()`: 계산 시 자동으로 DB에 "auto" 이름으로 저장
+- `snapshot-restore` 메시지 핸들러: React에서 DB 스냅샷 복원 시 사용
+
+**`postSnapshotSave` 변경 후:**
+```js
+function postSnapshotSave() {
+  if (window.parent === window) return;
+  if (!calculated || activities.length === 0) return;
+  const snapshot = _makeSnapshot('auto');
+  window.parent.postMessage({ type: 'snapshot-save', snapshot }, '*');
+}
 ```
-
-4. **HoverCard 내용**: task의 전체 title, team_name, assignee_name, start_date~end_date, current_progress/planned, gap, issue 정보
-5. **TaskWithMember 인터페이스**에 `issue_flag`, `issue_description` 필드 추가 (tasks 테이블에서 select 시 포함)
 
