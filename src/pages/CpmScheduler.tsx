@@ -240,6 +240,9 @@ const CpmScheduler = () => {
       if (e.data.type === "request-db-snapshot") {
         loadSnapshotFromDb();
       }
+      if (e.data.type === "snapshot-restored") {
+        sendStatusToIframe();
+      }
       // Response to "request-snapshot" — current iframe state for manual save
       if (e.data.type === "snapshot-current") {
         setPendingSnapshot(e.data.snapshot);
