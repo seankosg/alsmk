@@ -2524,6 +2524,11 @@ function _restoreSnapshot(snap) {
   window._wbsNames     = snap.wbsNames || {};
   window._activeWbsFilter = snap.wbsFilter || null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
+
+  // Notify parent that snapshot restore is complete
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'snapshot-restored' }, '*');
+  }
 }
 
 // ─── Storage ──────────────────────────────────────────────────────
