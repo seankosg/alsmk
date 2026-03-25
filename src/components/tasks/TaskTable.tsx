@@ -68,7 +68,7 @@ interface TaskTableProps {
 }
 
 export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTableProps) {
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const queryClient = useQueryClient();
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [flagFilter, setFlagFilter] = useState<string>("all");
