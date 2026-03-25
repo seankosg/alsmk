@@ -2634,10 +2634,7 @@ function postCpmCalculated() {
 function postSnapshotSave() {
   if (window.parent === window) return;
   if (!calculated || activities.length === 0) return;
-  const snapName = _currentProjKey
-    ? (function() { try { return JSON.parse(localStorage.getItem(_currentProjKey))?.name; } catch { return null; } })() || 'default'
-    : 'default';
-  const snapshot = _makeSnapshot(snapName);
+  const snapshot = _makeSnapshot('auto');
   window.parent.postMessage({ type: 'snapshot-save', snapshot }, '*');
 }
 

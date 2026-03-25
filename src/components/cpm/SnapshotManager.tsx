@@ -186,7 +186,14 @@ export function SnapshotManager({
                   onClick={() => handleLoad(snap)}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">{snap.name}</div>
+                    <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                      {snap.name}
+                      {snap.name === "auto" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
+                          자동저장
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                       <span>{getActivityCount(snap)}개 Activity</span>
                       <span>·</span>
