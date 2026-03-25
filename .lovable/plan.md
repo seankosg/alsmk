@@ -1,55 +1,50 @@
 
 
-# CPM 저장/불러오기 통합 구현
+# CPM 페이지 리셋 문제 분석 및 개선 제안
 
-## 변경 사항
+## 원인
 
-### 1. `public/cpm_network.html` — 프로젝트 버튼/패널 제거 + postSnapshotSave 단순화
+React Router의 `<Routes>` 안에서 경로가 바뀌면 이전 경로의 컴포넌트가 **unmount**되고 새 경로의 컴포넌트가 **mount**됩니다. `/cpm` → 다른 메뉴 → `/cpm` 으로 돌아오면 `CpmScheduler`가 완전히 재생성되고, 내부 iframe(`cpm_network.html`)도 처음부터 다시 로드됩니다.
 
-**HTML 제거:**
-- Lines 515-522: `📁 프로젝트` 버튼 제거
-- Lines 596-610: `projOverlay` + `projPanel` HTML 전체 제거
-- Lines 493-497: `saveIndicator` 스팬 제거 (프로젝트 기능과만 연결됨)
+이는 React Router의 기본 동작이며, iframe이 포함된 페이지에서는 특히 치명적입니다 — XML 파싱, 네트워크 레이아웃, 노드 위치 등 모든 상태가 사라집니다.
 
-**CSS 제거:**
-- Lines 411-478: `.proj-panel`, `.proj-overlay`, `.proj-item` 등 모든 프로젝트 관련 스타일 제거
+## 개선 방안
 
-**JS 제거:**
-- Lines 2585-2746: `PROJ_PREFIX`, `_currentProjKey`, `toggleProjPanel`, `saveProject`, `loadProject`, `deleteProject`, `renameProject`, `getAllProjKeys`, `renderProjList`, `_makeSnapshot`, `_restoreSnapshot` 전체 제거
-  - 단, `_makeSnapshot`과 `_restoreSnapshot`은 DB 스냅샷 복원에도 사용되므로 **유지**
+### 방법: CSS display 토글로 CPM 컴포넌트 유지
 
-**JS 수정:**
-- `postSnapshotSave()` (line 2864-2872): `_currentProjKey` 참조 제거, 항상 `name: "auto"` 사용
-- `saveToStorage()` (lines 2773-2783): `_currentProjKey` 참조하는 saveIndicator 로직 제거
-- `loadProject` 호출부가 있는 snapshot-restore 핸들러에서 `_currentProjKey` 참조 제거
+CPM 컴포넌트를 항상 마운트된 상태로 유지하되, 현재 경로가 `/cpm`이 아닐 때는 `display: none`으로 숨깁니다.
 
-### 2. `src/components/cpm/SnapshotManager.tsx` — "auto" 스냅샷 라벨 구분
+**변경 파일:** `src/App.tsx`
 
-- 스냅샷 목록에서 `name === "auto"`인 항목에 "(자동저장)" 부가 라벨 표시
-- 자동저장 스냅샷은 시각적으로 구분 (예: 이름 옆에 작은 뱃지)
+```text
+변경 전:
+  <Routes>
+    <Route path="/cpm" element={<CpmScheduler />} />
+    ...
+  </Routes>
 
-## 수정 파일
-
-| 파일 | 변경 |
-|------|------|
-| `public/cpm_network.html` | 프로젝트 버튼, 패널, 오버레이, CSS, JS 함수 제거; `postSnapshotSave` 단순화 |
-| `src/components/cpm/SnapshotManager.tsx` | "auto" 스냅샷에 "(자동저장)" 라벨 추가 |
-
-## 기술 세부사항
-
-**유지되는 기능:**
-- `_makeSnapshot()` / `_restoreSnapshot()`: DB 스냅샷 저장/복원에 필요하므로 유지
-- `saveToStorage()` / `loadFromStorage()`: localStorage 캐시로 유지 (빠른 복원용)
-- `postSnapshotSave()`: 계산 시 자동으로 DB에 "auto" 이름으로 저장
-- `snapshot-restore` 메시지 핸들러: React에서 DB 스냅샷 복원 시 사용
-
-**`postSnapshotSave` 변경 후:**
-```js
-function postSnapshotSave() {
-  if (window.parent === window) return;
-  if (!calculated || activities.length === 0) return;
-  const snapshot = _makeSnapshot('auto');
-  window.parent.postMessage({ type: 'snapshot-save', snapshot }, '*');
-}
+변경 후:
+  {/* CPM은 항상 마운트, 경로에 따라 display 토글 */}
+  <div style={{ display: location.pathname === '/cpm' ? 'block' : 'none' }}
+       className="h-full">
+    <CpmScheduler />
+  </div>
+  <Routes>
+    {/* /cpm 경로는 빈 컴포넌트 렌더링 */}
+    <Route path="/cpm" element={null} />
+    ...기존 라우트...
+  </Routes>
 ```
+
+**추가 변경:** `src/components/layout/AppLayout.tsx`
+- `useLocation()`으로 현재 경로를 가져와서 children 영역에 CPM 토글 로직 적용
+
+### 효과
+- 다른 메뉴로 이동해도 iframe이 unmount되지 않음
+- XML, 네트워크 레이아웃, 노드 위치 등 모든 CPM 상태가 보존됨
+- DB에서 스냅샷을 다시 로드할 필요 없음
+
+### 주의사항
+- CPM iframe은 메모리를 계속 점유하므로, 최초 로드 시점을 사용자가 `/cpm`을 처음 방문할 때로 지연(lazy mount) 처리
+- `hasVisitedCpm` 상태 변수로 한 번이라도 방문한 적 있을 때만 마운트
 
