@@ -99,8 +99,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <NotificationBell />
               </div>
             </header>
-            <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">
-              {children}
+            <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 relative">
+              {hasVisitedCpm && (
+                <div style={{ display: isCpmRoute ? 'block' : 'none' }} className="absolute inset-0">
+                  <CpmScheduler />
+                </div>
+              )}
+              <div style={{ display: isCpmRoute ? 'none' : 'block' }} className="h-full">
+                {children}
+              </div>
             </main>
           </div>
         </div>
