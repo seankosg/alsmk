@@ -602,7 +602,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={readOnly || ((selectedTask as any)?.is_summary === true) || (!isAdminOrPm && selectedTask?.assignee_id !== memberId)}
+        readOnly={readOnly || (!isAdminOrPm && (selectedTask as any)?.is_summary === true) || (!isAdminOrPm && selectedTask?.assignee_id !== memberId)}
         isSummary={(selectedTask as any)?.is_summary === true}
         allTasks={tasks}
       />
