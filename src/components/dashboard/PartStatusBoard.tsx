@@ -16,7 +16,7 @@ import { useAuthContext } from "@/components/layout/AppLayout";
 type FilterCategory = "behind" | "upcoming" | "issue";
 
 export function PartStatusBoard() {
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const [drilldown, setDrilldown] = useState<{ partId: string; partName: string; category: FilterCategory } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
