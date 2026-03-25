@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import CpmScheduler from "@/pages/CpmScheduler";
 import hyundaiLogo from "@/assets/hyundai-logo.png";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
@@ -36,6 +37,12 @@ export const useAuthContext = () => useContext(AuthContext);
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const location = useLocation();
+  const [hasVisitedCpm, setHasVisitedCpm] = useState(false);
+  const isCpmRoute = location.pathname === "/cpm";
+
+  useEffect(() => {
+    if (isCpmRoute && !hasVisitedCpm) setHasVisitedCpm(true);
+  }, [isCpmRoute, hasVisitedCpm]);
 
   if (auth.loading) {
     return (
@@ -92,8 +99,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <NotificationBell />
               </div>
             </header>
-            <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">
-              {children}
+            <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 relative">
+              {hasVisitedCpm && (
+                <div style={{ display: isCpmRoute ? 'block' : 'none' }} className="absolute inset-0">
+                  <CpmScheduler />
+                </div>
+              )}
+              <div style={{ display: isCpmRoute ? 'none' : 'block' }} className="h-full">
+                {children}
+              </div>
             </main>
           </div>
         </div>
