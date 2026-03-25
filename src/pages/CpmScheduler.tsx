@@ -251,7 +251,7 @@ const CpmScheduler = () => {
   }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb]);
 
   return (
-    <div className="h-[calc(100vh-48px)] -m-3 sm:-m-4 md:-m-6 flex flex-col">
+    <div className="h-full w-full flex flex-col relative">
       {/* Floating toolbar */}
       <div className="absolute top-2 right-2 z-10">
         <SnapshotManager
