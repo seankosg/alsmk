@@ -125,7 +125,7 @@ export function CriticalIssueBoard() {
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={!isAdmin && selectedTask?.assignee_id !== memberId}
+        readOnly={!isAdminOrPm && selectedTask?.assignee_id !== memberId}
       />
     </>
   );
