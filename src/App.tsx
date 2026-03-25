@@ -12,7 +12,7 @@ import Admin from "./pages/Admin";
 import TaskImport from "./pages/TaskImport";
 import Messages from "./pages/Messages";
 import Calendar from "./pages/Calendar";
-import CpmScheduler from "./pages/CpmScheduler";
+
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
 import NotFound from "./pages/NotFound";
