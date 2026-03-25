@@ -18,7 +18,7 @@ const chartConfig = {
 };
 
 export function TeamProgressChart() {
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const [selectedTeam, setSelectedTeam] = useState<{ code: string; id: string; name: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
@@ -242,7 +242,7 @@ export function TeamProgressChart() {
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={!isAdmin && selectedTask?.assignee_id !== memberId}
+        readOnly={!isAdminOrPm && selectedTask?.assignee_id !== memberId}
       />
     </>
   );

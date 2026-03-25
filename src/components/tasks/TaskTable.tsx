@@ -68,7 +68,7 @@ interface TaskTableProps {
 }
 
 export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTableProps) {
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const queryClient = useQueryClient();
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [flagFilter, setFlagFilter] = useState<string>("all");
@@ -602,7 +602,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={readOnly || ((selectedTask as any)?.is_summary === true) || (!isAdmin && selectedTask?.assignee_id !== memberId)}
+        readOnly={readOnly || ((selectedTask as any)?.is_summary === true) || (!isAdminOrPm && selectedTask?.assignee_id !== memberId)}
         isSummary={(selectedTask as any)?.is_summary === true}
         allTasks={tasks}
       />

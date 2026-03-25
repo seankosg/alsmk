@@ -11,7 +11,7 @@ import { useAuthContext } from "@/components/layout/AppLayout";
 import { QueryErrorCard } from "./QueryErrorCard";
 
 export function TeamHeatmap() {
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const [selectedPart, setSelectedPart] = useState<{ id: string; name: string; teamName: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
@@ -194,7 +194,7 @@ export function TeamHeatmap() {
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={!isAdmin && selectedTask?.assignee_id !== memberId}
+        readOnly={!isAdminOrPm && selectedTask?.assignee_id !== memberId}
       />
     </>
   );

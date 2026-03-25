@@ -17,7 +17,7 @@ const chartConfig = {
 };
 
 export function CategoryProgressChart() {
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
@@ -232,7 +232,7 @@ export function CategoryProgressChart() {
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={!isAdmin && selectedTask?.assignee_id !== memberId}
+        readOnly={!isAdminOrPm && selectedTask?.assignee_id !== memberId}
       />
     </>
   );

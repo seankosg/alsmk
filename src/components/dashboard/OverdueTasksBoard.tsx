@@ -12,7 +12,7 @@ import { differenceInDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 
 export function OverdueTasksBoard() {
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
   const { data: teams = [], isLoading: lt } = useQuery({
@@ -154,7 +154,7 @@ export function OverdueTasksBoard() {
         teams={teams}
         members={members}
         milestones={milestones}
-        readOnly={!isAdmin && selectedTask?.assignee_id !== memberId}
+        readOnly={!isAdminOrPm && selectedTask?.assignee_id !== memberId}
       />
     </>
   );
