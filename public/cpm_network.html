@@ -2487,21 +2487,9 @@ function validatePred(inputEl, actId) {
   }
 }
 
-// ─── Project Manager ─────────────────────────────────────────────
-const PROJ_PREFIX = 'cpm_proj_';   // localStorage key prefix
-let _currentProjKey = null;         // 현재 열린 프로젝트 키
-
-function toggleProjPanel() {
-  const panel   = document.getElementById('projPanel');
-  const overlay = document.getElementById('projOverlay');
-  const isOpen  = panel.classList.contains('open');
-  panel.classList.toggle('open', !isOpen);
-  overlay.classList.toggle('open', !isOpen);
-  if (!isOpen) renderProjList();
-}
+// ─── Snapshot Helpers (used by DB snapshot save/restore) ─────────
 
 function _makeSnapshot(name) {
-  // 현재 activities + 계산 결과를 JSON으로 직렬화
   const reDate = d => d instanceof Date ? d.toISOString() : d;
   return {
     name,
@@ -2536,118 +2524,6 @@ function _restoreSnapshot(snap) {
   window._wbsNames     = snap.wbsNames || {};
   window._activeWbsFilter = snap.wbsFilter || null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
-}
-
-function saveProject() {
-  const nameEl = document.getElementById('projNameInput');
-  const name   = (nameEl.value || '').trim();
-  if (!name) { showToast('⚠ 프로젝트 이름을 입력하세요'); nameEl.focus(); return; }
-  if (!calculated || activities.length === 0) {
-    showToast('⚠ CPM 계산 후 저장해주세요'); return;
-  }
-
-  // 동일 이름 존재 여부 확인
-  const existKey = getAllProjKeys().find(k => {
-    try { return JSON.parse(localStorage.getItem(k))?.name === name; } catch { return false; }
-  });
-
-  const key = existKey || (PROJ_PREFIX + Date.now());
-  try {
-    localStorage.setItem(key, JSON.stringify(_makeSnapshot(name)));
-    _currentProjKey = key;
-    nameEl.value = '';
-    renderProjList();
-    showToast(`✓ "${name}" 저장 완료`);
-    // 저장 표시 갱신
-    const ind = document.getElementById('saveIndicator');
-    if (ind) { ind.textContent = `● ${name}`; ind.style.display='inline'; ind.style.color='var(--green)'; }
-  } catch(e) {
-    showToast('❌ 저장 실패 (저장 공간 부족)');
-  }
-}
-
-function loadProject(key) {
-  try {
-    const snap = JSON.parse(localStorage.getItem(key));
-    if (!snap) { showToast('❌ 프로젝트를 찾을 수 없습니다'); return; }
-    _restoreSnapshot(snap);
-    _currentProjKey = key;
-    calculated = false;
-    calculate();
-    toggleProjPanel();
-    showToast(`✓ "${snap.name}" 로드 완료 (${snap.actCount}개 Activity)`);
-    const ind = document.getElementById('saveIndicator');
-    if (ind) { ind.textContent = `● ${snap.name}`; ind.style.display='inline'; ind.style.color='var(--accent)'; }
-  } catch(e) {
-    showToast('❌ 프로젝트 로드 실패');
-  }
-}
-
-function deleteProject(key, name, e) {
-  e.stopPropagation();
-  if (!confirm(`"${name}" 프로젝트를 삭제하시겠습니까?`)) return;
-  localStorage.removeItem(key);
-  if (_currentProjKey === key) _currentProjKey = null;
-  renderProjList();
-  showToast(`"${name}" 삭제됨`);
-}
-
-function renameProject(key, oldName, e) {
-  e.stopPropagation();
-  const newName = prompt('새 이름 입력:', oldName);
-  if (!newName || !newName.trim() || newName.trim() === oldName) return;
-  try {
-    const snap = JSON.parse(localStorage.getItem(key));
-    snap.name = newName.trim();
-    localStorage.setItem(key, JSON.stringify(snap));
-    renderProjList();
-    showToast(`이름 변경: "${newName.trim()}"`);
-  } catch(e) { showToast('변경 실패'); }
-}
-
-function getAllProjKeys() {
-  return Object.keys(localStorage)
-    .filter(k => k.startsWith(PROJ_PREFIX))
-    .sort((a,b) => {
-      // 저장 시간 역순 (최신 먼저)
-      try {
-        const ta = JSON.parse(localStorage.getItem(a))?.savedAt || '';
-        const tb = JSON.parse(localStorage.getItem(b))?.savedAt || '';
-        return tb.localeCompare(ta);
-      } catch { return 0; }
-    });
-}
-
-function renderProjList() {
-  const list = document.getElementById('projList');
-  const keys = getAllProjKeys();
-  if (!keys.length) {
-    list.innerHTML = '<div class="proj-empty">저장된 프로젝트가 없습니다<br><br><small>XML 업로드 후 계산하고<br>이름을 입력해 저장하세요</small></div>';
-    return;
-  }
-
-  list.innerHTML = keys.map(key => {
-    let snap;
-    try { snap = JSON.parse(localStorage.getItem(key)); } catch { return ''; }
-    if (!snap) return '';
-    const isActive = key === _currentProjKey;
-    const saved = new Date(snap.savedAt);
-    const dateStr = `${saved.getFullYear()}-${String(saved.getMonth()+1).padStart(2,'0')}-${String(saved.getDate()).padStart(2,'0')} ${String(saved.getHours()).padStart(2,'0')}:${String(saved.getMinutes()).padStart(2,'0')}`;
-    const cpStr = snap.cpCount > 0 ? `CP ${snap.cpCount}개` : 'CP 없음';
-
-    return `<div class="proj-item${isActive?' active':''}" title="${snap.name}">
-      <div class="proj-item-name">${snap.name}</div>
-      <div class="proj-item-meta">
-        <span>${snap.actCount}개 Activity · ${cpStr}</span>
-        <span>${dateStr}</span>
-      </div>
-      <div class="proj-item-actions">
-        <button class="proj-btn-load" onclick="loadProject('${key}')">불러오기</button>
-        <button class="proj-btn-del" onclick="renameProject('${key}','${snap.name.replace(/'/g,"\'")}',event)" style="color:var(--text-dim)">이름변경</button>
-        <button class="proj-btn-del" onclick="deleteProject('${key}','${snap.name.replace(/'/g,"\'")}',event)">삭제</button>
-      </div>
-    </div>`;
-  }).join('');
 }
 
 // ─── Storage ──────────────────────────────────────────────────────
