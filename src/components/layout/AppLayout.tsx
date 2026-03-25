@@ -37,6 +37,12 @@ export const useAuthContext = () => useContext(AuthContext);
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const location = useLocation();
+  const [hasVisitedCpm, setHasVisitedCpm] = useState(false);
+  const isCpmRoute = location.pathname === "/cpm";
+
+  useEffect(() => {
+    if (isCpmRoute && !hasVisitedCpm) setHasVisitedCpm(true);
+  }, [isCpmRoute, hasVisitedCpm]);
 
   if (auth.loading) {
     return (
