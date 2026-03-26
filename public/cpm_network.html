@@ -1977,6 +1977,7 @@ function clearAll() {
   document.getElementById('uploadZone').querySelector('.upload-label').innerHTML =
     '📂 <span>MS Project XML</span> 업로드<br>(.xml 드래그 또는 클릭)';
   window._activeWbsFilter = null;
+  window._activeBldgFilter = null;
   localStorage.removeItem(STORAGE_KEY);
   loadSample();
   calculate();
