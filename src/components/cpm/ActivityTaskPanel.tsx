@@ -119,14 +119,19 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
     enabled: !!dbActivity?.id,
   });
 
-  // Group by team → assignee
-  const teamGroups = useMemo(() => {
-    const groups = new Map<string, { teamName: string; tasks: TaskWithMember[] }>();
+  // Group by Subject (title) and sort by task_code
+  const subjectGroups = useMemo(() => {
+    const groups = new Map<string, { subjectName: string; tasks: TaskWithMember[] }>();
     mappedTasks.forEach(t => {
-      if (!groups.has(t.team_id)) {
-        groups.set(t.team_id, { teamName: t.team_name, tasks: [] });
+      const key = t.title || "미분류";
+      if (!groups.has(key)) {
+        groups.set(key, { subjectName: key, tasks: [] });
       }
-      groups.get(t.team_id)!.tasks.push(t);
+      groups.get(key)!.tasks.push(t);
+    });
+    // Sort tasks within each group by task_code
+    groups.forEach(g => {
+      g.tasks.sort((a, b) => (a.task_code || '').localeCompare(b.task_code || ''));
     });
     return groups;
   }, [mappedTasks]);
