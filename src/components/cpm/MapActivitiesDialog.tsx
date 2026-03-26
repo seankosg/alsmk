@@ -111,7 +111,7 @@ export function MapActivitiesDialog({ taskId, taskTitle, open, onOpenChange }: P
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[80vh] max-w-lg min-h-0 flex-col overflow-hidden">
+      <DialogContent className="flex max-h-[80vh] max-w-2xl min-h-[60vh] flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="text-sm">
             CPM Activity 매핑 — {taskTitle}
