@@ -2051,6 +2051,9 @@ function parseMSProjectXML(xmlText, fileName) {
 
   renderSidebar();
   showToast(`✓ "${fileName}" 로드 완료 — ${imported}개 활동 (${skipped}개 제외)`);
+  window._currentVersion = { source: 'xml', name: fileName, time: new Date().toLocaleString('ko-KR') };
+  var vl = document.getElementById('versionLabel');
+  if (vl) vl.textContent = 'v: ' + fileName;
   document.getElementById('uploadZone').querySelector('.upload-label').innerHTML =
     `✓ <span>${fileName}</span> (${imported}개 활동)`;
 }
