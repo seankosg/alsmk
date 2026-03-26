@@ -228,7 +228,7 @@ const CpmScheduler = () => {
       if (!e.data?.type) return;
 
       if (e.data.type === "cpm-calculated") {
-        upsertActivities(e.data.activities);
+        if (isAdminOrPm) upsertActivities(e.data.activities);
       }
       if (e.data.type === "activity-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
