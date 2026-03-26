@@ -2603,7 +2603,7 @@ function _makeSnapshot(name) {
     actCount: activities.length,
     cpCount: activities.filter(a=>a.isCritical).length,
     wbsNames: window._wbsNames || {},
-    wbsFilter: window._activeWbsFilter || null,
+    wbsFilter: window._activeWbsFilter ? [...window._activeWbsFilter] : null,
     projStart: window._projStart ? window._projStart.toISOString() : null,
     activities: activities.map(a => ({
       ...a,
