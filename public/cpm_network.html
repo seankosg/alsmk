@@ -2683,7 +2683,7 @@ function loadFromStorage() {
     }));
     idCounter            = data.idCounter || activities.length + 1;
     window._wbsNames     = data.wbsNames || {};
-    window._activeWbsFilter = data.wbsFilter || null;
+    window._activeWbsFilter = data.wbsFilter ? new Set(Array.isArray(data.wbsFilter) ? data.wbsFilter : [data.wbsFilter]) : null;
     if (data.projStart)  window._projStart = new Date(data.projStart);
 
     const saved = new Date(data.savedAt);
