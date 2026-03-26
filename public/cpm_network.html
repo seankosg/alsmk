@@ -986,6 +986,7 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
       };
     });
   });
+  _nodePositions = pos;  // expose for scrollToNode
 
   const colCount = Object.keys(cols).length;
   const maxRow   = Math.max(...Object.values(cols).map(c=>c.length), 1);
