@@ -1539,6 +1539,31 @@ function clearWbsFilter() {
   clearAllFilters();
 }
 
+function removeWbsFilterItem(code) {
+  if (!window._activeWbsFilter) return;
+  window._activeWbsFilter.delete(code);
+  if (window._activeWbsFilter.size === 0) window._activeWbsFilter = null;
+  var m = {}; activities.forEach(function(a){m[a.id]=a;});
+  var o = getOrder(m); if(!o)return;
+  var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
+  drawNetwork(o,m,pe,window._activeWbsFilter,window._activeBldgFilter||null);
+  // WBS 탭 하이라이트 업데이트
+  document.querySelectorAll('#wbsContent .wbs-node').forEach(function(el){
+    var wc=el.getAttribute('data-wbs')||'';
+    el.style.outline = (window._activeWbsFilter && window._activeWbsFilter.has(wc)) ? '2px solid var(--accent)' : '';
+  });
+}
+
+function removeBldgFilterItem(val) {
+  if (!window._activeBldgFilter) return;
+  window._activeBldgFilter.delete(val);
+  if (window._activeBldgFilter.size === 0) window._activeBldgFilter = null;
+  var m = {}; activities.forEach(function(a){m[a.id]=a;});
+  var o = getOrder(m); if(!o)return;
+  var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
+  drawNetwork(o,m,pe,window._activeWbsFilter||null,window._activeBldgFilter);
+}
+
 function clearAllFilters() {
   const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0);
   if (!hadFilter) return;
