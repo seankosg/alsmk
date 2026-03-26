@@ -2651,7 +2651,7 @@ function saveToStorage() {
       })),
       idCounter:    idCounter,
       wbsNames:     window._wbsNames || {},
-      wbsFilter:    window._activeWbsFilter || null,
+      wbsFilter:    window._activeWbsFilter ? [...window._activeWbsFilter] : null,
       projStart:    window._projStart ? window._projStart.toISOString() : null,
       isSample:     false,
       savedAt:      new Date().toISOString()
