@@ -237,7 +237,7 @@ const CpmScheduler = () => {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
       }
       if (e.data.type === "snapshot-save") {
-        saveSnapshotToDb(e.data.snapshot);
+        if (isAdminOrPm) saveSnapshotToDb(e.data.snapshot);
       }
       if (e.data.type === "request-db-snapshot") {
         loadSnapshotFromDb();
