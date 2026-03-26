@@ -146,7 +146,11 @@ const CpmScheduler = () => {
 
   // Send specific snapshot to iframe (from SnapshotManager)
   const handleLoadSnapshot = useCallback((snapshotData: any) => {
-    if (!iframeRef.current?.contentWindow) return;
+    if (!iframeRef.current?.contentWindow) {
+      console.warn('[CPM] handleLoadSnapshot: iframe not available');
+      return;
+    }
+    console.log('[CPM] Sending snapshot-restore to iframe, activities:', snapshotData?.activities?.length);
     iframeRef.current.contentWindow.postMessage(
       { type: "snapshot-restore", snapshot: snapshotData, forceRestore: true },
       "*",

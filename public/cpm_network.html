@@ -2798,10 +2798,12 @@ window.addEventListener('message', function(e) {
         } catch {}
       }
     }
-    console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities)');
+    console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities), forceRestore:', forceRestore);
     _restoreSnapshot(snap);
     calculated = false;
     calculate();
+    // 복원 완료 알림 → parent가 sendStatusToIframe() 호출
+    window.parent.postMessage({ type: 'snapshot-restored' }, '*');
   }
 });
 
