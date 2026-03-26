@@ -1812,6 +1812,25 @@ function parseMSProjectXML(xmlText, fileName) {
       mppTF:  (() => { const ts=get(t,'TotalSlack'); try{return Math.round(parseInt(ts)/480);}catch{return null;} })(),
       es:null, ef:null, ls:null, lf:null, tf:null, isCritical:false
     };
+
+    // ── Parse task-level ExtendedAttribute values ──
+    const taskExtAttrs = Array.from(
+      t.getElementsByTagNameNS(ns, 'ExtendedAttribute').length
+        ? t.getElementsByTagNameNS(ns, 'ExtendedAttribute')
+        : t.getElementsByTagName('ExtendedAttribute')
+    );
+    const customFields = {};
+    taskExtAttrs.forEach(ea => {
+      const fid = get(ea, 'FieldID');
+      const val = get(ea, 'Value');
+      if (fid && val && fieldIdToName[fid]) {
+        customFields[fieldIdToName[fid]] = val;
+      }
+    });
+    if (Object.keys(customFields).length > 0) {
+      act.customFields = customFields;
+    }
+
     activities.push(act);
     imported++;
   });
