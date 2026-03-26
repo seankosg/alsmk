@@ -1654,6 +1654,35 @@ function parseMSProjectXML(xmlText, fileName) {
     return found ? found.textContent.trim() : '';
   };
 
+  // ── Parse project-level ExtendedAttributes: FieldID → Alias/FieldName ──
+  const extAttrDefs = Array.from(
+    doc.querySelectorAll('ExtendedAttributes > ExtendedAttribute') ||
+    []
+  );
+  // Also try with namespace
+  const extAttrDefsNS = Array.from(
+    doc.getElementsByTagNameNS(ns, 'ExtendedAttributes')
+  );
+  const fieldIdToName = {};
+  // Try non-NS first
+  extAttrDefs.forEach(ea => {
+    const fid = get(ea, 'FieldID');
+    const alias = get(ea, 'Alias');
+    const fname = get(ea, 'FieldName');
+    if (fid) fieldIdToName[fid] = alias || fname || ('Field_' + fid);
+  });
+  // If none found, try NS approach
+  if (Object.keys(fieldIdToName).length === 0 && extAttrDefsNS.length > 0) {
+    const container = extAttrDefsNS[0];
+    const defs = Array.from(container.getElementsByTagNameNS(ns, 'ExtendedAttribute') || []);
+    defs.forEach(ea => {
+      const fid = get(ea, 'FieldID');
+      const alias = get(ea, 'Alias');
+      const fname = get(ea, 'FieldName');
+      if (fid) fieldIdToName[fid] = alias || fname || ('Field_' + fid);
+    });
+  }
+
   // Build UID→Task map first
   const tasks = Array.from(doc.getElementsByTagNameNS(ns, 'Task').length
     ? doc.getElementsByTagNameNS(ns, 'Task')
