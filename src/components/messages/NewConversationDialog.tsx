@@ -133,6 +133,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: NewConv
       onOpenChange(false);
       resetState();
     } catch (err: any) {
+      console.error("Conversation creation failed:", err);
       toast.error(err.message || "대화 생성에 실패했습니다.");
     } finally {
       setCreating(false);
