@@ -1,4 +1,4 @@
-Phase 2+3+4 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_snapshots tables with postMessage bridge + node risk visualization.
+Phase 2+3+4+5 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_snapshots tables with postMessage bridge + node risk visualization + orphan migration.
 
 ## Tables
 - cpm_activities: mpp_uid, mpp_task_id, name, duration, progress, wbs_full, is_critical, is_milestone, start/finish dates, ES/EF/LS/LF/TF
@@ -29,10 +29,11 @@ Phase 2+3+4 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_snaps
 - Format: `${mpp_task_id}::${wbs_full}::${name}` — avoids duplicate name collisions
 
 ## Components
-- src/pages/CpmScheduler.tsx: iframe + side panel layout, message listener, DB upsert, status aggregation + postMessage, snapshot save/load
+- src/pages/CpmScheduler.tsx: iframe + side panel layout, message listener, DB upsert, status aggregation + postMessage, snapshot save/load, orphan migration
 - src/components/cpm/ActivityTaskPanel.tsx: detail header (dblclick) + 3-tier task hierarchy with GAP%
 - src/components/cpm/MapTasksDialog.tsx: searchable task picker with checkbox multi-select
 - src/components/cpm/MapActivitiesDialog.tsx: reverse mapping (Task → Activity) from TaskDetailDialog
+- src/components/cpm/OrphanResolutionDialog.tsx: orphan activity resolution UI (migrate/delete)
 
 ## Keep-Alive
 - CpmScheduler mounted persistently in AppLayout, toggled via CSS display based on route
@@ -55,3 +56,11 @@ Phase 2+3+4 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_snaps
 ## Weighted Progress
 - Formula: Σ(progress × duration) / Σ(duration), GAP = actual - planned
 - Delayed threshold: actual < planned - 5%
+
+## Orphan Migration (Phase 5)
+- On new XML upload + CPM calculate, upsertActivities detects orphan activities
+- Step 1: Auto-migrate mappings by name match (orphan.name === newActivity.name)
+- Step 2: Orphans with mappings but no name match → OrphanResolutionDialog
+- Step 3: Orphans without mappings → silently deleted
+- All actions logged to activity_log with details (resolution type, migrated_to, task_ids)
+- OrphanResolutionDialog: per-orphan migrate (dropdown) or delete, bulk delete all
