@@ -50,6 +50,8 @@ interface TaskWithMember {
   issue_flag: string;
   issue_description: string | null;
   action_plan: string | null;
+  parent_id: string | null;
+  parent_title: string;
 }
 
 export function ActivityTaskPanel({ activity, onClose }: Props) {
