@@ -1502,15 +1502,51 @@ function applyWbsFilter(wbsCode) {
 }
 
 function clearWbsFilter() {
-  if (!window._activeWbsFilter || window._activeWbsFilter.size === 0) return;
+  clearAllFilters();
+}
+
+function clearAllFilters() {
+  const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0);
+  if (!hadFilter) return;
   window._activeWbsFilter = null;
+  window._activeBldgFilter = null;
   const map = {};
   activities.forEach(a => { map[a.id] = a; });
   const order = getOrder(map);
   if (!order) return;
   const projectEnd = Math.max(...activities.map(a => a.ef || 0));
-  drawNetwork(order, map, projectEnd, null);
+  drawNetwork(order, map, projectEnd, null, null);
   showToast('전체 공정 표시');
+  // WBS 탭 하이라이트 제거
+  document.querySelectorAll('#wbsContent .wbs-node').forEach(el => {
+    el.style.outline = '';
+    el.style.outlineOffset = '';
+  });
+}
+
+function applyBldgFilter(bldgValue) {
+  if (!calculated) { showToast('먼저 CPM 계산을 실행하세요'); return; }
+  if (!window._activeBldgFilter) window._activeBldgFilter = new Set();
+  if (window._activeBldgFilter.has(bldgValue)) {
+    window._activeBldgFilter.delete(bldgValue);
+  } else {
+    window._activeBldgFilter.add(bldgValue);
+  }
+  if (window._activeBldgFilter.size === 0) window._activeBldgFilter = null;
+
+  const map = {};
+  activities.forEach(a => { map[a.id] = a; });
+  const order = getOrder(map);
+  if (!order) return;
+  const projectEnd = Math.max(...activities.map(a => a.ef || 0));
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter);
+  showToast(window._activeBldgFilter ? `BLDG 필터: ${[...window._activeBldgFilter].join(', ')}` : '전체 BLDG 표시');
+
+  // 네트워크 탭으로 자동 전환
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('networkPanel').classList.add('active');
+  document.querySelector('.tab-btn').classList.add('active');
 }
 
 function getOrder(map) {
