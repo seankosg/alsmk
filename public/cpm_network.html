@@ -523,6 +523,7 @@
 let activities = [];
 let idCounter = 1;
 let calculated = false;
+window._readOnly = false;
 
 // ─── Activity CRUD ────────────────────────────────────────────────
 function genId() { return 'A' + String(idCounter++).padStart(2,'0'); }
