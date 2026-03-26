@@ -360,7 +360,8 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
 
       {/* Team → Assignee → Task hierarchy */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
+        <div className="overflow-x-auto">
+        <div className="min-w-[400px] p-2 space-y-1">
           {mappedTasks.length === 0 && (
             <div className="text-center text-muted-foreground text-sm py-8">
               <Link2 className="mx-auto h-8 w-8 mb-2 opacity-40" />
@@ -494,6 +495,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
               </div>
             );
           })}
+        </div>
         </div>
       </ScrollArea>
     </div>
