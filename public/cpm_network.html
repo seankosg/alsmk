@@ -2838,6 +2838,9 @@ function loadFromStorage() {
     const saved = new Date(data.savedAt);
     const label = `${saved.getFullYear()}-${String(saved.getMonth()+1).padStart(2,'0')}-${String(saved.getDate()).padStart(2,'0')} ${String(saved.getHours()).padStart(2,'0')}:${String(saved.getMinutes()).padStart(2,'0')}`;
     console.log(`[복원] ${activities.length}개 Activity (저장: ${label})`);
+    window._currentVersion = { source: 'local', name: data.isSample ? 'Sample' : 'Local', time: label };
+    var vl = document.getElementById('versionLabel');
+    if (vl) vl.textContent = 'v: ' + (data.isSample ? 'Sample' : 'Local') + ' (' + label + ')';
     // 복원 표시는 calculate() 완료 후 saveToStorage()가 갱신
     return true;
   } catch(e) {
