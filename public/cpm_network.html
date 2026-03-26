@@ -920,36 +920,37 @@ function calculate(forceReadOnly) {
 let _nodePositions = {};   // module-level: actId → {x, y}
 const _NODE_W = 160, _NODE_H = 104;
 
-// filterWbs: null = 전체, string = 해당 WBS prefix만
+// filterWbs: null = 전체, Set = 해당 WBS prefix들만
 function drawNetwork(order, map, projectEnd, filterWbs) {
   const NODE_W = _NODE_W, NODE_H = _NODE_H, GAP_X = 60, GAP_Y = 50;
 
-
   // ── WBS 필터 적용 ──────────────────────────────────────────────
-  // 1) 선택 WBS에 속하는 노드
-  // 2) CP 경로 위에 있으면서 선택 WBS 밖인 노드 → "통과 노드"
+  const hasFilter = filterWbs && filterWbs.size > 0;
   const isInFilter = id => {
-    if (!filterWbs) return true;
+    if (!hasFilter) return true;
     const a = map[id];
     const code = a.wbsFull || a.wbs || '';
-    return code === filterWbs || code.startsWith(filterWbs + '.');
+    for (const fw of filterWbs) {
+      if (code === fw || code.startsWith(fw + '.')) return true;
+    }
+    return false;
   };
 
   // CP 경로 추적: CP 노드들의 연결 집합
   const cpSet = new Set(order.filter(id => map[id].isCritical));
 
   // 통과 노드: CP에 속하지만 필터 밖인 노드
-  const isPassThrough = id => filterWbs && cpSet.has(id) && !isInFilter(id);
+  const isPassThrough = id => hasFilter && cpSet.has(id) && !isInFilter(id);
 
   // 표시 대상 = 필터 내 노드 + 통과 노드
   const visibleSet = new Set(order.filter(id => isInFilter(id) || isPassThrough(id)));
 
   // filterLabel 업데이트
   const lbl = document.getElementById('filterLabel');
-  if (filterWbs) {
+  if (hasFilter) {
     lbl.style.display = 'flex';
     const ft = document.getElementById('filterText');
-    if (ft) ft.textContent = `필터: WBS ${filterWbs}`;
+    if (ft) ft.textContent = `필터: WBS ${[...filterWbs].join(', ')}`;
   } else {
     lbl.style.display = 'none';
   }
@@ -1441,7 +1442,7 @@ function renderWBS(order, map) {
     '<div class="wbs-tree">' + renderNode(root, 0) + '</div>';
 }
 
-// ─── WBS Filter ──────────────────────────────────────────────────
+// ─── WBS Filter (다중 선택) ──────────────────────────────────────
 function applyWbsFilter(wbsCode) {
   if (!calculated) { showToast('먼저 CPM 계산을 실행하세요'); return; }
   const map = {};
@@ -1450,16 +1451,35 @@ function applyWbsFilter(wbsCode) {
   if (!order) return;
   const projectEnd = Math.max(...activities.map(a => a.ef || 0));
 
-  // 전체 보기 토글
-  if (window._activeWbsFilter === wbsCode) {
+  // Set 기반 토글
+  if (!window._activeWbsFilter) window._activeWbsFilter = new Set();
+  if (window._activeWbsFilter.has(wbsCode)) {
+    window._activeWbsFilter.delete(wbsCode);
+  } else {
+    window._activeWbsFilter.add(wbsCode);
+  }
+
+  // Set이 비면 null
+  if (window._activeWbsFilter.size === 0) {
     window._activeWbsFilter = null;
     showToast('전체 공정 표시');
   } else {
-    window._activeWbsFilter = wbsCode;
-    showToast(`WBS ${wbsCode} 필터 적용`);
+    showToast(`WBS 필터: ${[...window._activeWbsFilter].join(', ')}`);
   }
 
   drawNetwork(order, map, projectEnd, window._activeWbsFilter);
+
+  // WBS 탭 하이라이트 업데이트
+  document.querySelectorAll('#wbsContent .wbs-node').forEach(el => {
+    const wbs = el.getAttribute('data-wbs');
+    if (window._activeWbsFilter && window._activeWbsFilter.has(wbs)) {
+      el.style.outline = '1px solid var(--accent)';
+      el.style.outlineOffset = '-1px';
+    } else {
+      el.style.outline = '';
+      el.style.outlineOffset = '';
+    }
+  });
 
   // 네트워크 탭으로 자동 전환
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -1469,7 +1489,7 @@ function applyWbsFilter(wbsCode) {
 }
 
 function clearWbsFilter() {
-  if (!window._activeWbsFilter) return;
+  if (!window._activeWbsFilter || window._activeWbsFilter.size === 0) return;
   window._activeWbsFilter = null;
   const map = {};
   activities.forEach(a => { map[a.id] = a; });
@@ -2583,7 +2603,7 @@ function _makeSnapshot(name) {
     actCount: activities.length,
     cpCount: activities.filter(a=>a.isCritical).length,
     wbsNames: window._wbsNames || {},
-    wbsFilter: window._activeWbsFilter || null,
+    wbsFilter: window._activeWbsFilter ? [...window._activeWbsFilter] : null,
     projStart: window._projStart ? window._projStart.toISOString() : null,
     activities: activities.map(a => ({
       ...a,
@@ -2608,7 +2628,7 @@ function _restoreSnapshot(snap) {
   }));
   idCounter            = Math.max(...activities.map(a=>parseInt(a.id.replace(/\D/g,''))||0)) + 1;
   window._wbsNames     = snap.wbsNames || {};
-  window._activeWbsFilter = snap.wbsFilter || null;
+  window._activeWbsFilter = snap.wbsFilter ? new Set(Array.isArray(snap.wbsFilter) ? snap.wbsFilter : [snap.wbsFilter]) : null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
 }
 
@@ -2631,7 +2651,7 @@ function saveToStorage() {
       })),
       idCounter:    idCounter,
       wbsNames:     window._wbsNames || {},
-      wbsFilter:    window._activeWbsFilter || null,
+      wbsFilter:    window._activeWbsFilter ? [...window._activeWbsFilter] : null,
       projStart:    window._projStart ? window._projStart.toISOString() : null,
       isSample:     false,
       savedAt:      new Date().toISOString()
@@ -2663,7 +2683,7 @@ function loadFromStorage() {
     }));
     idCounter            = data.idCounter || activities.length + 1;
     window._wbsNames     = data.wbsNames || {};
-    window._activeWbsFilter = data.wbsFilter || null;
+    window._activeWbsFilter = data.wbsFilter ? new Set(Array.isArray(data.wbsFilter) ? data.wbsFilter : [data.wbsFilter]) : null;
     if (data.projStart)  window._projStart = new Date(data.projStart);
 
     const saved = new Date(data.savedAt);
