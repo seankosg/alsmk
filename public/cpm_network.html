@@ -920,20 +920,30 @@ function calculate(forceReadOnly) {
 let _nodePositions = {};   // module-level: actId → {x, y}
 const _NODE_W = 160, _NODE_H = 104;
 
-// filterWbs: null = 전체, Set = 해당 WBS prefix들만
-function drawNetwork(order, map, projectEnd, filterWbs) {
+// filterWbs: Set|null, filterBldg: Set|null
+function drawNetwork(order, map, projectEnd, filterWbs, filterBldg) {
   const NODE_W = _NODE_W, NODE_H = _NODE_H, GAP_X = 60, GAP_Y = 50;
 
-  // ── WBS 필터 적용 ──────────────────────────────────────────────
-  const hasFilter = filterWbs && filterWbs.size > 0;
+  // ── 필터 적용 (WBS AND BLDG) ──────────────────────────────────
+  const hasWbsFilter = filterWbs && filterWbs.size > 0;
+  const hasBldgFilter = filterBldg && filterBldg.size > 0;
+  const hasFilter = hasWbsFilter || hasBldgFilter;
   const isInFilter = id => {
-    if (!hasFilter) return true;
     const a = map[id];
-    const code = a.wbsFull || a.wbs || '';
-    for (const fw of filterWbs) {
-      if (code === fw || code.startsWith(fw + '.')) return true;
+    if (hasWbsFilter) {
+      const code = a.wbsFull || a.wbs || '';
+      let wbsMatch = false;
+      for (const fw of filterWbs) {
+        if (code === fw || code.startsWith(fw + '.')) { wbsMatch = true; break; }
+      }
+      if (!wbsMatch) return false;
     }
-    return false;
+    if (hasBldgFilter) {
+      const cf = a.customFields;
+      const bv = cf && (cf.BLDG || cf.Text2 || cf['\ud14d\uc2a4\ud2b82']) || '';
+      if (!filterBldg.has(bv)) return false;
+    }
+    return true;
   };
 
   // CP 경로 추적: CP 노드들의 연결 집합
@@ -950,7 +960,10 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
   if (hasFilter) {
     lbl.style.display = 'flex';
     const ft = document.getElementById('filterText');
-    if (ft) ft.textContent = `필터: WBS ${[...filterWbs].join(', ')}`;
+    const parts = [];
+    if (hasWbsFilter) parts.push(`WBS ${[...filterWbs].join(', ')}`);
+    if (hasBldgFilter) parts.push(`BLDG ${[...filterBldg].join(', ')}`);
+    if (ft) ft.textContent = `필터: ${parts.join(' | ')}`;
   } else {
     lbl.style.display = 'none';
   }
