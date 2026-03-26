@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -20,9 +20,10 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   // Get existing mappings
-  const { data: existingMappings = [] } = useQuery({
+  const { data: existingMappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ["cpm_existing_mappings", activityId],
     queryFn: async () => {
       const { data } = await supabase
@@ -65,12 +66,12 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
     enabled: open,
   });
 
-  // Initialize selected with existing mappings
-  useState(() => {
-    if (existingMappings.length && selectedIds.size === 0) {
+  // Sync selectedIds when existingMappings loads/updates
+  useEffect(() => {
+    if (open && existingMappings.length > 0) {
       setSelectedIds(new Set(existingMappings));
     }
-  });
+  }, [existingMappings, open]);
 
   const filtered = allTasks.filter(t => {
     if (!search) return true;
@@ -107,6 +108,7 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
         if (error) throw error;
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["cpm_existing_mappings", activityId] });
       toast.success(`${selectedIds.size}개 Task 매핑 완료`);
       onMapped();
       setOpen(false);
@@ -120,7 +122,7 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
   const handleOpen = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      setSelectedIds(new Set(existingMappings));
+      refetchMappings();
       setSearch("");
     }
   };
