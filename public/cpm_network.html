@@ -2753,7 +2753,7 @@ window.addEventListener('message', function(e) {
     console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities)');
     _restoreSnapshot(snap);
     calculated = false;
-    calculate();
+    calculate(true);
     const ind = document.getElementById('saveIndicator');
     if (ind) {
       ind.textContent = '● 서버에서 복원됨';
