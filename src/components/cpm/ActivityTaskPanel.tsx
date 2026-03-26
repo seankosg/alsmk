@@ -359,7 +359,8 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
       </div>
 
       {/* Team → Assignee → Task hierarchy */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" orientation="both">
+        <div className="min-w-[340px]">
         <div className="p-2 space-y-1">
           {mappedTasks.length === 0 && (
             <div className="text-center text-muted-foreground text-sm py-8">
