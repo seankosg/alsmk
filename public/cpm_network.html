@@ -579,7 +579,7 @@ function renderSidebar() {
         ${a.wbsFull ? `<span style="font-family:var(--mono);font-size:10px;color:#5a7a9a;padding:2px 5px;background:var(--bg);border-radius:3px">${a.wbsFull}</span>` : ''}
         <input class="act-name-input" id="name_${a.id}" placeholder="작업명 입력" value="${(a.name||'').replace(/"/g,'&quot;')}"
           readonly>
-        <button class="btn-del" onclick="removeActivity('${a.id}')">×</button>
+        <button class="btn-del" onclick="removeActivity('${a.id}')" ${window._readOnly ? 'style="display:none"' : ''}>×</button>
       </div>
       <div class="card-row2">
         <div class="field-group">

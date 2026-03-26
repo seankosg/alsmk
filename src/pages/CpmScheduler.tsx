@@ -254,15 +254,17 @@ const CpmScheduler = () => {
 
   return (
     <div className="h-full w-full flex flex-col relative">
-      {/* Floating toolbar */}
-      <div className="absolute top-2 right-2 z-10">
-        <SnapshotManager
-          onLoadSnapshot={handleLoadSnapshot}
-          onRequestCurrentSnapshot={handleRequestCurrentSnapshot}
-          pendingSnapshot={pendingSnapshot}
-          onSnapshotHandled={() => setPendingSnapshot(null)}
-        />
-      </div>
+      {/* Floating toolbar — Admin/PM only */}
+      {isAdminOrPm && (
+        <div className="absolute top-2 right-2 z-10">
+          <SnapshotManager
+            onLoadSnapshot={handleLoadSnapshot}
+            onRequestCurrentSnapshot={handleRequestCurrentSnapshot}
+            pendingSnapshot={pendingSnapshot}
+            onSnapshotHandled={() => setPendingSnapshot(null)}
+          />
+        </div>
+      )}
 
       <div className="flex flex-1 min-h-0">
         <div className={`${selectedActivity ? 'flex-1' : 'w-full'} transition-all`}>
