@@ -1135,8 +1135,8 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
           fill="${hColor}">${displayId}</text>
         <text x="${NODE_W-8}" y="${18 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9"
           fill="${isC?'#ff8080':'#5a7a9a'}" text-anchor="end">${displayWbs}</text>
-        ${(a.customFields && a.customFields.BLDG) ? `<text x="${NODE_W-8}" y="${9 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8"
-          fill="#c97a10" text-anchor="end" font-weight="600">${a.customFields.BLDG}</text>` : ''}
+        ${(a.customFields && (a.customFields.BLDG || a.customFields.Text2)) ? `<text x="${NODE_W-8}" y="${9 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8"
+          fill="#c97a10" text-anchor="end" font-weight="600">${a.customFields.BLDG || a.customFields.Text2}</text>` : ''}
         <text x="${NODE_W/2}" y="${34 + yOff}" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="11" font-weight="500"
           fill="#e2e8f0" text-anchor="middle">${nameShort}</text>
         <text x="${NODE_W/2}" y="${48 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="10"

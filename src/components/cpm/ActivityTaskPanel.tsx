@@ -207,9 +207,9 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
                 {activity.wbsFull}
               </Badge>
             )}
-            {activity.customFields?.BLDG && (
+            {(activity.customFields?.BLDG || activity.customFields?.Text2) && (
               <Badge variant="outline" className="font-mono text-xs text-amber-500 border-amber-500/30">
-                {activity.customFields.BLDG}
+                {activity.customFields.BLDG || activity.customFields.Text2}
               </Badge>
             )}
             {activity.isCritical && (
