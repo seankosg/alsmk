@@ -277,6 +277,7 @@ const CpmScheduler = () => {
             sandbox="allow-scripts allow-same-origin allow-popups"
             onLoad={() => {
               iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
+              iframeRef.current?.contentWindow?.postMessage({ type: "set-role", isAdminOrPm }, "*");
               setTimeout(() => sendStatusToIframe(), 300);
             }}
           />
