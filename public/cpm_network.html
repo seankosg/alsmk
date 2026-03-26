@@ -2845,6 +2845,63 @@ function highlightSidebarCard(actId) {
   }
 }
 
+// ─── Scroll network canvas to center a node ─────────────────────
+function scrollToNode(actId) {
+  const p = _nodePositions[actId];
+  const canvas = document.getElementById('networkCanvas');
+  if (!p || !canvas) return;
+  const centerX = p.x + _NODE_W / 2;
+  const centerY = p.y + _NODE_H / 2;
+  canvas.scrollTo({
+    left: centerX - canvas.clientWidth / 2,
+    top: centerY - canvas.clientHeight / 2,
+    behavior: 'smooth'
+  });
+  // Flash highlight on the node
+  const svgEl = canvas.querySelector('svg');
+  if (svgEl) {
+    const gNodes = svgEl.querySelectorAll('g[onclick]');
+    gNodes.forEach(g => {
+      const onclick = g.getAttribute('onclick') || '';
+      if (onclick.includes("'" + actId + "'")) {
+        const rect = g.querySelector('rect:nth-child(2)');
+        if (rect) {
+          const origStroke = rect.getAttribute('stroke');
+          const origWidth = rect.getAttribute('stroke-width');
+          rect.setAttribute('stroke', '#fbbf24');
+          rect.setAttribute('stroke-width', '3');
+          setTimeout(() => {
+            rect.setAttribute('stroke', origStroke || '#2a3347');
+            rect.setAttribute('stroke-width', origWidth || '1.5');
+          }, 1500);
+        }
+      }
+    });
+  }
+}
+
+// ─── Sidebar card click → navigate to node + open panel ─────────
+function handleSidebarCardClick(actId) {
+  // Switch to network tab
+  switchTab('network');
+  // Scroll to node
+  setTimeout(() => scrollToNode(actId), 100);
+  // Highlight sidebar card
+  highlightSidebarCard(actId);
+  // Send activity-click to parent
+  if (window.parent !== window) {
+    const map = {};
+    activities.forEach(a => map[a.id] = a);
+    const a = map[actId];
+    if (a) {
+      window.parent.postMessage({
+        type: 'activity-click',
+        activity: buildActivityPayload(a)
+      }, '*');
+    }
+  }
+}
+
 </script>
 </body>
 </html>
