@@ -1,34 +1,24 @@
 
 
-# Fix: CPM ActivityTaskPanel Subject 그룹핑
+# Fix: 태스크 매핑 시 기존 매핑이 사라지는 문제
 
-## 문제 원인
+## 원인
 
-매핑된 태스크는 모두 subtask (`is_summary=false`, `parent_id`가 있음). 현재 코드는 `task.title` (subtask 자체의 제목)로 그룹핑하고 있으나, 사용자가 기대하는 "Subject"는 **부모 summary task의 title**입니다.
+`handleOpen`에서 `setSelectedIds(new Set(existingMappings))`를 호출하지만, `existingMappings`는 React Query 캐시된 값입니다. 첫 번째 저장 후 다이얼로그를 다시 열면 캐시가 갱신되지 않아 **이전(저장 전) 상태**로 초기화됩니다.
 
-Workspace에서는 summary task가 Subject 그룹 헤더 역할을 하고, 그 아래 subtask들이 나열되는 구조입니다.
+또한 `handleSave`에서 기존 매핑을 모두 DELETE 후 선택된 것만 INSERT하므로, 캐시가 빈 상태면 기존 매핑이 전부 삭제됩니다.
 
-## 수정 내용: `src/components/cpm/ActivityTaskPanel.tsx`
+## 수정: `src/components/cpm/MapTasksDialog.tsx`
 
-### 1. 데이터 조회에 `parent_id` 추가
-- tasks SELECT에 `parent_id` 필드 추가
-- `TaskWithMember` 인터페이스에 `parent_id`, `parent_title` 추가
+1. **저장 후 쿼리 무효화**: `handleSave` 성공 시 `queryClient.invalidateQueries`로 `cpm_existing_mappings` 캐시 갱신
+2. **다이얼로그 열 때 refetch**: `handleOpen`에서 최신 매핑을 가져오도록 `refetch()` 호출
+3. **`existingMappings` 로드 완료 후 selectedIds 동기화**: `useEffect`로 변경 (현재 잘못된 `useState` 호출을 수정)
 
-### 2. 부모 summary task title 조회
-- 매핑된 태스크들의 `parent_id`를 수집
-- 부모 summary task들을 별도 조회하여 `{ parent_id → parent.title }` 맵 생성
-- 각 태스크에 `parent_title` 할당 (parent가 없으면 자신의 title 사용)
-
-### 3. 그룹핑 키 변경
+### 핵심 변경
 ```text
-변경 전: t.title (subtask 자체 제목)
-변경 후: t.parent_title (부모 summary task 제목, 없으면 자체 제목)
+- useQuery에서 refetch 함수 추출
+- handleOpen: refetch() 호출 후 최신 데이터로 selectedIds 설정
+- handleSave: 성공 시 queryClient.invalidateQueries 호출
+- useState(() => ...) → useEffect로 변경하여 existingMappings 변경 시 selectedIds 동기화
 ```
-
-### 4. Task 행 표시는 현재와 동일 유지
-```text
-[X] [task_code] [action_plan] [progress] [gap]
-```
-
-### 5. HoverCard에 Subject(parent_title)도 표시
 
