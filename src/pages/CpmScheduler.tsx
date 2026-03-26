@@ -286,6 +286,7 @@ const CpmScheduler = () => {
             <ActivityTaskPanel
               activity={selectedActivity}
               onClose={() => setSelectedActivity(null)}
+              onStatusChanged={sendStatusToIframe}
             />
           </div>
         )}
