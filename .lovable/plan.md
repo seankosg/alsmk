@@ -1,103 +1,94 @@
 
 
-# 신규 XML 업로드 시 매핑 자동이전 + Orphan 관리 + 삭제 로그
+# ExtendedAttribute 커스텀 필드 범용 파싱 및 JSONB 저장
 
 ## 개요
 
-새 XML 업로드 → CPM 계산 시 `upsertActivities` 로직을 3단계로 재구성합니다.
+MS Project XML의 `ExtendedAttribute` 커스텀 필드(BLDG 등)를 자동 파싱하여 `cpm_activities` 테이블의 JSONB 컬럼에 저장하는 범용 구조를 구현합니다.
+
+## MS Project XML ExtendedAttribute 구조
 
 ```text
-Step 1: Upsert (현재와 동일)
-Step 2: Orphan 식별 → name 매칭으로 매핑 자동이전
-Step 3: 남은 orphan → 사용자에게 다이얼로그로 표시 → 수동 매핑이전 또는 삭제 선택
-Step 4: 최종 삭제된 activity + 해제된 매핑을 activity_log에 기록
+<ExtendedAttributes>          ← 프로젝트 레벨: 필드 정의
+  <ExtendedAttribute>
+    <FieldID>188743731</FieldID>
+    <FieldName>Text1</FieldName>
+    <Alias>BLDG</Alias>        ← 사용자가 지정한 이름
+  </ExtendedAttribute>
+</ExtendedAttributes>
+
+<Task>
+  <ExtendedAttribute>          ← 태스크 레벨: 값
+    <FieldID>188743731</FieldID>
+    <Value>Building A</Value>
+  </ExtendedAttribute>
+</Task>
 ```
 
-## 변경 파일
+## 변경 사항
 
-### 1. 새 컴포넌트: `src/components/cpm/OrphanResolutionDialog.tsx`
+### 1. DB 마이그레이션: `cpm_activities`에 `custom_fields` JSONB 컬럼 추가
 
-Orphan activity 목록을 보여주는 다이얼로그:
-- 각 orphan에 대해: 이름, 매핑된 태스크 수 표시
-- 각 orphan 행에 두 가지 액션:
-  - **매핑이전**: 드롭다운으로 신규 activity 선택 → 해당 activity로 매핑 이전
-  - **삭제**: orphan activity + 매핑 삭제
-- 하단 "전체 삭제" 버튼 (남은 미처리 orphan 일괄 삭제)
-- "완료" 버튼으로 다이얼로그 닫기
-
-### 2. `src/pages/CpmScheduler.tsx` — `upsertActivities` 리팩토링
-
-**Step 1: Upsert** (변경 없음)
-
-**Step 2: Orphan 식별 + 자동 매핑이전**
-```text
-1. orphan activity 목록 조회 (DB에 있지만 새 XML에 없는 것)
-2. 각 orphan의 매핑(cpm_task_mappings) 조회
-3. 매핑이 있는 orphan에 대해:
-   - 새 XML activity 중 같은 name을 가진 것을 찾음
-   - 해당 신규 activity의 DB id 조회
-   - 매핑의 activity_id를 신규 activity id로 UPDATE
-   - 자동이전 성공 로그 (console + toast)
-4. 매핑이 없는 orphan → 즉시 삭제 (영향 없음)
+```sql
+ALTER TABLE cpm_activities ADD COLUMN custom_fields jsonb DEFAULT '{}'::jsonb;
 ```
 
-**Step 3: 남은 orphan 처리**
-```text
-- name 매칭 실패한 orphan 중 매핑이 있는 것 → OrphanResolutionDialog에 전달
-- 다이얼로그에서 사용자가 수동으로 매핑이전 또는 삭제 결정
+저장 형태 예시:
+```json
+{ "BLDG": "Building A", "AREA": "Zone 1", "Text3": "some value" }
 ```
 
-**Step 4: activity_log 기록**
-```text
-각 삭제된 orphan에 대해 activity_log에 INSERT:
-- action: "cpm_activity_deleted"
-- entity_type: "cpm_activity"
-- entity_id: orphan activity id
-- details: { name, wbs_full, mpp_task_id, unmapped_task_ids: [...], migrated_to: ... }
-- user_name: 현재 사용자 이름
-```
+### 2. `public/cpm_network.html` — `parseMSProjectXML` 수정
 
-### 3. State 추가 (`CpmScheduler.tsx`)
-
-```typescript
-const [orphansToResolve, setOrphansToResolve] = useState<OrphanActivity[]>([]);
-// OrphanActivity = { id, name, wbs_full, mpp_task_id, mappedTaskCount }
-```
-
-- `OrphanResolutionDialog`는 `orphansToResolve.length > 0`일 때 표시
-- 새 activity 목록(드롭다운용)은 upsert 후 DB에서 조회한 최신 목록 사용
-
-### 4. `OrphanResolutionDialog` 내부 로직
-
-| 액션 | DB 처리 |
-|------|---------|
-| 매핑이전 (orphan → 신규 activity 선택) | `UPDATE cpm_task_mappings SET activity_id = 신규id WHERE activity_id = orphanId` → `DELETE cpm_activities WHERE id = orphanId` |
-| 삭제 | `DELETE cpm_task_mappings WHERE activity_id = orphanId` → `DELETE cpm_activities WHERE id = orphanId` |
-
-각 처리 후 `activity_log`에 기록.
-
-### 5. Toast 알림
+**Step 1**: 프로젝트 레벨 `ExtendedAttributes` 파싱하여 `FieldID → Alias(또는 FieldName)` 매핑 테이블 생성
 
 ```text
-- 자동이전 완료: "N개 Activity 매핑이 자동 이전되었습니다"
-- Orphan 다이얼로그 표시 시: "M개 Activity의 매핑을 확인해주세요"
-- 삭제 완료: "Activity '{name}' 삭제됨 (K개 태스크 매핑 해제)"
+fieldIdToName = { "188743731": "BLDG", "188743732": "AREA", ... }
 ```
 
-## 전체 흐름
+**Step 2**: 각 Task의 `ExtendedAttribute` 자식 요소를 순회하여 `FieldID`로 이름을 찾고 `Value`를 추출
 
 ```text
-XML 업로드 → iframe calculate → cpm-calculated 메시지
-  → upsertActivities()
-    1. upsert rows
-    2. orphan 식별
-    3. 매핑 있는 orphan: name 매칭 → 자동이전 (UPDATE mapping)
-    4. name 매칭 실패 + 매핑 있는 orphan → setOrphansToResolve()
-    5. 매핑 없는 orphan → 즉시 삭제
-    6. activity_log 기록
-  → OrphanResolutionDialog 표시 (있는 경우)
-    → 사용자 수동 이전/삭제
-    → activity_log 기록
-    → 완료 시 sendStatusToIframe()
+act.customFields = { "BLDG": "Building A", "AREA": "Zone 1" }
 ```
+
+### 3. `public/cpm_network.html` — `postCpmCalculated` 수정
+
+`cpm-calculated` 메시지 데이터에 `customFields` 포함:
+
+```text
+변경 전: { id, name, duration, ..., tf }
+변경 후: { id, name, duration, ..., tf, customFields }
+```
+
+### 4. `src/pages/CpmScheduler.tsx` — `upsertActivities` 수정
+
+upsert row에 `custom_fields` 필드 추가:
+
+```text
+custom_fields: a.customFields || {}
+```
+
+### 5. `src/components/cpm/ActivityTaskPanel.tsx` — 커스텀 필드 표시
+
+Activity Detail 뷰에서 `custom_fields`가 비어있지 않으면 키-값 쌍을 표시:
+
+```text
+── Custom Fields ──
+BLDG: Building A
+AREA: Zone 1
+```
+
+### 6. CPM 노드 표시 (선택적)
+
+iframe 내 노드에 주요 커스텀 필드(예: BLDG)를 표시할 수 있으나, 범용 구조이므로 우선 ActivityTaskPanel에만 표시합니다.
+
+## 변경 파일 요약
+
+| 파일 | 변경 |
+|------|------|
+| DB 마이그레이션 | `cpm_activities`에 `custom_fields jsonb` 컬럼 추가 |
+| `public/cpm_network.html` | ExtendedAttribute 파싱 + postMessage에 customFields 포함 |
+| `src/pages/CpmScheduler.tsx` | upsert에 `custom_fields` 필드 추가 |
+| `src/components/cpm/ActivityTaskPanel.tsx` | Detail 뷰에 커스텀 필드 표시 |
 
