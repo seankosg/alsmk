@@ -896,6 +896,10 @@ function calculate() {
   });
   const cpCount = activities.filter(a=>a.isCritical).length;
   calculated = true;
+  // 전역 변수로 저장 — activity-status-update 핸들러에서 재렌더링 시 사용
+  window._lastOrder = order;
+  window._lastMap = map;
+  window._lastProjectEnd = projectEnd;
   renderSidebar();
   drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
   renderGantt(order, map, projectEnd);
