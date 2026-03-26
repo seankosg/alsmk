@@ -2946,6 +2946,8 @@ window.addEventListener('message', function(e) {
       }
     }
     console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities)');
+    if (window._dbLoadTimeout) { clearTimeout(window._dbLoadTimeout); window._dbLoadTimeout = null; }
+    document.getElementById('loadingOverlay').style.display = 'none';
     _restoreSnapshot(snap);
     calculated = false;
     calculate(true);
