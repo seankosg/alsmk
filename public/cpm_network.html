@@ -910,9 +910,12 @@ function calculate(forceReadOnly) {
 }
 
 // ─── Network Diagram ──────────────────────────────────────────────
+let _nodePositions = {};   // module-level: actId → {x, y}
+const _NODE_W = 160, _NODE_H = 104;
+
 // filterWbs: null = 전체, string = 해당 WBS prefix만
 function drawNetwork(order, map, projectEnd, filterWbs) {
-  const NODE_W = 160, NODE_H = 104, GAP_X = 60, GAP_Y = 50;
+  const NODE_W = _NODE_W, NODE_H = _NODE_H, GAP_X = 60, GAP_Y = 50;
 
 
   // ── WBS 필터 적용 ──────────────────────────────────────────────
