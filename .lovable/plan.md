@@ -1,65 +1,76 @@
 
 
-# CPM 자동 로드 실패 수정 — Parent-Driven Bootstrap 구현
+# 스냅샷 로딩 문제 분석 및 수정
 
-## 문제 원인
+## 현재 상태
+- DB에 "auto" (382개 Activity), "3.1" (382개), "default" (260개) 스냅샷이 정상 존재
+- 세션 리플레이: "3.1" 불러오기 토스트는 성공했으나 네트워크 다이어그램이 갱신되지 않음
 
-새 디바이스/브라우저에서 CPM 접속 시 `localStorage`가 비어 있어 iframe이 초기화 중 `request-db-snapshot` 메시지를 parent에 전송하지만, 이 시점에 React의 `useEffect` 리스너가 아직 등록되지 않아 메시지가 유실됩니다. 이후 `loadSample()` + `calculate()`로 샘플 데이터가 로드되고, DB 스냅샷 복원은 영영 일어나지 않습니다.
+## 발견된 문제점
 
-스크린샷의 상태: 사이드바에 활동이 보이지만 네트워크 다이어그램은 비어 있는 것은 이 race condition의 전형적인 증상입니다.
+### 1. `calculate()` 내 변수 스코프 문제 (핵심)
+`calculate()` 함수 내 `order`, `map`, `projectEnd`가 `const`로 선언되어 함수 종료 후 소멸합니다. `activity-status-update` 핸들러(line 2760)에서 이 변수들을 참조하지만 `undefined`이므로 상태 아이콘 재렌더가 불가능합니다.
 
-## 해결 방법: Parent-Driven Bootstrap
+**더 중요한 문제**: `snapshot-restore` 핸들러에서 `_restoreSnapshot()` 후 `calculate()`를 호출하면 계산은 되지만, 이후 `sendStatusToIframe()` → `activity-status-update` 메시지 수신 시 `drawNetwork()`를 다시 호출할 수 없습니다.
 
-iframe이 먼저 요청하는 구조에서 **parent가 iframe 준비 완료 신호를 받은 뒤 DB 데이터를 내려주는 구조**로 변경합니다.
+### 2. `_restoreSnapshot` 후 상태 불일치
+`_restoreSnapshot()`이 `activities` 배열은 복원하지만, 이전 `calculate()` 실행에서 생성된 DOM 요소(사이드바, 네트워크 캔버스)를 초기화하지 않아 렌더링 충돌 가능성이 있습니다.
 
-```text
-iframe init → parent에 "iframe-ready" 전송 (샘플 로드 안 함)
-parent → "iframe-ready" 수신 → DB에서 name='auto' 스냅샷 조회
-  → 있으면: snapshot-restore 전송
-  → 없으면: bootstrap-empty 전송
-iframe → snapshot-restore 수신 시 복원 + calculate
-iframe → bootstrap-empty 수신 시 loadSample() + calculate()
+## 수정 계획
+
+### 파일 1: `public/cpm_network.html`
+
+**`calculate()` 함수 끝에 전역 변수 저장 추가 (line ~898):**
+```js
+// calculate() 내부, calculated = true 직후
+window._lastOrder = order;
+window._lastMap = map;
+window._lastProjectEnd = projectEnd;
 ```
 
-## 변경 파일
+**`activity-status-update` 핸들러 수정 (line 2760):**
+```js
+if (window._lastOrder && calculated) {
+  drawNetwork(window._lastOrder, window._lastMap, window._lastProjectEnd, window._activeWbsFilter || null);
+}
+```
 
-### 1. `public/cpm_network.html`
+**`snapshot-restore` 핸들러에 디버그 로그 추가 (line 2780-2801):**
+```js
+if (e.data.type === 'snapshot-restore') {
+  if (window._bootstrapTimeout) clearTimeout(window._bootstrapTimeout);
+  const snap = e.data.snapshot;
+  console.log('[CPM] snapshot-restore received, activities:', snap?.activities?.length, 'forceRestore:', e.data.forceRestore);
+  if (!snap || !snap.activities || !snap.activities.length) {
+    console.warn('[CPM] snapshot-restore: no activities in snapshot');
+    return;
+  }
+  // ... 기존 localStorage 비교 로직 ...
+  _restoreSnapshot(snap);
+  calculated = false;
+  calculate();
+}
+```
 
-**초기화 로직 변경 (lines 2603-2620):**
-- `loadFromStorage()` 성공 시 기존대로 복원 + calculate
-- 실패 시 `request-db-snapshot` 대신 `iframe-ready` 메시지 전송
-- `loadSample()` + `calculate()` 즉시 실행하지 않음 — 대기 상태 유지
+### 파일 2: `src/pages/CpmScheduler.tsx`
 
-**메시지 핸들러 추가:**
-- `bootstrap-empty` 수신 시 `loadSample()` + `calculate()` 실행
-- `snapshot-restore` 핸들러는 기존 유지
-
-**타임아웃 fallback:**
-- `iframe-ready` 전송 후 5초 내 응답 없으면 자동으로 `loadSample()` + `calculate()` (안전장치)
-
-### 2. `src/pages/CpmScheduler.tsx`
-
-**`iframe-ready` 핸들러 추가 (useEffect 내부):**
-- `iframe-ready` 수신 시 DB에서 `name='auto'` 스냅샷 조회
-- 있으면 `snapshot-restore` 전송
-- 없으면 `bootstrap-empty` 전송
-- `set-role` 메시지도 함께 전송 (역할 정보 확실히 전달)
-
-**`request-db-snapshot` 핸들러 제거:**
-- 더 이상 필요 없음 (parent-driven으로 대체)
-
-**`loadSnapshotFromDb` 변경:**
-- `name='auto'` 스냅샷만 조회하도록 필터 추가
-
-### 3. 기존 `onLoad` 콜백 정리 (`CpmScheduler.tsx` line 278-282)
-
-- `request-cpm-data`, `set-role` 전송은 `iframe-ready` 핸들러로 이동
-- `onLoad`에서 중복 전송 제거 (iframe-ready 응답에서 처리)
+**`handleLoadSnapshot`에 로그 추가:**
+```js
+const handleLoadSnapshot = useCallback((snapshotData: any) => {
+  if (!iframeRef.current?.contentWindow) {
+    console.warn('[CPM] handleLoadSnapshot: iframe not available');
+    return;
+  }
+  console.log('[CPM] Sending snapshot-restore to iframe, activities:', snapshotData?.activities?.length);
+  iframeRef.current.contentWindow.postMessage(
+    { type: "snapshot-restore", snapshot: snapshotData, forceRestore: true },
+    "*",
+  );
+}, []);
+```
 
 ## 기대 효과
-
-- 새 디바이스/타 브라우저에서도 DB 스냅샷 자동 복원 보장
-- 메시지 유실 불가 (parent listener가 항상 먼저 준비됨)
-- 5초 fallback으로 네트워크 오류 시에도 빈 화면 방지
-- `auto` 스냅샷만 자동복원 대상으로 명확화
+- `calculate()` 후 전역 변수 유지 → 상태 아이콘 재렌더 가능
+- 디버그 로그로 메시지 수신 여부 및 데이터 구조 확인 가능
+- 스냅샷 복원 → 계산 → 렌더링 파이프라인 안정화
 
