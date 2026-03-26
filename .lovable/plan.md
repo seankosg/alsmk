@@ -1,59 +1,26 @@
 
 
-# CPM BLDG 커스텀 필드 표시
+# 사이드바 Activity 카드 클릭 불일치 수정
 
-3곳에 BLDG 값을 표시합니다.
+## 원인
 
-## 1. 사이드바 Activity 카드 (`public/cpm_network.html`, ~line 581-611)
+Line 578: `if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;`
 
-card-row1의 WBS 뒤, 이름 앞에 BLDG 배지 추가:
+카드 내부의 `readonly` INPUT 요소(작업명, 기간, 선행/후행작업, WBS)가 카드 면적의 대부분을 차지합니다. 이 영역 클릭 시 핸들러가 즉시 종료되어 동작하지 않습니다. 좁은 빈 영역(라벨, 배지 등)을 클릭한 경우에만 작동하므로 불일치가 발생합니다.
 
-```text
-<span class="act-id">#123</span>
-<span>WBS 1.1</span>
-${a.customFields?.BLDG ? `<span style="font-size:10px;color:#c97a10;...">${a.customFields.BLDG}</span>` : ''}
-<input class="act-name-input" ...>
-```
-
-최우측에 위치시키기 위해 WBS 뒤에 삽입하되 주황/골드 계열 색상으로 차별화합니다.
-
-## 2. 네트워크 노드 상단 (~line 1133-1136)
-
-노드 상단 행: 좌측 `displayId`, 우측 `displayWbs` 사이에 BLDG를 WBS 왼쪽에 표시:
+## 수정: `public/cpm_network.html` (line 578)
 
 ```text
-변경 전: <text x="${NODE_W-8}" ... text-anchor="end">${displayWbs}</text>
-변경 후:
-  // BLDG를 WBS 왼쪽에 표시
-  ${bldgVal ? `<text x="${NODE_W-8-wbsWidth-4}" ... text-anchor="end" fill="#c97a10">${bldgVal}</text>` : ''}
-  <text x="${NODE_W-8}" ... text-anchor="end">${displayWbs}</text>
+변경 전: if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+변경 후: if (e.target.tagName === 'BUTTON') return;
+         if (e.target.tagName === 'INPUT' && !e.target.readOnly) return;
 ```
 
-또는 더 간단하게, WBS 오른쪽 최상단에 BLDG를 추가:
-- `displayWbs` 텍스트 끝에 BLDG 값을 골드색으로 표시
-- 변수: `const bldgVal = (a.customFields && a.customFields.BLDG) || '';`
-
-## 3. 상세 패널 WBS 배지 옆 (`ActivityTaskPanel.tsx`, ~line 196-202)
-
-WBS Badge 바로 다음에 BLDG Badge 추가:
-
-```tsx
-{activity.wbsFull && (
-  <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
-    {activity.wbsFull}
-  </Badge>
-)}
-{activity.customFields?.BLDG && (
-  <Badge variant="outline" className="font-mono text-xs text-amber-500 border-amber-500/30">
-    {activity.customFields.BLDG}
-  </Badge>
-)}
-```
-
-## 변경 파일
+- BUTTON 클릭(삭제 ×)만 차단
+- readonly INPUT 클릭은 카드 클릭으로 처리
+- 편집 가능 INPUT은 기존처럼 차단 (편집 모드 보호)
 
 | 파일 | 변경 |
 |------|------|
-| `public/cpm_network.html` | 사이드바 카드 row1에 BLDG 표시, 네트워크 노드 상단에 BLDG 표시 |
-| `src/components/cpm/ActivityTaskPanel.tsx` | WBS 배지 옆에 BLDG 배지 추가 |
+| `public/cpm_network.html` | line 578 조건문 수정 |
 
