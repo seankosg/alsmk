@@ -442,7 +442,7 @@
 <body>
 
 <header>
-  <div class="logo">CPM<span> / </span>NETWORK SCHEDULER</div>
+  <div class="logo">CPM<span> / </span>NETWORK SCHEDULER <span id="versionLabel" style="font-size:10px;color:var(--text-dim);font-weight:400;margin-left:8px"></span></div>
   <div class="header-tabs">
     <button class="tab-btn active" onclick="switchTab('network',event)">네트워크 다이어그램</button>
     <button class="tab-btn" onclick="switchTab('gantt',event)">간트차트</button>
@@ -517,7 +517,7 @@
         <div class="legend-item"><div class="legend-dot" style="background:var(--safe)"></div>일반 공정</div>
         <div class="legend-item"><div class="legend-dot" style="background:#c97a10"></div>CP 통과 노드 (타 WBS)</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--green);opacity:.5"></div>Float</div>
-        <div class="legend-item" id="filterLabel" style="display:none;color:var(--accent);font-weight:600"><span id="filterText"></span><span onclick="clearAllFilters()" style="cursor:pointer;margin-left:6px;color:#ff6b6b;font-size:14px" title="필터 해제">✕</span></div>
+        <div class="legend-item" id="filterLabel" style="display:none;color:var(--accent);font-weight:600;flex-wrap:wrap;gap:4px"><span id="filterChips"></span><span onclick="clearAllFilters()" style="cursor:pointer;margin-left:6px;color:#ff6b6b;font-size:11px;background:rgba(255,107,107,.15);padding:2px 8px;border-radius:10px" title="전체 해제">전체 해제 ✕</span></div>
       </div>
     </div>
 
@@ -981,15 +981,23 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg) {
   // 표시 대상 = 필터 내 노드 + 통과 노드
   const visibleSet = new Set(order.filter(id => isInFilter(id) || isPassThrough(id)));
 
-  // filterLabel 업데이트
+  // filterLabel 업데이트 — 개별 칩으로 표시
   const lbl = document.getElementById('filterLabel');
   if (hasFilter) {
     lbl.style.display = 'flex';
-    const ft = document.getElementById('filterText');
-    const parts = [];
-    if (hasWbsFilter) parts.push(`WBS ${[...filterWbs].join(', ')}`);
-    if (hasBldgFilter) parts.push(`BLDG ${[...filterBldg].join(', ')}`);
-    if (ft) ft.textContent = `필터: ${parts.join(' | ')}`;
+    const chipsEl = document.getElementById('filterChips');
+    let chips = '';
+    if (hasWbsFilter) {
+      [...filterWbs].forEach(w => {
+        chips += `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(77,166,255,.15);color:#4da6ff;padding:2px 8px;border-radius:10px;font-size:11px;cursor:default">WBS ${w}<span onclick="removeWbsFilterItem('${w}')" style="cursor:pointer;color:#ff6b6b;font-weight:700;margin-left:2px" title="해제">✕</span></span>`;
+      });
+    }
+    if (hasBldgFilter) {
+      [...filterBldg].forEach(b => {
+        chips += `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,180,50,.15);color:#ffb432;padding:2px 8px;border-radius:10px;font-size:11px;cursor:default">BLDG ${b}<span onclick="removeBldgFilterItem('${b}')" style="cursor:pointer;color:#ff6b6b;font-weight:700;margin-left:2px" title="해제">✕</span></span>`;
+      });
+    }
+    if (chipsEl) chipsEl.innerHTML = chips;
   } else {
     lbl.style.display = 'none';
   }
@@ -1531,6 +1539,31 @@ function clearWbsFilter() {
   clearAllFilters();
 }
 
+function removeWbsFilterItem(code) {
+  if (!window._activeWbsFilter) return;
+  window._activeWbsFilter.delete(code);
+  if (window._activeWbsFilter.size === 0) window._activeWbsFilter = null;
+  var m = {}; activities.forEach(function(a){m[a.id]=a;});
+  var o = getOrder(m); if(!o)return;
+  var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
+  drawNetwork(o,m,pe,window._activeWbsFilter,window._activeBldgFilter||null);
+  // WBS 탭 하이라이트 업데이트
+  document.querySelectorAll('#wbsContent .wbs-node').forEach(function(el){
+    var wc=el.getAttribute('data-wbs')||'';
+    el.style.outline = (window._activeWbsFilter && window._activeWbsFilter.has(wc)) ? '2px solid var(--accent)' : '';
+  });
+}
+
+function removeBldgFilterItem(val) {
+  if (!window._activeBldgFilter) return;
+  window._activeBldgFilter.delete(val);
+  if (window._activeBldgFilter.size === 0) window._activeBldgFilter = null;
+  var m = {}; activities.forEach(function(a){m[a.id]=a;});
+  var o = getOrder(m); if(!o)return;
+  var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
+  drawNetwork(o,m,pe,window._activeWbsFilter||null,window._activeBldgFilter);
+}
+
 function clearAllFilters() {
   const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0);
   if (!hadFilter) return;
@@ -1620,7 +1653,7 @@ function showNodeTooltip(e, actId) {
   if (!a) return;
 
   const isC  = a.isCritical;
-  const isPT = !isC && a.tf === 0;  // 간단 판별
+  const isPT = !isC && a.tf === 0;
   const accentColor = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#4da6ff';
   const predNames = (a.predecessors||'').split(',').map(s=>s.trim()).filter(Boolean)
     .map(pid => { const p = map[pid]; return p ? (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name : pid; })
@@ -1643,11 +1676,40 @@ function showNodeTooltip(e, actId) {
     ? `<span class="nt-cp-badge" style="background:rgba(201,122,16,.2);color:#c97a10">통과 노드</span>`
     : `<span style="font-size:10px;color:#5a7a9a">TF: <span style="color:${tfColor}">${a.tf??'-'}일</span> 여유</span>`;
 
+  // BLDG 값 추출
+  const bldgVal = (a.customFields && (a.customFields.BLDG || a.customFields.Text2 || a.customFields['텍스트2'])) || '';
+  const bldgRow = bldgVal ? `<div class="nt-cell"><div class="nt-cell-label">BLDG</div><div class="nt-cell-val" style="color:#ffb432">${bldgVal}</div></div>` : '';
+
+  // 상태 아이콘 (매핑된 Task 상태)
+  const statusKey = a.mppTaskId || a.wbsFull || a.id;
+  const st = (window._activityStatusMap || {})[statusKey];
+  const statusRow = st ? `<div class="nt-cell" style="grid-column:1/-1">
+    <div class="nt-cell-label">Task 상태</div>
+    <div class="nt-cell-val" style="font-size:11px;display:flex;gap:8px">
+      <span>●<span style="color:var(--text-dim)">${st.total||0}</span></span>
+      <span style="color:#3dd68c">●<span>${st.onTrack||0}</span></span>
+      <span style="color:#ff4d4d">●<span>${st.delayed||0}</span></span>
+    </div>
+  </div>` : '';
+
+  // 진도율 (실적/계획)
+  const progressRow = st ? `<div class="nt-cell" style="grid-column:1/-1">
+    <div class="nt-cell-label">진도율</div>
+    <div class="nt-cell-val" style="font-size:11px">
+      실적 <span style="color:#4da6ff;font-weight:700">${st.actual??'-'}%</span> / 계획 <span style="color:#7a8ba0">${st.planned??'-'}%</span>
+    </div>
+  </div>` : '';
+
+  // MPP 진행률
+  const mppRow = (a.progress !== null && a.progress !== undefined)
+    ? `<div class="nt-cell"><div class="nt-cell-label">MPP 진행률</div><div class="nt-cell-val">${a.progress}%</div></div>` : '';
+
   document.getElementById('ntCard').innerHTML = `
     <div class="nt-top">
       <div class="nt-id-row">
         <span class="nt-id" style="background:${accentColor}20;color:${accentColor}">${a.mppTaskId?'#'+a.mppTaskId:actId}</span>
         <span class="nt-wbs">${a.wbsFull||a.wbs||''}</span>
+        ${bldgVal ? `<span style="font-size:10px;color:#ffb432;background:rgba(255,180,50,.15);padding:1px 5px;border-radius:4px">${bldgVal}</span>` : ''}
       </div>
       <div class="nt-name">${a.name||'(미입력)'}</div>
     </div>
@@ -1661,6 +1723,10 @@ function showNodeTooltip(e, actId) {
         <div class="nt-cell-val" style="color:${tfColor}">${a.tf??'-'}일</div>
       </div>
       ${dateRow}
+      ${mppRow}
+      ${bldgRow}
+      ${statusRow}
+      ${progressRow}
     </div>
     <div class="nt-footer">
       <span style="color:#5a7a9a;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
@@ -1985,6 +2051,9 @@ function parseMSProjectXML(xmlText, fileName) {
 
   renderSidebar();
   showToast(`✓ "${fileName}" 로드 완료 — ${imported}개 활동 (${skipped}개 제외)`);
+  window._currentVersion = { source: 'xml', name: fileName, time: new Date().toLocaleString('ko-KR') };
+  var vl = document.getElementById('versionLabel');
+  if (vl) vl.textContent = 'v: ' + fileName;
   document.getElementById('uploadZone').querySelector('.upload-label').innerHTML =
     `✓ <span>${fileName}</span> (${imported}개 활동)`;
 }
@@ -2769,6 +2838,9 @@ function loadFromStorage() {
     const saved = new Date(data.savedAt);
     const label = `${saved.getFullYear()}-${String(saved.getMonth()+1).padStart(2,'0')}-${String(saved.getDate()).padStart(2,'0')} ${String(saved.getHours()).padStart(2,'0')}:${String(saved.getMinutes()).padStart(2,'0')}`;
     console.log(`[복원] ${activities.length}개 Activity (저장: ${label})`);
+    window._currentVersion = { source: 'local', name: data.isSample ? 'Sample' : 'Local', time: label };
+    var vl = document.getElementById('versionLabel');
+    if (vl) vl.textContent = 'v: ' + (data.isSample ? 'Sample' : 'Local') + ' (' + label + ')';
     // 복원 표시는 calculate() 완료 후 saveToStorage()가 갱신
     return true;
   } catch(e) {
@@ -2968,6 +3040,12 @@ window.addEventListener('message', function(e) {
       ind.style.display = 'inline';
       ind.style.color = 'var(--green)';
     }
+    // 버전 라벨 업데이트
+    var snapName = (e.data.snapshotName || snap.name || 'DB Snapshot');
+    var snapTime = snap.savedAt ? new Date(snap.savedAt).toLocaleString('ko-KR') : '';
+    window._currentVersion = { source: 'snapshot', name: snapName, time: snapTime };
+    var vl = document.getElementById('versionLabel');
+    if (vl) vl.textContent = 'v: ' + snapName + (snapTime ? ' (' + snapTime + ')' : '');
   }
 });
 

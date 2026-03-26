@@ -311,6 +311,27 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
           </div>
         )}
 
+        {/* Status icons — matching network node */}
+        {mappedTasks.length > 0 && (
+          <div className="flex items-center gap-4 px-1 text-xs">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground" />
+              <span className="text-muted-foreground">Total</span>
+              <span className="font-mono font-bold text-foreground">{mappedTasks.length}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-success" />
+              <span className="text-muted-foreground">OnTrack</span>
+              <span className="font-mono font-bold text-success">{mappedTasks.length - delayedCount}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-destructive" />
+              <span className="text-muted-foreground">Delayed</span>
+              <span className="font-mono font-bold text-destructive">{delayedCount}</span>
+            </span>
+          </div>
+        )}
+
         {/* Key metrics */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-muted rounded p-2">
