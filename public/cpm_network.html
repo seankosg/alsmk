@@ -573,6 +573,11 @@ function renderSidebar() {
     const card = document.createElement('div');
     card.className = 'activity-card' + (a.isCritical ? ' critical' : '');
     card.setAttribute('data-act-id', a.id);
+    card.style.cursor = 'pointer';
+    card.onclick = function(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      handleSidebarCardClick(a.id);
+    };
     card.innerHTML = `
       <div class="card-row1">
         <span class="act-id" title="내부ID: ${a.id}">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</span>
@@ -910,9 +915,12 @@ function calculate(forceReadOnly) {
 }
 
 // ─── Network Diagram ──────────────────────────────────────────────
+let _nodePositions = {};   // module-level: actId → {x, y}
+const _NODE_W = 160, _NODE_H = 104;
+
 // filterWbs: null = 전체, string = 해당 WBS prefix만
 function drawNetwork(order, map, projectEnd, filterWbs) {
-  const NODE_W = 160, NODE_H = 104, GAP_X = 60, GAP_Y = 50;
+  const NODE_W = _NODE_W, NODE_H = _NODE_H, GAP_X = 60, GAP_Y = 50;
 
 
   // ── WBS 필터 적용 ──────────────────────────────────────────────
@@ -983,6 +991,7 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
       };
     });
   });
+  _nodePositions = pos;  // expose for scrollToNode
 
   const colCount = Object.keys(cols).length;
   const maxRow   = Math.max(...Object.values(cols).map(c=>c.length), 1);
@@ -2833,6 +2842,63 @@ function highlightSidebarCard(actId) {
   if (selCard) {
     selCard.classList.add('selected');
     selCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+// ─── Scroll network canvas to center a node ─────────────────────
+function scrollToNode(actId) {
+  const p = _nodePositions[actId];
+  const canvas = document.getElementById('networkCanvas');
+  if (!p || !canvas) return;
+  const centerX = p.x + _NODE_W / 2;
+  const centerY = p.y + _NODE_H / 2;
+  canvas.scrollTo({
+    left: centerX - canvas.clientWidth / 2,
+    top: centerY - canvas.clientHeight / 2,
+    behavior: 'smooth'
+  });
+  // Flash highlight on the node
+  const svgEl = canvas.querySelector('svg');
+  if (svgEl) {
+    const gNodes = svgEl.querySelectorAll('g[onclick]');
+    gNodes.forEach(g => {
+      const onclick = g.getAttribute('onclick') || '';
+      if (onclick.includes("'" + actId + "'")) {
+        const rect = g.querySelector('rect:nth-child(2)');
+        if (rect) {
+          const origStroke = rect.getAttribute('stroke');
+          const origWidth = rect.getAttribute('stroke-width');
+          rect.setAttribute('stroke', '#fbbf24');
+          rect.setAttribute('stroke-width', '3');
+          setTimeout(() => {
+            rect.setAttribute('stroke', origStroke || '#2a3347');
+            rect.setAttribute('stroke-width', origWidth || '1.5');
+          }, 1500);
+        }
+      }
+    });
+  }
+}
+
+// ─── Sidebar card click → navigate to node + open panel ─────────
+function handleSidebarCardClick(actId) {
+  // Switch to network tab
+  switchTab('network');
+  // Scroll to node
+  setTimeout(() => scrollToNode(actId), 100);
+  // Highlight sidebar card
+  highlightSidebarCard(actId);
+  // Send activity-click to parent
+  if (window.parent !== window) {
+    const map = {};
+    activities.forEach(a => map[a.id] = a);
+    const a = map[actId];
+    if (a) {
+      window.parent.postMessage({
+        type: 'activity-click',
+        activity: buildActivityPayload(a)
+      }, '*');
+    }
   }
 }
 
