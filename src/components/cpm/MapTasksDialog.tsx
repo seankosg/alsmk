@@ -121,7 +121,7 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
   const handleOpen = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      setSelectedIds(new Set(existingMappings));
+      refetchMappings();
       setSearch("");
     }
   };
