@@ -573,6 +573,11 @@ function renderSidebar() {
     const card = document.createElement('div');
     card.className = 'activity-card' + (a.isCritical ? ' critical' : '');
     card.setAttribute('data-act-id', a.id);
+    card.style.cursor = 'pointer';
+    card.onclick = function(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      handleSidebarCardClick(a.id);
+    };
     card.innerHTML = `
       <div class="card-row1">
         <span class="act-id" title="내부ID: ${a.id}">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</span>
