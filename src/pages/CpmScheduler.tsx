@@ -28,7 +28,9 @@ const CpmScheduler = () => {
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const [orphansToResolve, setOrphansToResolve] = useState<OrphanActivity[]>([]);
   const [newActivityList, setNewActivityList] = useState<{ id: string; name: string; wbs_full: string | null }[]>([]);
+  const [panelWidth, setPanelWidth] = useState(360);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const resizingRef = useRef(false);
   const queryClient = useQueryClient();
   const { isAdminOrPm, memberName } = useAuthContext();
 
@@ -351,7 +353,7 @@ const CpmScheduler = () => {
     <div className="h-full w-full flex flex-col relative">
       {/* Floating toolbar — Admin/PM only */}
       {isAdminOrPm && (
-        <div className={`absolute top-2 z-10 transition-all ${selectedActivity ? 'right-[370px]' : 'right-2'}`}>
+        <div className={`absolute top-2 z-10 transition-all ${selectedActivity ? `right-[${panelWidth + 10}px]` : 'right-2'}`} style={selectedActivity ? { right: panelWidth + 10 } : undefined}>
           <SnapshotManager
             onLoadSnapshot={handleLoadSnapshot}
             onRequestCurrentSnapshot={handleRequestCurrentSnapshot}
@@ -378,12 +380,41 @@ const CpmScheduler = () => {
           />
         </div>
         {selectedActivity && (
-          <div className="w-[360px] flex-shrink-0 h-full">
-            <ActivityTaskPanel
-              activity={selectedActivity}
-              onClose={() => setSelectedActivity(null)}
-              onStatusChanged={sendStatusToIframe}
-            />
+          <div className="flex-shrink-0 h-full flex" style={{ width: panelWidth }}>
+            {/* Resize handle */}
+            <div
+              className="w-1.5 h-full cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors flex-shrink-0 group relative"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                resizingRef.current = true;
+                const startX = e.clientX;
+                const startW = panelWidth;
+                // Disable iframe pointer events during resize
+                if (iframeRef.current) iframeRef.current.style.pointerEvents = 'none';
+                const onMove = (ev: MouseEvent) => {
+                  if (!resizingRef.current) return;
+                  const newW = Math.max(280, Math.min(800, startW + (startX - ev.clientX)));
+                  setPanelWidth(newW);
+                };
+                const onUp = () => {
+                  resizingRef.current = false;
+                  if (iframeRef.current) iframeRef.current.style.pointerEvents = '';
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}
+            >
+              <div className="absolute inset-y-0 left-0 w-1 rounded-full bg-border group-hover:bg-primary/50" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <ActivityTaskPanel
+                activity={selectedActivity}
+                onClose={() => setSelectedActivity(null)}
+                onStatusChanged={sendStatusToIframe}
+              />
+            </div>
           </div>
         )}
       </div>
