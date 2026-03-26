@@ -2891,7 +2891,7 @@ window.addEventListener('message', function(e) {
     });
     // Re-render network if calculated
     if (typeof calculated !== 'undefined' && calculated && typeof order !== 'undefined') {
-      drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
+      drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter || null);
     }
   }
   // Parent requests current snapshot for manual save
