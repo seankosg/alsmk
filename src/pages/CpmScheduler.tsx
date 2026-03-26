@@ -28,7 +28,9 @@ const CpmScheduler = () => {
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const [orphansToResolve, setOrphansToResolve] = useState<OrphanActivity[]>([]);
   const [newActivityList, setNewActivityList] = useState<{ id: string; name: string; wbs_full: string | null }[]>([]);
+  const [panelWidth, setPanelWidth] = useState(360);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const resizingRef = useRef(false);
   const queryClient = useQueryClient();
   const { isAdminOrPm, memberName } = useAuthContext();
 
