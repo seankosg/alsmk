@@ -2533,10 +2533,7 @@ function _restoreSnapshot(snap) {
   window._activeWbsFilter = snap.wbsFilter || null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
 
-  // Notify parent that snapshot restore is complete
-  if (window.parent !== window) {
-    window.parent.postMessage({ type: 'snapshot-restored' }, '*');
-  }
+  // snapshot-restored는 snapshot-restore 핸들러에서 calculate() 후 전송
 }
 
 // ─── Storage ──────────────────────────────────────────────────────
@@ -2784,7 +2781,11 @@ window.addEventListener('message', function(e) {
   if (e.data.type === 'snapshot-restore') {
     if (window._bootstrapTimeout) clearTimeout(window._bootstrapTimeout);
     const snap = e.data.snapshot;
-    if (!snap || !snap.activities || !snap.activities.length) return;
+    console.log('[CPM] snapshot-restore received, activities:', snap?.activities?.length, 'forceRestore:', e.data.forceRestore);
+    if (!snap || !snap.activities || !snap.activities.length) {
+      console.warn('[CPM] snapshot-restore: no activities in snapshot');
+      return;
+    }
     const forceRestore = e.data.forceRestore === true;
     if (!forceRestore) {
       const localRaw = localStorage.getItem(STORAGE_KEY);
@@ -2793,15 +2794,26 @@ window.addEventListener('message', function(e) {
           const localData = JSON.parse(localRaw);
           if (localData.savedAt && snap.savedAt && new Date(localData.savedAt) >= new Date(snap.savedAt)) {
             console.log('[CPM Snapshot] localStorage is newer, skipping DB restore');
+            if (!calculated) {
+              // localStorage에서 이미 로드된 상태가 아니면 로컬 데이터로 복원
+              _restoreSnapshot(localData);
+              calculated = false;
+              calculate();
+            }
             return;
           }
-        } catch {}
+        } catch(err) { console.warn('[CPM] localStorage parse error:', err); }
       }
     }
     console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities), forceRestore:', forceRestore);
     _restoreSnapshot(snap);
     calculated = false;
-    calculate();
+    try {
+      calculate();
+      console.log('[CPM Snapshot] calculate() completed, calculated:', calculated);
+    } catch(err) {
+      console.error('[CPM Snapshot] calculate() error:', err);
+    }
     // 복원 완료 알림 → parent가 sendStatusToIframe() 호출
     window.parent.postMessage({ type: 'snapshot-restored' }, '*');
   }
