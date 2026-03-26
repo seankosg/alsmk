@@ -3037,6 +3037,12 @@ window.addEventListener('message', function(e) {
       ind.style.display = 'inline';
       ind.style.color = 'var(--green)';
     }
+    // 버전 라벨 업데이트
+    var snapName = (e.data.snapshotName || snap.name || 'DB Snapshot');
+    var snapTime = snap.savedAt ? new Date(snap.savedAt).toLocaleString('ko-KR') : '';
+    window._currentVersion = { source: 'snapshot', name: snapName, time: snapTime };
+    var vl = document.getElementById('versionLabel');
+    if (vl) vl.textContent = 'v: ' + snapName + (snapTime ? ' (' + snapTime + ')' : '');
   }
 });
 
