@@ -227,7 +227,7 @@ const CpmScheduler = () => {
     const handler = (e: MessageEvent) => {
       if (!e.data?.type) return;
 
-      if (e.data.type === "cpm-calculated") {
+      if (e.data.type === "cpm-calculated" && isAdminOrPm) {
         upsertActivities(e.data.activities);
       }
       if (e.data.type === "activity-click") {
@@ -236,7 +236,7 @@ const CpmScheduler = () => {
       if (e.data.type === "activity-detail-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
       }
-      if (e.data.type === "snapshot-save") {
+      if (e.data.type === "snapshot-save" && isAdminOrPm) {
         saveSnapshotToDb(e.data.snapshot);
       }
       if (e.data.type === "request-db-snapshot") {
