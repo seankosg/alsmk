@@ -49,6 +49,7 @@ interface TaskWithMember {
   team_name: string;
   issue_flag: string;
   issue_description: string | null;
+  action_plan: string | null;
 }
 
 export function ActivityTaskPanel({ activity, onClose }: Props) {
