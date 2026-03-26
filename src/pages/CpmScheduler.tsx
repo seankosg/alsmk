@@ -353,7 +353,7 @@ const CpmScheduler = () => {
     <div className="h-full w-full flex flex-col relative">
       {/* Floating toolbar — Admin/PM only */}
       {isAdminOrPm && (
-        <div className={`absolute top-2 z-10 transition-all ${selectedActivity ? 'right-[370px]' : 'right-2'}`}>
+        <div className={`absolute top-2 z-10 transition-all ${selectedActivity ? `right-[${panelWidth + 10}px]` : 'right-2'}`} style={selectedActivity ? { right: panelWidth + 10 } : undefined}>
           <SnapshotManager
             onLoadSnapshot={handleLoadSnapshot}
             onRequestCurrentSnapshot={handleRequestCurrentSnapshot}
