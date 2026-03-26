@@ -26,6 +26,7 @@ const CpmScheduler = () => {
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const queryClient = useQueryClient();
+  const { isAdminOrPm } = useAuthContext();
 
   // Send activity status data to iframe
   const sendStatusToIframe = useCallback(async () => {
