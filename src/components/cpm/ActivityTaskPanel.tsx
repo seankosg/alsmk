@@ -497,6 +497,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
             );
           })}
         </div>
+        </div>
       </ScrollArea>
     </div>
   );
