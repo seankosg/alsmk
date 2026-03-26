@@ -290,6 +290,19 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
                 선행 Activity 없음 (시작 노드)
               </div>
             )}
+
+            {/* Custom Fields */}
+            {activity.customFields && Object.keys(activity.customFields).length > 0 && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 text-xs space-y-1">
+                <div className="text-[10px] text-muted-foreground font-semibold">Custom Fields</div>
+                {Object.entries(activity.customFields).map(([key, val]) => (
+                  <div key={key} className="flex items-center gap-1.5 text-foreground">
+                    <span className="text-muted-foreground font-mono">{key}</span>
+                    <span className="ml-auto font-semibold">{val}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
