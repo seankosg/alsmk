@@ -65,12 +65,12 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
     enabled: open,
   });
 
-  // Initialize selected with existing mappings
-  useState(() => {
-    if (existingMappings.length && selectedIds.size === 0) {
+  // Sync selectedIds when existingMappings loads/updates
+  useEffect(() => {
+    if (open && existingMappings.length > 0) {
       setSelectedIds(new Set(existingMappings));
     }
-  });
+  }, [existingMappings, open]);
 
   const filtered = allTasks.filter(t => {
     if (!search) return true;
