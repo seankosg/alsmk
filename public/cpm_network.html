@@ -582,6 +582,7 @@ function renderSidebar() {
       <div class="card-row1">
         <span class="act-id" title="내부ID: ${a.id}">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</span>
         ${a.wbsFull ? `<span style="font-family:var(--mono);font-size:10px;color:#5a7a9a;padding:2px 5px;background:var(--bg);border-radius:3px">${a.wbsFull}</span>` : ''}
+        ${a.customFields && a.customFields.BLDG ? `<span style="font-family:var(--mono);font-size:10px;color:#c97a10;padding:2px 5px;background:rgba(201,122,16,0.1);border-radius:3px;border:1px solid rgba(201,122,16,0.3)">${a.customFields.BLDG}</span>` : ''}
         <input class="act-name-input" id="name_${a.id}" placeholder="작업명 입력" value="${(a.name||'').replace(/"/g,'&quot;')}"
           readonly>
         <button class="btn-del" onclick="removeActivity('${a.id}')" ${window._readOnly ? 'style="display:none"' : ''}>×</button>
