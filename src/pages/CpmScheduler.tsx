@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
 import { SnapshotManager } from "@/components/cpm/SnapshotManager";
 import { calcPlannedProgress } from "@/lib/mockData";
-import { useAuthContext } from "@/components/layout/AppLayout";
 
 interface ActivityStatus {
   activityKey: string;
@@ -22,7 +21,6 @@ const getActivityStatusKey = (activity: {
 }) => `${activity.mpp_task_id ?? "no-mpp"}::${activity.wbs_full ?? "no-wbs"}::${activity.name}`;
 
 const CpmScheduler = () => {
-  const { isAdminOrPm } = useAuthContext();
   const [selectedActivity, setSelectedActivity] = useState<CpmActivity | null>(null);
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -227,7 +225,7 @@ const CpmScheduler = () => {
     const handler = (e: MessageEvent) => {
       if (!e.data?.type) return;
 
-      if (e.data.type === "cpm-calculated" && isAdminOrPm) {
+      if (e.data.type === "cpm-calculated") {
         upsertActivities(e.data.activities);
       }
       if (e.data.type === "activity-click") {
@@ -236,14 +234,11 @@ const CpmScheduler = () => {
       if (e.data.type === "activity-detail-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
       }
-      if (e.data.type === "snapshot-save" && isAdminOrPm) {
+      if (e.data.type === "snapshot-save") {
         saveSnapshotToDb(e.data.snapshot);
       }
       if (e.data.type === "request-db-snapshot") {
         loadSnapshotFromDb();
-      }
-      if (e.data.type === "snapshot-restored") {
-        sendStatusToIframe();
       }
       // Response to "request-snapshot" — current iframe state for manual save
       if (e.data.type === "snapshot-current") {
@@ -253,7 +248,7 @@ const CpmScheduler = () => {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb, isAdminOrPm]);
+  }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb]);
 
   return (
     <div className="h-full w-full flex flex-col relative">
@@ -277,7 +272,6 @@ const CpmScheduler = () => {
             sandbox="allow-scripts allow-same-origin allow-popups"
             onLoad={() => {
               iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
-              iframeRef.current?.contentWindow?.postMessage({ type: "set-role", isAdminOrPm }, "*");
               setTimeout(() => sendStatusToIframe(), 300);
             }}
           />

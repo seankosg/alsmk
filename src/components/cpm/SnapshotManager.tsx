@@ -30,7 +30,7 @@ export function SnapshotManager({
   pendingSnapshot,
   onSnapshotHandled,
 }: SnapshotManagerProps) {
-  const { isAdminOrPm } = useAuthContext();
+  const { isAdmin } = useAuthContext();
   const [open, setOpen] = useState(false);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [saveName, setSaveName] = useState("");
@@ -146,7 +146,7 @@ export function SnapshotManager({
         </DialogHeader>
 
         {/* Save new — Admin only */}
-        {isAdminOrPm && (
+        {isAdmin && (
           <div className="flex gap-2">
             <Input
               placeholder="스냅샷 이름 입력..."
@@ -183,7 +183,7 @@ export function SnapshotManager({
                 <div
                   key={snap.id}
                   className="group flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5 hover:bg-muted/60 transition-colors cursor-pointer"
-                  onClick={() => isAdminOrPm && handleLoad(snap)}
+                  onClick={() => handleLoad(snap)}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate flex items-center gap-1.5">
@@ -206,25 +206,23 @@ export function SnapshotManager({
                     </div>
                   </div>
                   <div className="flex items-center gap-1 ml-2 shrink-0">
-                    {isAdminOrPm && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => { e.stopPropagation(); handleLoad(snap); }}
-                        >
-                          <Upload className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                          onClick={(e) => handleDelete(snap, e)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => handleLoad(snap)}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        onClick={(e) => handleDelete(snap, e)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     )}
                   </div>
                 </div>
