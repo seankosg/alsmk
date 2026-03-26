@@ -107,6 +107,7 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
         if (error) throw error;
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["cpm_existing_mappings", activityId] });
       toast.success(`${selectedIds.size}개 Task 매핑 완료`);
       onMapped();
       setOpen(false);
