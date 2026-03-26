@@ -34,6 +34,7 @@ export interface CpmActivity {
 interface Props {
   activity: CpmActivity;
   onClose: () => void;
+  onStatusChanged?: () => void;
 }
 
 interface TaskWithMember {
