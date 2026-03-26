@@ -1,43 +1,62 @@
 
 
-# 네트워크 다이어그램 필터 해제 버튼 추가
+# WBS 다중 필터 기능
 
 ## 현재 상태
 
-- WBS 탭에서 클릭하면 `applyWbsFilter(wbsCode)` 호출 → 네트워크 필터 적용
-- 같은 WBS를 다시 클릭하면 필터 해제 (토글)
-- 필터 적용 시 `#filterLabel`에 "필터: WBS X.X" 텍스트만 표시
-- **명시적 해제 버튼이 없어서** 사용자가 해제 방법을 모를 수 있음
+- `window._activeWbsFilter`는 단일 문자열 (`"1.1"` 등)
+- WBS 클릭 시 토글 (같은 코드 재클릭 → 해제)
+- `drawNetwork`의 `filterWbs` 파라미터도 단일 문자열
+- `isInFilter`에서 `code === filterWbs || code.startsWith(filterWbs + '.')` 단일 비교
 
 ## 변경: `public/cpm_network.html`
 
-### filterLabel 영역에 × 해제 버튼 추가 (line 494 부근)
+### 1. 데이터 구조 변경
 
-```html
-<div class="legend-item" id="filterLabel" style="display:none;color:var(--accent);font-weight:600">
-  <span id="filterText"></span>
-  <span onclick="clearWbsFilter()" style="cursor:pointer;margin-left:6px;color:#ff6b6b;font-size:14px" title="필터 해제">✕</span>
-</div>
+```text
+변경 전: window._activeWbsFilter = "1.1"  (string | null)
+변경 후: window._activeWbsFilter = new Set(["1.1", "2.3"])  (Set | null)
 ```
 
-### clearWbsFilter 함수 추가 (applyWbsFilter 아래, ~line 1462)
+### 2. `applyWbsFilter` 수정 (~line 1445)
+
+- Set 기반 토글: 이미 있으면 제거, 없으면 추가
+- Set이 비면 null로 초기화
+- Toast에 현재 필터 목록 표시
+
+### 3. `clearWbsFilter` 수정 (~line 1471)
+
+- Set을 null로 초기화
+
+### 4. `drawNetwork` 수정 (~line 924)
+
+- `filterWbs` 파라미터: `Set | null`로 변경
+- `isInFilter`: Set 내 어느 WBS에든 속하면 통과
 
 ```javascript
-function clearWbsFilter() {
-  if (!window._activeWbsFilter) return;
-  window._activeWbsFilter = null;
-  const map = {};
-  activities.forEach(a => map[a.id] = a);
-  drawNetwork(order, map, projectEnd, null);
-  showToast('전체 공정 표시');
-}
+const isInFilter = id => {
+  if (!filterWbs || filterWbs.size === 0) return true;
+  const code = (map[id].wbsFull || map[id].wbs || '');
+  for (const fw of filterWbs) {
+    if (code === fw || code.startsWith(fw + '.')) return true;
+  }
+  return false;
+};
 ```
 
-### filterLabel 텍스트 업데이트 수정 (drawNetwork 내, ~line 948-954)
+### 5. filterLabel 업데이트 (~line 948)
 
-`lbl.textContent` 대신 `#filterText` span만 업데이트하여 × 버튼이 유지되도록 변경.
+- 다중 WBS 표시: `"필터: WBS 1.1, 2.3"`
+
+### 6. 스냅샷 저장/복원 (~line 2586, 2611, 2634, 2666)
+
+- `wbsFilter`를 배열로 저장/복원 → Set 변환
+
+### 7. WBS 탭 하이라이트 (~line 1390-1422)
+
+- 선택된 WBS 노드에 active 스타일 표시 (현재 단일 비교 → Set.has로 변경)
 
 | 파일 | 변경 |
 |------|------|
-| `public/cpm_network.html` | filterLabel에 ✕ 버튼 추가, `clearWbsFilter` 함수, filterText span 분리 |
+| `public/cpm_network.html` | `_activeWbsFilter`를 Set으로 변경, 관련 함수 전부 수정 |
 
