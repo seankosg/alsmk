@@ -207,6 +207,11 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
                 {activity.wbsFull}
               </Badge>
             )}
+            {activity.customFields?.BLDG && (
+              <Badge variant="outline" className="font-mono text-xs text-amber-500 border-amber-500/30">
+                {activity.customFields.BLDG}
+              </Badge>
+            )}
             {activity.isCritical && (
               <Badge variant="destructive" className="text-xs">★ CP</Badge>
             )}
