@@ -948,7 +948,8 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
   const lbl = document.getElementById('filterLabel');
   if (filterWbs) {
     lbl.style.display = 'flex';
-    lbl.textContent = `필터: WBS ${filterWbs}`;
+    const ft = document.getElementById('filterText');
+    if (ft) ft.textContent = `필터: WBS ${filterWbs}`;
   } else {
     lbl.style.display = 'none';
   }
