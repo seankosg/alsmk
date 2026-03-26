@@ -2601,20 +2601,23 @@ function loadFromStorage() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
-// localStorage에 저장된 데이터가 있으면 복원, 없으면 부모에게 DB 스냅샷 요청
+// localStorage → 복원, 없으면 parent에 iframe-ready 신호 → parent가 DB 스냅샷 전송
 const restored = loadFromStorage();
 if (restored) {
-  // 복원된 데이터로 계산 재실행
   calculated = false;
   calculate();
 } else if (window.parent !== window) {
-  // localStorage 없음 → 부모(React)에 DB 스냅샷 요청
-  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
-  // DB 응답 올 때까지 샘플 로드 (대기 표시)
-  loadSample();
-  calculate();
+  // Parent-Driven Bootstrap: parent에 준비 완료 신호 전송, 데이터 대기
+  window.parent.postMessage({ type: 'iframe-ready' }, '*');
+  // 5초 안에 parent 응답 없으면 fallback으로 샘플 로드
+  window._bootstrapTimeout = setTimeout(() => {
+    if (!calculated) {
+      console.log('[CPM] Bootstrap timeout — loading sample');
+      loadSample();
+      calculate();
+    }
+  }, 5000);
 } else {
-  // 샘플 데이터 로드 + 계산
   loadSample();
   calculate();
 }
