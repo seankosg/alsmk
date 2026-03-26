@@ -1,34 +1,34 @@
 
 
-# ActivityTaskPanel 표시 변경: Subject 그룹 + Action Plan 행
+# Fix: CPM ActivityTaskPanel Subject 그룹핑
 
-## 변경 파일: `src/components/cpm/ActivityTaskPanel.tsx`
+## 문제 원인
 
-### 1. 데이터 조회 변경
-- tasks SELECT에 `action_plan` 필드 추가
+매핑된 태스크는 모두 subtask (`is_summary=false`, `parent_id`가 있음). 현재 코드는 `task.title` (subtask 자체의 제목)로 그룹핑하고 있으나, 사용자가 기대하는 "Subject"는 **부모 summary task의 title**입니다.
 
-### 2. TaskWithMember 인터페이스
-- `action_plan: string | null` 추가
+Workspace에서는 summary task가 Subject 그룹 헤더 역할을 하고, 그 아래 subtask들이 나열되는 구조입니다.
 
-### 3. 그룹핑 변경
-- `team_id` 기준 → `title` (Subject) 기준으로 변경
-- 각 그룹 내 tasks를 `task_code` 순으로 정렬
-- title이 null이면 "미분류"로 표시
+## 수정 내용: `src/components/cpm/ActivityTaskPanel.tsx`
 
-### 4. 그룹 헤더 행
-- 팀 이름 대신 Subject (`task.title`) 표시
-- 진행률 바, GAP 등 요약 통계는 동일하게 유지
+### 1. 데이터 조회에 `parent_id` 추가
+- tasks SELECT에 `parent_id` 필드 추가
+- `TaskWithMember` 인터페이스에 `parent_id`, `parent_title` 추가
 
-### 5. Task 행 표시
+### 2. 부모 summary task title 조회
+- 매핑된 태스크들의 `parent_id`를 수집
+- 부모 summary task들을 별도 조회하여 `{ parent_id → parent.title }` 맵 생성
+- 각 태스크에 `parent_title` 할당 (parent가 없으면 자신의 title 사용)
+
+### 3. 그룹핑 키 변경
 ```text
-변경 전: [X] [task_code] [title]        [actual/planned%] [gap]
-변경 후: [X] [task_code] [action_plan]   [actual/planned%] [gap]
+변경 전: t.title (subtask 자체 제목)
+변경 후: t.parent_title (부모 summary task 제목, 없으면 자체 제목)
 ```
-- `action_plan`이 null이면 "-" 표시
 
-### 6. HoverCard
-- Subject(title)와 Action Plan 모두 표시하여 상세 정보 유지
+### 4. Task 행 표시는 현재와 동일 유지
+```text
+[X] [task_code] [action_plan] [progress] [gap]
+```
 
-### 7. 통계 계산
-- `calcWeightedProgress` 등 기존 로직은 그대로 유지, 그룹 키만 변경
+### 5. HoverCard에 Subject(parent_title)도 표시
 
