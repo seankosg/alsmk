@@ -372,6 +372,7 @@ const CpmScheduler = () => {
             onLoad={() => {
               iframeRef.current?.contentWindow?.postMessage({ type: "set-read-only", readOnly: !isAdminOrPm }, "*");
               iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
+              loadSnapshotFromDb();
               setTimeout(() => sendStatusToIframe(), 300);
             }}
           />
