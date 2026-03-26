@@ -491,7 +491,7 @@
         <div class="legend-item"><div class="legend-dot" style="background:var(--safe)"></div>일반 공정</div>
         <div class="legend-item"><div class="legend-dot" style="background:#c97a10"></div>CP 통과 노드 (타 WBS)</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--green);opacity:.5"></div>Float</div>
-        <div class="legend-item" id="filterLabel" style="display:none;color:var(--accent);font-weight:600"><span id="filterText"></span><span onclick="clearWbsFilter()" style="cursor:pointer;margin-left:6px;color:#ff6b6b;font-size:14px" title="필터 해제">✕</span></div>
+        <div class="legend-item" id="filterLabel" style="display:none;color:var(--accent);font-weight:600"><span id="filterText"></span><span onclick="clearAllFilters()" style="cursor:pointer;margin-left:6px;color:#ff6b6b;font-size:14px" title="필터 해제">✕</span></div>
       </div>
     </div>
 
@@ -583,7 +583,7 @@ function renderSidebar() {
       <div class="card-row1">
         <span class="act-id" title="내부ID: ${a.id}">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</span>
         ${a.wbsFull ? `<span style="font-family:var(--mono);font-size:10px;color:#5a7a9a;padding:2px 5px;background:var(--bg);border-radius:3px">${a.wbsFull}</span>` : ''}
-        ${(() => { const cf = a.customFields; const bv = cf && (cf.BLDG || cf.Text2 || cf['텍스트2']); return bv ? `<span style="font-family:var(--mono);font-size:10px;color:#c97a10;padding:2px 5px;background:rgba(201,122,16,0.1);border-radius:3px;border:1px solid rgba(201,122,16,0.3)">${bv}</span>` : ''; })()}
+        ${(() => { const cf = a.customFields; const bv = cf && (cf.BLDG || cf.Text2 || cf['텍스트2']); return bv ? `<span onclick="event.stopPropagation(); applyBldgFilter('${bv.replace(/'/g,"\\'")}')" style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#c97a10;padding:2px 5px;background:rgba(201,122,16,0.1);border-radius:3px;border:1px solid rgba(201,122,16,0.3)" title="BLDG 필터: ${bv}">${bv}</span>` : ''; })()}
         <input class="act-name-input" id="name_${a.id}" placeholder="작업명 입력" value="${(a.name||'').replace(/"/g,'&quot;')}"
           readonly>
         <button class="btn-del" onclick="removeActivity('${a.id}')" ${window._readOnly ? 'style="display:none"' : ''}>×</button>
@@ -902,7 +902,7 @@ function calculate(forceReadOnly) {
   const cpCount = activities.filter(a=>a.isCritical).length;
   calculated = true;
   renderSidebar();
-  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter || null);
   renderGantt(order, map, projectEnd);
   renderWBS(order, map);
   document.getElementById('legend').style.display = 'flex';
@@ -920,20 +920,30 @@ function calculate(forceReadOnly) {
 let _nodePositions = {};   // module-level: actId → {x, y}
 const _NODE_W = 160, _NODE_H = 104;
 
-// filterWbs: null = 전체, Set = 해당 WBS prefix들만
-function drawNetwork(order, map, projectEnd, filterWbs) {
+// filterWbs: Set|null, filterBldg: Set|null
+function drawNetwork(order, map, projectEnd, filterWbs, filterBldg) {
   const NODE_W = _NODE_W, NODE_H = _NODE_H, GAP_X = 60, GAP_Y = 50;
 
-  // ── WBS 필터 적용 ──────────────────────────────────────────────
-  const hasFilter = filterWbs && filterWbs.size > 0;
+  // ── 필터 적용 (WBS AND BLDG) ──────────────────────────────────
+  const hasWbsFilter = filterWbs && filterWbs.size > 0;
+  const hasBldgFilter = filterBldg && filterBldg.size > 0;
+  const hasFilter = hasWbsFilter || hasBldgFilter;
   const isInFilter = id => {
-    if (!hasFilter) return true;
     const a = map[id];
-    const code = a.wbsFull || a.wbs || '';
-    for (const fw of filterWbs) {
-      if (code === fw || code.startsWith(fw + '.')) return true;
+    if (hasWbsFilter) {
+      const code = a.wbsFull || a.wbs || '';
+      let wbsMatch = false;
+      for (const fw of filterWbs) {
+        if (code === fw || code.startsWith(fw + '.')) { wbsMatch = true; break; }
+      }
+      if (!wbsMatch) return false;
     }
-    return false;
+    if (hasBldgFilter) {
+      const cf = a.customFields;
+      const bv = cf && (cf.BLDG || cf.Text2 || cf['\ud14d\uc2a4\ud2b82']) || '';
+      if (!filterBldg.has(bv)) return false;
+    }
+    return true;
   };
 
   // CP 경로 추적: CP 노드들의 연결 집합
@@ -950,7 +960,10 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
   if (hasFilter) {
     lbl.style.display = 'flex';
     const ft = document.getElementById('filterText');
-    if (ft) ft.textContent = `필터: WBS ${[...filterWbs].join(', ')}`;
+    const parts = [];
+    if (hasWbsFilter) parts.push(`WBS ${[...filterWbs].join(', ')}`);
+    if (hasBldgFilter) parts.push(`BLDG ${[...filterBldg].join(', ')}`);
+    if (ft) ft.textContent = `필터: ${parts.join(' | ')}`;
   } else {
     lbl.style.display = 'none';
   }
@@ -1139,7 +1152,7 @@ function drawNetwork(order, map, projectEnd, filterWbs) {
         <text x="${NODE_W-8}" y="${18 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9"
           fill="${isC?'#ff8080':'#5a7a9a'}" text-anchor="end">${displayWbs}</text>
         ${(() => { const cf = a.customFields; const bv = cf && (cf.BLDG || cf.Text2 || cf['텍스트2']); return bv ? `<text x="${NODE_W-8}" y="${9 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8"
-          fill="#c97a10" text-anchor="end" font-weight="600">${bv}</text>` : ''; })()}
+          fill="#c97a10" text-anchor="end" font-weight="600" style="cursor:pointer" onclick="applyBldgFilter('${bv.replace(/'/g,"\\'")}')">${bv}</text>` : ''; })()}
         <text x="${NODE_W/2}" y="${34 + yOff}" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="11" font-weight="500"
           fill="#e2e8f0" text-anchor="middle">${nameShort}</text>
         <text x="${NODE_W/2}" y="${48 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="10"
@@ -1467,7 +1480,7 @@ function applyWbsFilter(wbsCode) {
     showToast(`WBS 필터: ${[...window._activeWbsFilter].join(', ')}`);
   }
 
-  drawNetwork(order, map, projectEnd, window._activeWbsFilter);
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter, window._activeBldgFilter || null);
 
   // WBS 탭 하이라이트 업데이트
   document.querySelectorAll('#wbsContent .wbs-node').forEach(el => {
@@ -1489,15 +1502,51 @@ function applyWbsFilter(wbsCode) {
 }
 
 function clearWbsFilter() {
-  if (!window._activeWbsFilter || window._activeWbsFilter.size === 0) return;
+  clearAllFilters();
+}
+
+function clearAllFilters() {
+  const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0);
+  if (!hadFilter) return;
   window._activeWbsFilter = null;
+  window._activeBldgFilter = null;
   const map = {};
   activities.forEach(a => { map[a.id] = a; });
   const order = getOrder(map);
   if (!order) return;
   const projectEnd = Math.max(...activities.map(a => a.ef || 0));
-  drawNetwork(order, map, projectEnd, null);
+  drawNetwork(order, map, projectEnd, null, null);
   showToast('전체 공정 표시');
+  // WBS 탭 하이라이트 제거
+  document.querySelectorAll('#wbsContent .wbs-node').forEach(el => {
+    el.style.outline = '';
+    el.style.outlineOffset = '';
+  });
+}
+
+function applyBldgFilter(bldgValue) {
+  if (!calculated) { showToast('먼저 CPM 계산을 실행하세요'); return; }
+  if (!window._activeBldgFilter) window._activeBldgFilter = new Set();
+  if (window._activeBldgFilter.has(bldgValue)) {
+    window._activeBldgFilter.delete(bldgValue);
+  } else {
+    window._activeBldgFilter.add(bldgValue);
+  }
+  if (window._activeBldgFilter.size === 0) window._activeBldgFilter = null;
+
+  const map = {};
+  activities.forEach(a => { map[a.id] = a; });
+  const order = getOrder(map);
+  if (!order) return;
+  const projectEnd = Math.max(...activities.map(a => a.ef || 0));
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter);
+  showToast(window._activeBldgFilter ? `BLDG 필터: ${[...window._activeBldgFilter].join(', ')}` : '전체 BLDG 표시');
+
+  // 네트워크 탭으로 자동 전환
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('networkPanel').classList.add('active');
+  document.querySelector('.tab-btn').classList.add('active');
 }
 
 function getOrder(map) {
@@ -1928,6 +1977,7 @@ function clearAll() {
   document.getElementById('uploadZone').querySelector('.upload-label').innerHTML =
     '📂 <span>MS Project XML</span> 업로드<br>(.xml 드래그 또는 클릭)';
   window._activeWbsFilter = null;
+  window._activeBldgFilter = null;
   localStorage.removeItem(STORAGE_KEY);
   loadSample();
   calculate();
@@ -2604,6 +2654,7 @@ function _makeSnapshot(name) {
     cpCount: activities.filter(a=>a.isCritical).length,
     wbsNames: window._wbsNames || {},
     wbsFilter: window._activeWbsFilter ? [...window._activeWbsFilter] : null,
+    bldgFilter: window._activeBldgFilter ? [...window._activeBldgFilter] : null,
     projStart: window._projStart ? window._projStart.toISOString() : null,
     activities: activities.map(a => ({
       ...a,
@@ -2629,6 +2680,7 @@ function _restoreSnapshot(snap) {
   idCounter            = Math.max(...activities.map(a=>parseInt(a.id.replace(/\D/g,''))||0)) + 1;
   window._wbsNames     = snap.wbsNames || {};
   window._activeWbsFilter = snap.wbsFilter ? new Set(Array.isArray(snap.wbsFilter) ? snap.wbsFilter : [snap.wbsFilter]) : null;
+  window._activeBldgFilter = snap.bldgFilter ? new Set(Array.isArray(snap.bldgFilter) ? snap.bldgFilter : [snap.bldgFilter]) : null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
 }
 
@@ -2652,6 +2704,7 @@ function saveToStorage() {
       idCounter:    idCounter,
       wbsNames:     window._wbsNames || {},
       wbsFilter:    window._activeWbsFilter ? [...window._activeWbsFilter] : null,
+      bldgFilter:   window._activeBldgFilter ? [...window._activeBldgFilter] : null,
       projStart:    window._projStart ? window._projStart.toISOString() : null,
       isSample:     false,
       savedAt:      new Date().toISOString()
@@ -2684,6 +2737,7 @@ function loadFromStorage() {
     idCounter            = data.idCounter || activities.length + 1;
     window._wbsNames     = data.wbsNames || {};
     window._activeWbsFilter = data.wbsFilter ? new Set(Array.isArray(data.wbsFilter) ? data.wbsFilter : [data.wbsFilter]) : null;
+    window._activeBldgFilter = data.bldgFilter ? new Set(Array.isArray(data.bldgFilter) ? data.bldgFilter : [data.bldgFilter]) : null;
     if (data.projStart)  window._projStart = new Date(data.projStart);
 
     const saved = new Date(data.savedAt);
@@ -2841,7 +2895,7 @@ window.addEventListener('message', function(e) {
     });
     // Re-render network if calculated
     if (typeof calculated !== 'undefined' && calculated && typeof order !== 'undefined') {
-      drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
+      drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter || null);
     }
   }
   // Parent requests current snapshot for manual save
