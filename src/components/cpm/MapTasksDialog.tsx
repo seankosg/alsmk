@@ -20,6 +20,7 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   // Get existing mappings
   const { data: existingMappings = [], refetch: refetchMappings } = useQuery({
