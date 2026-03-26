@@ -34,6 +34,7 @@ export interface CpmActivity {
 interface Props {
   activity: CpmActivity;
   onClose: () => void;
+  onStatusChanged?: () => void;
 }
 
 interface TaskWithMember {
@@ -54,7 +55,7 @@ interface TaskWithMember {
   parent_title: string;
 }
 
-export function ActivityTaskPanel({ activity, onClose }: Props) {
+export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
@@ -313,7 +314,7 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
 
         {/* Map tasks button — Admin/PM only */}
         {dbActivity?.id && isAdminOrPm && (
-          <MapTasksDialog activityId={dbActivity.id} activityName={activity.name} onMapped={refetchMappings} />
+          <MapTasksDialog activityId={dbActivity.id} activityName={activity.name} onMapped={() => { refetchMappings(); onStatusChanged?.(); }} />
         )}
       </div>
 
