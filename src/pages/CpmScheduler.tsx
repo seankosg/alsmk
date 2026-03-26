@@ -148,6 +148,26 @@ const CpmScheduler = () => {
         "*",
       );
     }
+
+    // Patch missing customFields from cpm_activities table
+    const { data: dbActivities } = await supabase
+      .from("cpm_activities")
+      .select("mpp_task_id, wbs_full, custom_fields");
+
+    if (dbActivities?.length && iframeRef.current?.contentWindow) {
+      const cfMap: Record<string, any> = {};
+      dbActivities.forEach((a) => {
+        if (a.custom_fields && typeof a.custom_fields === "object" && Object.keys(a.custom_fields as Record<string, unknown>).length) {
+          cfMap[`${a.mpp_task_id}::${a.wbs_full}`] = a.custom_fields;
+        }
+      });
+      if (Object.keys(cfMap).length) {
+        iframeRef.current.contentWindow.postMessage(
+          { type: "patch-custom-fields", fieldMap: cfMap },
+          "*",
+        );
+      }
+    }
   }, []);
 
   // Send specific snapshot to iframe (from SnapshotManager)

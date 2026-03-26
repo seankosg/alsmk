@@ -3047,6 +3047,23 @@ window.addEventListener('message', function(e) {
     var vl = document.getElementById('versionLabel');
     if (vl) vl.textContent = 'v: ' + snapName + (snapTime ? ' (' + snapTime + ')' : '');
   }
+  // DB cpm_activities에서 누락된 customFields 보충
+  if (e.data.type === 'patch-custom-fields') {
+    var fm = e.data.fieldMap;
+    if (!fm || !activities.length) return;
+    var patched = 0;
+    activities.forEach(function(a) {
+      var key = (a.mppTaskId || '') + '::' + (a.wbsFull || '');
+      if (fm[key] && (!a.customFields || !Object.keys(a.customFields).length)) {
+        a.customFields = fm[key];
+        patched++;
+      }
+    });
+    if (patched > 0) {
+      console.log('[CPM] Patched customFields for ' + patched + ' activities from DB');
+      drawNetwork(topoOrder, activityMap, projectEnd, window._activeWbsFilter, window._activeBldgFilter);
+    }
+  }
 });
 
 // ─── Sidebar card highlight helper ───────────────────────────────
