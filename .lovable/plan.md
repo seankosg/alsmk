@@ -1,62 +1,107 @@
 
 
-# WBS 다중 필터 기능
+# BLDG 필터 기능 추가
 
-## 현재 상태
+## 개요
 
-- `window._activeWbsFilter`는 단일 문자열 (`"1.1"` 등)
-- WBS 클릭 시 토글 (같은 코드 재클릭 → 해제)
-- `drawNetwork`의 `filterWbs` 파라미터도 단일 문자열
-- `isInFilter`에서 `code === filterWbs || code.startsWith(filterWbs + '.')` 단일 비교
+WBS 다중 필터와 동일한 패턴으로 BLDG(커스텀 필드) 기반 네트워크 필터를 추가합니다. WBS 필터와 BLDG 필터는 **AND 조건**으로 결합됩니다 (둘 다 활성 시 양쪽 모두 만족하는 노드만 표시).
 
 ## 변경: `public/cpm_network.html`
 
-### 1. 데이터 구조 변경
-
-```text
-변경 전: window._activeWbsFilter = "1.1"  (string | null)
-변경 후: window._activeWbsFilter = new Set(["1.1", "2.3"])  (Set | null)
-```
-
-### 2. `applyWbsFilter` 수정 (~line 1445)
-
-- Set 기반 토글: 이미 있으면 제거, 없으면 추가
-- Set이 비면 null로 초기화
-- Toast에 현재 필터 목록 표시
-
-### 3. `clearWbsFilter` 수정 (~line 1471)
-
-- Set을 null로 초기화
-
-### 4. `drawNetwork` 수정 (~line 924)
-
-- `filterWbs` 파라미터: `Set | null`로 변경
-- `isInFilter`: Set 내 어느 WBS에든 속하면 통과
+### 1. 전역 상태 추가
 
 ```javascript
-const isInFilter = id => {
-  if (!filterWbs || filterWbs.size === 0) return true;
-  const code = (map[id].wbsFull || map[id].wbs || '');
-  for (const fw of filterWbs) {
-    if (code === fw || code.startsWith(fw + '.')) return true;
-  }
-  return false;
-};
+window._activeBldgFilter = null; // Set | null (WBS와 동일 패턴)
 ```
 
-### 5. filterLabel 업데이트 (~line 948)
+### 2. `drawNetwork` 수정 (~line 924)
 
-- 다중 WBS 표시: `"필터: WBS 1.1, 2.3"`
+- 두 번째 필터 파라미터 추가: `filterBldg` (Set | null)
+- `isInFilter`를 WBS + BLDG AND 조건으로 확장:
 
-### 6. 스냅샷 저장/복원 (~line 2586, 2611, 2634, 2666)
+```javascript
+function drawNetwork(order, map, projectEnd, filterWbs, filterBldg) {
+  const hasWbsFilter = filterWbs && filterWbs.size > 0;
+  const hasBldgFilter = filterBldg && filterBldg.size > 0;
+  const isInFilter = id => {
+    const a = map[id];
+    // WBS 체크
+    if (hasWbsFilter) {
+      const code = a.wbsFull || a.wbs || '';
+      let wbsMatch = false;
+      for (const fw of filterWbs) {
+        if (code === fw || code.startsWith(fw + '.')) { wbsMatch = true; break; }
+      }
+      if (!wbsMatch) return false;
+    }
+    // BLDG 체크
+    if (hasBldgFilter) {
+      const cf = a.customFields;
+      const bv = cf && (cf.BLDG || cf.Text2 || cf['텍스트2']) || '';
+      if (!filterBldg.has(bv)) return false;
+    }
+    return true;
+  };
+  // ...
+}
+```
 
-- `wbsFilter`를 배열로 저장/복원 → Set 변환
+- filterLabel 텍스트에 BLDG 필터 정보도 포함:
+  - `"필터: WBS 1.1, 2.3 | BLDG A, B"`
 
-### 7. WBS 탭 하이라이트 (~line 1390-1422)
+### 3. `applyBldgFilter(bldgValue)` 함수 추가 (~line 1490)
 
-- 선택된 WBS 노드에 active 스타일 표시 (현재 단일 비교 → Set.has로 변경)
+WBS 필터와 동일한 Set 토글 패턴:
+
+```javascript
+function applyBldgFilter(bldgValue) {
+  if (!calculated) { showToast('먼저 CPM 계산을 실행하세요'); return; }
+  if (!window._activeBldgFilter) window._activeBldgFilter = new Set();
+  if (window._activeBldgFilter.has(bldgValue)) {
+    window._activeBldgFilter.delete(bldgValue);
+  } else {
+    window._activeBldgFilter.add(bldgValue);
+  }
+  if (window._activeBldgFilter.size === 0) window._activeBldgFilter = null;
+  // redraw
+  const map = {}; activities.forEach(a => { map[a.id] = a; });
+  const order = getOrder(map); if (!order) return;
+  const projectEnd = Math.max(...activities.map(a => a.ef || 0));
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter, window._activeBldgFilter);
+  showToast(window._activeBldgFilter ? `BLDG 필터: ${[...window._activeBldgFilter].join(', ')}` : '전체 BLDG 표시');
+}
+```
+
+### 4. `clearWbsFilter` → `clearAllFilters`로 확장 (~line 1491)
+
+- BLDG 필터도 함께 초기화
+- 기존 ✕ 버튼이 양쪽 모두 해제
+
+### 5. BLDG 필터 UI — 사이드바 카드 BLDG 배지 클릭 (~line 586)
+
+사이드바 카드의 BLDG 배지에 `onclick` 추가하여 클릭 시 `applyBldgFilter(bldgValue)` 호출:
+
+```html
+<span onclick="event.stopPropagation(); applyBldgFilter('${bv}')" 
+  style="cursor:pointer;..." title="BLDG 필터: ${bv}">${bv}</span>
+```
+
+### 6. 네트워크 노드의 BLDG 텍스트에도 클릭 이벤트 (~line 1141)
+
+SVG `<text>` 요소에 `onclick` + `cursor:pointer` 추가.
+
+### 7. 모든 `drawNetwork` 호출 업데이트
+
+기존 `drawNetwork(order, map, projectEnd, window._activeWbsFilter)` 호출을 모두 `drawNetwork(order, map, projectEnd, window._activeWbsFilter, window._activeBldgFilter)`로 변경.
+
+### 8. 스냅샷 저장/복원
+
+- 저장 시 `bldgFilter: window._activeBldgFilter ? [...window._activeBldgFilter] : null`
+- 복원 시 `window._activeBldgFilter = snap.bldgFilter ? new Set(snap.bldgFilter) : null`
+
+## 변경 파일
 
 | 파일 | 변경 |
 |------|------|
-| `public/cpm_network.html` | `_activeWbsFilter`를 Set으로 변경, 관련 함수 전부 수정 |
+| `public/cpm_network.html` | BLDG 필터 전역 상태, `drawNetwork` AND 조건, `applyBldgFilter`, 클리어 확장, BLDG 배지 클릭, 스냅샷 |
 
