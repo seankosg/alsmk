@@ -6,8 +6,18 @@ Phase 2+3+4 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_snaps
 - cpm_snapshots: name, data (jsonb full network state), created_by, timestamps — shared across all users
 
 ## postMessage Protocol
-- iframe → parent: `cpm-calculated`, `activity-click`, `activity-detail-click`, `snapshot-save`, `request-db-snapshot`
-- parent → iframe: `request-cpm-data`, `activity-status-update`, `snapshot-restore`
+- iframe → parent: `cpm-calculated`, `activity-click`, `activity-detail-click`, `snapshot-save`, `request-db-snapshot`, `snapshot-current`
+- parent → iframe: `request-cpm-data`, `activity-status-update`, `snapshot-restore`, `request-snapshot`, `set-read-only`
+
+## Read-Only Mode (일반 사용자)
+- Parent sends `set-read-only` message on iframe load based on `isAdminOrPm`
+- iframe hides: upload-zone, btn-calc, footer-row (초기화 buttons), btn-add, btn-del
+- `calculate()` guarded by `_readOnly` flag (except `forceReadOnly` param for snapshot restore)
+- `postSnapshotSave()` guarded by `_readOnly` flag
+- Parent ignores `cpm-calculated` and `snapshot-save` messages for non-admin/PM users
+- SnapshotManager button hidden for non-admin/PM users
+- MapTasksDialog hidden for non-admin/PM users in ActivityTaskPanel
+- Snapshot delete button uses `isAdminOrPm` (was `isAdmin`)
 
 ## Data Persistence (Phase 4)
 - localStorage: fast local cache, saved on every calculate()
@@ -23,6 +33,10 @@ Phase 2+3+4 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_snaps
 - src/components/cpm/ActivityTaskPanel.tsx: detail header (dblclick) + 3-tier task hierarchy with GAP%
 - src/components/cpm/MapTasksDialog.tsx: searchable task picker with checkbox multi-select
 - src/components/cpm/MapActivitiesDialog.tsx: reverse mapping (Task → Activity) from TaskDetailDialog
+
+## Keep-Alive
+- CpmScheduler mounted persistently in AppLayout, toggled via CSS display based on route
+- `hasVisitedCpm` state for lazy mount (iframe only loads on first /cpm visit)
 
 ## Node Click Behavior
 - Single click: opens side panel with task mappings (basic header)
