@@ -22,6 +22,7 @@ const getActivityStatusKey = (activity: {
 }) => `${activity.mpp_task_id ?? "no-mpp"}::${activity.wbs_full ?? "no-wbs"}::${activity.name}`;
 
 const CpmScheduler = () => {
+  const { isAdminOrPm } = useAuthContext();
   const [selectedActivity, setSelectedActivity] = useState<CpmActivity | null>(null);
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
