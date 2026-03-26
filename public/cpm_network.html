@@ -2783,7 +2783,7 @@ const restored = loadFromStorage();
 if (restored) {
   // 복원된 데이터로 계산 재실행
   calculated = false;
-  calculate();
+  calculate(true);
 } else if (window.parent !== window) {
   // localStorage 없음 → 부모(React)에 DB 스냅샷 요청
   window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
