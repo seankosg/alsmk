@@ -1442,7 +1442,7 @@ function renderWBS(order, map) {
     '<div class="wbs-tree">' + renderNode(root, 0) + '</div>';
 }
 
-// ─── WBS Filter ──────────────────────────────────────────────────
+// ─── WBS Filter (다중 선택) ──────────────────────────────────────
 function applyWbsFilter(wbsCode) {
   if (!calculated) { showToast('먼저 CPM 계산을 실행하세요'); return; }
   const map = {};
@@ -1451,16 +1451,35 @@ function applyWbsFilter(wbsCode) {
   if (!order) return;
   const projectEnd = Math.max(...activities.map(a => a.ef || 0));
 
-  // 전체 보기 토글
-  if (window._activeWbsFilter === wbsCode) {
+  // Set 기반 토글
+  if (!window._activeWbsFilter) window._activeWbsFilter = new Set();
+  if (window._activeWbsFilter.has(wbsCode)) {
+    window._activeWbsFilter.delete(wbsCode);
+  } else {
+    window._activeWbsFilter.add(wbsCode);
+  }
+
+  // Set이 비면 null
+  if (window._activeWbsFilter.size === 0) {
     window._activeWbsFilter = null;
     showToast('전체 공정 표시');
   } else {
-    window._activeWbsFilter = wbsCode;
-    showToast(`WBS ${wbsCode} 필터 적용`);
+    showToast(`WBS 필터: ${[...window._activeWbsFilter].join(', ')}`);
   }
 
   drawNetwork(order, map, projectEnd, window._activeWbsFilter);
+
+  // WBS 탭 하이라이트 업데이트
+  document.querySelectorAll('#wbsContent .wbs-node').forEach(el => {
+    const wbs = el.getAttribute('data-wbs');
+    if (window._activeWbsFilter && window._activeWbsFilter.has(wbs)) {
+      el.style.outline = '1px solid var(--accent)';
+      el.style.outlineOffset = '-1px';
+    } else {
+      el.style.outline = '';
+      el.style.outlineOffset = '';
+    }
+  });
 
   // 네트워크 탭으로 자동 전환
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -1470,7 +1489,7 @@ function applyWbsFilter(wbsCode) {
 }
 
 function clearWbsFilter() {
-  if (!window._activeWbsFilter) return;
+  if (!window._activeWbsFilter || window._activeWbsFilter.size === 0) return;
   window._activeWbsFilter = null;
   const map = {};
   activities.forEach(a => { map[a.id] = a; });
