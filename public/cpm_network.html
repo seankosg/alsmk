@@ -920,36 +920,37 @@ function calculate(forceReadOnly) {
 let _nodePositions = {};   // module-level: actId → {x, y}
 const _NODE_W = 160, _NODE_H = 104;
 
-// filterWbs: null = 전체, string = 해당 WBS prefix만
+// filterWbs: null = 전체, Set = 해당 WBS prefix들만
 function drawNetwork(order, map, projectEnd, filterWbs) {
   const NODE_W = _NODE_W, NODE_H = _NODE_H, GAP_X = 60, GAP_Y = 50;
 
-
   // ── WBS 필터 적용 ──────────────────────────────────────────────
-  // 1) 선택 WBS에 속하는 노드
-  // 2) CP 경로 위에 있으면서 선택 WBS 밖인 노드 → "통과 노드"
+  const hasFilter = filterWbs && filterWbs.size > 0;
   const isInFilter = id => {
-    if (!filterWbs) return true;
+    if (!hasFilter) return true;
     const a = map[id];
     const code = a.wbsFull || a.wbs || '';
-    return code === filterWbs || code.startsWith(filterWbs + '.');
+    for (const fw of filterWbs) {
+      if (code === fw || code.startsWith(fw + '.')) return true;
+    }
+    return false;
   };
 
   // CP 경로 추적: CP 노드들의 연결 집합
   const cpSet = new Set(order.filter(id => map[id].isCritical));
 
   // 통과 노드: CP에 속하지만 필터 밖인 노드
-  const isPassThrough = id => filterWbs && cpSet.has(id) && !isInFilter(id);
+  const isPassThrough = id => hasFilter && cpSet.has(id) && !isInFilter(id);
 
   // 표시 대상 = 필터 내 노드 + 통과 노드
   const visibleSet = new Set(order.filter(id => isInFilter(id) || isPassThrough(id)));
 
   // filterLabel 업데이트
   const lbl = document.getElementById('filterLabel');
-  if (filterWbs) {
+  if (hasFilter) {
     lbl.style.display = 'flex';
     const ft = document.getElementById('filterText');
-    if (ft) ft.textContent = `필터: WBS ${filterWbs}`;
+    if (ft) ft.textContent = `필터: WBS ${[...filterWbs].join(', ')}`;
   } else {
     lbl.style.display = 'none';
   }
