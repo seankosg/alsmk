@@ -273,6 +273,7 @@ const CpmScheduler = () => {
             title="CPM Network Scheduler"
             sandbox="allow-scripts allow-same-origin allow-popups"
             onLoad={() => {
+              iframeRef.current?.contentWindow?.postMessage({ type: "set-read-only", readOnly: !isAdminOrPm }, "*");
               iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
               setTimeout(() => sendStatusToIframe(), 300);
             }}
