@@ -331,8 +331,8 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
           </div>
         </div>
 
-        {/* Map tasks button — Admin/PM only */}
-        {dbActivity?.id && isAdminOrPm && (
+        {/* Map tasks button — all authenticated users */}
+        {dbActivity?.id && (
           <MapTasksDialog activityId={dbActivity.id} activityName={activity.name} onMapped={() => { refetchMappings(); onStatusChanged?.(); }} />
         )}
       </div>
