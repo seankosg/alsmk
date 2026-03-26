@@ -981,15 +981,23 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg) {
   // 표시 대상 = 필터 내 노드 + 통과 노드
   const visibleSet = new Set(order.filter(id => isInFilter(id) || isPassThrough(id)));
 
-  // filterLabel 업데이트
+  // filterLabel 업데이트 — 개별 칩으로 표시
   const lbl = document.getElementById('filterLabel');
   if (hasFilter) {
     lbl.style.display = 'flex';
-    const ft = document.getElementById('filterText');
-    const parts = [];
-    if (hasWbsFilter) parts.push(`WBS ${[...filterWbs].join(', ')}`);
-    if (hasBldgFilter) parts.push(`BLDG ${[...filterBldg].join(', ')}`);
-    if (ft) ft.textContent = `필터: ${parts.join(' | ')}`;
+    const chipsEl = document.getElementById('filterChips');
+    let chips = '';
+    if (hasWbsFilter) {
+      [...filterWbs].forEach(w => {
+        chips += `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(77,166,255,.15);color:#4da6ff;padding:2px 8px;border-radius:10px;font-size:11px;cursor:default">WBS ${w}<span onclick="removeWbsFilterItem('${w}')" style="cursor:pointer;color:#ff6b6b;font-weight:700;margin-left:2px" title="해제">✕</span></span>`;
+      });
+    }
+    if (hasBldgFilter) {
+      [...filterBldg].forEach(b => {
+        chips += `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,180,50,.15);color:#ffb432;padding:2px 8px;border-radius:10px;font-size:11px;cursor:default">BLDG ${b}<span onclick="removeBldgFilterItem('${b}')" style="cursor:pointer;color:#ff6b6b;font-weight:700;margin-left:2px" title="해제">✕</span></span>`;
+      });
+    }
+    if (chipsEl) chipsEl.innerHTML = chips;
   } else {
     lbl.style.display = 'none';
   }
