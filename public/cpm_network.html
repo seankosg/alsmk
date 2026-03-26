@@ -2634,6 +2634,7 @@ function postCpmCalculated() {
 
 // DB 스냅샷 저장 요청 → parent React가 Supabase에 저장
 function postSnapshotSave() {
+  if (window._readOnly) return;
   if (window.parent === window) return;
   if (!calculated || activities.length === 0) return;
   const snapshot = _makeSnapshot('auto');
