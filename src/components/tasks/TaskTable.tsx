@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronRight, ChevronDown, X, MessageSquare } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronRight, ChevronDown, X, MessageSquare, Network } from "lucide-react";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -154,7 +154,14 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     staleTime: 30_000,
   });
 
-  // Respond to allCollapsed prop toggle
+  const { data: cpmMappedTaskIds } = useQuery({
+    queryKey: ["cpm_mapped_task_ids"],
+    queryFn: async () => {
+      const { data } = await supabase.from("cpm_task_mappings").select("task_id");
+      return new Set(data?.map(d => d.task_id) ?? []);
+    },
+    staleTime: 30_000,
+  });
   useEffect(() => {
     if (allCollapsed === prevAllCollapsedRef.current) return;
     prevAllCollapsedRef.current = allCollapsed;
@@ -477,7 +484,19 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                     const completedMuted = isCompleted ? "text-muted-foreground/50" : "";
                     return (
                       <TableRow key={task.id} data-task-id={task.id} className={`cursor-pointer hover:bg-accent/50 ${isSummary ? "bg-primary/10 border-l-2 border-l-primary" : ""}`} onClick={() => setSelectedTaskId(task.id)}>
-                        <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>{task.task_code}</TableCell>
+                        <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>
+                          <span className="flex items-center gap-1">
+                            {task.task_code}
+                            {cpmMappedTaskIds?.has(task.id) && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Network className="h-3 w-3 text-info shrink-0" />
+                                </TooltipTrigger>
+                                <TooltipContent>CPM Activity에 매핑됨</TooltipContent>
+                              </Tooltip>
+                            )}
+                          </span>
+                        </TableCell>
                         <TableCell className={`truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.assignee }}>{members.find(m => m.id === task.assignee_id)?.name ?? "—"}</TableCell>
                         <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.category }}>{task.category ?? "—"}</TableCell>
                         <TableCell className={`break-words whitespace-normal ${statusTextColor} ${isSummary ? "font-semibold text-sm" : "text-sm font-medium"}`} style={{ width: colWidths.subject }}>
