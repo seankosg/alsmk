@@ -6,23 +6,31 @@ Phase 2+3+4 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_snaps
 - cpm_snapshots: name, data (jsonb full network state), created_by, timestamps — shared across all users
 
 ## postMessage Protocol
-- iframe → parent: `cpm-calculated`, `activity-click`, `activity-detail-click`, `snapshot-save`, `request-db-snapshot`
-- parent → iframe: `request-cpm-data`, `activity-status-update`, `snapshot-restore`
+- iframe → parent: `iframe-ready`, `cpm-calculated`, `activity-click`, `activity-detail-click`, `snapshot-save`, `snapshot-restored`, `snapshot-current`
+- parent → iframe: `request-cpm-data`, `set-role`, `activity-status-update`, `snapshot-restore`, `bootstrap-empty`
 
-## Data Persistence (Phase 4)
+## Bootstrap Flow (Parent-Driven)
+1. iframe init → localStorage? → restore + calculate
+2. No localStorage → send `iframe-ready` to parent
+3. Parent receives `iframe-ready` → query DB for name='auto' snapshot
+4. DB has snapshot → send `snapshot-restore`; no snapshot → send `bootstrap-empty`
+5. iframe: `snapshot-restore` → _restoreSnapshot + calculate; `bootstrap-empty` → loadSample + calculate
+6. 5-second fallback timeout in iframe if parent doesn't respond
+
+## Data Persistence
 - localStorage: fast local cache, saved on every calculate()
-- DB (cpm_snapshots): full network state as JSONB, saved on every calculate() via postSnapshotSave()
-- On load: localStorage first → if empty, request DB snapshot → if DB newer than localStorage, restore from DB
-- All logged-in users share the same CPM network
+- DB (cpm_snapshots): name='auto' for auto-save on calculate; named snapshots for manual save
+- On load: localStorage first → if empty, parent-driven bootstrap from DB
 
 ## Activity Status Key
 - Format: `${mpp_task_id}::${wbs_full}::${name}` — avoids duplicate name collisions
 
 ## Components
-- src/pages/CpmScheduler.tsx: iframe + side panel layout, message listener, DB upsert, status aggregation + postMessage, snapshot save/load
+- src/pages/CpmScheduler.tsx: iframe + side panel layout, message listener, DB upsert, status aggregation + postMessage, snapshot save/load, parent-driven bootstrap handler
 - src/components/cpm/ActivityTaskPanel.tsx: detail header (dblclick) + 3-tier task hierarchy with GAP%
 - src/components/cpm/MapTasksDialog.tsx: searchable task picker with checkbox multi-select
 - src/components/cpm/MapActivitiesDialog.tsx: reverse mapping (Task → Activity) from TaskDetailDialog
+- src/components/cpm/SnapshotManager.tsx: snapshot CRUD UI (Admin/PM only)
 
 ## Node Click Behavior
 - Single click: opens side panel with task mappings (basic header)
