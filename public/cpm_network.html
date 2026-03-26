@@ -1468,6 +1468,18 @@ function applyWbsFilter(wbsCode) {
   document.querySelector('.tab-btn').classList.add('active');
 }
 
+function clearWbsFilter() {
+  if (!window._activeWbsFilter) return;
+  window._activeWbsFilter = null;
+  const map = {};
+  activities.forEach(a => { map[a.id] = a; });
+  const order = getOrder(map);
+  if (!order) return;
+  const projectEnd = Math.max(...activities.map(a => a.ef || 0));
+  drawNetwork(order, map, projectEnd, null);
+  showToast('전체 공정 표시');
+}
+
 function getOrder(map) {
   // Build predecessor list from both predecessors field AND predLinks
   const inDeg = {};
