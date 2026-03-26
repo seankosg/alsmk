@@ -2654,6 +2654,7 @@ function _makeSnapshot(name) {
     cpCount: activities.filter(a=>a.isCritical).length,
     wbsNames: window._wbsNames || {},
     wbsFilter: window._activeWbsFilter ? [...window._activeWbsFilter] : null,
+    bldgFilter: window._activeBldgFilter ? [...window._activeBldgFilter] : null,
     projStart: window._projStart ? window._projStart.toISOString() : null,
     activities: activities.map(a => ({
       ...a,
