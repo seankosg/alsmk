@@ -402,6 +402,7 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
                               </Badge>
                             )}
                           </div>
+                          <p className="text-[10px] text-muted-foreground">Subject: {task.parent_title}</p>
                           <p className="text-sm font-medium text-foreground">{task.title}</p>
                           {task.action_plan && (
                             <p className="text-xs text-muted-foreground">{task.action_plan}</p>
