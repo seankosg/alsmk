@@ -302,9 +302,8 @@ const CpmScheduler = () => {
             title="CPM Network Scheduler"
             sandbox="allow-scripts allow-same-origin allow-popups"
             onLoad={() => {
+              // iframe-ready 메시지가 bootstrap을 시작하므로 onLoad에서는 최소한만 처리
               iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
-              iframeRef.current?.contentWindow?.postMessage({ type: "set-role", isAdminOrPm }, "*");
-              setTimeout(() => sendStatusToIframe(), 300);
             }}
           />
         </div>

@@ -2767,12 +2767,20 @@ window.addEventListener('message', function(e) {
     const snap = _makeSnapshot('');
     window.parent.postMessage({ type: 'snapshot-current', snapshot: snap }, '*');
   }
+  // Parent → bootstrap-empty: DB에 스냅샷 없음 → 샘플 로드
+  if (e.data.type === 'bootstrap-empty') {
+    if (window._bootstrapTimeout) clearTimeout(window._bootstrapTimeout);
+    if (!calculated) {
+      console.log('[CPM] No DB snapshot — loading sample');
+      loadSample();
+      calculate();
+    }
+  }
   // DB에서 복원된 스냅샷 수신
   if (e.data.type === 'snapshot-restore') {
+    if (window._bootstrapTimeout) clearTimeout(window._bootstrapTimeout);
     const snap = e.data.snapshot;
     if (!snap || !snap.activities || !snap.activities.length) return;
-    // 자동 로드(request-db-snapshot 응답)의 경우 localStorage보다 새로운 경우에만 복원
-    // 수동 로드(SnapshotManager)의 경우 항상 복원 (dbUpdatedAt이 현재 시간)
     const forceRestore = e.data.forceRestore === true;
     if (!forceRestore) {
       const localRaw = localStorage.getItem(STORAGE_KEY);
@@ -2790,12 +2798,6 @@ window.addEventListener('message', function(e) {
     _restoreSnapshot(snap);
     calculated = false;
     calculate();
-    const ind = document.getElementById('saveIndicator');
-    if (ind) {
-      ind.textContent = '● 서버에서 복원됨';
-      ind.style.display = 'inline';
-      ind.style.color = 'var(--green)';
-    }
   }
 });
 
