@@ -2680,6 +2680,7 @@ function _restoreSnapshot(snap) {
   idCounter            = Math.max(...activities.map(a=>parseInt(a.id.replace(/\D/g,''))||0)) + 1;
   window._wbsNames     = snap.wbsNames || {};
   window._activeWbsFilter = snap.wbsFilter ? new Set(Array.isArray(snap.wbsFilter) ? snap.wbsFilter : [snap.wbsFilter]) : null;
+  window._activeBldgFilter = snap.bldgFilter ? new Set(Array.isArray(snap.bldgFilter) ? snap.bldgFilter : [snap.bldgFilter]) : null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
 }
 
