@@ -2712,6 +2712,20 @@ function buildActivityPayload(a) {
 // Listen for messages from parent React app
 window.addEventListener('message', function(e) {
   if (!e.data || !e.data.type) return;
+  if (e.data.type === 'set-read-only') {
+    window._readOnly = !!e.data.readOnly;
+    if (window._readOnly) {
+      // Hide edit UI elements
+      document.querySelectorAll('.upload-zone, .btn-calc, .footer-row, .btn-add').forEach(function(el) {
+        el.style.display = 'none';
+      });
+      // Hide sidebar delete buttons
+      document.querySelectorAll('.btn-del').forEach(function(el) {
+        el.style.display = 'none';
+      });
+    }
+    return;
+  }
   if (e.data.type === 'request-cpm-data') {
     postCpmCalculated();
   }
