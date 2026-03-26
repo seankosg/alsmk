@@ -30,7 +30,7 @@ export function SnapshotManager({
   pendingSnapshot,
   onSnapshotHandled,
 }: SnapshotManagerProps) {
-  const { isAdmin } = useAuthContext();
+  const { isAdmin, isAdminOrPm } = useAuthContext();
   const [open, setOpen] = useState(false);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [saveName, setSaveName] = useState("");
