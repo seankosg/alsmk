@@ -94,11 +94,18 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
       const taskIds = mappings.map(m => m.task_id);
       const { data: tasks } = await supabase
         .from("tasks")
-        .select("id, title, task_code, current_progress, start_date, end_date, team_id, assignee_id, issue_flag, issue_description, action_plan")
+        .select("id, title, task_code, current_progress, start_date, end_date, team_id, assignee_id, issue_flag, issue_description, action_plan, parent_id")
         .in("id", taskIds)
         .is("deleted_at", null);
 
       if (!tasks?.length) return [];
+
+      // Get parent summary task titles
+      const parentIds = [...new Set(tasks.map(t => t.parent_id).filter(Boolean))] as string[];
+      const { data: parents } = parentIds.length
+        ? await supabase.from("tasks").select("id, title").in("id", parentIds)
+        : { data: [] };
+      const parentMap = Object.fromEntries((parents || []).map(p => [p.id, p.title]));
 
       // Get team names
       const teamIds = [...new Set(tasks.map(t => t.team_id))];
@@ -116,6 +123,7 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
         ...t,
         assignee_name: t.assignee_id ? (memberMap[t.assignee_id] || "미배정") : "미배정",
         team_name: teamMap[t.team_id] || "Unknown",
+        parent_title: t.parent_id ? (parentMap[t.parent_id] || t.title) : t.title,
       })) as TaskWithMember[];
     },
     enabled: !!dbActivity?.id,
