@@ -1,0 +1,1 @@
+UPDATE cpm_snapshots SET data = (SELECT data FROM cpm_snapshots WHERE name = 'auto' ORDER BY updated_at DESC LIMIT 1), updated_at = now() WHERE name = 'default';
