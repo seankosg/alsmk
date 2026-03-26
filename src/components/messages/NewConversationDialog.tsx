@@ -63,7 +63,11 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: NewConv
   const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
 
   const handleCreate = async () => {
-    if (selectedIds.length === 0 || !memberId) return;
+    if (selectedIds.length === 0) return;
+    if (!memberId) {
+      toast.error("사용자 정보를 불러오지 못했습니다. 페이지를 새로고침해주세요.");
+      return;
+    }
     setCreating(true);
     try {
       // For single recipient, check existing direct conversation
@@ -129,6 +133,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: NewConv
       onOpenChange(false);
       resetState();
     } catch (err: any) {
+      console.error("Conversation creation failed:", err);
       toast.error(err.message || "대화 생성에 실패했습니다.");
     } finally {
       setCreating(false);
@@ -142,7 +147,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: NewConv
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetState(); }}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="sm:max-w-[420px]" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>새 대화</DialogTitle>
         </DialogHeader>
