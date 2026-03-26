@@ -54,7 +54,7 @@ interface TaskWithMember {
 export function ActivityTaskPanel({ activity, onClose }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [expandedAssignees, setExpandedAssignees] = useState<Set<string>>(new Set());
 
