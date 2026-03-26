@@ -575,7 +575,8 @@ function renderSidebar() {
     card.setAttribute('data-act-id', a.id);
     card.style.cursor = 'pointer';
     card.onclick = function(e) {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      if (e.target.tagName === 'BUTTON') return;
+      if (e.target.tagName === 'INPUT' && !e.target.readOnly) return;
       handleSidebarCardClick(a.id);
     };
     card.innerHTML = `
