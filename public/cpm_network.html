@@ -2780,9 +2780,12 @@ if (restored) {
 } else if (window.parent !== window) {
   // localStorage 없음 → 부모(React)에 DB 스냅샷 요청
   window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
-  // DB 응답 올 때까지 샘플 로드 (대기 표시)
-  loadSample();
-  calculate();
+  // 로딩 오버레이 표시 (샘플 데이터 대신 대기)
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  window._dbLoadTimeout = setTimeout(() => {
+    document.getElementById('loadingOverlay').style.display = 'none';
+    if (!calculated) { loadSample(); calculate(); }
+  }, 10000);
 } else {
   // 샘플 데이터 로드 + 계산
   loadSample();
