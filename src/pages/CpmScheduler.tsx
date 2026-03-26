@@ -253,7 +253,7 @@ const CpmScheduler = () => {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb]);
+  }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb, isAdminOrPm]);
 
   return (
     <div className="h-full w-full flex flex-col relative">
