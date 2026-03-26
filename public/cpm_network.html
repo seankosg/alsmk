@@ -1667,26 +1667,35 @@ function parseMSProjectXML(xmlText, fileName) {
   };
 
   // ── Parse project-level ExtendedAttributes: FieldID → Alias/FieldName ──
-  const extAttrDefs = Array.from(
-    doc.querySelectorAll('ExtendedAttributes > ExtendedAttribute') ||
-    []
-  );
-  // Also try with namespace
-  const extAttrDefsNS = Array.from(
-    doc.getElementsByTagNameNS(ns, 'ExtendedAttributes')
-  );
   const fieldIdToName = {};
-  // Try non-NS first
-  extAttrDefs.forEach(ea => {
-    const fid = get(ea, 'FieldID');
-    const alias = get(ea, 'Alias');
-    const fname = get(ea, 'FieldName');
-    if (fid) fieldIdToName[fid] = alias || fname || ('Field_' + fid);
-  });
-  // If none found, try NS approach
-  if (Object.keys(fieldIdToName).length === 0 && extAttrDefsNS.length > 0) {
-    const container = extAttrDefsNS[0];
-    const defs = Array.from(container.getElementsByTagNameNS(ns, 'ExtendedAttribute') || []);
+  // Try multiple approaches to find project-level ExtendedAttributes definitions
+  // Approach 1: NS query on root Project element
+  const projectEl = doc.getElementsByTagNameNS(ns, 'Project')[0] || doc.getElementsByTagName('Project')[0] || doc.documentElement;
+  const extAttrContainers = projectEl.getElementsByTagNameNS(ns, 'ExtendedAttributes');
+  let extAttrContainer = null;
+  // Get the FIRST ExtendedAttributes that is a direct child of Project (project-level, not task-level)
+  for (let i = 0; i < extAttrContainers.length; i++) {
+    if (extAttrContainers[i].parentElement === projectEl || extAttrContainers[i].parentNode === projectEl) {
+      extAttrContainer = extAttrContainers[i];
+      break;
+    }
+  }
+  // Fallback: try without namespace
+  if (!extAttrContainer) {
+    const nonNsContainers = projectEl.getElementsByTagName('ExtendedAttributes');
+    for (let i = 0; i < nonNsContainers.length; i++) {
+      if (nonNsContainers[i].parentElement === projectEl || nonNsContainers[i].parentNode === projectEl) {
+        extAttrContainer = nonNsContainers[i];
+        break;
+      }
+    }
+  }
+  if (extAttrContainer) {
+    const defs = Array.from(
+      extAttrContainer.getElementsByTagNameNS(ns, 'ExtendedAttribute').length
+        ? extAttrContainer.getElementsByTagNameNS(ns, 'ExtendedAttribute')
+        : extAttrContainer.getElementsByTagName('ExtendedAttribute')
+    );
     defs.forEach(ea => {
       const fid = get(ea, 'FieldID');
       const alias = get(ea, 'Alias');
@@ -1694,6 +1703,7 @@ function parseMSProjectXML(xmlText, fileName) {
       if (fid) fieldIdToName[fid] = alias || fname || ('Field_' + fid);
     });
   }
+  console.log('[CPM XML] ExtendedAttribute field map:', fieldIdToName);
 
   // Build UID→Task map first
   const tasks = Array.from(doc.getElementsByTagNameNS(ns, 'Task').length
