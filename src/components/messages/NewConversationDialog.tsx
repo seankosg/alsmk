@@ -63,7 +63,11 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: NewConv
   const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
 
   const handleCreate = async () => {
-    if (selectedIds.length === 0 || !memberId) return;
+    if (selectedIds.length === 0) return;
+    if (!memberId) {
+      toast.error("사용자 정보를 불러오지 못했습니다. 페이지를 새로고침해주세요.");
+      return;
+    }
     setCreating(true);
     try {
       // For single recipient, check existing direct conversation
