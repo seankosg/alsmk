@@ -2760,9 +2760,9 @@ window.addEventListener('message', function(e) {
     (e.data.statuses || []).forEach(function(s) {
       window._activityStatusMap[s.activityKey] = s;
     });
-    // Re-render network if calculated
-    if (typeof calculated !== 'undefined' && calculated && typeof order !== 'undefined') {
-      drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
+    // Re-render network if calculated — 전역 변수 사용
+    if (calculated && window._lastOrder) {
+      drawNetwork(window._lastOrder, window._lastMap, window._lastProjectEnd, window._activeWbsFilter || null);
     }
   }
   // Parent requests current snapshot for manual save
