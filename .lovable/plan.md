@@ -1,37 +1,59 @@
 
 
-# 사이드바 Activity 카드 클릭 → 노드 이동 + 상세 패널 열기
+# CPM BLDG 커스텀 필드 표시
 
-## 현재 상태
+3곳에 BLDG 값을 표시합니다.
 
-- 사이드바의 `.activity-card` 요소에는 클릭 이벤트 핸들러가 없음
-- 네트워크 노드는 `<g transform="translate(x,y)">` SVG 그룹으로 렌더링되며 `#networkCanvas` div 내 `#svgContainer`에 위치
-- `#networkCanvas`는 `overflow: auto`로 스크롤 가능
+## 1. 사이드바 Activity 카드 (`public/cpm_network.html`, ~line 581-611)
 
-## 변경 사항
+card-row1의 WBS 뒤, 이름 앞에 BLDG 배지 추가:
 
-### `public/cpm_network.html`
-
-1. **카드 클릭 핸들러 추가** (activity 카드 생성 부분, ~line 572-617):
-   - 각 카드에 `onclick` 핸들러 추가
-   - 클릭 시: 네트워크 탭 활성화 → 해당 노드로 스크롤 → 하이라이트 → parent에 `activity-click` 메시지 전송
-
-2. **`scrollToNode(actId)` 함수 추가**:
-   - 노드의 SVG 좌표(`positions[actId]`)를 사용하여 `#networkCanvas`의 `scrollLeft`/`scrollTop` 계산
-   - 노드가 화면 중앙에 오도록 스크롤
-   - 노드에 일시적 하이라이트 효과 적용
-
-3. **카드 클릭 시 동작 흐름**:
 ```text
-카드 클릭
-  → 네트워크 탭 활성화 (현재 다른 탭이면)
-  → scrollToNode(actId): 네트워크 캔버스를 해당 노드 위치로 스크롤
-  → highlightSidebarCard(actId): 사이드바 카드 하이라이트
-  → parent.postMessage({ type: 'activity-click', activity }): React 상세 패널 열기
+<span class="act-id">#123</span>
+<span>WBS 1.1</span>
+${a.customFields?.BLDG ? `<span style="font-size:10px;color:#c97a10;...">${a.customFields.BLDG}</span>` : ''}
+<input class="act-name-input" ...>
 ```
 
-### 변경 파일
+최우측에 위치시키기 위해 WBS 뒤에 삽입하되 주황/골드 계열 색상으로 차별화합니다.
+
+## 2. 네트워크 노드 상단 (~line 1133-1136)
+
+노드 상단 행: 좌측 `displayId`, 우측 `displayWbs` 사이에 BLDG를 WBS 왼쪽에 표시:
+
+```text
+변경 전: <text x="${NODE_W-8}" ... text-anchor="end">${displayWbs}</text>
+변경 후:
+  // BLDG를 WBS 왼쪽에 표시
+  ${bldgVal ? `<text x="${NODE_W-8-wbsWidth-4}" ... text-anchor="end" fill="#c97a10">${bldgVal}</text>` : ''}
+  <text x="${NODE_W-8}" ... text-anchor="end">${displayWbs}</text>
+```
+
+또는 더 간단하게, WBS 오른쪽 최상단에 BLDG를 추가:
+- `displayWbs` 텍스트 끝에 BLDG 값을 골드색으로 표시
+- 변수: `const bldgVal = (a.customFields && a.customFields.BLDG) || '';`
+
+## 3. 상세 패널 WBS 배지 옆 (`ActivityTaskPanel.tsx`, ~line 196-202)
+
+WBS Badge 바로 다음에 BLDG Badge 추가:
+
+```tsx
+{activity.wbsFull && (
+  <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+    {activity.wbsFull}
+  </Badge>
+)}
+{activity.customFields?.BLDG && (
+  <Badge variant="outline" className="font-mono text-xs text-amber-500 border-amber-500/30">
+    {activity.customFields.BLDG}
+  </Badge>
+)}
+```
+
+## 변경 파일
+
 | 파일 | 변경 |
 |------|------|
-| `public/cpm_network.html` | 카드에 onclick 추가, `scrollToNode` 함수 구현, `handleSidebarCardClick` 함수 추가 |
+| `public/cpm_network.html` | 사이드바 카드 row1에 BLDG 표시, 네트워크 노드 상단에 BLDG 표시 |
+| `src/components/cpm/ActivityTaskPanel.tsx` | WBS 배지 옆에 BLDG 배지 추가 |
 
