@@ -147,7 +147,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: NewConv
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetState(); }}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="sm:max-w-[420px]" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>새 대화</DialogTitle>
         </DialogHeader>
