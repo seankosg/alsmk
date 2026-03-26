@@ -523,6 +523,7 @@
 let activities = [];
 let idCounter = 1;
 let calculated = false;
+window._readOnly = false;
 
 // ─── Activity CRUD ────────────────────────────────────────────────
 function genId() { return 'A' + String(idCounter++).padStart(2,'0'); }
@@ -578,7 +579,7 @@ function renderSidebar() {
         ${a.wbsFull ? `<span style="font-family:var(--mono);font-size:10px;color:#5a7a9a;padding:2px 5px;background:var(--bg);border-radius:3px">${a.wbsFull}</span>` : ''}
         <input class="act-name-input" id="name_${a.id}" placeholder="작업명 입력" value="${(a.name||'').replace(/"/g,'&quot;')}"
           readonly>
-        <button class="btn-del" onclick="removeActivity('${a.id}')">×</button>
+        <button class="btn-del" onclick="removeActivity('${a.id}')" ${window._readOnly ? 'style="display:none"' : ''}>×</button>
       </div>
       <div class="card-row2">
         <div class="field-group">
@@ -632,7 +633,8 @@ function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-function calculate() {
+function calculate(forceReadOnly) {
+  if (window._readOnly && !forceReadOnly) return;
   if (activities.length === 0) { showToast('Activity를 먼저 추가하세요'); return; }
 
   const map = {};
@@ -2632,6 +2634,7 @@ function postCpmCalculated() {
 
 // DB 스냅샷 저장 요청 → parent React가 Supabase에 저장
 function postSnapshotSave() {
+  if (window._readOnly) return;
   if (window.parent === window) return;
   if (!calculated || activities.length === 0) return;
   const snapshot = _makeSnapshot('auto');
@@ -2709,6 +2712,20 @@ function buildActivityPayload(a) {
 // Listen for messages from parent React app
 window.addEventListener('message', function(e) {
   if (!e.data || !e.data.type) return;
+  if (e.data.type === 'set-read-only') {
+    window._readOnly = !!e.data.readOnly;
+    if (window._readOnly) {
+      // Hide edit UI elements
+      document.querySelectorAll('.upload-zone, .btn-calc, .footer-row, .btn-add').forEach(function(el) {
+        el.style.display = 'none';
+      });
+      // Hide sidebar delete buttons
+      document.querySelectorAll('.btn-del').forEach(function(el) {
+        el.style.display = 'none';
+      });
+    }
+    return;
+  }
   if (e.data.type === 'request-cpm-data') {
     postCpmCalculated();
   }
@@ -2750,7 +2767,7 @@ window.addEventListener('message', function(e) {
     console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities)');
     _restoreSnapshot(snap);
     calculated = false;
-    calculate();
+    calculate(true);
     const ind = document.getElementById('saveIndicator');
     if (ind) {
       ind.textContent = '● 서버에서 복원됨';

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
 import { SnapshotManager } from "@/components/cpm/SnapshotManager";
 import { calcPlannedProgress } from "@/lib/mockData";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 interface ActivityStatus {
   activityKey: string;
@@ -25,6 +26,7 @@ const CpmScheduler = () => {
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const queryClient = useQueryClient();
+  const { isAdminOrPm } = useAuthContext();
 
   // Send activity status data to iframe
   const sendStatusToIframe = useCallback(async () => {
@@ -226,7 +228,7 @@ const CpmScheduler = () => {
       if (!e.data?.type) return;
 
       if (e.data.type === "cpm-calculated") {
-        upsertActivities(e.data.activities);
+        if (isAdminOrPm) upsertActivities(e.data.activities);
       }
       if (e.data.type === "activity-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
@@ -235,7 +237,7 @@ const CpmScheduler = () => {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
       }
       if (e.data.type === "snapshot-save") {
-        saveSnapshotToDb(e.data.snapshot);
+        if (isAdminOrPm) saveSnapshotToDb(e.data.snapshot);
       }
       if (e.data.type === "request-db-snapshot") {
         loadSnapshotFromDb();
@@ -248,19 +250,21 @@ const CpmScheduler = () => {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb]);
+  }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb, isAdminOrPm]);
 
   return (
     <div className="h-full w-full flex flex-col relative">
-      {/* Floating toolbar */}
-      <div className="absolute top-2 right-2 z-10">
-        <SnapshotManager
-          onLoadSnapshot={handleLoadSnapshot}
-          onRequestCurrentSnapshot={handleRequestCurrentSnapshot}
-          pendingSnapshot={pendingSnapshot}
-          onSnapshotHandled={() => setPendingSnapshot(null)}
-        />
-      </div>
+      {/* Floating toolbar — Admin/PM only */}
+      {isAdminOrPm && (
+        <div className="absolute top-2 right-2 z-10">
+          <SnapshotManager
+            onLoadSnapshot={handleLoadSnapshot}
+            onRequestCurrentSnapshot={handleRequestCurrentSnapshot}
+            pendingSnapshot={pendingSnapshot}
+            onSnapshotHandled={() => setPendingSnapshot(null)}
+          />
+        </div>
+      )}
 
       <div className="flex flex-1 min-h-0">
         <div className={`${selectedActivity ? 'flex-1' : 'w-full'} transition-all`}>
@@ -271,6 +275,7 @@ const CpmScheduler = () => {
             title="CPM Network Scheduler"
             sandbox="allow-scripts allow-same-origin allow-popups"
             onLoad={() => {
+              iframeRef.current?.contentWindow?.postMessage({ type: "set-read-only", readOnly: !isAdminOrPm }, "*");
               iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
               setTimeout(() => sendStatusToIframe(), 300);
             }}

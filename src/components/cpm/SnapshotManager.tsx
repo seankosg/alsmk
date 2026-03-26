@@ -30,7 +30,7 @@ export function SnapshotManager({
   pendingSnapshot,
   onSnapshotHandled,
 }: SnapshotManagerProps) {
-  const { isAdmin } = useAuthContext();
+  const { isAdmin, isAdminOrPm } = useAuthContext();
   const [open, setOpen] = useState(false);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [saveName, setSaveName] = useState("");
@@ -145,8 +145,8 @@ export function SnapshotManager({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Save new — Admin only */}
-        {isAdmin && (
+        {/* Save new — Admin/PM only */}
+        {isAdminOrPm && (
           <div className="flex gap-2">
             <Input
               placeholder="스냅샷 이름 입력..."
@@ -214,7 +214,7 @@ export function SnapshotManager({
                     >
                       <Upload className="h-3.5 w-3.5" />
                     </Button>
-                    {isAdmin && (
+                    {isAdminOrPm && (
                       <Button
                         variant="ghost"
                         size="icon"
