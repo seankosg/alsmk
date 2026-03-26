@@ -2791,7 +2791,7 @@ if (restored) {
   document.getElementById('loadingOverlay').style.display = 'flex';
   window._dbLoadTimeout = setTimeout(() => {
     document.getElementById('loadingOverlay').style.display = 'none';
-    if (!calculated) { loadSample(); calculate(); }
+    if (!calculated) { loadSample(); calculate(true); }
   }, 10000);
 } else {
   // 샘플 데이터 로드 + 계산
