@@ -1,50 +1,72 @@
 
 
-# CPM 페이지 리셋 문제 분석 및 개선 제안
+# CPM 권한 체계 분석 및 읽기 전용 모드 제안
 
-## 원인
+## 현재 권한 구조
 
-React Router의 `<Routes>` 안에서 경로가 바뀌면 이전 경로의 컴포넌트가 **unmount**되고 새 경로의 컴포넌트가 **mount**됩니다. `/cpm` → 다른 메뉴 → `/cpm` 으로 돌아오면 `CpmScheduler`가 완전히 재생성되고, 내부 iframe(`cpm_network.html`)도 처음부터 다시 로드됩니다.
+| 기능 | 현재 권한 | 비고 |
+|------|-----------|------|
+| XML 업로드 | **누구나** | iframe 내부 UI, 제한 없음 |
+| CPM 계산 (▶ 버튼) | **누구나** | iframe 내부, 제한 없음 |
+| DB 자동저장 (cpm_snapshots INSERT/UPDATE) | **Admin/PM** | RLS로 제한됨 |
+| DB 스냅샷 수동저장 | **Admin** | SnapshotManager UI에서 `isAdmin` 체크 |
+| 스냅샷 삭제 | **Admin** | SnapshotManager UI에서 `isAdmin` 체크 |
+| 스냅샷 불러오기 | **누구나** | SELECT는 authenticated 전체 허용 |
+| cpm_activities UPSERT/DELETE | **Admin/PM** | RLS로 제한됨 |
+| cpm_task_mappings 편집 | **누구나** | RLS가 ALL:authenticated, UI에서 assignee/admin 체크 |
+| Activity 사이드패널 보기 | **누구나** | 노드 클릭 |
 
-이는 React Router의 기본 동작이며, iframe이 포함된 페이지에서는 특히 치명적입니다 — XML 파싱, 네트워크 레이아웃, 노드 위치 등 모든 상태가 사라집니다.
+**핵심 문제**: iframe 내부의 XML 업로드, 계산 버튼, 샘플 데이터, 초기화 등은 프론트엔드 제한이 없어서 일반 사용자도 조작 가능. 단, DB 쓰기(activities, snapshots)는 RLS가 막으므로 **계산해도 저장 실패**하는 어중간한 상태.
 
-## 개선 방안
+## 개선 제안: Admin/PM 전용 편집 모드 + 일반 사용자 읽기 전용 모드
 
-### 방법: CSS display 토글로 CPM 컴포넌트 유지
+### 접근 방식
 
-CPM 컴포넌트를 항상 마운트된 상태로 유지하되, 현재 경로가 `/cpm`이 아닐 때는 `display: none`으로 숨깁니다.
-
-**변경 파일:** `src/App.tsx`
+iframe에 `readOnly` 모드를 전달하여 일반 사용자에게는 편집 UI를 숨기고, 최신 스냅샷을 자동 로드 후 렌더링만 수행.
 
 ```text
-변경 전:
-  <Routes>
-    <Route path="/cpm" element={<CpmScheduler />} />
-    ...
-  </Routes>
+Admin/PM 접속:
+  iframe 로드 → DB 최신 스냅샷 복원 → XML 업로드/계산/편집 가능 → DB 저장
 
-변경 후:
-  {/* CPM은 항상 마운트, 경로에 따라 display 토글 */}
-  <div style={{ display: location.pathname === '/cpm' ? 'block' : 'none' }}
-       className="h-full">
-    <CpmScheduler />
-  </div>
-  <Routes>
-    {/* /cpm 경로는 빈 컴포넌트 렌더링 */}
-    <Route path="/cpm" element={null} />
-    ...기존 라우트...
-  </Routes>
+일반 사용자 접속:
+  iframe 로드 → DB 최신 스냅샷 복원 → 네트워크 렌더링만 표시
+  (XML 업로드, 계산 버튼, 샘플, 초기화 숨김)
 ```
 
-**추가 변경:** `src/components/layout/AppLayout.tsx`
-- `useLocation()`으로 현재 경로를 가져와서 children 영역에 CPM 토글 로직 적용
+### 변경 파일 및 내용
 
-### 효과
-- 다른 메뉴로 이동해도 iframe이 unmount되지 않음
-- XML, 네트워크 레이아웃, 노드 위치 등 모든 CPM 상태가 보존됨
-- DB에서 스냅샷을 다시 로드할 필요 없음
+#### 1. `src/pages/CpmScheduler.tsx`
+- `useAuthContext()`에서 `isAdminOrPm` 가져오기
+- iframe `onLoad`에서 `{ type: "set-read-only", readOnly: !isAdminOrPm }` 메시지 전송
+- 일반 사용자: `cpm-calculated`, `snapshot-save` 메시지 무시 (DB 쓰기 차단)
+- 일반 사용자: SnapshotManager 숨기기 (또는 불러오기만 가능하게)
 
-### 주의사항
-- CPM iframe은 메모리를 계속 점유하므로, 최초 로드 시점을 사용자가 `/cpm`을 처음 방문할 때로 지연(lazy mount) 처리
-- `hasVisitedCpm` 상태 변수로 한 번이라도 방문한 적 있을 때만 마운트
+#### 2. `public/cpm_network.html`
+- `window._readOnly = false` 전역 변수 추가
+- `set-read-only` 메시지 수신 시 `_readOnly = true` 설정 후:
+  - `.upload-zone` 숨기기 (`display: none`)
+  - `.btn-calc` (CPM 계산 버튼) 숨기기
+  - `.btn-sample` (샘플 데이터 버튼) 숨기기
+  - 사이드바의 Activity 추가/편집/삭제 버튼 숨기기
+  - 초기화 버튼 숨기기
+- `calculate()` 함수 시작부에 `if (_readOnly) return` 가드 추가
+- `postSnapshotSave()` 시작부에 `if (_readOnly) return` 가드 추가
+
+#### 3. `src/components/cpm/SnapshotManager.tsx`
+- 일반 사용자: 저장/삭제 버튼 완전 숨기기 (현재는 `isAdmin`만 체크 → `isAdminOrPm`으로 통일)
+- 일반 사용자에게는 Snapshots 버튼 자체를 숨기거나, 목록 읽기 + 불러오기만 허용
+
+#### 4. `src/components/cpm/ActivityTaskPanel.tsx`
+- 일반 사용자: "Map Tasks" 버튼 숨기기 (매핑 편집 권한 없음)
+- 기존 매핑 해제(X) 버튼은 이미 assignee/admin 체크하고 있으므로 유지
+
+### 일반 사용자 자동 로드 흐름
+
+1. iframe `onLoad` → parent가 `set-read-only` 메시지 전송
+2. iframe이 `request-db-snapshot` 메시지 발신 (기존 로직)
+3. parent가 DB에서 최신 스냅샷 조회 → `snapshot-restore`로 iframe에 전송
+4. iframe이 `_restoreSnapshot()`으로 네트워크 렌더링
+5. 읽기 전용이므로 편집 UI는 숨겨진 상태로 네트워크만 표시
+
+이 방식은 별도 "계산"이 불필요합니다. 스냅샷에 이미 계산된 결과(노드 위치, ES/EF/LS/LF 등)가 포함되어 있으므로 복원 즉시 완전한 네트워크가 표시됩니다.
 
