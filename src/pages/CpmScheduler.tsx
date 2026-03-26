@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
 import { SnapshotManager } from "@/components/cpm/SnapshotManager";
 import { calcPlannedProgress } from "@/lib/mockData";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 interface ActivityStatus {
   activityKey: string;
