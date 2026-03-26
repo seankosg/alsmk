@@ -146,11 +146,7 @@ const CpmScheduler = () => {
 
   // Send specific snapshot to iframe (from SnapshotManager)
   const handleLoadSnapshot = useCallback((snapshotData: any) => {
-    if (!iframeRef.current?.contentWindow) {
-      console.warn('[CPM] handleLoadSnapshot: iframe not available');
-      return;
-    }
-    console.log('[CPM] Sending snapshot-restore to iframe, activities:', snapshotData?.activities?.length);
+    if (!iframeRef.current?.contentWindow) return;
     iframeRef.current.contentWindow.postMessage(
       { type: "snapshot-restore", snapshot: snapshotData, forceRestore: true },
       "*",
@@ -227,40 +223,10 @@ const CpmScheduler = () => {
   }, [queryClient, sendStatusToIframe]);
 
   // Listen for messages from iframe
-  // Parent-Driven Bootstrap: iframe이 ready 신호를 보내면 DB에서 auto 스냅샷 조회 후 전송
-  const handleIframeReady = useCallback(async () => {
-    if (!iframeRef.current?.contentWindow) return;
-
-    // 역할 정보 먼저 전송
-    iframeRef.current.contentWindow.postMessage({ type: "set-role", isAdminOrPm }, "*");
-
-    const { data: snapshot } = await supabase
-      .from("cpm_snapshots")
-      .select("data, updated_at")
-      .eq("name", "auto")
-      .maybeSingle();
-
-    if (snapshot?.data) {
-      console.log(`[CPM Bootstrap] Sending DB snapshot (updated: ${snapshot.updated_at})`);
-      iframeRef.current.contentWindow.postMessage(
-        { type: "snapshot-restore", snapshot: snapshot.data, dbUpdatedAt: snapshot.updated_at },
-        "*",
-      );
-    } else {
-      console.log("[CPM Bootstrap] No DB snapshot — sending bootstrap-empty");
-      iframeRef.current.contentWindow.postMessage({ type: "bootstrap-empty" }, "*");
-    }
-
-    setTimeout(() => sendStatusToIframe(), 500);
-  }, [isAdminOrPm, sendStatusToIframe]);
-
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (!e.data?.type) return;
 
-      if (e.data.type === "iframe-ready") {
-        handleIframeReady();
-      }
       if (e.data.type === "cpm-calculated" && isAdminOrPm) {
         upsertActivities(e.data.activities);
       }
@@ -273,9 +239,13 @@ const CpmScheduler = () => {
       if (e.data.type === "snapshot-save" && isAdminOrPm) {
         saveSnapshotToDb(e.data.snapshot);
       }
+      if (e.data.type === "request-db-snapshot") {
+        loadSnapshotFromDb();
+      }
       if (e.data.type === "snapshot-restored") {
         sendStatusToIframe();
       }
+      // Response to "request-snapshot" — current iframe state for manual save
       if (e.data.type === "snapshot-current") {
         setPendingSnapshot(e.data.snapshot);
       }
@@ -283,7 +253,7 @@ const CpmScheduler = () => {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [handleIframeReady, upsertActivities, saveSnapshotToDb, isAdminOrPm, sendStatusToIframe]);
+  }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb, isAdminOrPm]);
 
   return (
     <div className="h-full w-full flex flex-col relative">
@@ -306,8 +276,9 @@ const CpmScheduler = () => {
             title="CPM Network Scheduler"
             sandbox="allow-scripts allow-same-origin allow-popups"
             onLoad={() => {
-              // iframe-ready 메시지가 bootstrap을 시작하므로 onLoad에서는 최소한만 처리
               iframeRef.current?.contentWindow?.postMessage({ type: "request-cpm-data" }, "*");
+              iframeRef.current?.contentWindow?.postMessage({ type: "set-role", isAdminOrPm }, "*");
+              setTimeout(() => sendStatusToIframe(), 300);
             }}
           />
         </div>

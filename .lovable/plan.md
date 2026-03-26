@@ -1,76 +1,50 @@
 
 
-# 스냅샷 로딩 문제 분석 및 수정
+# CPM 페이지 리셋 문제 분석 및 개선 제안
 
-## 현재 상태
-- DB에 "auto" (382개 Activity), "3.1" (382개), "default" (260개) 스냅샷이 정상 존재
-- 세션 리플레이: "3.1" 불러오기 토스트는 성공했으나 네트워크 다이어그램이 갱신되지 않음
+## 원인
 
-## 발견된 문제점
+React Router의 `<Routes>` 안에서 경로가 바뀌면 이전 경로의 컴포넌트가 **unmount**되고 새 경로의 컴포넌트가 **mount**됩니다. `/cpm` → 다른 메뉴 → `/cpm` 으로 돌아오면 `CpmScheduler`가 완전히 재생성되고, 내부 iframe(`cpm_network.html`)도 처음부터 다시 로드됩니다.
 
-### 1. `calculate()` 내 변수 스코프 문제 (핵심)
-`calculate()` 함수 내 `order`, `map`, `projectEnd`가 `const`로 선언되어 함수 종료 후 소멸합니다. `activity-status-update` 핸들러(line 2760)에서 이 변수들을 참조하지만 `undefined`이므로 상태 아이콘 재렌더가 불가능합니다.
+이는 React Router의 기본 동작이며, iframe이 포함된 페이지에서는 특히 치명적입니다 — XML 파싱, 네트워크 레이아웃, 노드 위치 등 모든 상태가 사라집니다.
 
-**더 중요한 문제**: `snapshot-restore` 핸들러에서 `_restoreSnapshot()` 후 `calculate()`를 호출하면 계산은 되지만, 이후 `sendStatusToIframe()` → `activity-status-update` 메시지 수신 시 `drawNetwork()`를 다시 호출할 수 없습니다.
+## 개선 방안
 
-### 2. `_restoreSnapshot` 후 상태 불일치
-`_restoreSnapshot()`이 `activities` 배열은 복원하지만, 이전 `calculate()` 실행에서 생성된 DOM 요소(사이드바, 네트워크 캔버스)를 초기화하지 않아 렌더링 충돌 가능성이 있습니다.
+### 방법: CSS display 토글로 CPM 컴포넌트 유지
 
-## 수정 계획
+CPM 컴포넌트를 항상 마운트된 상태로 유지하되, 현재 경로가 `/cpm`이 아닐 때는 `display: none`으로 숨깁니다.
 
-### 파일 1: `public/cpm_network.html`
+**변경 파일:** `src/App.tsx`
 
-**`calculate()` 함수 끝에 전역 변수 저장 추가 (line ~898):**
-```js
-// calculate() 내부, calculated = true 직후
-window._lastOrder = order;
-window._lastMap = map;
-window._lastProjectEnd = projectEnd;
+```text
+변경 전:
+  <Routes>
+    <Route path="/cpm" element={<CpmScheduler />} />
+    ...
+  </Routes>
+
+변경 후:
+  {/* CPM은 항상 마운트, 경로에 따라 display 토글 */}
+  <div style={{ display: location.pathname === '/cpm' ? 'block' : 'none' }}
+       className="h-full">
+    <CpmScheduler />
+  </div>
+  <Routes>
+    {/* /cpm 경로는 빈 컴포넌트 렌더링 */}
+    <Route path="/cpm" element={null} />
+    ...기존 라우트...
+  </Routes>
 ```
 
-**`activity-status-update` 핸들러 수정 (line 2760):**
-```js
-if (window._lastOrder && calculated) {
-  drawNetwork(window._lastOrder, window._lastMap, window._lastProjectEnd, window._activeWbsFilter || null);
-}
-```
+**추가 변경:** `src/components/layout/AppLayout.tsx`
+- `useLocation()`으로 현재 경로를 가져와서 children 영역에 CPM 토글 로직 적용
 
-**`snapshot-restore` 핸들러에 디버그 로그 추가 (line 2780-2801):**
-```js
-if (e.data.type === 'snapshot-restore') {
-  if (window._bootstrapTimeout) clearTimeout(window._bootstrapTimeout);
-  const snap = e.data.snapshot;
-  console.log('[CPM] snapshot-restore received, activities:', snap?.activities?.length, 'forceRestore:', e.data.forceRestore);
-  if (!snap || !snap.activities || !snap.activities.length) {
-    console.warn('[CPM] snapshot-restore: no activities in snapshot');
-    return;
-  }
-  // ... 기존 localStorage 비교 로직 ...
-  _restoreSnapshot(snap);
-  calculated = false;
-  calculate();
-}
-```
+### 효과
+- 다른 메뉴로 이동해도 iframe이 unmount되지 않음
+- XML, 네트워크 레이아웃, 노드 위치 등 모든 CPM 상태가 보존됨
+- DB에서 스냅샷을 다시 로드할 필요 없음
 
-### 파일 2: `src/pages/CpmScheduler.tsx`
-
-**`handleLoadSnapshot`에 로그 추가:**
-```js
-const handleLoadSnapshot = useCallback((snapshotData: any) => {
-  if (!iframeRef.current?.contentWindow) {
-    console.warn('[CPM] handleLoadSnapshot: iframe not available');
-    return;
-  }
-  console.log('[CPM] Sending snapshot-restore to iframe, activities:', snapshotData?.activities?.length);
-  iframeRef.current.contentWindow.postMessage(
-    { type: "snapshot-restore", snapshot: snapshotData, forceRestore: true },
-    "*",
-  );
-}, []);
-```
-
-## 기대 효과
-- `calculate()` 후 전역 변수 유지 → 상태 아이콘 재렌더 가능
-- 디버그 로그로 메시지 수신 여부 및 데이터 구조 확인 가능
-- 스냅샷 복원 → 계산 → 렌더링 파이프라인 안정화
+### 주의사항
+- CPM iframe은 메모리를 계속 점유하므로, 최초 로드 시점을 사용자가 `/cpm`을 처음 방문할 때로 지연(lazy mount) 처리
+- `hasVisitedCpm` 상태 변수로 한 번이라도 방문한 적 있을 때만 마운트
 

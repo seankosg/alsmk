@@ -896,10 +896,6 @@ function calculate() {
   });
   const cpCount = activities.filter(a=>a.isCritical).length;
   calculated = true;
-  // 전역 변수로 저장 — activity-status-update 핸들러에서 재렌더링 시 사용
-  window._lastOrder = order;
-  window._lastMap = map;
-  window._lastProjectEnd = projectEnd;
   renderSidebar();
   drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
   renderGantt(order, map, projectEnd);
@@ -2533,7 +2529,10 @@ function _restoreSnapshot(snap) {
   window._activeWbsFilter = snap.wbsFilter || null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
 
-  // snapshot-restored는 snapshot-restore 핸들러에서 calculate() 후 전송
+  // Notify parent that snapshot restore is complete
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'snapshot-restored' }, '*');
+  }
 }
 
 // ─── Storage ──────────────────────────────────────────────────────
@@ -2602,23 +2601,20 @@ function loadFromStorage() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
-// localStorage → 복원, 없으면 parent에 iframe-ready 신호 → parent가 DB 스냅샷 전송
+// localStorage에 저장된 데이터가 있으면 복원, 없으면 부모에게 DB 스냅샷 요청
 const restored = loadFromStorage();
 if (restored) {
+  // 복원된 데이터로 계산 재실행
   calculated = false;
   calculate();
 } else if (window.parent !== window) {
-  // Parent-Driven Bootstrap: parent에 준비 완료 신호 전송, 데이터 대기
-  window.parent.postMessage({ type: 'iframe-ready' }, '*');
-  // 5초 안에 parent 응답 없으면 fallback으로 샘플 로드
-  window._bootstrapTimeout = setTimeout(() => {
-    if (!calculated) {
-      console.log('[CPM] Bootstrap timeout — loading sample');
-      loadSample();
-      calculate();
-    }
-  }, 5000);
+  // localStorage 없음 → 부모(React)에 DB 스냅샷 요청
+  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
+  // DB 응답 올 때까지 샘플 로드 (대기 표시)
+  loadSample();
+  calculate();
 } else {
+  // 샘플 데이터 로드 + 계산
   loadSample();
   calculate();
 }
@@ -2757,9 +2753,9 @@ window.addEventListener('message', function(e) {
     (e.data.statuses || []).forEach(function(s) {
       window._activityStatusMap[s.activityKey] = s;
     });
-    // Re-render network if calculated — 전역 변수 사용
-    if (calculated && window._lastOrder) {
-      drawNetwork(window._lastOrder, window._lastMap, window._lastProjectEnd, window._activeWbsFilter || null);
+    // Re-render network if calculated
+    if (typeof calculated !== 'undefined' && calculated && typeof order !== 'undefined') {
+      drawNetwork(order, map, projectEnd, window._activeWbsFilter || null);
     }
   }
   // Parent requests current snapshot for manual save
@@ -2768,24 +2764,12 @@ window.addEventListener('message', function(e) {
     const snap = _makeSnapshot('');
     window.parent.postMessage({ type: 'snapshot-current', snapshot: snap }, '*');
   }
-  // Parent → bootstrap-empty: DB에 스냅샷 없음 → 샘플 로드
-  if (e.data.type === 'bootstrap-empty') {
-    if (window._bootstrapTimeout) clearTimeout(window._bootstrapTimeout);
-    if (!calculated) {
-      console.log('[CPM] No DB snapshot — loading sample');
-      loadSample();
-      calculate();
-    }
-  }
   // DB에서 복원된 스냅샷 수신
   if (e.data.type === 'snapshot-restore') {
-    if (window._bootstrapTimeout) clearTimeout(window._bootstrapTimeout);
     const snap = e.data.snapshot;
-    console.log('[CPM] snapshot-restore received, activities:', snap?.activities?.length, 'forceRestore:', e.data.forceRestore);
-    if (!snap || !snap.activities || !snap.activities.length) {
-      console.warn('[CPM] snapshot-restore: no activities in snapshot');
-      return;
-    }
+    if (!snap || !snap.activities || !snap.activities.length) return;
+    // 자동 로드(request-db-snapshot 응답)의 경우 localStorage보다 새로운 경우에만 복원
+    // 수동 로드(SnapshotManager)의 경우 항상 복원 (dbUpdatedAt이 현재 시간)
     const forceRestore = e.data.forceRestore === true;
     if (!forceRestore) {
       const localRaw = localStorage.getItem(STORAGE_KEY);
@@ -2794,28 +2778,21 @@ window.addEventListener('message', function(e) {
           const localData = JSON.parse(localRaw);
           if (localData.savedAt && snap.savedAt && new Date(localData.savedAt) >= new Date(snap.savedAt)) {
             console.log('[CPM Snapshot] localStorage is newer, skipping DB restore');
-            if (!calculated) {
-              // localStorage에서 이미 로드된 상태가 아니면 로컬 데이터로 복원
-              _restoreSnapshot(localData);
-              calculated = false;
-              calculate();
-            }
             return;
           }
-        } catch(err) { console.warn('[CPM] localStorage parse error:', err); }
+        } catch {}
       }
     }
-    console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities), forceRestore:', forceRestore);
+    console.log('[CPM Snapshot] Restoring from DB (' + snap.activities.length + ' activities)');
     _restoreSnapshot(snap);
     calculated = false;
-    try {
-      calculate();
-      console.log('[CPM Snapshot] calculate() completed, calculated:', calculated);
-    } catch(err) {
-      console.error('[CPM Snapshot] calculate() error:', err);
+    calculate();
+    const ind = document.getElementById('saveIndicator');
+    if (ind) {
+      ind.textContent = '● 서버에서 복원됨';
+      ind.style.display = 'inline';
+      ind.style.color = 'var(--green)';
     }
-    // 복원 완료 알림 → parent가 sendStatusToIframe() 호출
-    window.parent.postMessage({ type: 'snapshot-restored' }, '*');
   }
 });
 
