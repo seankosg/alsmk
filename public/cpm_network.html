@@ -2533,10 +2533,7 @@ function _restoreSnapshot(snap) {
   window._activeWbsFilter = snap.wbsFilter || null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
 
-  // Notify parent that snapshot restore is complete
-  if (window.parent !== window) {
-    window.parent.postMessage({ type: 'snapshot-restored' }, '*');
-  }
+  // snapshot-restored는 snapshot-restore 핸들러에서 calculate() 후 전송
 }
 
 // ─── Storage ──────────────────────────────────────────────────────
