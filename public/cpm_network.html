@@ -615,6 +615,10 @@ function renderSidebar() {
     `;
     list.appendChild(card);
   });
+  // Re-apply role restrictions after re-rendering sidebar
+  if (!_isAdminOrPm) {
+    document.querySelectorAll('.btn-del').forEach(function(el) { el.style.display = 'none'; });
+  }
 }
 
 // ─── CPM Engine ───────────────────────────────────────────────────
@@ -2711,9 +2715,36 @@ function buildActivityPayload(a) {
   };
 }
 
+// ─── Role-based UI control ───────────────────────────────────────
+let _isAdminOrPm = false;
+
+function applyRoleRestrictions() {
+  const readOnly = !_isAdminOrPm;
+  // Hide/show upload zone, calculate button, add button, sample/clear buttons
+  const uploadZone = document.getElementById('uploadZone');
+  const btnCalc = document.querySelector('.btn-calc');
+  const btnAdd = document.querySelector('.btn-add');
+  const footerRow = document.querySelector('.footer-row');
+  
+  if (uploadZone) uploadZone.style.display = readOnly ? 'none' : '';
+  if (btnCalc) btnCalc.style.display = readOnly ? 'none' : '';
+  if (btnAdd) btnAdd.style.display = readOnly ? 'none' : '';
+  if (footerRow) footerRow.style.display = readOnly ? 'none' : '';
+  
+  // Disable sidebar inputs for read-only users
+  document.querySelectorAll('.activity-card input, .activity-card textarea').forEach(function(el) {
+    el.disabled = readOnly;
+    el.style.opacity = readOnly ? '0.6' : '1';
+  });
+}
+
 // Listen for messages from parent React app
 window.addEventListener('message', function(e) {
   if (!e.data || !e.data.type) return;
+  if (e.data.type === 'set-role') {
+    _isAdminOrPm = !!e.data.isAdminOrPm;
+    applyRoleRestrictions();
+  }
   if (e.data.type === 'request-cpm-data') {
     postCpmCalculated();
   }
