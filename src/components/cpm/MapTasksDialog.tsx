@@ -22,7 +22,7 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
   const [saving, setSaving] = useState(false);
 
   // Get existing mappings
-  const { data: existingMappings = [] } = useQuery({
+  const { data: existingMappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ["cpm_existing_mappings", activityId],
     queryFn: async () => {
       const { data } = await supabase
