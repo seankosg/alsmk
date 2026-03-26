@@ -154,7 +154,14 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     staleTime: 30_000,
   });
 
-  // Respond to allCollapsed prop toggle
+  const { data: cpmMappedTaskIds } = useQuery({
+    queryKey: ["cpm_mapped_task_ids"],
+    queryFn: async () => {
+      const { data } = await supabase.from("cpm_task_mappings").select("task_id");
+      return new Set(data?.map(d => d.task_id) ?? []);
+    },
+    staleTime: 30_000,
+  });
   useEffect(() => {
     if (allCollapsed === prevAllCollapsedRef.current) return;
     prevAllCollapsedRef.current = allCollapsed;
