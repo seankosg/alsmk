@@ -160,6 +160,7 @@ export type Database = {
       cpm_activities: {
         Row: {
           created_at: string
+          custom_fields: Json | null
           duration: number
           ef: number | null
           es: number | null
@@ -180,6 +181,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_fields?: Json | null
           duration?: number
           ef?: number | null
           es?: number | null
@@ -200,6 +202,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_fields?: Json | null
           duration?: number
           ef?: number | null
           es?: number | null

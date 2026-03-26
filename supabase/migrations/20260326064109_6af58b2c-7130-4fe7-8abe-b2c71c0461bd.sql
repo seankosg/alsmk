@@ -1,0 +1,1 @@
+ALTER TABLE public.cpm_activities ADD COLUMN custom_fields jsonb DEFAULT '{}'::jsonb;

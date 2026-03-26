@@ -181,6 +181,7 @@ const CpmScheduler = () => {
       start_date: a.startDate,
       finish_date: a.finishDate,
       es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
+      custom_fields: (a as any).customFields || {},
       updated_at: new Date().toISOString(),
     }));
 
