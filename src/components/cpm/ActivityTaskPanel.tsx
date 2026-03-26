@@ -133,7 +133,7 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
   const subjectGroups = useMemo(() => {
     const groups = new Map<string, { subjectName: string; tasks: TaskWithMember[] }>();
     mappedTasks.forEach(t => {
-      const key = t.title || "미분류";
+      const key = t.parent_title || "미분류";
       if (!groups.has(key)) {
         groups.set(key, { subjectName: key, tasks: [] });
       }
