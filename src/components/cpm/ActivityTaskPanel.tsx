@@ -318,29 +318,27 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
             </div>
           )}
 
-          {[...teamGroups.entries()].map(([teamId, { teamName, tasks }]) => {
-            const teamStats = calcWeightedProgress(tasks);
-            const teamDelayed = tasks.filter(t => t.current_progress < calcPlannedProgress(t.start_date, t.end_date) - 5).length;
-            const isExpanded = expandedTeams.has(teamId);
+          {[...subjectGroups.entries()].map(([subject, { subjectName, tasks }]) => {
+            const groupStats = calcWeightedProgress(tasks);
+            const groupDelayed = tasks.filter(t => t.current_progress < calcPlannedProgress(t.start_date, t.end_date) - 5).length;
+            const isExpanded = expandedTeams.has(subject);
 
             return (
-              <div key={teamId}>
-                {/* Team row */}
+              <div key={subject}>
                 <button
-                  onClick={() => toggleTeam(teamId)}
+                  onClick={() => toggleTeam(subject)}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-muted/50 transition-colors"
                 >
                   {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                  <span className="text-sm font-medium text-foreground flex-1 text-left">{teamName}</span>
+                  <span className="text-sm font-medium text-foreground flex-1 text-left truncate">{subjectName}</span>
                   <span className="text-xs font-mono text-muted-foreground">
-                    {tasks.length - teamDelayed}/{tasks.length}
+                    {tasks.length - groupDelayed}/{tasks.length}
                   </span>
-                  <Progress value={teamStats.actual} className="w-16 h-1.5" />
-                  <span className="text-xs font-mono w-8 text-right">{teamStats.actual}%</span>
-                  <GapBadge gap={teamStats.gap} />
+                  <Progress value={groupStats.actual} className="w-16 h-1.5" />
+                  <span className="text-xs font-mono w-8 text-right">{groupStats.actual}%</span>
+                  <GapBadge gap={groupStats.gap} />
                 </button>
 
-                {/* Tasks directly under team */}
                 {isExpanded && tasks.map(task => {
                   const planned = calcPlannedProgress(task.start_date, task.end_date);
                   const tGap = task.current_progress - planned;
@@ -374,7 +372,7 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
                           <span className="text-[10px] font-mono text-primary truncate max-w-[80px] shrink-0">
                             {task.task_code || '-'}
                           </span>
-                          <span className="text-xs text-foreground flex-1 truncate">{task.title}</span>
+                          <span className="text-xs text-foreground flex-1 truncate">{task.action_plan || '-'}</span>
                           <span className="text-[10px] font-mono text-muted-foreground shrink-0">
                             {task.current_progress}/{planned}%
                           </span>
@@ -395,6 +393,9 @@ export function ActivityTaskPanel({ activity, onClose }: Props) {
                             )}
                           </div>
                           <p className="text-sm font-medium text-foreground">{task.title}</p>
+                          {task.action_plan && (
+                            <p className="text-xs text-muted-foreground">{task.action_plan}</p>
+                          )}
                         </div>
                         <div className="grid grid-cols-2 gap-1 text-xs">
                           <div className="bg-muted/50 rounded px-2 py-1">
