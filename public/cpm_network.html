@@ -1653,7 +1653,7 @@ function showNodeTooltip(e, actId) {
   if (!a) return;
 
   const isC  = a.isCritical;
-  const isPT = !isC && a.tf === 0;  // 간단 판별
+  const isPT = !isC && a.tf === 0;
   const accentColor = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#4da6ff';
   const predNames = (a.predecessors||'').split(',').map(s=>s.trim()).filter(Boolean)
     .map(pid => { const p = map[pid]; return p ? (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name : pid; })
@@ -1676,11 +1676,40 @@ function showNodeTooltip(e, actId) {
     ? `<span class="nt-cp-badge" style="background:rgba(201,122,16,.2);color:#c97a10">통과 노드</span>`
     : `<span style="font-size:10px;color:#5a7a9a">TF: <span style="color:${tfColor}">${a.tf??'-'}일</span> 여유</span>`;
 
+  // BLDG 값 추출
+  const bldgVal = (a.customFields && (a.customFields.BLDG || a.customFields.Text2 || a.customFields['텍스트2'])) || '';
+  const bldgRow = bldgVal ? `<div class="nt-cell"><div class="nt-cell-label">BLDG</div><div class="nt-cell-val" style="color:#ffb432">${bldgVal}</div></div>` : '';
+
+  // 상태 아이콘 (매핑된 Task 상태)
+  const statusKey = a.mppTaskId || a.wbsFull || a.id;
+  const st = (window._activityStatusMap || {})[statusKey];
+  const statusRow = st ? `<div class="nt-cell" style="grid-column:1/-1">
+    <div class="nt-cell-label">Task 상태</div>
+    <div class="nt-cell-val" style="font-size:11px;display:flex;gap:8px">
+      <span>●<span style="color:var(--text-dim)">${st.total||0}</span></span>
+      <span style="color:#3dd68c">●<span>${st.onTrack||0}</span></span>
+      <span style="color:#ff4d4d">●<span>${st.delayed||0}</span></span>
+    </div>
+  </div>` : '';
+
+  // 진도율 (실적/계획)
+  const progressRow = st ? `<div class="nt-cell" style="grid-column:1/-1">
+    <div class="nt-cell-label">진도율</div>
+    <div class="nt-cell-val" style="font-size:11px">
+      실적 <span style="color:#4da6ff;font-weight:700">${st.actual??'-'}%</span> / 계획 <span style="color:#7a8ba0">${st.planned??'-'}%</span>
+    </div>
+  </div>` : '';
+
+  // MPP 진행률
+  const mppRow = (a.progress !== null && a.progress !== undefined)
+    ? `<div class="nt-cell"><div class="nt-cell-label">MPP 진행률</div><div class="nt-cell-val">${a.progress}%</div></div>` : '';
+
   document.getElementById('ntCard').innerHTML = `
     <div class="nt-top">
       <div class="nt-id-row">
         <span class="nt-id" style="background:${accentColor}20;color:${accentColor}">${a.mppTaskId?'#'+a.mppTaskId:actId}</span>
         <span class="nt-wbs">${a.wbsFull||a.wbs||''}</span>
+        ${bldgVal ? `<span style="font-size:10px;color:#ffb432;background:rgba(255,180,50,.15);padding:1px 5px;border-radius:4px">${bldgVal}</span>` : ''}
       </div>
       <div class="nt-name">${a.name||'(미입력)'}</div>
     </div>
@@ -1694,6 +1723,10 @@ function showNodeTooltip(e, actId) {
         <div class="nt-cell-val" style="color:${tfColor}">${a.tf??'-'}일</div>
       </div>
       ${dateRow}
+      ${mppRow}
+      ${bldgRow}
+      ${statusRow}
+      ${progressRow}
     </div>
     <div class="nt-footer">
       <span style="color:#5a7a9a;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
