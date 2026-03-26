@@ -2737,6 +2737,7 @@ function loadFromStorage() {
     idCounter            = data.idCounter || activities.length + 1;
     window._wbsNames     = data.wbsNames || {};
     window._activeWbsFilter = data.wbsFilter ? new Set(Array.isArray(data.wbsFilter) ? data.wbsFilter : [data.wbsFilter]) : null;
+    window._activeBldgFilter = data.bldgFilter ? new Set(Array.isArray(data.bldgFilter) ? data.bldgFilter : [data.bldgFilter]) : null;
     if (data.projStart)  window._projStart = new Date(data.projStart);
 
     const saved = new Date(data.savedAt);
