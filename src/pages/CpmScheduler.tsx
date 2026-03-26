@@ -3,8 +3,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
 import { SnapshotManager } from "@/components/cpm/SnapshotManager";
+import { OrphanResolutionDialog, OrphanActivity } from "@/components/cpm/OrphanResolutionDialog";
 import { calcPlannedProgress } from "@/lib/mockData";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { toast } from "sonner";
 
 interface ActivityStatus {
   activityKey: string;
@@ -24,9 +26,11 @@ const getActivityStatusKey = (activity: {
 const CpmScheduler = () => {
   const [selectedActivity, setSelectedActivity] = useState<CpmActivity | null>(null);
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
+  const [orphansToResolve, setOrphansToResolve] = useState<OrphanActivity[]>([]);
+  const [newActivityList, setNewActivityList] = useState<{ id: string; name: string; wbs_full: string | null }[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const queryClient = useQueryClient();
-  const { isAdminOrPm } = useAuthContext();
+  const { isAdminOrPm, memberName } = useAuthContext();
 
   // Send activity status data to iframe
   const sendStatusToIframe = useCallback(async () => {
@@ -159,10 +163,12 @@ const CpmScheduler = () => {
     iframeRef.current.contentWindow.postMessage({ type: "request-snapshot" }, "*");
   }, []);
 
-  // Upsert activities to DB when CPM calculates
+  // Upsert activities to DB when CPM calculates — with auto-migration + orphan resolution
   const upsertActivities = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
+    const currentUserName = memberName || "System";
     
+    // === Step 1: Upsert ===
     const rows = activities.map((a) => ({
       mpp_uid: a.mppUid,
       mpp_task_id: a.mppTaskId,
@@ -182,7 +188,7 @@ const CpmScheduler = () => {
       .from("cpm_activities")
       .upsert(rows, { onConflict: "mpp_task_id,wbs_full" });
 
-    // --- Orphan cleanup: delete DB activities not in current XML ---
+    // === Step 2: Identify orphans ===
     const validKeys = new Set(
       activities
         .filter((a) => a.mppTaskId && a.wbsFull)
@@ -191,36 +197,118 @@ const CpmScheduler = () => {
 
     const { data: allDbActivities } = await supabase
       .from("cpm_activities")
-      .select("id, mpp_task_id, wbs_full");
+      .select("id, name, mpp_task_id, wbs_full");
 
-    if (allDbActivities?.length) {
-      const orphanIds = allDbActivities
-        .filter((db) => {
-          if (!db.mpp_task_id || !db.wbs_full) return false; // keep legacy/manual entries
-          return !validKeys.has(`${db.mpp_task_id}::${db.wbs_full}`);
-        })
-        .map((db) => db.id);
+    if (!allDbActivities?.length) {
+      queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+      setTimeout(() => sendStatusToIframe(), 500);
+      return;
+    }
 
-      if (orphanIds.length) {
-        // Delete orphan mappings first (FK constraint)
+    const orphanDbActivities = allDbActivities.filter((db) => {
+      if (!db.mpp_task_id || !db.wbs_full) return false;
+      return !validKeys.has(`${db.mpp_task_id}::${db.wbs_full}`);
+    });
+
+    if (!orphanDbActivities.length) {
+      queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+      setTimeout(() => sendStatusToIframe(), 500);
+      return;
+    }
+
+    // Get mappings for orphans
+    const orphanIds = orphanDbActivities.map((o) => o.id);
+    const { data: orphanMappings } = await supabase
+      .from("cpm_task_mappings")
+      .select("activity_id, task_id")
+      .in("activity_id", orphanIds);
+
+    const orphanMappingMap = new Map<string, string[]>();
+    (orphanMappings || []).forEach((m) => {
+      if (!orphanMappingMap.has(m.activity_id)) orphanMappingMap.set(m.activity_id, []);
+      orphanMappingMap.get(m.activity_id)!.push(m.task_id);
+    });
+
+    // Build name→new activity id lookup (from current DB, excluding orphans)
+    const orphanIdSet = new Set(orphanIds);
+    const newActivitiesDb = allDbActivities.filter((a) => !orphanIdSet.has(a.id));
+    const nameToNewActivity = new Map<string, { id: string; name: string; wbs_full: string | null }>();
+    newActivitiesDb.forEach((a) => {
+      if (!nameToNewActivity.has(a.name)) {
+        nameToNewActivity.set(a.name, { id: a.id, name: a.name, wbs_full: a.wbs_full });
+      }
+    });
+
+    // === Step 3: Auto-migrate by name match ===
+    const unmatchedOrphans: OrphanActivity[] = [];
+    let autoMigratedCount = 0;
+
+    for (const orphan of orphanDbActivities) {
+      const taskIds = orphanMappingMap.get(orphan.id) || [];
+
+      if (taskIds.length === 0) {
+        // No mappings — delete silently
+        await supabase.from("cpm_activities").delete().eq("id", orphan.id);
+        await supabase.from("activity_log").insert({
+          action: "cpm_activity_deleted",
+          entity_type: "cpm_activity",
+          entity_id: orphan.id,
+          user_name: currentUserName,
+          details: { name: orphan.name, wbs_full: orphan.wbs_full, mpp_task_id: orphan.mpp_task_id, resolution: "auto_deleted_no_mappings" },
+        });
+        continue;
+      }
+
+      const match = nameToNewActivity.get(orphan.name);
+      if (match) {
+        // Auto-migrate mappings
         await supabase
           .from("cpm_task_mappings")
-          .delete()
-          .in("activity_id", orphanIds);
-
-        // Delete orphan activities
-        await supabase
-          .from("cpm_activities")
-          .delete()
-          .in("id", orphanIds);
-
-        console.log(`[CPM] Cleaned ${orphanIds.length} orphan activities`);
+          .update({ activity_id: match.id })
+          .eq("activity_id", orphan.id);
+        await supabase.from("cpm_activities").delete().eq("id", orphan.id);
+        await supabase.from("activity_log").insert({
+          action: "cpm_activity_deleted",
+          entity_type: "cpm_activity",
+          entity_id: orphan.id,
+          user_name: currentUserName,
+          details: {
+            name: orphan.name,
+            wbs_full: orphan.wbs_full,
+            mpp_task_id: orphan.mpp_task_id,
+            migrated_to: match.id,
+            migrated_task_ids: taskIds,
+            resolution: "auto_migrated",
+          },
+        });
+        autoMigratedCount++;
+      } else {
+        // Need manual resolution
+        unmatchedOrphans.push({
+          id: orphan.id,
+          name: orphan.name,
+          wbs_full: orphan.wbs_full,
+          mpp_task_id: orphan.mpp_task_id,
+          mappedTaskCount: taskIds.length,
+          mappedTaskIds: taskIds,
+        });
       }
+    }
+
+    if (autoMigratedCount > 0) {
+      toast.success(`${autoMigratedCount}개 Activity 매핑이 자동 이전되었습니다`);
+    }
+
+    // === Step 4: Show dialog for unmatched orphans ===
+    if (unmatchedOrphans.length > 0) {
+      toast.info(`${unmatchedOrphans.length}개 Activity의 매핑을 확인해주세요`);
+      setNewActivityList(newActivitiesDb.map((a) => ({ id: a.id, name: a.name, wbs_full: a.wbs_full })));
+      setOrphansToResolve(unmatchedOrphans);
     }
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
     setTimeout(() => sendStatusToIframe(), 500);
-  }, [queryClient, sendStatusToIframe]);
+  }, [queryClient, sendStatusToIframe, memberName]);
 
   // Listen for messages from iframe
   useEffect(() => {
@@ -242,7 +330,6 @@ const CpmScheduler = () => {
       if (e.data.type === "request-db-snapshot") {
         loadSnapshotFromDb();
       }
-      // Response to "request-snapshot" — current iframe state for manual save
       if (e.data.type === "snapshot-current") {
         setPendingSnapshot(e.data.snapshot);
       }
@@ -251,6 +338,13 @@ const CpmScheduler = () => {
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [upsertActivities, saveSnapshotToDb, loadSnapshotFromDb, isAdminOrPm]);
+
+  const handleOrphanResolutionComplete = useCallback(() => {
+    setOrphansToResolve([]);
+    setNewActivityList([]);
+    queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+    sendStatusToIframe();
+  }, [queryClient, sendStatusToIframe]);
 
   return (
     <div className="h-full w-full flex flex-col relative">
@@ -291,6 +385,16 @@ const CpmScheduler = () => {
           </div>
         )}
       </div>
+
+      {/* Orphan Resolution Dialog */}
+      {orphansToResolve.length > 0 && (
+        <OrphanResolutionDialog
+          orphans={orphansToResolve}
+          newActivities={newActivityList}
+          userName={memberName || "System"}
+          onComplete={handleOrphanResolutionComplete}
+        />
+      )}
     </div>
   );
 };
