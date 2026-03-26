@@ -183,7 +183,7 @@ export function SnapshotManager({
                 <div
                   key={snap.id}
                   className="group flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5 hover:bg-muted/60 transition-colors cursor-pointer"
-                  onClick={() => handleLoad(snap)}
+                  onClick={() => isAdminOrPm && handleLoad(snap)}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate flex items-center gap-1.5">
