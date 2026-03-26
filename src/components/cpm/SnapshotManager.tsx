@@ -145,8 +145,8 @@ export function SnapshotManager({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Save new — Admin only */}
-        {isAdmin && (
+        {/* Save new — Admin/PM only */}
+        {isAdminOrPm && (
           <div className="flex gap-2">
             <Input
               placeholder="스냅샷 이름 입력..."
