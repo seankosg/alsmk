@@ -208,7 +208,7 @@ const MyDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span className="text-3xl font-bold font-mono">{avgPlanned}%</span>
+            <span className="text-3xl font-bold font-mono text-muted-foreground">{avgPlanned}%</span>
           </CardContent>
         </Card>
 
