@@ -58,6 +58,8 @@ export function CriticalIssueBoard() {
     return members.find(m => m.id === id)?.name ?? "Unknown";
   };
 
+  const getTeamCode = (teamId: string) => teams.find(t => t.id === teamId)?.code ?? "";
+
   const issues = tasks
     .filter(t => t.issue_flag !== "normal")
     .sort((a, b) => (a.issue_flag === "critical" ? -1 : 1));
