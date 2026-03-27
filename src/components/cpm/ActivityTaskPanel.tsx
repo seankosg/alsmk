@@ -187,7 +187,6 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
 
   const GapBadge = ({ gap }: { gap: number }) => {
     if (gap >= 0) return <span className="text-xs font-mono font-semibold text-success">✓</span>;
-    if (gap > -10) return <span className="text-xs font-mono font-semibold text-warning">⚠ {gap}%</span>;
     return <span className="text-xs font-mono font-semibold text-destructive">🔴 {gap}%</span>;
   };
 
