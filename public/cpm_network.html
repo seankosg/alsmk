@@ -1680,9 +1680,9 @@ function showNodeTooltip(e, actId) {
   const bldgVal = (a.customFields && (a.customFields.BLDG || a.customFields.Text2 || a.customFields['텍스트2'])) || '';
   const bldgRow = bldgVal ? `<div class="nt-cell"><div class="nt-cell-label">BLDG</div><div class="nt-cell-val" style="color:#ffb432">${bldgVal}</div></div>` : '';
 
-  // 상태 아이콘 (매핑된 Task 상태)
-  const statusKey = a.mppTaskId || a.wbsFull || a.id;
-  const st = (window._activityStatusMap || {})[statusKey];
+  // 상태 아이콘 (매핑된 Task 상태) — use same key as network node
+  const tooltipStatusKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
+  const st = (window._activityStatusMap || {})[tooltipStatusKey];
   const statusRow = st ? `<div class="nt-cell" style="grid-column:1/-1">
     <div class="nt-cell-label">Task 상태</div>
     <div class="nt-cell-val" style="font-size:11px;display:flex;gap:8px">
