@@ -468,16 +468,16 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
                         <div className="flex items-center gap-2 text-xs">
                           <span className="text-muted-foreground">실적</span>
                           <Progress value={task.current_progress} className="flex-1 h-1.5" />
-                          <span className="font-mono font-semibold">{task.current_progress}%</span>
+                          <span className="font-mono font-semibold text-primary">{task.current_progress}%</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           <span className="text-muted-foreground">계획</span>
-                          <Progress value={planned} className="flex-1 h-1.5" />
-                          <span className="font-mono font-semibold">{planned}%</span>
+                          <Progress value={planned} className="flex-1 h-1.5 [&>div]:bg-muted-foreground" />
+                          <span className="font-mono font-semibold text-muted-foreground">{planned}%</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs">
                           <span className="text-muted-foreground">GAP</span>
-                          <span className={`font-mono font-semibold ${tGap >= 0 ? 'text-success' : tGap > -10 ? 'text-warning' : 'text-destructive'}`}>
+                          <span className={`font-mono font-semibold ${tGap >= 0 ? 'text-success' : 'text-destructive'}`}>
                             {tGap > 0 ? '+' : ''}{tGap}%
                           </span>
                         </div>
