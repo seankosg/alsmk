@@ -1680,9 +1680,9 @@ function showNodeTooltip(e, actId) {
   const bldgVal = (a.customFields && (a.customFields.BLDG || a.customFields.Text2 || a.customFields['텍스트2'])) || '';
   const bldgRow = bldgVal ? `<div class="nt-cell"><div class="nt-cell-label">BLDG</div><div class="nt-cell-val" style="color:#ffb432">${bldgVal}</div></div>` : '';
 
-  // 상태 아이콘 (매핑된 Task 상태)
-  const statusKey = a.mppTaskId || a.wbsFull || a.id;
-  const st = (window._activityStatusMap || {})[statusKey];
+  // 상태 아이콘 (매핑된 Task 상태) — use same key as network node
+  const tooltipStatusKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
+  const st = (window._activityStatusMap || {})[tooltipStatusKey];
   const statusRow = st ? `<div class="nt-cell" style="grid-column:1/-1">
     <div class="nt-cell-label">Task 상태</div>
     <div class="nt-cell-val" style="font-size:11px;display:flex;gap:8px">
@@ -2850,25 +2850,37 @@ function loadFromStorage() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
-// localStorage에 저장된 데이터가 있으면 복원, 없으면 부모에게 DB 스냅샷 요청
-const restored = loadFromStorage();
-if (restored) {
-  // 복원된 데이터로 계산 재실행
-  calculated = false;
-  calculate(true);
-} else if (window.parent !== window) {
-  // localStorage 없음 → 부모(React)에 DB 스냅샷 요청
-  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
-  // 로딩 오버레이 표시 (샘플 데이터 대신 대기)
+// Always wait for parent React to send cpm-hydrate (DB-centric flow).
+// localStorage is only used as a fast preview while waiting.
+if (window.parent !== window) {
+  // Show loading overlay — parent will send cpm-hydrate
   document.getElementById('loadingOverlay').style.display = 'flex';
+  // Fallback: if parent doesn't hydrate within 12s, try localStorage then sample
   window._dbLoadTimeout = setTimeout(() => {
     document.getElementById('loadingOverlay').style.display = 'none';
-    if (!calculated) { loadSample(); calculate(true); }
-  }, 10000);
+    if (!calculated) {
+      const localRestored = loadFromStorage();
+      if (localRestored) {
+        calculated = false;
+        calculate(true);
+      } else {
+        loadSample();
+        calculate(true);
+      }
+    }
+  }, 12000);
+  // Also notify parent we're ready (legacy compatibility)
+  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
 } else {
-  // 샘플 데이터 로드 + 계산
-  loadSample();
-  calculate();
+  // Standalone mode (not in iframe)
+  const restored = loadFromStorage();
+  if (restored) {
+    calculated = false;
+    calculate(true);
+  } else {
+    loadSample();
+    calculate();
+  }
 }
 
 // ─── postMessage Bridge ──────────────────────────────────────────
@@ -2965,7 +2977,8 @@ function buildActivityPayload(a) {
     isMilestone: a.isMilestone || false,
     startDate: a.startDate ? fmtDate(a.startDate) : null,
     finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
-    es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
+    es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
+    customFields: a.customFields || {}
   };
 }
 
@@ -3047,7 +3060,81 @@ window.addEventListener('message', function(e) {
     var vl = document.getElementById('versionLabel');
     if (vl) vl.textContent = 'v: ' + snapName + (snapTime ? ' (' + snapTime + ')' : '');
   }
-  // DB cpm_activities에서 누락된 customFields 보충
+  // ─── Unified Hydrate: snapshot + customFields + statuses in one shot ───
+  if (e.data.type === 'cpm-hydrate') {
+    console.log('[CPM] Received cpm-hydrate');
+    if (window._dbLoadTimeout) { clearTimeout(window._dbLoadTimeout); window._dbLoadTimeout = null; }
+    document.getElementById('loadingOverlay').style.display = 'none';
+
+    // 1. Restore snapshot (graph structure)
+    var snap = e.data.snapshot;
+    if (snap && snap.activities && snap.activities.length) {
+      _restoreSnapshot(snap);
+      calculated = false;
+    }
+
+    // 2. Patch customFields from DB (always overwrite — DB is source of truth)
+    var cfMap = e.data.customFieldsMap;
+    if (cfMap && activities.length) {
+      var cfPatched = 0;
+      activities.forEach(function(a) {
+        var key = (a.mppTaskId || '') + '::' + (a.wbsFull || '');
+        if (cfMap[key]) {
+          a.customFields = cfMap[key];
+          cfPatched++;
+        }
+      });
+      if (cfPatched > 0) console.log('[CPM] Hydrate: patched customFields for ' + cfPatched + ' activities');
+    }
+
+    // 3. Set activity status map BEFORE calculate/render
+    window._activityStatusMap = {};
+    (e.data.statuses || []).forEach(function(s) {
+      window._activityStatusMap[s.activityKey] = s;
+    });
+
+    // 4. Calculate and render (statuses will be available for first render)
+    if (activities.length > 0) {
+      calculate(true);
+    } else {
+      loadSample();
+      calculate(true);
+    }
+
+    // 5. Update version label
+    var ver = e.data.version || {};
+    window._currentVersion = { source: ver.source || 'db', name: ver.name || 'DB', time: ver.time || '' };
+    var vl = document.getElementById('versionLabel');
+    if (vl) vl.textContent = 'v: ' + (ver.name || 'DB') + (ver.time ? ' (' + ver.time + ')' : '');
+
+    return;
+  }
+  // ─── Lightweight status refresh (no snapshot restore) ───
+  if (e.data.type === 'cpm-status-refresh') {
+    // Update status map
+    window._activityStatusMap = {};
+    (e.data.statuses || []).forEach(function(s) {
+      window._activityStatusMap[s.activityKey] = s;
+    });
+    // Patch customFields if provided
+    var cfm = e.data.customFieldsMap;
+    if (cfm && activities.length) {
+      activities.forEach(function(a) {
+        var key = (a.mppTaskId || '') + '::' + (a.wbsFull || '');
+        if (cfm[key]) a.customFields = cfm[key];
+      });
+    }
+    // Re-render network with updated statuses
+    if (calculated && activities.length > 0) {
+      var sMap = {};
+      activities.forEach(function(a) { sMap[a.id] = a; });
+      var sOrder = getOrder(sMap);
+      var sProjEnd = Math.max.apply(null, activities.map(function(a) { return a.ef || 0; }));
+      drawNetwork(sOrder, sMap, sProjEnd, window._activeWbsFilter || null, window._activeBldgFilter || null);
+    }
+    return;
+  }
+  // DB cpm_activities에서 누락된 customFields 보충 (legacy compatibility)
   if (e.data.type === 'patch-custom-fields') {
     var fm = e.data.fieldMap;
     if (!fm || !activities.length) return;
