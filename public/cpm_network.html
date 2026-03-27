@@ -2977,7 +2977,8 @@ function buildActivityPayload(a) {
     isMilestone: a.isMilestone || false,
     startDate: a.startDate ? fmtDate(a.startDate) : null,
     finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
-    es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf
+    es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
+    customFields: a.customFields || {}
   };
 }
 
