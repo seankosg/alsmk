@@ -113,35 +113,52 @@ export function OverdueTasksBoard() {
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-1 space-y-1.5 pl-1">
-                    {teamTasks.map((t) => (
-                      <div
-                        key={t.id}
-                        onClick={() => setSelectedTask(t)}
-                        className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/30 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-colors"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <code className="text-xs text-muted-foreground">{t.task_code}</code>
-                            {t.issue_flag !== "normal" && (
-                              <Badge variant={t.issue_flag === "critical" ? "destructive" : "outline"} className={t.issue_flag === "warning" ? "border-warning text-warning" : ""}>
-                                {t.issue_flag}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-baseline gap-2 min-w-0">
-                            <p className="text-sm font-medium truncate shrink-0 max-w-[40%]">{t.title}</p>
-                            {t.action_plan && (
-                              <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{t.action_plan}</p>
-                            )}
-                            <span className="text-xs text-muted-foreground shrink-0 ml-auto">{getMemberName(t.assignee_id)}</span>
+                    {teamTasks.map((t) => {
+                      const isHighRisk = t.overdueDays > 7;
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => setSelectedTask(t)}
+                          className={`rounded-lg border p-3 transition-colors cursor-pointer hover:ring-1 hover:ring-primary/40 ${
+                            isHighRisk ? "border-destructive/40 bg-destructive/5" : "border-border bg-card"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <code className="text-xs text-muted-foreground">{getTeamCode(t.team_id)} · {t.task_code ?? "—"}</code>
+                                {t.issue_flag !== "normal" && (
+                                  <Badge variant={t.issue_flag === "critical" ? "destructive" : "outline"} className={t.issue_flag === "warning" ? "border-warning text-warning" : ""}>
+                                    {t.issue_flag}
+                                  </Badge>
+                                )}
+                                {isHighRisk && <AlertTriangle className="h-3 w-3 text-destructive" />}
+                              </div>
+                              <div className="flex items-baseline gap-2 min-w-0">
+                                <p className="text-sm font-medium truncate shrink-0 max-w-[40%]">{t.title}</p>
+                                {t.action_plan && (
+                                  <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{t.action_plan}</p>
+                                )}
+                                <span className="text-xs text-muted-foreground shrink-0 ml-auto">{getMemberName(t.assignee_id)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Progress
+                                  value={t.current_progress}
+                                  className="h-1.5 flex-1 [&>div]:bg-primary"
+                                />
+                                <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">
+                                  {t.current_progress}%
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-sm font-mono font-bold text-destructive">D+{t.overdueDays}</span>
+                              <p className="text-[10px] text-muted-foreground">Progress {t.current_progress}%</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-sm font-mono font-bold text-destructive">D+{t.overdueDays}</span>
-                          <p className="text-[10px] text-muted-foreground">Progress {t.current_progress}%</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </CollapsibleContent>
                 </Collapsible>
               ))}

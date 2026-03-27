@@ -83,35 +83,49 @@ export function CriticalIssueBoard() {
               {issues.map((task) => {
                 const planned = calcPlannedProgress(task.start_date, task.end_date);
                 const gap = task.current_progress - planned;
+                const isCritical = task.issue_flag === "critical";
                 return (
                   <div
                     key={task.id}
                     onClick={() => setSelectedTask(task)}
-                    className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-colors"
+                    className={`rounded-lg border p-3 transition-colors cursor-pointer hover:ring-1 hover:ring-primary/40 ${
+                      isCritical ? "border-destructive/40 bg-destructive/5" : "border-border bg-card"
+                    }`}
                   >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <code className="text-xs text-muted-foreground">{task.task_code}</code>
-                        <Badge variant={task.issue_flag === "critical" ? "destructive" : "outline"} className={task.issue_flag === "warning" ? "border-warning text-warning" : ""}>
-                          {task.issue_flag}
-                        </Badge>
-                      </div>
-                      <div className="flex items-baseline gap-2 min-w-0">
-                        <p className="text-sm font-medium truncate shrink-0 max-w-[40%]">{task.title}</p>
-                        {task.action_plan && (
-                          <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{task.action_plan}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <code className="text-xs text-muted-foreground">{getTeamCode(task.team_id)} · {task.task_code ?? "—"}</code>
+                          <Badge variant={isCritical ? "destructive" : "outline"} className={task.issue_flag === "warning" ? "border-warning text-warning" : ""}>
+                            {task.issue_flag}
+                          </Badge>
+                        </div>
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <p className="text-sm font-medium truncate shrink-0 max-w-[40%]">{task.title}</p>
+                          {task.action_plan && (
+                            <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{task.action_plan}</p>
+                          )}
+                          <span className="text-xs text-muted-foreground shrink-0 ml-auto">{getMemberName(task.assignee_id)}</span>
+                        </div>
+                        {task.issue_description && (
+                          <p className="text-xs text-muted-foreground mt-1 italic">{task.issue_description}</p>
                         )}
-                        <span className="text-xs text-muted-foreground shrink-0 ml-auto">{getMemberName(task.assignee_id)}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Progress
+                            value={task.current_progress}
+                            className="h-1.5 flex-1 [&>div]:bg-primary"
+                          />
+                          <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">
+                            {task.current_progress}%
+                          </span>
+                        </div>
                       </div>
-                      {task.issue_description && (
-                        <p className="text-xs text-muted-foreground mt-1 italic">{task.issue_description}</p>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className={`text-sm font-mono font-bold ${gap >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                        {gap >= 0 ? '+' : ''}{gap}%
-                      </span>
-                      <p className="text-[10px] text-muted-foreground">Gap</p>
+                      <div className="text-right shrink-0">
+                        <span className={`text-sm font-mono font-bold ${gap >= 0 ? 'text-success' : 'text-destructive'}`}>
+                          {gap >= 0 ? '+' : ''}{gap}%
+                        </span>
+                        <p className="text-[10px] text-muted-foreground">Plan {planned}% / Actual {task.current_progress}%</p>
+                      </div>
                     </div>
                   </div>
                 );
