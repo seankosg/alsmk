@@ -208,7 +208,7 @@ const MyDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span className="text-3xl font-bold font-mono">{avgPlanned}%</span>
+            <span className="text-3xl font-bold font-mono text-muted-foreground">{avgPlanned}%</span>
           </CardContent>
         </Card>
 
@@ -219,7 +219,7 @@ const MyDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span className="text-3xl font-bold font-mono">{avgActual}%</span>
+            <span className="text-3xl font-bold font-mono text-primary">{avgActual}%</span>
           </CardContent>
         </Card>
 
@@ -230,7 +230,7 @@ const MyDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span className={`text-3xl font-bold font-mono ${avgGap < 0 ? "text-destructive" : avgGap > 0 ? "text-success" : "text-muted-foreground"}`}>
+            <span className={`text-3xl font-bold font-mono ${avgGap < 0 ? "text-destructive" : "text-success"}`}>
               {avgGap > 0 ? "+" : ""}{avgGap}%
             </span>
           </CardContent>

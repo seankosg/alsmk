@@ -187,7 +187,6 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
 
   const GapBadge = ({ gap }: { gap: number }) => {
     if (gap >= 0) return <span className="text-xs font-mono font-semibold text-success">✓</span>;
-    if (gap > -10) return <span className="text-xs font-mono font-semibold text-warning">⚠ {gap}%</span>;
     return <span className="text-xs font-mono font-semibold text-destructive">🔴 {gap}%</span>;
   };
 
@@ -336,7 +335,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-muted rounded p-2">
             <div className="text-xs text-muted-foreground">GAP</div>
-            <div className={`text-sm font-mono font-bold ${overallStats.gap >= 0 ? 'text-success' : overallStats.gap > -10 ? 'text-warning' : 'text-destructive'}`}>
+            <div className={`text-sm font-mono font-bold ${overallStats.gap >= 0 ? 'text-success' : 'text-destructive'}`}>
               {mappedTasks.length ? `${overallStats.gap > 0 ? '+' : ''}${overallStats.gap}%` : '-'}
             </div>
           </div>
