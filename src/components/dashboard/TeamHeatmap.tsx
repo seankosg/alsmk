@@ -73,7 +73,6 @@ export function TeamHeatmap() {
 
   const getGapColor = (avgGap: number) => {
     if (avgGap >= 0) return "bg-success/20 border-success/40 text-success";
-    if (avgGap >= -10) return "bg-warning/20 border-warning/40 text-warning";
     return "bg-destructive/20 border-destructive/40 text-destructive";
   };
 

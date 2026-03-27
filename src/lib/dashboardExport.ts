@@ -211,7 +211,7 @@ export async function exportDashboardPptxWithCaptures(selectedSections: string[]
       { text: `${completed}`, options: { fontSize: 24, bold: true, color: GREEN, align: "center" } },
       { text: `${inProgress}`, options: { fontSize: 24, bold: true, color: BLUE, align: "center" } },
       { text: `${notStarted}`, options: { fontSize: 24, bold: true, color: "999999", align: "center" } },
-      { text: `${avgPlanned}%`, options: { fontSize: 24, bold: true, color: AMBER, align: "center" } },
+      { text: `${avgPlanned}%`, options: { fontSize: 24, bold: true, color: "999999", align: "center" } },
       { text: `${avgActual}%`, options: { fontSize: 24, bold: true, color: BLUE, align: "center" } },
       { text: `${gap > 0 ? "+" : ""}${gap}%p`, options: { fontSize: 24, bold: true, color: gap >= 0 ? GREEN : RED, align: "center" } },
     ],

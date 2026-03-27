@@ -103,7 +103,7 @@ export function ProjectHUD() {
           <div className="mt-1 flex flex-col items-center gap-0.5 text-[10px]">
             <div className="flex items-center gap-3 text-muted-foreground">
               <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(215, 80%, 55%)" }} />Actual {avgProgress}%</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(38, 90%, 50%)" }} />Plan {avgPlanned}%</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: "hsl(var(--muted-foreground))" }} />Plan {avgPlanned}%</span>
             </div>
           </div>
         </CardContent>

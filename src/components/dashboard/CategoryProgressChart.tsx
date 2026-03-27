@@ -173,10 +173,10 @@ export function CategoryProgressChart() {
                   radius={[4, 4, 0, 0]}
                   name="Actual"
                 >
-                  {chartData.map((entry, index) => (
+                  {chartData.map((_, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={entry.actual >= entry.planned ? "hsl(var(--primary))" : "hsl(var(--destructive))"}
+                      fill="hsl(var(--primary))"
                     />
                   ))}
                   <LabelList dataKey="actual" content={renderActualLabel} />
