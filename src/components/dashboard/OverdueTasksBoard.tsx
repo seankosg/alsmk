@@ -64,6 +64,8 @@ export function OverdueTasksBoard() {
     return members.find(m => m.id === id)?.name ?? "Unknown";
   };
 
+  const getTeamCode = (teamId: string) => teams.find(t => t.id === teamId)?.code ?? "";
+
   const overdueTasks = tasks
     .filter(t => {
       const end = parseLocalDate(t.end_date);
