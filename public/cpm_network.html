@@ -2850,25 +2850,37 @@ function loadFromStorage() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
-// localStorage에 저장된 데이터가 있으면 복원, 없으면 부모에게 DB 스냅샷 요청
-const restored = loadFromStorage();
-if (restored) {
-  // 복원된 데이터로 계산 재실행
-  calculated = false;
-  calculate(true);
-} else if (window.parent !== window) {
-  // localStorage 없음 → 부모(React)에 DB 스냅샷 요청
-  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
-  // 로딩 오버레이 표시 (샘플 데이터 대신 대기)
+// Always wait for parent React to send cpm-hydrate (DB-centric flow).
+// localStorage is only used as a fast preview while waiting.
+if (window.parent !== window) {
+  // Show loading overlay — parent will send cpm-hydrate
   document.getElementById('loadingOverlay').style.display = 'flex';
+  // Fallback: if parent doesn't hydrate within 12s, try localStorage then sample
   window._dbLoadTimeout = setTimeout(() => {
     document.getElementById('loadingOverlay').style.display = 'none';
-    if (!calculated) { loadSample(); calculate(true); }
-  }, 10000);
+    if (!calculated) {
+      const localRestored = loadFromStorage();
+      if (localRestored) {
+        calculated = false;
+        calculate(true);
+      } else {
+        loadSample();
+        calculate(true);
+      }
+    }
+  }, 12000);
+  // Also notify parent we're ready (legacy compatibility)
+  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
 } else {
-  // 샘플 데이터 로드 + 계산
-  loadSample();
-  calculate();
+  // Standalone mode (not in iframe)
+  const restored = loadFromStorage();
+  if (restored) {
+    calculated = false;
+    calculate(true);
+  } else {
+    loadSample();
+    calculate();
+  }
 }
 
 // ─── postMessage Bridge ──────────────────────────────────────────
