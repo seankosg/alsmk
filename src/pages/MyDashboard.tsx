@@ -219,7 +219,7 @@ const MyDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span className="text-3xl font-bold font-mono">{avgActual}%</span>
+            <span className="text-3xl font-bold font-mono text-primary">{avgActual}%</span>
           </CardContent>
         </Card>
 
