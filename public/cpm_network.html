@@ -3060,7 +3060,81 @@ window.addEventListener('message', function(e) {
     var vl = document.getElementById('versionLabel');
     if (vl) vl.textContent = 'v: ' + snapName + (snapTime ? ' (' + snapTime + ')' : '');
   }
-  // DB cpm_activities에서 누락된 customFields 보충
+  // ─── Unified Hydrate: snapshot + customFields + statuses in one shot ───
+  if (e.data.type === 'cpm-hydrate') {
+    console.log('[CPM] Received cpm-hydrate');
+    if (window._dbLoadTimeout) { clearTimeout(window._dbLoadTimeout); window._dbLoadTimeout = null; }
+    document.getElementById('loadingOverlay').style.display = 'none';
+
+    // 1. Restore snapshot (graph structure)
+    var snap = e.data.snapshot;
+    if (snap && snap.activities && snap.activities.length) {
+      _restoreSnapshot(snap);
+      calculated = false;
+    }
+
+    // 2. Patch customFields from DB (always overwrite — DB is source of truth)
+    var cfMap = e.data.customFieldsMap;
+    if (cfMap && activities.length) {
+      var cfPatched = 0;
+      activities.forEach(function(a) {
+        var key = (a.mppTaskId || '') + '::' + (a.wbsFull || '');
+        if (cfMap[key]) {
+          a.customFields = cfMap[key];
+          cfPatched++;
+        }
+      });
+      if (cfPatched > 0) console.log('[CPM] Hydrate: patched customFields for ' + cfPatched + ' activities');
+    }
+
+    // 3. Set activity status map BEFORE calculate/render
+    window._activityStatusMap = {};
+    (e.data.statuses || []).forEach(function(s) {
+      window._activityStatusMap[s.activityKey] = s;
+    });
+
+    // 4. Calculate and render (statuses will be available for first render)
+    if (activities.length > 0) {
+      calculate(true);
+    } else {
+      loadSample();
+      calculate(true);
+    }
+
+    // 5. Update version label
+    var ver = e.data.version || {};
+    window._currentVersion = { source: ver.source || 'db', name: ver.name || 'DB', time: ver.time || '' };
+    var vl = document.getElementById('versionLabel');
+    if (vl) vl.textContent = 'v: ' + (ver.name || 'DB') + (ver.time ? ' (' + ver.time + ')' : '');
+
+    return;
+  }
+  // ─── Lightweight status refresh (no snapshot restore) ───
+  if (e.data.type === 'cpm-status-refresh') {
+    // Update status map
+    window._activityStatusMap = {};
+    (e.data.statuses || []).forEach(function(s) {
+      window._activityStatusMap[s.activityKey] = s;
+    });
+    // Patch customFields if provided
+    var cfm = e.data.customFieldsMap;
+    if (cfm && activities.length) {
+      activities.forEach(function(a) {
+        var key = (a.mppTaskId || '') + '::' + (a.wbsFull || '');
+        if (cfm[key]) a.customFields = cfm[key];
+      });
+    }
+    // Re-render network with updated statuses
+    if (calculated && activities.length > 0) {
+      var sMap = {};
+      activities.forEach(function(a) { sMap[a.id] = a; });
+      var sOrder = getOrder(sMap);
+      var sProjEnd = Math.max.apply(null, activities.map(function(a) { return a.ef || 0; }));
+      drawNetwork(sOrder, sMap, sProjEnd, window._activeWbsFilter || null, window._activeBldgFilter || null);
+    }
+    return;
+  }
+  // DB cpm_activities에서 누락된 customFields 보충 (legacy compatibility)
   if (e.data.type === 'patch-custom-fields') {
     var fm = e.data.fieldMap;
     if (!fm || !activities.length) return;
