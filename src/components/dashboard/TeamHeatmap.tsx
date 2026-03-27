@@ -83,6 +83,8 @@ export function TeamHeatmap() {
     return members.find(m => m.id === id)?.name ?? "Unknown";
   };
 
+  const getTeamCode = (teamId: string) => teams.find(t => t.id === teamId)?.code ?? "";
+
   // Tasks for selected part drilldown
   const partTasks = selectedPart
     ? tasks
