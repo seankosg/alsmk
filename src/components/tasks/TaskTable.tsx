@@ -408,7 +408,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
