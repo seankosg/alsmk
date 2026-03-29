@@ -40,7 +40,7 @@ export function useCpmViewModel() {
     // 1. Load all activities
     const { data: activities } = await supabase
       .from("cpm_activities")
-      .select("id, name, wbs_full, mpp_task_id, mpp_uid, custom_fields");
+      .select("id, name, wbs_full, mpp_task_id, mpp_uid, custom_fields, finish_date");
     if (!activities?.length) return null;
 
     // 2. Load all mappings
