@@ -91,6 +91,22 @@ export function useCpmViewModel() {
         }
       });
 
+      // Calculate overdue: max task end_date > activity finish_date
+      let overdue = false;
+      let overdueDays = 0;
+      if (act.finish_date && validTasks.length > 0) {
+        const maxTaskEnd = validTasks.reduce((max: Date, t: any) => {
+          const d = new Date(t.end_date);
+          return d > max ? d : max;
+        }, new Date(0));
+        const actFinish = new Date(act.finish_date);
+        const diffDays = Math.round((maxTaskEnd.getTime() - actFinish.getTime()) / 86400000);
+        if (diffDays > 0) {
+          overdue = true;
+          overdueDays = diffDays;
+        }
+      }
+
       return {
         activityKey: getActivityStatusKey(act),
         totalTasks: validTasks.length,
@@ -98,6 +114,8 @@ export function useCpmViewModel() {
         delayed,
         actualPct: totalDur ? Math.round(weightedActual / totalDur) : 0,
         plannedPct: totalDur ? Math.round(weightedPlanned / totalDur) : 0,
+        overdue,
+        overdueDays,
       };
     });
 
