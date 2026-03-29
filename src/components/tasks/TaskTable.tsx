@@ -350,7 +350,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
 
   return (
     <>
-      <Card>
+      <Card className="flex flex-col h-full">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -408,15 +408,15 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : (
-            <div className="overflow-x-auto scrollbar-thin">
+            <div className="overflow-auto scrollbar-thin flex-1 min-h-0">
               <Table className="table-fixed" style={{ minWidth: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow>
                     {[
                       { key: "taskCode", label: "Task Code", align: "" },
