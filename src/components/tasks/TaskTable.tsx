@@ -350,7 +350,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
 
   return (
     <>
-      <Card>
+      <Card className="flex flex-col h-full">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-base flex items-center gap-2">
