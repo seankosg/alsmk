@@ -3120,13 +3120,15 @@ window.addEventListener('message', function(e) {
       window._activityStatusMap[s.activityKey] = s;
     });
 
-    // 4. Calculate and render (statuses will be available for first render)
+    // 4. Calculate and render (suppress postCpmCalculated/postSnapshotSave during hydrate)
+    window._suppressPost = true;
     if (activities.length > 0) {
       calculate(true);
     } else {
       loadSample();
       calculate(true);
     }
+    window._suppressPost = false;
 
     // 5. Update version label
     var ver = e.data.version || {};
