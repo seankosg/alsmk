@@ -2074,6 +2074,7 @@ function parseMSProjectXML(xmlText, fileName) {
   renderSidebar();
   showToast(`✓ "${fileName}" 로드 완료 — ${imported}개 활동 (${skipped}개 제외)`);
   window._currentVersion = { source: 'xml', name: fileName, time: new Date().toLocaleString('ko-KR') };
+  window._isNewImport = true; // Flag for next calculate() → postCpmCalculated will include isNewImport
   var vl = document.getElementById('versionLabel');
   if (vl) vl.textContent = 'v: ' + fileName;
   document.getElementById('uploadZone').querySelector('.upload-label').innerHTML =
