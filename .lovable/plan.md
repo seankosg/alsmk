@@ -1,73 +1,84 @@
 
 
-# Activity Finish Date 초과 Task 알람 구현 계획
+# 매핑된 Task 사라짐 — 근본 원인 분석 결과
 
-## 개념
+## 발견된 원인 3가지
 
-각 CPM Activity 노드의 `finish_date`보다 매핑된 Task 중 가장 늦은 `end_date`가 더 늦은 경우, 해당 Activity가 **일정 초과 위험** 상태임을 알려주는 경고를 표시합니다.
+### 원인 1: `upsertActivities` 의 orphan 삭제 로직 (주요 원인)
 
-## 표시 위치 (3곳)
+`cpm-calculated` 이벤트가 발생할 때마다 `upsertActivities`가 실행됩니다 (admin/PM만). 이 함수는:
 
-### 1. 네트워크 다이어그램 노드 (`public/cpm_network.html`)
-- `ActivityStatus`에 `overdue` boolean + `overdueDays` 숫자를 추가하여 iframe에 전달
-- 노드 렌더링 시 `overdue === true`이면 노드 우측 하단에 `⚠ +N일` 텍스트를 빨간색으로 표시
-- 툴팁(showNodeTooltip)에도 "Task 초과: +N일" 행 추가
+1. iframe의 `activities` 배열을 DB에 upsert
+2. DB에 있지만 iframe에 없는 activity를 "orphan"으로 판정
+3. orphan 중 매핑이 없으면 → **자동 삭제**
+4. orphan 중 이름이 같은 새 activity가 있으면 → **매핑 이전 후 삭제**
 
-### 2. 상세패널 헤더 (`ActivityTaskPanel.tsx`)
-- 매핑된 Task의 `max(end_date)`를 계산하여 Activity `finishDate`와 비교
-- 초과 시 날짜 표시 영역 아래에 경고 배너: `⚠ Task 종료일이 Activity 종료일보다 N일 초과` (destructive 스타일)
+**문제**: `cpm-hydrate` 수신 시 iframe이 `calculate(true)`를 호출 → `postCpmCalculated()` 발생 → parent가 `upsertActivities` 실행. 이 시점에 iframe의 `activities` 배열이 스냅샷 복원 직후라 **customFields 패치 전 상태**일 수 있고, 만약 스냅샷 데이터가 불완전하면 일부 activity가 누락되어 정상 activity가 orphan으로 잘못 판정 → **매핑과 함께 삭제**됩니다.
 
-### 3. Workspace Task 테이블 (선택적 — 추후)
-- CPM 매핑 아이콘 옆에 해당 Task가 속한 Activity의 종료일을 초과하는 경우 추가 표시
+특히 `mpp_task_id`나 `wbs_full`이 null인 activity는 `validKeys` Set에 포함되지 않으므로(`filter((a) => a.mppTaskId && a.wbsFull)`, line 93-94), orphan 검사에서도 제외되긴 하지만, DB 쪽 orphan 검사(`line 110`)에서도 null이면 제외하므로 이 부분은 안전합니다.
 
-## 변경 파일
+**하지만 핵심 문제는**: 매 `calculate()` 호출마다 orphan 검사가 실행되므로, 스냅샷 데이터와 DB 데이터가 미세하게 다르면 (예: 이전 버전 스냅샷이 복원된 경우) **정상 activity가 orphan으로 잘못 삭제**됩니다.
+
+### 원인 2: MapActivitiesDialog의 delete-then-insert 패턴
+
+`MapActivitiesDialog.tsx` (Task → Activity 매핑, line 91):
+```typescript
+await supabase.from("cpm_task_mappings").delete().eq("task_id", taskId);
+// Insert new
+```
+
+`MapTasksDialog.tsx` (Activity → Task 매핑, line 99):
+```typescript
+await supabase.from("cpm_task_mappings").delete().eq("activity_id", activityId);
+// Insert new
+```
+
+**경쟁 조건**: 두 사용자가 동시에 매핑하면, User A의 delete가 User B가 방금 insert한 행을 삭제할 수 있습니다. 특히 MapActivitiesDialog는 `task_id` 기준으로 삭제하므로, 다른 activity에 대한 같은 task의 매핑도 날아갑니다.
+
+### 원인 3: 새 XML 업로드 시 orphan 자동 삭제
+
+새 XML을 업로드하면 activity 목록이 완전히 바뀌고, 이전 activity들이 모두 orphan으로 판정됩니다. 매핑이 없는 orphan은 **확인 없이 자동 삭제**됩니다 (line 148-157).
+
+## 수정 계획
+
+### 1. orphan 삭제를 새 XML 업로드 시에만 실행 (핵심 수정)
+
+현재는 매 `cpm-calculated` 이벤트마다 orphan 검사가 실행됩니다. 이를 **새 XML 파싱 후에만** 실행하도록 변경합니다.
+
+**방법**: iframe이 `cpm-calculated` 메시지에 `isNewImport: true` 플래그를 추가. parent는 이 플래그가 있을 때만 orphan 로직을 실행.
 
 | 파일 | 변경 |
 |------|------|
-| `src/hooks/useCpmViewModel.ts` | `ActivityStatus`에 `overdue`, `overdueDays`, `maxTaskEndDate` 필드 추가. Activity `finish_date` select에 포함. 매핑된 Task `end_date` 최대값과 비교하여 계산 |
-| `public/cpm_network.html` | status 데이터에서 `overdue`/`overdueDays` 읽어 노드에 `⚠ +N일` 표시 + 툴팁에 행 추가 |
-| `src/components/cpm/ActivityTaskPanel.tsx` | `mappedTasks`의 `max(end_date)` vs `activity.finishDate` 비교 → 경고 배너 렌더링 |
+| `public/cpm_network.html` | `postCpmCalculated()`에 `isNewImport` 플래그 추가. XML 파싱 후 calculate 시에만 true |
+| `src/pages/CpmScheduler.tsx` | `upsertActivities`를 2개로 분리: 일반 upsert (orphan 검사 없음) + XML import upsert (orphan 검사 포함) |
 
-## 로직 상세
+### 2. delete-then-insert를 트랜잭션으로 보호
 
-### useCpmViewModel.ts — 상태 계산
+MapTasksDialog와 MapActivitiesDialog의 delete → insert 사이에 다른 사용자의 작업이 끼어들 수 있는 경쟁 조건을 해결합니다.
 
-```typescript
-// ActivityStatus 인터페이스 확장
-overdue: boolean;     // max(task.end_date) > activity.finish_date
-overdueDays: number;  // 초과 일수 (0이면 정상)
+**방법**: RPC 함수로 원자적 매핑 업데이트 구현.
 
-// buildStatusAndCustomFields 내부
-// activities select에 finish_date 추가
-const maxTaskEnd = validTasks.reduce((max, t) => {
-  const d = new Date(t.end_date);
-  return d > max ? d : max;
-}, new Date(0));
+| 파일 | 변경 |
+|------|------|
+| DB migration | `upsert_activity_mappings(activity_id, task_ids[])` 및 `upsert_task_mappings(task_id, activity_ids[])` RPC 함수 생성 |
+| `src/components/cpm/MapTasksDialog.tsx` | delete+insert → RPC 호출로 변경 |
+| `src/components/cpm/MapActivitiesDialog.tsx` | delete+insert → RPC 호출로 변경 |
 
-const actFinish = act.finish_date ? new Date(act.finish_date) : null;
-const overdueDays = (actFinish && validTasks.length)
-  ? Math.max(0, Math.round((maxTaskEnd.getTime() - actFinish.getTime()) / 86400000))
-  : 0;
-```
+### 3. hydrate 시 calculate의 postCpmCalculated 억제
 
-### cpm_network.html — 노드 표시
+`cpm-hydrate` 수신 후 `calculate(true)` 호출 시 `postCpmCalculated()`가 실행되어 불필요한 upsert를 트리거합니다. 이를 억제합니다.
 
-- `drawNode()` 함수에서 status의 `overdue`가 true일 때 노드 박스 하단에 빨간 텍스트 `⚠ +{days}d` 추가
-- 노드 border를 `#ff4d4d` 점선으로 변경하여 시각적 강조
+| 파일 | 변경 |
+|------|------|
+| `public/cpm_network.html` | hydrate 복원 시 `_suppressPost = true` 플래그 설정. `postCpmCalculated()`와 `postSnapshotSave()`에서 이 플래그 체크 후 스킵 |
 
-### ActivityTaskPanel.tsx — 상세패널 경고
+## 변경 요약
 
-- 날짜 표시 행 아래에 조건부 경고:
-```tsx
-{overdueDays > 0 && (
-  <div className="bg-destructive/10 border border-destructive/30 rounded px-2 py-1.5 flex items-center gap-1.5 text-xs text-destructive">
-    <AlertTriangle className="h-3 w-3" />
-    Task 종료일이 Activity 종료일보다 {overdueDays}일 초과
-  </div>
-)}
-```
-
-## 요약
-
-DB 스키마 변경 없이, 기존 `cpm_activities.finish_date`와 매핑된 `tasks.end_date`를 비교하는 순수 프론트엔드 로직입니다. 3개 파일 수정으로 네트워크 노드 + 툴팁 + 상세패널에 일관된 초과 경고를 표시합니다.
+| # | 파일 | 목적 |
+|---|------|------|
+| 1 | DB migration | 원자적 매핑 RPC 함수 2개 |
+| 2 | `public/cpm_network.html` | `isNewImport` 플래그 + hydrate 시 post 억제 |
+| 3 | `src/pages/CpmScheduler.tsx` | orphan 로직을 XML import 시에만 실행 |
+| 4 | `src/components/cpm/MapTasksDialog.tsx` | RPC 호출로 변경 |
+| 5 | `src/components/cpm/MapActivitiesDialog.tsx` | RPC 호출로 변경 |
 
