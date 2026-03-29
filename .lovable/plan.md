@@ -1,24 +1,44 @@
 
 
-# Workspace 헤더 고정 + Task 테이블만 스크롤
+# Workspace 스크롤 문제 수정
 
-## 현재 구조
+## 원인
 
-Workspace 페이지가 `space-y-6` div 안에 헤더, 탭, TaskTable을 모두 포함하고 있어서 페이지 전체가 스크롤됩니다.
+`AppLayout.tsx`의 `main` 태그에 `overflow-auto`가 설정되어 있어, **main 자체가 스크롤 컨테이너**입니다. Workspace의 `h-full overflow-hidden`이 작동하려면 부모 높이가 고정되어야 하는데, `overflow-auto`인 main 안의 `div.h-full`이 실제 콘텐츠 높이로 확장되어 Workspace의 높이 제약이 깨집니다.
 
-## 변경 방법
+## 수정 방법
 
-Workspace의 최상위 레이아웃을 `flex flex-col h-full overflow-hidden`으로 변경하여:
-- 헤더 (제목 + 버튼들) → 고정
-- 탭 (있는 경우) → 고정  
-- TaskTable → 남은 영역에서 자체 스크롤
-
-TaskTable 내부의 `<CardContent>` 안 테이블 영역에 `overflow-y-auto`와 `flex-1 min-h-0`을 적용하여 테이블 행만 세로 스크롤되도록 합니다. TaskTable의 CardHeader(필터/검색)도 고정됩니다.
-
-## 변경 파일
+`AppLayout.tsx` line 108의 children wrapper를 CpmScheduler와 동일하게 `absolute inset-0`으로 변경하되, main의 padding 영역 안에 위치하도록 별도 relative wrapper를 추가합니다.
 
 | 파일 | 변경 |
 |------|------|
-| `src/pages/Workspace.tsx` | 최상위 div를 `flex flex-col h-full overflow-hidden`으로 변경, TaskTable 영역에 `flex-1 min-h-0` 적용 |
-| `src/components/tasks/TaskTable.tsx` | Card를 `flex flex-col h-full`로, CardContent 내 테이블을 `overflow-y-auto flex-1 min-h-0`으로 변경. TableHeader에 `sticky top-0 z-10 bg-card` 적용 |
+| `src/components/layout/AppLayout.tsx` | main 내부 구조를 변경: children wrapper에 높이 제약이 올바르게 전파되도록 수정 |
+
+### 구체적 변경
+
+```tsx
+// Before (line 102-111)
+<main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 relative">
+  {/* CpmScheduler absolute div */}
+  <div style={{ display: isCpmRoute ? 'none' : 'block' }} className="h-full">
+    {children}
+  </div>
+</main>
+
+// After
+<main className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 relative">
+  {/* CpmScheduler absolute div - unchanged */}
+  <div style={{ display: isCpmRoute ? 'none' : 'flex' }} 
+       className="flex-col h-full overflow-auto">
+    {children}
+  </div>
+</main>
+```
+
+- `main`: `overflow-auto` → `overflow-hidden` (main이 스크롤하지 않도록)
+- children wrapper: `display: block` → `display: flex`, `flex-col h-full overflow-auto` 추가
+  - Workspace처럼 `overflow-hidden`인 페이지는 자체 높이 내에서 내부 스크롤
+  - Dashboard 등 긴 페이지는 이 wrapper가 스크롤 컨테이너 역할
+
+이렇게 하면 Workspace의 `h-full overflow-hidden` → TaskTable의 `flex-1 min-h-0 overflow-auto` 체인이 정상 작동합니다.
 
