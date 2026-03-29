@@ -1736,6 +1736,17 @@ function showNodeTooltip(e, actId) {
       ${bldgRow}
       ${statusRow}
       ${progressRow}
+      ${(() => {
+        const overdueKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
+        const ostData = (window._activityStatusMap || {})[overdueKey];
+        if (ostData && ostData.overdue && ostData.overdueDays > 0) {
+          return `<div class="nt-cell" style="grid-column:1/-1">
+            <div class="nt-cell-label">⚠ Task 초과</div>
+            <div class="nt-cell-val" style="color:#ff4d4d;font-weight:700">Activity 종료일 대비 +${ostData.overdueDays}일 초과</div>
+          </div>`;
+        }
+        return '';
+      })()}
     </div>
     <div class="nt-footer">
       <span style="color:#5a7a9a;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
