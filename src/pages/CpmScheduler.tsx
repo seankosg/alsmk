@@ -203,7 +203,15 @@ const CpmScheduler = () => {
       if (!e.data?.type) return;
 
       if (e.data.type === "cpm-calculated") {
-        if (isAdminOrPm) upsertActivities(e.data.activities);
+        if (isAdminOrPm) {
+          if (e.data.isNewImport) {
+            // Full upsert with orphan detection (only on new XML import)
+            upsertActivities(e.data.activities);
+          } else {
+            // Lightweight upsert: only update activity data, no orphan detection
+            upsertActivitiesOnly(e.data.activities);
+          }
+        }
         // For all users, refresh status after calculation
         setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
       }
