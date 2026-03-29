@@ -264,7 +264,7 @@ const CpmScheduler = () => {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [upsertActivities, saveSnapshotToDb, hydrateIframe, refreshStatus, isAdminOrPm]);
+  }, [upsertActivities, upsertActivitiesOnly, saveSnapshotToDb, hydrateIframe, refreshStatus, isAdminOrPm]);
 
   // Realtime subscription for cpm_task_mappings changes
   useEffect(() => {
