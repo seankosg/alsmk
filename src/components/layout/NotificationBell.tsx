@@ -25,6 +25,7 @@ interface Notification {
 
 export function NotificationBell() {
   const { memberId } = useAuthContext();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
 
