@@ -338,7 +338,9 @@ const Workspace = () => {
         </Tabs>
       )}
 
-      <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} allCollapsed={allCollapsed} />
+      <div className="flex-1 min-h-0">
+        <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} allCollapsed={allCollapsed} />
+      </div>
 
       {/* Deep-link TaskDetailDialog */}
       <TaskDetailDialog

@@ -416,7 +416,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
           ) : (
             <div className="overflow-auto scrollbar-thin flex-1 min-h-0">
               <Table className="table-fixed" style={{ minWidth: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow>
                     {[
                       { key: "taskCode", label: "Task Code", align: "" },
