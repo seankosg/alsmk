@@ -550,6 +550,8 @@ let activities = [];
 let idCounter = 1;
 let calculated = false;
 window._readOnly = false;
+window._isNewImport = false;  // Set true after XML parse, consumed by postCpmCalculated
+window._suppressPost = false; // Suppress postCpmCalculated/postSnapshotSave during hydrate
 
 // ─── Activity CRUD ────────────────────────────────────────────────
 function genId() { return 'A' + String(idCounter++).padStart(2,'0'); }
