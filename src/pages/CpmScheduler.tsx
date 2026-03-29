@@ -63,6 +63,34 @@ const CpmScheduler = () => {
     iframeRef.current.contentWindow.postMessage({ type: "request-snapshot" }, "*");
   }, []);
 
+  // Lightweight upsert: only update activity data, NO orphan detection
+  const upsertActivitiesOnly = useCallback(async (activities: CpmActivity[]) => {
+    if (!activities.length) return;
+    
+    const rows = activities.map((a) => ({
+      mpp_uid: a.mppUid,
+      mpp_task_id: a.mppTaskId,
+      name: a.name,
+      duration: a.duration,
+      progress: a.progress,
+      wbs_full: a.wbsFull,
+      is_critical: a.isCritical,
+      is_milestone: a.isMilestone,
+      start_date: a.startDate,
+      finish_date: a.finishDate,
+      es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
+      custom_fields: (a as any).customFields || {},
+      updated_at: new Date().toISOString(),
+    }));
+
+    await supabase
+      .from("cpm_activities")
+      .upsert(rows, { onConflict: "mpp_task_id,wbs_full" });
+
+    queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+    setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+  }, [queryClient, refreshStatus]);
+
   // Upsert activities to DB when CPM calculates — with auto-migration + orphan resolution
   const upsertActivities = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
