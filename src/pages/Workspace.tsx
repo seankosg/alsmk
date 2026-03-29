@@ -29,14 +29,6 @@ const Workspace = () => {
   const [deepLinkTask, setDeepLinkTask] = useState<any>(null);
   const highlightTaskId = searchParams.get("task");
 
-  // Deep-link: open TaskDetailDialog when ?task= param is present
-  useEffect(() => {
-    if (!highlightTaskId || tasks.length === 0) return;
-    const found = tasks.find((t) => t.id === highlightTaskId);
-    if (found) {
-      setDeepLinkTask(found);
-    }
-  }, [highlightTaskId, tasks]);
 
   // Scroll to highlighted task
   useEffect(() => {
