@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { DeletedTasksList } from "@/components/tasks/DeletedTasksList";
+import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { Button } from "@/components/ui/button";
 import { Upload, FileDown, ListTree, ChevronsUpDown, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -25,7 +26,9 @@ const Workspace = () => {
   const [filterMode, setFilterMode] = useState<"mine" | "team" | "project">("mine");
   const [generating, setGenerating] = useState(false);
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const [deepLinkTask, setDeepLinkTask] = useState<any>(null);
   const highlightTaskId = searchParams.get("task");
+
 
   // Scroll to highlighted task
   useEffect(() => {
@@ -73,6 +76,15 @@ const Workspace = () => {
     staleTime: 30_000,
   });
 
+  // Deep-link: open TaskDetailDialog when ?task= param is present
+  useEffect(() => {
+    if (!highlightTaskId || tasks.length === 0) return;
+    const found = tasks.find((t) => t.id === highlightTaskId);
+    if (found) {
+      setDeepLinkTask(found);
+    }
+  }, [highlightTaskId, tasks]);
+
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
@@ -81,6 +93,26 @@ const Workspace = () => {
       return data;
     },
     staleTime: 30_000,
+  });
+
+  const { data: teams = [] } = useQuery({
+    queryKey: ["teams_lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("teams").select("id, name");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: milestones = [] } = useQuery({
+    queryKey: ["milestones_lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("milestones").select("id, name");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
   });
 
   const handleGenerateSummaries = async () => {
@@ -307,6 +339,23 @@ const Workspace = () => {
       )}
 
       <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} allCollapsed={allCollapsed} />
+
+      {/* Deep-link TaskDetailDialog */}
+      <TaskDetailDialog
+        task={deepLinkTask}
+        open={!!deepLinkTask}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeepLinkTask(null);
+            searchParams.delete("task");
+            navigate({ search: searchParams.toString() }, { replace: true });
+          }
+        }}
+        teams={teams}
+        members={members}
+        milestones={milestones}
+        allTasks={tasks}
+      />
     </div>
   );
 };

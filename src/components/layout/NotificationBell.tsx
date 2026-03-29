@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell, Check, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ interface Notification {
 
 export function NotificationBell() {
   const { memberId } = useAuthContext();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
 
@@ -70,11 +72,15 @@ export function NotificationBell() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  const markAsRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+  const handleNotificationClick = async (n: Notification) => {
+    await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item))
     );
+    setOpen(false);
+    if (n.task_id) {
+      navigate(`/workspace?task=${n.task_id}`);
+    }
   };
 
   const markAllAsRead = async () => {
@@ -122,7 +128,7 @@ export function NotificationBell() {
                   className={`w-full text-left px-4 py-3 hover:bg-accent/50 transition-colors ${
                     !n.is_read ? "bg-accent/20" : ""
                   }`}
-                  onClick={() => markAsRead(n.id)}
+                  onClick={() => handleNotificationClick(n)}
                 >
                   <div className="flex items-start gap-2">
                     <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${!n.is_read ? "bg-primary" : "bg-transparent"}`} />
