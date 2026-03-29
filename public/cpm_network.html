@@ -550,6 +550,8 @@ let activities = [];
 let idCounter = 1;
 let calculated = false;
 window._readOnly = false;
+window._isNewImport = false;  // Set true after XML parse, consumed by postCpmCalculated
+window._suppressPost = false; // Suppress postCpmCalculated/postSnapshotSave during hydrate
 
 // ─── Activity CRUD ────────────────────────────────────────────────
 function genId() { return 'A' + String(idCounter++).padStart(2,'0'); }
@@ -2072,6 +2074,7 @@ function parseMSProjectXML(xmlText, fileName) {
   renderSidebar();
   showToast(`✓ "${fileName}" 로드 완료 — ${imported}개 활동 (${skipped}개 제외)`);
   window._currentVersion = { source: 'xml', name: fileName, time: new Date().toLocaleString('ko-KR') };
+  window._isNewImport = true; // Flag for next calculate() → postCpmCalculated will include isNewImport
   var vl = document.getElementById('versionLabel');
   if (vl) vl.textContent = 'v: ' + fileName;
   document.getElementById('uploadZone').querySelector('.upload-label').innerHTML =
@@ -2905,7 +2908,10 @@ if (window.parent !== window) {
 
 // ─── postMessage Bridge ──────────────────────────────────────────
 function postCpmCalculated() {
+  if (window._suppressPost) return;
   if (window.parent === window) return;
+  const isNewImport = window._isNewImport;
+  window._isNewImport = false; // consume flag
   const data = activities.map(a => ({
     id: a.id,
     mppTaskId: a.mppTaskId || null,
@@ -2921,11 +2927,12 @@ function postCpmCalculated() {
     es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
     customFields: a.customFields || {}
   }));
-  window.parent.postMessage({ type: 'cpm-calculated', activities: data }, '*');
+  window.parent.postMessage({ type: 'cpm-calculated', activities: data, isNewImport: isNewImport }, '*');
 }
 
 // DB 스냅샷 저장 요청 → parent React가 Supabase에 저장
 function postSnapshotSave() {
+  if (window._suppressPost) return;
   if (window._readOnly) return;
   if (window.parent === window) return;
   if (!calculated || activities.length === 0) return;
@@ -3113,13 +3120,15 @@ window.addEventListener('message', function(e) {
       window._activityStatusMap[s.activityKey] = s;
     });
 
-    // 4. Calculate and render (statuses will be available for first render)
+    // 4. Calculate and render (suppress postCpmCalculated/postSnapshotSave during hydrate)
+    window._suppressPost = true;
     if (activities.length > 0) {
       calculate(true);
     } else {
       loadSample();
       calculate(true);
     }
+    window._suppressPost = false;
 
     // 5. Update version label
     var ver = e.data.version || {};

@@ -64,3 +64,13 @@ Phase 2+3+4+5 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_sna
 - Step 3: Orphans without mappings → silently deleted
 - All actions logged to activity_log with details (resolution type, migrated_to, task_ids)
 - OrphanResolutionDialog: per-orphan migrate (dropdown) or delete, bulk delete all
+- **CRITICAL**: Orphan detection only runs on `isNewImport: true` (new XML upload). Hydration and manual recalculation use `upsertActivitiesOnly` (no orphan detection).
+
+## Mapping Atomicity
+- `upsert_activity_mappings(_activity_id, _task_ids[])` RPC: atomic delete+insert for Activity→Task mappings
+- `upsert_task_mappings(_task_id, _activity_ids[])` RPC: atomic delete+insert for Task→Activity mappings
+- Prevents race conditions between concurrent users
+
+## Hydration Post Suppression
+- `_suppressPost` flag in iframe prevents `postCpmCalculated()` and `postSnapshotSave()` during hydrate's `calculate(true)`
+- Prevents unnecessary DB upserts and orphan detection on page load/refresh

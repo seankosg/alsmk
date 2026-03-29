@@ -87,18 +87,11 @@ export function MapActivitiesDialog({ taskId, taskTitle, open, onOpenChange }: P
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Remove old mappings for this task
-      await supabase.from("cpm_task_mappings").delete().eq("task_id", taskId);
-
-      // Insert new
-      if (selectedIds.size > 0) {
-        const rows = [...selectedIds].map(activity_id => ({
-          activity_id,
-          task_id: taskId,
-        }));
-        const { error } = await supabase.from("cpm_task_mappings").insert(rows);
-        if (error) throw error;
-      }
+      const { error } = await supabase.rpc("upsert_task_mappings", {
+        _task_id: taskId,
+        _activity_ids: [...selectedIds],
+      });
+      if (error) throw error;
 
       toast.success(`${selectedIds.size}개 Activity 매핑 완료`);
       handleOpenChange(false);

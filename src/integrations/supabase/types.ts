@@ -841,6 +841,14 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      upsert_activity_mappings: {
+        Args: { _activity_id: string; _task_ids: string[] }
+        Returns: undefined
+      }
+      upsert_task_mappings: {
+        Args: { _activity_ids: string[]; _task_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "user"
