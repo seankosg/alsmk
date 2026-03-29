@@ -72,11 +72,15 @@ export function NotificationBell() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  const markAsRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+  const handleNotificationClick = async (n: Notification) => {
+    await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item))
     );
+    setOpen(false);
+    if (n.task_id) {
+      navigate(`/workspace?task=${n.task_id}`);
+    }
   };
 
   const markAllAsRead = async () => {
