@@ -414,7 +414,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : (
-            <div className="overflow-x-auto scrollbar-thin">
+            <div className="overflow-auto scrollbar-thin flex-1 min-h-0">
               <Table className="table-fixed" style={{ minWidth: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
                 <TableHeader>
                   <TableRow>
