@@ -76,7 +76,16 @@ const Workspace = () => {
     staleTime: 30_000,
   });
 
-  const { data: members = [] } = useQuery({
+  // Deep-link: open TaskDetailDialog when ?task= param is present
+  useEffect(() => {
+    if (!highlightTaskId || tasks.length === 0) return;
+    const found = tasks.find((t) => t.id === highlightTaskId);
+    if (found) {
+      setDeepLinkTask(found);
+    }
+  }, [highlightTaskId, tasks]);
+
+
     queryKey: ["members"],
     queryFn: async () => {
       const { data, error } = await supabase.from("members").select("id, name");
