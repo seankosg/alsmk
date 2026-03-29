@@ -338,6 +338,23 @@ const Workspace = () => {
       )}
 
       <TaskTable filterMine filterMode={showTabs ? filterMode : undefined} allCollapsed={allCollapsed} />
+
+      {/* Deep-link TaskDetailDialog */}
+      <TaskDetailDialog
+        task={deepLinkTask}
+        open={!!deepLinkTask}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeepLinkTask(null);
+            searchParams.delete("task");
+            navigate({ search: searchParams.toString() }, { replace: true });
+          }
+        }}
+        teams={teams}
+        members={members}
+        milestones={milestones}
+        allTasks={tasks}
+      />
     </div>
   );
 };
