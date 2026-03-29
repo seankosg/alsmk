@@ -128,7 +128,7 @@ export function NotificationBell() {
                   className={`w-full text-left px-4 py-3 hover:bg-accent/50 transition-colors ${
                     !n.is_read ? "bg-accent/20" : ""
                   }`}
-                  onClick={() => markAsRead(n.id)}
+                  onClick={() => handleNotificationClick(n)}
                 >
                   <div className="flex items-start gap-2">
                     <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${!n.is_read ? "bg-primary" : "bg-transparent"}`} />
