@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { DeletedTasksList } from "@/components/tasks/DeletedTasksList";
+import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { Button } from "@/components/ui/button";
 import { Upload, FileDown, ListTree, ChevronsUpDown, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
