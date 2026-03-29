@@ -2907,7 +2907,10 @@ if (window.parent !== window) {
 
 // ─── postMessage Bridge ──────────────────────────────────────────
 function postCpmCalculated() {
+  if (window._suppressPost) return;
   if (window.parent === window) return;
+  const isNewImport = window._isNewImport;
+  window._isNewImport = false; // consume flag
   const data = activities.map(a => ({
     id: a.id,
     mppTaskId: a.mppTaskId || null,
@@ -2923,7 +2926,7 @@ function postCpmCalculated() {
     es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
     customFields: a.customFields || {}
   }));
-  window.parent.postMessage({ type: 'cpm-calculated', activities: data }, '*');
+  window.parent.postMessage({ type: 'cpm-calculated', activities: data, isNewImport: isNewImport }, '*');
 }
 
 // DB 스냅샷 저장 요청 → parent React가 Supabase에 저장
