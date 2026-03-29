@@ -252,6 +252,24 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
               </div>
             )}
 
+            {/* Overdue warning: mapped task end_date exceeds activity finish_date */}
+            {(() => {
+              if (!activity.finishDate || mappedTasks.length === 0) return null;
+              const actFinish = new Date(activity.finishDate);
+              const maxTaskEnd = mappedTasks.reduce((max, t) => {
+                const d = new Date(t.end_date);
+                return d > max ? d : max;
+              }, new Date(0));
+              const diffDays = Math.round((maxTaskEnd.getTime() - actFinish.getTime()) / 86400000);
+              if (diffDays <= 0) return null;
+              return (
+                <div className="bg-destructive/10 border border-destructive/30 rounded px-2 py-1.5 flex items-center gap-1.5 text-xs text-destructive">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  Task 종료일이 Activity 종료일보다 <span className="font-mono font-bold">{diffDays}일</span> 초과
+                </div>
+              );
+            })()}
+
             {/* ES/EF/LS/LF */}
             <div className="grid grid-cols-4 gap-1 text-xs">
               {[

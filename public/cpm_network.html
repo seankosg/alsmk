@@ -1199,6 +1199,15 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg) {
              <text x="${NODE_W-8}" y="${67 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="${isC?'#ff6060':'#7a8ba0'}" text-anchor="end">TF:${a.tf}</text>`
         }
         ${progressBar}
+        ${(() => {
+          // Overdue warning (Task finishes after Activity finish_date)
+          const overdueData = statusData && statusData.overdue;
+          const overdueDays = statusData && statusData.overdueDays;
+          if (overdueData && overdueDays > 0) {
+            return `<text x="${NODE_W-8}" y="${(hasProg || hasStatus) ? NODE_H - 22 : 88}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="end" font-weight="600">⚠ +${overdueDays}d</text>`;
+          }
+          return '';
+        })()}
         ${isC ? `<text x="${NODE_W/2}" y="${(hasProg || hasStatus) ? NODE_H - 22 : 88}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="middle" font-weight="600">★ CRITICAL</text>` : ''}
         ${isPT ? `<text x="${NODE_W/2}" y="${(hasProg || hasStatus) ? NODE_H - 22 : 88}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#c97a10" text-anchor="middle" font-weight="600">통과 노드</text>` : ''}
       </g>
@@ -1727,6 +1736,17 @@ function showNodeTooltip(e, actId) {
       ${bldgRow}
       ${statusRow}
       ${progressRow}
+      ${(() => {
+        const overdueKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
+        const ostData = (window._activityStatusMap || {})[overdueKey];
+        if (ostData && ostData.overdue && ostData.overdueDays > 0) {
+          return `<div class="nt-cell" style="grid-column:1/-1">
+            <div class="nt-cell-label">⚠ Task 초과</div>
+            <div class="nt-cell-val" style="color:#ff4d4d;font-weight:700">Activity 종료일 대비 +${ostData.overdueDays}일 초과</div>
+          </div>`;
+        }
+        return '';
+      })()}
     </div>
     <div class="nt-footer">
       <span style="color:#5a7a9a;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
