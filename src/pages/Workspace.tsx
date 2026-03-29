@@ -94,6 +94,26 @@ const Workspace = () => {
     staleTime: 30_000,
   });
 
+  const { data: teams = [] } = useQuery({
+    queryKey: ["teams_lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("teams").select("id, name");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: milestones = [] } = useQuery({
+    queryKey: ["milestones_lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("milestones").select("id, name");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
   const handleGenerateSummaries = async () => {
     setGenerating(true);
     try {
