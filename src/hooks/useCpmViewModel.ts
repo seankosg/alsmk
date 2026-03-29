@@ -9,6 +9,8 @@ export interface ActivityStatus {
   delayed: number;
   actualPct: number;
   plannedPct: number;
+  overdue: boolean;
+  overdueDays: number;
 }
 
 export interface CpmViewModel {
