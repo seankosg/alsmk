@@ -85,7 +85,7 @@ const Workspace = () => {
     }
   }, [highlightTaskId, tasks]);
 
-
+  const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
       const { data, error } = await supabase.from("members").select("id, name");
