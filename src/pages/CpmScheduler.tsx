@@ -126,7 +126,7 @@ const CpmScheduler = () => {
     // Fix 1: Use .select() to get upserted IDs for precise orphan detection
     const { data: upsertedRows } = await supabase
       .from("cpm_activities")
-      .upsert(rows, { onConflict: "mpp_task_id,wbs_full" })
+      .upsert(rows, { onConflict: "mpp_uid,wbs_full" })
       .select("id");
 
     const activeIds = new Set((upsertedRows || []).map((r) => r.id));
