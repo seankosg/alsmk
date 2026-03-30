@@ -931,7 +931,7 @@ function calculate(forceReadOnly) {
   const cpCount = activities.filter(a=>a.isCritical).length;
   calculated = true;
   renderSidebar();
-  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter || null);
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter || null, window._activeText1Filter || null);
   renderGantt(order, map, projectEnd);
   renderWBS(order, map);
   document.getElementById('legend').style.display = 'flex';
