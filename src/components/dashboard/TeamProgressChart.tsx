@@ -69,7 +69,7 @@ export function TeamProgressChart() {
   const isLoading = lt || ltt;
 
   const chartData = teams.map((team) => {
-    const teamTasks = tasks.filter((t) => t.team_id === team.id);
+    const teamTasks = tasks.filter((t) => t.team_id === team.id && !t.is_summary);
     const avgActual =
       teamTasks.length > 0
         ? Math.round(teamTasks.reduce((s, t) => s + t.current_progress, 0) / teamTasks.length)
@@ -125,17 +125,23 @@ export function TeamProgressChart() {
     return members.find(m => m.id === id)?.name ?? "Unknown";
   };
 
-  // Behind-schedule tasks for selected team
-  const behindTasks = selectedTeam
+  // All tasks for selected team (excluding summary)
+  const allTeamTasks = selectedTeam
     ? tasks
-        .filter(t => t.team_id === selectedTeam.id)
+        .filter(t => t.team_id === selectedTeam.id && !t.is_summary)
         .map(t => {
           const planned = calcPlannedProgress(t.start_date, t.end_date);
           return { ...t, planned, gap: t.current_progress - planned };
         })
-        .filter(t => t.gap < 0)
         .sort((a, b) => a.gap - b.gap)
     : [];
+
+  const teamAvgPlanned = allTeamTasks.length > 0
+    ? Math.round(allTeamTasks.reduce((s, t) => s + t.planned, 0) / allTeamTasks.length)
+    : 0;
+  const teamAvgActual = allTeamTasks.length > 0
+    ? Math.round(allTeamTasks.reduce((s, t) => s + t.current_progress, 0) / allTeamTasks.length)
+    : 0;
 
   return (
     <>
@@ -201,13 +207,15 @@ export function TeamProgressChart() {
         <DialogContent className="sm:max-w-[560px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base">
-              {selectedTeam?.name} ({selectedTeam?.code}) — Behind Schedule
+              {selectedTeam?.name} ({selectedTeam?.code}) — Task Progress
             </DialogTitle>
-            <p className="text-xs text-muted-foreground">{behindTasks.length} task(s) behind schedule</p>
+            <p className="text-xs text-muted-foreground">
+              {allTeamTasks.length}개 태스크 | 평균 Plan {teamAvgPlanned}% / Actual {teamAvgActual}%
+            </p>
           </DialogHeader>
           <div className="space-y-2">
-            {behindTasks.length === 0 && <p className="text-sm text-muted-foreground">All tasks are on or ahead of schedule.</p>}
-            {behindTasks.map((t) => (
+            {allTeamTasks.length === 0 && <p className="text-sm text-muted-foreground">No tasks found.</p>}
+            {allTeamTasks.map((t) => (
               <div
                 key={t.id}
                 onClick={() => setSelectedTask(t)}
@@ -226,7 +234,7 @@ export function TeamProgressChart() {
                   <p className="text-xs text-muted-foreground">{getMemberName(t.assignee_id)}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className="text-sm font-mono font-bold text-destructive">{t.gap}%</span>
+                  <span className={`text-sm font-mono font-bold ${t.gap >= 0 ? "text-green-600" : "text-destructive"}`}>{t.gap >= 0 ? `+${t.gap}` : t.gap}%</span>
                   <p className="text-[10px] text-muted-foreground">Plan {t.planned}% / Actual {t.current_progress}%</p>
                 </div>
               </div>
