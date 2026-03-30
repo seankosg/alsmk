@@ -458,10 +458,19 @@
 
 <header>
   <div class="logo">CPM<span> / </span>NETWORK SCHEDULER <span id="versionLabel" style="font-size:10px;color:var(--text-dim);font-weight:400;margin-left:8px"></span></div>
-  <div class="header-tabs">
-    <button class="tab-btn active" onclick="switchTab('network',event)">네트워크 다이어그램</button>
-    <button class="tab-btn" onclick="switchTab('gantt',event)">간트차트</button>
-    <button class="tab-btn" onclick="switchTab('wbs',event)">WBS</button>
+  <div style="display:flex;align-items:center;gap:0;flex:1;min-width:0;overflow:hidden">
+    <div class="header-tabs">
+      <button class="tab-btn active" onclick="switchTab('network',event)">네트워크 다이어그램</button>
+      <button class="tab-btn" onclick="switchTab('gantt',event)">간트차트</button>
+      <button class="tab-btn" onclick="switchTab('wbs',event)">WBS</button>
+    </div>
+    <div class="legend" id="legend" style="display:none;margin-left:12px;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);flex-shrink:0;flex-wrap:nowrap">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--critical)"></div>CP</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--safe)"></div>일반</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#c97a10"></div>CP(타WBS)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green);opacity:.5"></div>Float</div>
+      <div class="legend-item" id="filterLabel" style="display:none;color:var(--accent);font-weight:600;flex-wrap:wrap;gap:4px;margin-left:8px"><span id="filterChips"></span><span onclick="clearAllFilters()" style="cursor:pointer;margin-left:6px;color:#ff6b6b;font-size:11px;background:rgba(255,107,107,.15);padding:2px 8px;border-radius:10px" title="전체 해제">전체 해제 ✕</span></div>
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-dim)">
