@@ -71,7 +71,7 @@ Phase 2+3+4+5 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_sna
 - **OrphanResolutionDialog UI**: Shows BLDG badge, WBS Level2, and full WBS for each orphan. Dropdown items show `BLDG · WBS_L2 · Name` format.
 - **Atomic migration**: Uses `upsert_activity_mappings` RPC with merged task IDs to prevent duplicate mappings.
 - **Query limit**: `.limit(5000)` on cpm_activities queries to avoid 1000-row truncation.
-- **DB unique constraint**: `cpm_activities(mpp_uid, wbs_full)` UNIQUE (changed from mpp_task_id which shifts on XML re-export). `cpm_task_mappings(activity_id, task_id)` UNIQUE prevents duplicate mapping rows.
+- **DB unique constraint**: `cpm_activities(mpp_uid)` UNIQUE — mpp_uid는 XML 재 Export에도 불변이므로 WBS 변경 시에도 동일 행이 업데이트됨. `cpm_task_mappings(activity_id, task_id)` UNIQUE prevents duplicate mapping rows.
 
 ## Mapping Atomicity
 - `upsert_activity_mappings(_activity_id, _task_ids[])` RPC: atomic delete+insert for Activity→Task mappings
