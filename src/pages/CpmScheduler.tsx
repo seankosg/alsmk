@@ -95,7 +95,7 @@ const CpmScheduler = () => {
 
     await supabase
       .from("cpm_activities")
-      .upsert(rows, { onConflict: "mpp_uid,wbs_full" });
+      .upsert(rows, { onConflict: "mpp_uid" });
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
     setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
