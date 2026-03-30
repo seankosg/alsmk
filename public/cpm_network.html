@@ -2855,6 +2855,7 @@ function _restoreSnapshot(snap) {
   window._wbsNames     = snap.wbsNames || {};
   window._activeWbsFilter = snap.wbsFilter ? new Set(Array.isArray(snap.wbsFilter) ? snap.wbsFilter : [snap.wbsFilter]) : null;
   window._activeBldgFilter = snap.bldgFilter ? new Set(Array.isArray(snap.bldgFilter) ? snap.bldgFilter : [snap.bldgFilter]) : null;
+  window._activeText1Filter = snap.text1Filter ? new Set(Array.isArray(snap.text1Filter) ? snap.text1Filter : [snap.text1Filter]) : null;
   window._projStart    = snap.projStart ? new Date(snap.projStart) : null;
 }
 
