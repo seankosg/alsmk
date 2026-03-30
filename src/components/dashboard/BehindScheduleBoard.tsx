@@ -126,13 +126,13 @@ export function BehindScheduleBoard() {
                                 )}
                                 {isHighRisk && <AlertTriangle className="h-3 w-3 text-destructive" />}
                               </div>
-                              <div className="flex items-baseline gap-2 min-w-0">
-                                <p className="text-sm font-medium truncate shrink-0 max-w-[40%]">{t.title}</p>
-                                {t.action_plan && (
-                                  <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{t.action_plan}</p>
-                                )}
-                                <span className="text-xs text-muted-foreground shrink-0 ml-auto">{getMemberName(t.assignee_id)}</span>
+                              <div className="flex items-center justify-between gap-2 min-w-0">
+                                <p className="text-sm font-medium truncate flex-1 min-w-0">{t.title}</p>
+                                <span className="text-xs text-muted-foreground shrink-0">{getMemberName(t.assignee_id)}</span>
                               </div>
+                              {t.action_plan && (
+                                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{t.action_plan}</p>
+                              )}
                               <div className="flex items-center gap-2 mt-1">
                                 <Progress
                                   value={t.current_progress}
