@@ -69,7 +69,7 @@ export function TeamProgressChart() {
   const isLoading = lt || ltt;
 
   const chartData = teams.map((team) => {
-    const teamTasks = tasks.filter((t) => t.team_id === team.id);
+    const teamTasks = tasks.filter((t) => t.team_id === team.id && !t.is_summary);
     const avgActual =
       teamTasks.length > 0
         ? Math.round(teamTasks.reduce((s, t) => s + t.current_progress, 0) / teamTasks.length)
