@@ -1773,6 +1773,7 @@ function showNodeTooltip(e, actId) {
         <span class="nt-id" style="background:${accentColor}20;color:${accentColor}">${a.mppTaskId?'#'+a.mppTaskId:actId}</span>
         <span class="nt-wbs">${a.wbsFull||a.wbs||''}</span>
         ${bldgVal ? `<span style="font-size:10px;color:#ffb432;background:rgba(255,180,50,.15);padding:1px 5px;border-radius:4px">${bldgVal}</span>` : ''}
+        ${text1Val ? `<span style="font-size:10px;color:#6ea8fe;background:rgba(110,168,254,.15);padding:1px 5px;border-radius:4px">${text1Val}</span>` : ''}
       </div>
       <div class="nt-name">${a.name||'(미입력)'}</div>
     </div>
