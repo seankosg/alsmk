@@ -1,0 +1,1 @@
+ALTER TABLE public.cpm_activities ADD COLUMN semantic_key TEXT;
