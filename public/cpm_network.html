@@ -506,7 +506,10 @@
       </div>
       <button class="btn-add" onclick="addActivity()" style="display:none">+ 추가</button>
     </div>
-    <div id="toggleAllContainer" style="padding:4px 8px 0;flex-shrink:0;display:none"></div>
+    <div id="sidebarFixedControls" style="padding:4px 8px 0;flex-shrink:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <div id="sidebarFilterBadges" style="display:flex;flex-wrap:wrap;gap:3px;flex:1"></div>
+      <div id="toggleAllContainer" style="flex-shrink:0"></div>
+    </div>
     <div class="activity-list" id="activityList"></div>
     <div class="sidebar-footer">
       <div class="upload-zone" id="uploadZone"
