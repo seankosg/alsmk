@@ -112,32 +112,28 @@ const CpmScheduler = () => {
       updated_at: new Date().toISOString(),
     }));
 
-    await supabase
+    // Fix 1: Use .select() to get upserted IDs for precise orphan detection
+    const { data: upsertedRows } = await supabase
       .from("cpm_activities")
-      .upsert(rows, { onConflict: "mpp_task_id,wbs_full" });
+      .upsert(rows, { onConflict: "mpp_task_id,wbs_full" })
+      .select("id");
 
-    // Identify orphans
-    const validKeys = new Set(
-      activities
-        .filter((a) => a.mppTaskId && a.wbsFull)
-        .map((a) => `${a.mppTaskId}::${a.wbsFull}`)
-    );
+    const activeIds = new Set((upsertedRows || []).map((r) => r.id));
 
+    // Fix 6: Use .limit(5000) to avoid 1000-row truncation
     const { data: allDbActivities } = await supabase
       .from("cpm_activities")
-      .select("id, name, mpp_task_id, wbs_full");
+      .select("id, name, mpp_task_id, wbs_full")
+      .limit(5000);
 
     if (!allDbActivities?.length) {
       queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-      // Refresh status after upsert
       setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
       return;
     }
 
-    const orphanDbActivities = allDbActivities.filter((db) => {
-      if (!db.mpp_task_id || !db.wbs_full) return false;
-      return !validKeys.has(`${db.mpp_task_id}::${db.wbs_full}`);
-    });
+    // Fix 1: Orphan = DB row whose id is NOT in the upserted set
+    const orphanDbActivities = allDbActivities.filter((db) => !activeIds.has(db.id));
 
     if (!orphanDbActivities.length) {
       queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
@@ -158,11 +154,15 @@ const CpmScheduler = () => {
       orphanMappingMap.get(m.activity_id)!.push(m.task_id);
     });
 
-    const orphanIdSet = new Set(orphanIds);
-    const newActivitiesDb = allDbActivities.filter((a) => !orphanIdSet.has(a.id));
+    // Fix 2: Build name-to-activity map, but skip names that appear more than once
+    const newActivitiesDb = allDbActivities.filter((a) => activeIds.has(a.id));
+    const nameCountMap = new Map<string, number>();
+    newActivitiesDb.forEach((a) => nameCountMap.set(a.name, (nameCountMap.get(a.name) || 0) + 1));
+
     const nameToNewActivity = new Map<string, { id: string; name: string; wbs_full: string | null }>();
     newActivitiesDb.forEach((a) => {
-      if (!nameToNewActivity.has(a.name)) {
+      // Only auto-migrate if the name is unique among new activities
+      if ((nameCountMap.get(a.name) || 0) === 1 && !nameToNewActivity.has(a.name)) {
         nameToNewActivity.set(a.name, { id: a.id, name: a.name, wbs_full: a.wbs_full });
       }
     });
@@ -187,10 +187,20 @@ const CpmScheduler = () => {
 
       const match = nameToNewActivity.get(orphan.name);
       if (match) {
-        await supabase
+        // Fix 4: Use RPC for atomic mapping migration to prevent duplicates
+        const allTaskIds = [...taskIds];
+        // Get existing mappings on target activity
+        const { data: existingTargetMappings } = await supabase
           .from("cpm_task_mappings")
-          .update({ activity_id: match.id })
-          .eq("activity_id", orphan.id);
+          .select("task_id")
+          .eq("activity_id", match.id);
+        const existingTaskIds = (existingTargetMappings || []).map((m) => m.task_id);
+        const mergedTaskIds = [...new Set([...existingTaskIds, ...allTaskIds])];
+        
+        await supabase.rpc("upsert_activity_mappings", {
+          _activity_id: match.id,
+          _task_ids: mergedTaskIds,
+        });
         await supabase.from("cpm_activities").delete().eq("id", orphan.id);
         await supabase.from("activity_log").insert({
           action: "cpm_activity_deleted",

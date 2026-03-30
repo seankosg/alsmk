@@ -67,10 +67,20 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
     if (!targetId) return;
     setProcessing(true);
     try {
-      await supabase
+      // Fix 4: Use RPC for atomic migration, merging with existing target mappings
+      const { data: existingTargetMappings } = await supabase
         .from("cpm_task_mappings")
-        .update({ activity_id: targetId })
-        .eq("activity_id", orphan.id);
+        .select("task_id")
+        .eq("activity_id", targetId);
+      const existingTaskIds = (existingTargetMappings || []).map((m) => m.task_id);
+      const mergedTaskIds = [...new Set([...existingTaskIds, ...orphan.mappedTaskIds])];
+
+      await supabase.rpc("upsert_activity_mappings", {
+        _activity_id: targetId,
+        _task_ids: mergedTaskIds,
+      });
+      // Delete orphan's old mappings and the activity itself
+      await supabase.from("cpm_task_mappings").delete().eq("activity_id", orphan.id);
       await supabase.from("cpm_activities").delete().eq("id", orphan.id);
       await logAction(orphan, "migrated", targetId);
       const target = newActivities.find((a) => a.id === targetId);
