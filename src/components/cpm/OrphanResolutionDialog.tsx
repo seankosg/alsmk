@@ -193,10 +193,18 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
                   <SelectValue placeholder="이전 대상 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {newActivities.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className="text-xs">
-                      {a.name}
-                    </SelectItem>
+                  {newActivities.map((a) => {
+                    const cf = a.custom_fields || {};
+                    const bldg = cf.BLDG || cf.Text2 || cf['텍스트2'] || '';
+                    const wbsParts = (a.wbs_full || '').split('.');
+                    const wbsL2 = wbsParts.length >= 2 ? `${wbsParts[0]}.${wbsParts[1]}` : '';
+                    const label = [bldg, wbsL2, a.name].filter(Boolean).join(' · ');
+                    return (
+                      <SelectItem key={a.id} value={a.id} className="text-xs">
+                        {label}
+                      </SelectItem>
+                    );
+                  })}
                   ))}
                 </SelectContent>
               </Select>
