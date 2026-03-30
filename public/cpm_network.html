@@ -3236,7 +3236,7 @@ window.addEventListener('message', function(e) {
     });
     if (patched > 0) {
       console.log('[CPM] Patched customFields for ' + patched + ' activities from DB');
-      drawNetwork(topoOrder, activityMap, projectEnd, window._activeWbsFilter, window._activeBldgFilter);
+      drawNetwork(topoOrder, activityMap, projectEnd, window._activeWbsFilter, window._activeBldgFilter, window._activeText1Filter || null);
     }
   }
 });
