@@ -1221,7 +1221,7 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     }
 
     nodes += `
-      <g transform="translate(${p.x},${p.y})" style="cursor:pointer"
+      <g transform="translate(${p.x},${p.y})" style="cursor:pointer" ${isDimmed ? 'opacity="0.45"' : ''}
         onclick="handleNodeClick(event,'${id}','${displayWbs}')"
         ondblclick="handleNodeDblClick(event,'${id}')"
         onmouseenter="showNodeTooltip(event,'${id}')"
