@@ -1,44 +1,25 @@
 
 
-# Workspace 스크롤 문제 수정
+# Category Progress 드릴다운 다이얼로그 — action_plan 표시 추가
 
-## 원인
-
-`AppLayout.tsx`의 `main` 태그에 `overflow-auto`가 설정되어 있어, **main 자체가 스크롤 컨테이너**입니다. Workspace의 `h-full overflow-hidden`이 작동하려면 부모 높이가 고정되어야 하는데, `overflow-auto`인 main 안의 `div.h-full`이 실제 콘텐츠 높이로 확장되어 Workspace의 높이 제약이 깨집니다.
-
-## 수정 방법
-
-`AppLayout.tsx` line 108의 children wrapper를 CpmScheduler와 동일하게 `absolute inset-0`으로 변경하되, main의 padding 영역 안에 위치하도록 별도 relative wrapper를 추가합니다.
+## 변경 파일
 
 | 파일 | 변경 |
 |------|------|
-| `src/components/layout/AppLayout.tsx` | main 내부 구조를 변경: children wrapper에 높이 제약이 올바르게 전파되도록 수정 |
+| `src/components/dashboard/CategoryProgressChart.tsx` | 드릴다운 다이얼로그의 태스크 카드를 다른 대시보드 패널과 동일한 레이아웃으로 변경 |
 
-### 구체적 변경
+## 변경 내용 (lines 206-216)
 
-```tsx
-// Before (line 102-111)
-<main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 relative">
-  {/* CpmScheduler absolute div */}
-  <div style={{ display: isCpmRoute ? 'none' : 'block' }} className="h-full">
-    {children}
-  </div>
-</main>
+현재 카드 내부 구조:
+1. task_code + issue_flag
+2. title (truncate)
+3. assignee
 
-// After
-<main className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 relative">
-  {/* CpmScheduler absolute div - unchanged */}
-  <div style={{ display: isCpmRoute ? 'none' : 'flex' }} 
-       className="flex-col h-full overflow-auto">
-    {children}
-  </div>
-</main>
-```
+변경 후 (Behind Schedule 등과 동일):
+1. task_code + issue_flag
+2. title + assignee (같은 행, justify-between)
+3. action_plan (별도 행, `text-[11px] text-muted-foreground line-clamp-2`)
+4. Progress bar (`h-1.5`) + actual% 텍스트
 
-- `main`: `overflow-auto` → `overflow-hidden` (main이 스크롤하지 않도록)
-- children wrapper: `display: block` → `display: flex`, `flex-col h-full overflow-auto` 추가
-  - Workspace처럼 `overflow-hidden`인 페이지는 자체 높이 내에서 내부 스크롤
-  - Dashboard 등 긴 페이지는 이 wrapper가 스크롤 컨테이너 역할
-
-이렇게 하면 Workspace의 `h-full overflow-hidden` → TaskTable의 `flex-1 min-h-0 overflow-auto` 체인이 정상 작동합니다.
+Progress bar도 추가하여 다른 패널과 완전히 통일합니다.
 
