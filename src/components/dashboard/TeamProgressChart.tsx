@@ -207,13 +207,15 @@ export function TeamProgressChart() {
         <DialogContent className="sm:max-w-[560px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base">
-              {selectedTeam?.name} ({selectedTeam?.code}) — Behind Schedule
+              {selectedTeam?.name} ({selectedTeam?.code}) — Task Progress
             </DialogTitle>
-            <p className="text-xs text-muted-foreground">{behindTasks.length} task(s) behind schedule</p>
+            <p className="text-xs text-muted-foreground">
+              {allTeamTasks.length}개 태스크 | 평균 Plan {teamAvgPlanned}% / Actual {teamAvgActual}%
+            </p>
           </DialogHeader>
           <div className="space-y-2">
-            {behindTasks.length === 0 && <p className="text-sm text-muted-foreground">All tasks are on or ahead of schedule.</p>}
-            {behindTasks.map((t) => (
+            {allTeamTasks.length === 0 && <p className="text-sm text-muted-foreground">No tasks found.</p>}
+            {allTeamTasks.map((t) => (
               <div
                 key={t.id}
                 onClick={() => setSelectedTask(t)}
