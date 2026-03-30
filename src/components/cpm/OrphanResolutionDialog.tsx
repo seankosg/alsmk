@@ -25,12 +25,16 @@ export interface OrphanActivity {
   mpp_task_id: string | null;
   mappedTaskCount: number;
   mappedTaskIds: string[];
+  semantic_key?: string | null;
+  custom_fields?: Record<string, string> | null;
 }
 
 interface NewActivity {
   id: string;
   name: string;
   wbs_full: string | null;
+  semantic_key?: string | null;
+  custom_fields?: Record<string, string> | null;
 }
 
 interface Props {

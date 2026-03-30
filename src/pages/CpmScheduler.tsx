@@ -21,7 +21,7 @@ const CpmScheduler = () => {
   const [selectedActivity, setSelectedActivity] = useState<CpmActivity | null>(null);
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const [orphansToResolve, setOrphansToResolve] = useState<OrphanActivity[]>([]);
-  const [newActivityList, setNewActivityList] = useState<{ id: string; name: string; wbs_full: string | null }[]>([]);
+  const [newActivityList, setNewActivityList] = useState<{ id: string; name: string; wbs_full: string | null; semantic_key?: string | null; custom_fields?: Record<string, string> | null }[]>([]);
   const [panelWidth, setPanelWidth] = useState(360);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const resizingRef = useRef(false);
