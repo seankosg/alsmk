@@ -1,98 +1,77 @@
 
-# Workspace 스크롤 문제 재분석 결과
 
-## 현재 확인된 상태
+# Text1 뱃지 표시 및 필터 기능 추가
 
-이 문제는 `Workspace.tsx`나 `TaskTable.tsx`가 아니라, 상위 레이아웃인 `AppLayout.tsx`에서 다시 발생하고 있습니다.
+## 개요
 
-### 이미 제대로 되어 있는 부분
-- `src/pages/Workspace.tsx`
-  - `flex flex-col h-full overflow-hidden`
-  - `flex-1 min-h-0`
-- `src/components/tasks/TaskTable.tsx`
-  - `Card className="flex flex-col h-full"`
-  - `CardContent className="flex-1 min-h-0 overflow-hidden flex flex-col"`
-  - 내부 테이블 영역 `overflow-auto flex-1 min-h-0`
-  - 헤더 `sticky top-0`
-
-즉, **Workspace 내부 구조는 이미 맞게 구현되어 있습니다.**
-
-### 실제 원인
-현재 `src/components/layout/AppLayout.tsx`가 아직 아래 상태입니다:
-
-```tsx
-<main className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 relative">
-  ...
-  <div className="flex-col h-full overflow-auto">
-    {children}
-  </div>
-</main>
-```
-
-이 구조 때문에:
-- `main`이 flex 컨테이너가 아님
-- child wrapper가 `h-full`로 계산되면서 패딩 포함 높이를 기준으로 커짐
-- wrapper 자체가 `overflow-auto` 스크롤 컨테이너가 됨
-- 결과적으로 **Workspace 내부 task 영역이 아니라 페이지 전체가 스크롤**됨
-
-## 왜 “전에 됐는데 지금 안 되나”
-
-가능성이 가장 높은 원인은 둘 중 하나입니다.
-
-1. **이전 수정 계획은 승인됐지만 실제 코드 반영이 누락됨**
-   - 현재 코드상 `AppLayout.tsx`에는 그 수정이 들어가 있지 않습니다.
-
-2. **한번 수정되었더라도 이후 다른 변경 과정에서 되돌아감**
-   - 현재 남아 있는 코드가 정확히 “수정 전 구조”입니다.
-
-즉, 이번 이슈는 새 버그라기보다 **상위 레이아웃 수정이 현재 코드 기준으로 적용되지 않은 상태**라고 보는 것이 맞습니다.
-
-## 수정 계획
-
-### 1) `AppLayout.tsx` 상위 레이아웃 체인 복구
-다음 두 줄을 핵심으로 수정합니다.
-
-- `main`
-  - `flex flex-col` 추가
-- children wrapper
-  - `h-full` 제거
-  - `flex-1 min-h-0`로 변경
-
-목표 구조:
-```tsx
-<main className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 relative flex flex-col">
-  ...
-  <div className="flex-col flex-1 min-h-0 overflow-auto">
-    {children}
-  </div>
-</main>
-```
-
-### 2) CPM 화면과 일반 화면 동작 유지
-- `/cpm`은 기존처럼 absolute iframe 유지
-- 일반 페이지는 wrapper가 스크롤 컨테이너
-- `Workspace`는 내부에서만 스크롤
-- `Dashboard`, `Calendar` 등은 기존처럼 페이지 단위 스크롤 유지
-
-### 3) 스크롤 체인 점검
-수정 후 아래 동작을 함께 확인합니다.
-- Workspace: 상단 제목/버튼/필터/테이블 헤더 고정
-- Workspace: task row만 세로 스크롤
-- Dashboard: 전체 콘텐츠 자연 스크롤
-- Calendar: 기존 스크롤 유지
-- CPM: 레이아웃 깨짐 없음
+`cpm_network.html` 내 좌측 Activity 사이드바 카드에 **Text1** 값을 뱃지로 표시하고, BLDG(Text2) 필터와 동일한 방식의 **Text1 필터링** 기능을 추가합니다.
 
 ## 변경 파일
 
-- `src/components/layout/AppLayout.tsx`
+`public/cpm_network.html` (단일 파일)
+
+## 변경 내용
+
+### 1. 사이드바 카드에 Text1 뱃지 추가 (line ~614)
+
+BLDG 뱃지 옆에 Text1 값을 별도 색상(파란 계열)으로 표시. 클릭 시 Text1 필터 토글.
+
+```javascript
+// 기존 BLDG 뱃지 바로 뒤에 추가
+${(() => { const cf = a.customFields; const tv = cf && (cf.Text1 || cf['텍스트1']); 
+  return tv ? `<span onclick="event.stopPropagation(); applyText1Filter('${tv.replace(/'/g,"\\'")}')" 
+  style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#6ea8fe;padding:2px 5px;
+  background:rgba(110,168,254,0.1);border-radius:3px;border:1px solid rgba(110,168,254,0.3)" 
+  title="Text1 필터: ${tv}">${tv}</span>` : ''; })()}
+```
+
+### 2. 네트워크 노드에도 Text1 표시 (line ~1190)
+
+BLDG 표시 옆에 Text1 값을 SVG text로 추가 (파란색).
+
+### 3. `window._activeText1Filter` (Set) 전역 변수 추가
+
+### 4. `applyText1Filter(value)` 함수 추가 (line ~1620)
+
+`applyBldgFilter`와 동일한 Set 토글 로직:
+- `_activeText1Filter` Set에 값 추가/제거
+- `drawNetwork` 호출 시 Text1 필터도 전달
+
+### 5. `drawNetwork` 함수 시그니처 변경
+
+```
+drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
+```
+
+`isInFilter` 내에 Text1 AND 조건 추가:
+```javascript
+if (hasText1Filter) {
+  const cf = a.customFields;
+  const tv = cf && (cf.Text1 || cf['텍스트1']) || '';
+  if (!filterText1.has(tv)) return false;
+}
+```
+
+### 6. 필터 칩 영역에 Text1 칩 추가 (line ~997)
+
+파란색 칩으로 `Text1 {value} ✕` 표시, `removeText1FilterItem` 클릭 핸들러.
+
+### 7. `clearAllFilters` 수정
+
+`window._activeText1Filter = null` 추가.
+
+### 8. `removeText1FilterItem(val)` 함수 추가
+
+`removeBldgFilterItem`과 동일한 패턴.
+
+### 9. 모든 `drawNetwork` 호출부 업데이트
+
+`window._activeText1Filter || null` 인자 추가 (calculate, applyWbsFilter, applyBldgFilter, clearAllFilters, removeWbsFilterItem, removeBldgFilterItem 등).
 
 ## 기대 결과
 
-수정 후에는:
-- My Workspace에서 전체 화면이 아니라 **task 리스트만 스크롤**
-- 상단 헤더와 기능 버튼은 고정
-- 다른 페이지의 기존 스크롤 동작은 유지
+- 사이드바 Activity 카드에 BLDG 뱃지(주황) + Text1 뱃지(파랑) 나란히 표시
+- Text1 뱃지 클릭으로 해당 값 기준 필터 토글 (다중 선택 가능)
+- BLDG, WBS, Text1 필터가 AND 조건으로 결합
+- 필터 칩 영역에 개별 해제 가능한 Text1 칩 표시
 
-## 핵심 결론
-
-이번 문제의 원인은 이전에 의심했던 대로 **Workspace 내부가 아니라 AppLayout 상위 높이/overflow 체인**입니다. 현재 코드상 그 핵심 수정이 적용되어 있지 않아서, 내부 스크롤 구조가 살아나지 못하고 있습니다.
