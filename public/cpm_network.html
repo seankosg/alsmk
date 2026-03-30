@@ -1740,6 +1740,8 @@ function showNodeTooltip(e, actId) {
   // BLDG 값 추출
   const bldgVal = (a.customFields && (a.customFields.BLDG || a.customFields.Text2 || a.customFields['텍스트2'])) || '';
   const bldgRow = bldgVal ? `<div class="nt-cell"><div class="nt-cell-label">BLDG</div><div class="nt-cell-val" style="color:#ffb432">${bldgVal}</div></div>` : '';
+  const text1Val = (a.customFields && (a.customFields.Text1 || a.customFields['텍스트1'])) || '';
+  const text1Row = text1Val ? `<div class="nt-cell"><div class="nt-cell-label">Text1</div><div class="nt-cell-val" style="color:#6ea8fe">${text1Val}</div></div>` : '';
 
   // 상태 아이콘 (매핑된 Task 상태) — use same key as network node
   const tooltipStatusKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
