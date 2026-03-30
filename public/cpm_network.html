@@ -627,6 +627,12 @@ function renderSidebar() {
     groups.get(wbsL1).push(a);
   });
 
+  // On first render, collapse all groups by default
+  if (!window._collapsedWbsGroupsInitialized && groups.size > 0) {
+    groups.forEach((_, k) => window._collapsedWbsGroups.add(k));
+    window._collapsedWbsGroupsInitialized = true;
+  }
+
   // Toggle all button (fixed above scroll area)
   const toggleContainer = document.getElementById('toggleAllContainer');
   const allCollapsed = window._collapsedWbsGroups.size >= groups.size && groups.size > 0;
