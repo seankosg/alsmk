@@ -2828,6 +2828,7 @@ function _makeSnapshot(name) {
     wbsNames: window._wbsNames || {},
     wbsFilter: window._activeWbsFilter ? [...window._activeWbsFilter] : null,
     bldgFilter: window._activeBldgFilter ? [...window._activeBldgFilter] : null,
+    text1Filter: window._activeText1Filter ? [...window._activeText1Filter] : null,
     projStart: window._projStart ? window._projStart.toISOString() : null,
     activities: activities.map(a => ({
       ...a,
