@@ -1813,6 +1813,7 @@ function applyText1Filter(text1Value) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('networkPanel').classList.add('active');
   document.querySelector('.tab-btn').classList.add('active');
+  renderSidebar();
 }
 
 function getOrder(map) {
