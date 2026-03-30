@@ -8,11 +8,20 @@ import { useCpmViewModel } from "@/hooks/useCpmViewModel";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
 
+/** Generate a composite semantic key: BLDG::WBS_L2::Name */
+function getSemanticKey(activity: { name: string; wbsFull?: string | null; customFields?: Record<string, string> | null }): string {
+  const cf = activity.customFields || {};
+  const bldg = cf.BLDG || cf.Text2 || cf['텍스트2'] || '_';
+  const wbsParts = (activity.wbsFull || '').split('.');
+  const wbsL2 = wbsParts.length >= 2 ? `${wbsParts[0]}.${wbsParts[1]}` : (wbsParts[0] || '_');
+  return `${bldg}::${wbsL2}::${activity.name}`;
+}
+
 const CpmScheduler = () => {
   const [selectedActivity, setSelectedActivity] = useState<CpmActivity | null>(null);
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
   const [orphansToResolve, setOrphansToResolve] = useState<OrphanActivity[]>([]);
-  const [newActivityList, setNewActivityList] = useState<{ id: string; name: string; wbs_full: string | null }[]>([]);
+  const [newActivityList, setNewActivityList] = useState<{ id: string; name: string; wbs_full: string | null; semantic_key?: string | null; custom_fields?: Record<string, string> | null }[]>([]);
   const [panelWidth, setPanelWidth] = useState(360);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const resizingRef = useRef(false);
@@ -80,6 +89,7 @@ const CpmScheduler = () => {
       finish_date: a.finishDate,
       es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
       custom_fields: (a as any).customFields || {},
+      semantic_key: getSemanticKey({ name: a.name, wbsFull: a.wbsFull, customFields: (a as any).customFields }),
       updated_at: new Date().toISOString(),
     }));
 
@@ -109,6 +119,7 @@ const CpmScheduler = () => {
       finish_date: a.finishDate,
       es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
       custom_fields: (a as any).customFields || {},
+      semantic_key: getSemanticKey({ name: a.name, wbsFull: a.wbsFull, customFields: (a as any).customFields }),
       updated_at: new Date().toISOString(),
     }));
 
@@ -123,7 +134,7 @@ const CpmScheduler = () => {
     // Fix 6: Use .limit(5000) to avoid 1000-row truncation
     const { data: allDbActivities } = await supabase
       .from("cpm_activities")
-      .select("id, name, mpp_task_id, wbs_full")
+      .select("id, name, mpp_task_id, wbs_full, semantic_key, custom_fields")
       .limit(5000);
 
     if (!allDbActivities?.length) {
@@ -154,16 +165,20 @@ const CpmScheduler = () => {
       orphanMappingMap.get(m.activity_id)!.push(m.task_id);
     });
 
-    // Fix 2: Build name-to-activity map, but skip names that appear more than once
+    // Semantic-key-based matching: BLDG::WBS_L2::Name
     const newActivitiesDb = allDbActivities.filter((a) => activeIds.has(a.id));
-    const nameCountMap = new Map<string, number>();
-    newActivitiesDb.forEach((a) => nameCountMap.set(a.name, (nameCountMap.get(a.name) || 0) + 1));
-
-    const nameToNewActivity = new Map<string, { id: string; name: string; wbs_full: string | null }>();
+    const skCountMap = new Map<string, number>();
     newActivitiesDb.forEach((a) => {
-      // Only auto-migrate if the name is unique among new activities
-      if ((nameCountMap.get(a.name) || 0) === 1 && !nameToNewActivity.has(a.name)) {
-        nameToNewActivity.set(a.name, { id: a.id, name: a.name, wbs_full: a.wbs_full });
+      const sk = a.semantic_key || getSemanticKey({ name: a.name, wbsFull: a.wbs_full, customFields: a.custom_fields as Record<string, string> | null });
+      skCountMap.set(sk, (skCountMap.get(sk) || 0) + 1);
+    });
+
+    const skToNewActivity = new Map<string, { id: string; name: string; wbs_full: string | null; semantic_key: string | null }>();
+    newActivitiesDb.forEach((a) => {
+      const sk = a.semantic_key || getSemanticKey({ name: a.name, wbsFull: a.wbs_full, customFields: a.custom_fields as Record<string, string> | null });
+      // Only auto-migrate if the semantic key is unique among new activities
+      if ((skCountMap.get(sk) || 0) === 1 && !skToNewActivity.has(sk)) {
+        skToNewActivity.set(sk, { id: a.id, name: a.name, wbs_full: a.wbs_full, semantic_key: a.semantic_key });
       }
     });
 
@@ -185,11 +200,16 @@ const CpmScheduler = () => {
         continue;
       }
 
-      const match = nameToNewActivity.get(orphan.name);
+      // Match by semantic key
+      const orphanSk = orphan.semantic_key || getSemanticKey({
+        name: orphan.name,
+        wbsFull: orphan.wbs_full,
+        customFields: orphan.custom_fields as Record<string, string> | null,
+      });
+      const match = skToNewActivity.get(orphanSk);
       if (match) {
         // Fix 4: Use RPC for atomic mapping migration to prevent duplicates
         const allTaskIds = [...taskIds];
-        // Get existing mappings on target activity
         const { data: existingTargetMappings } = await supabase
           .from("cpm_task_mappings")
           .select("task_id")
@@ -209,7 +229,7 @@ const CpmScheduler = () => {
           user_name: currentUserName,
           details: {
             name: orphan.name, wbs_full: orphan.wbs_full, mpp_task_id: orphan.mpp_task_id,
-            migrated_to: match.id, migrated_task_ids: taskIds, resolution: "auto_migrated",
+            semantic_key: orphanSk, migrated_to: match.id, migrated_task_ids: taskIds, resolution: "auto_migrated_by_semantic_key",
           },
         });
         autoMigratedCount++;
@@ -217,17 +237,22 @@ const CpmScheduler = () => {
         unmatchedOrphans.push({
           id: orphan.id, name: orphan.name, wbs_full: orphan.wbs_full,
           mpp_task_id: orphan.mpp_task_id, mappedTaskCount: taskIds.length, mappedTaskIds: taskIds,
+          semantic_key: orphanSk, custom_fields: orphan.custom_fields as Record<string, string> | null,
         });
       }
     }
 
     if (autoMigratedCount > 0) {
-      toast.success(`${autoMigratedCount}개 Activity 매핑이 자동 이전되었습니다`);
+      toast.success(`${autoMigratedCount}개 Activity 매핑이 시맨틱 키 기반으로 자동 이전되었습니다`);
     }
 
     if (unmatchedOrphans.length > 0) {
       toast.info(`${unmatchedOrphans.length}개 Activity의 매핑을 확인해주세요`);
-      setNewActivityList(newActivitiesDb.map((a) => ({ id: a.id, name: a.name, wbs_full: a.wbs_full })));
+      setNewActivityList(newActivitiesDb.map((a) => ({
+        id: a.id, name: a.name, wbs_full: a.wbs_full,
+        semantic_key: a.semantic_key,
+        custom_fields: a.custom_fields as Record<string, string> | null,
+      })));
       setOrphansToResolve(unmatchedOrphans);
     }
 

@@ -25,12 +25,16 @@ export interface OrphanActivity {
   mpp_task_id: string | null;
   mappedTaskCount: number;
   mappedTaskIds: string[];
+  semantic_key?: string | null;
+  custom_fields?: Record<string, string> | null;
 }
 
 interface NewActivity {
   id: string;
   name: string;
   wbs_full: string | null;
+  semantic_key?: string | null;
+  custom_fields?: Record<string, string> | null;
 }
 
 interface Props {
@@ -163,24 +167,44 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{orphan.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  WBS: {orphan.wbs_full ?? "-"} · 매핑 {orphan.mappedTaskCount}개
-                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {(() => {
+                    const cf = orphan.custom_fields || {};
+                    const bldg = cf.BLDG || cf.Text2 || cf['텍스트2'];
+                    const wbsParts = (orphan.wbs_full || '').split('.');
+                    const wbsL2 = wbsParts.length >= 2 ? `${wbsParts[0]}.${wbsParts[1]}` : null;
+                    return (
+                      <>
+                        {bldg && <span className="bg-muted px-1.5 py-0.5 rounded font-medium">{bldg}</span>}
+                        {wbsL2 && <span>WBS L2: {wbsL2}</span>}
+                      </>
+                    );
+                  })()}
+                  <span>WBS: {orphan.wbs_full ?? "-"}</span>
+                  <span>· 매핑 {orphan.mappedTaskCount}개</span>
+                </div>
               </div>
 
               <Select
                 value={selectedTargets[orphan.id] ?? ""}
                 onValueChange={(v) => setSelectedTargets((prev) => ({ ...prev, [orphan.id]: v }))}
               >
-                <SelectTrigger className="w-[200px] h-8 text-xs">
+                <SelectTrigger className="w-[280px] h-8 text-xs">
                   <SelectValue placeholder="이전 대상 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {newActivities.map((a) => (
-                    <SelectItem key={a.id} value={a.id} className="text-xs">
-                      {a.name}
-                    </SelectItem>
-                  ))}
+                  {newActivities.map((a) => {
+                    const cf = a.custom_fields || {};
+                    const bldg = cf.BLDG || cf.Text2 || cf['텍스트2'] || '';
+                    const wbsParts = (a.wbs_full || '').split('.');
+                    const wbsL2 = wbsParts.length >= 2 ? `${wbsParts[0]}.${wbsParts[1]}` : '';
+                    const label = [bldg, wbsL2, a.name].filter(Boolean).join(' · ');
+                    return (
+                      <SelectItem key={a.id} value={a.id} className="text-xs">
+                        {label}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
 
