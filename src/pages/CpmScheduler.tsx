@@ -165,16 +165,20 @@ const CpmScheduler = () => {
       orphanMappingMap.get(m.activity_id)!.push(m.task_id);
     });
 
-    // Fix 2: Build name-to-activity map, but skip names that appear more than once
+    // Semantic-key-based matching: BLDG::WBS_L2::Name
     const newActivitiesDb = allDbActivities.filter((a) => activeIds.has(a.id));
-    const nameCountMap = new Map<string, number>();
-    newActivitiesDb.forEach((a) => nameCountMap.set(a.name, (nameCountMap.get(a.name) || 0) + 1));
-
-    const nameToNewActivity = new Map<string, { id: string; name: string; wbs_full: string | null }>();
+    const skCountMap = new Map<string, number>();
     newActivitiesDb.forEach((a) => {
-      // Only auto-migrate if the name is unique among new activities
-      if ((nameCountMap.get(a.name) || 0) === 1 && !nameToNewActivity.has(a.name)) {
-        nameToNewActivity.set(a.name, { id: a.id, name: a.name, wbs_full: a.wbs_full });
+      const sk = a.semantic_key || getSemanticKey({ name: a.name, wbsFull: a.wbs_full, customFields: a.custom_fields as Record<string, string> | null });
+      skCountMap.set(sk, (skCountMap.get(sk) || 0) + 1);
+    });
+
+    const skToNewActivity = new Map<string, { id: string; name: string; wbs_full: string | null; semantic_key: string | null }>();
+    newActivitiesDb.forEach((a) => {
+      const sk = a.semantic_key || getSemanticKey({ name: a.name, wbsFull: a.wbs_full, customFields: a.custom_fields as Record<string, string> | null });
+      // Only auto-migrate if the semantic key is unique among new activities
+      if ((skCountMap.get(sk) || 0) === 1 && !skToNewActivity.has(sk)) {
+        skToNewActivity.set(sk, { id: a.id, name: a.name, wbs_full: a.wbs_full, semantic_key: a.semantic_key });
       }
     });
 
