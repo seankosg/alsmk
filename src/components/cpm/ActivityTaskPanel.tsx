@@ -63,23 +63,34 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [expandedAssignees, setExpandedAssignees] = useState<Set<string>>(new Set());
 
-  // Get DB activity ID — primary: mpp_uid+wbs_full (matches DB unique constraint)
+  // Get DB activity ID — primary: mpp_uid only (WBS can change across XML re-exports)
   const { data: dbActivity } = useQuery({
     queryKey: ["cpm_activity_by_mpp", activity.mppUid, activity.wbsFull],
     queryFn: async () => {
-      let query = supabase.from("cpm_activities").select("id");
-
+      // 1st: mpp_uid only (stable across WBS changes)
       if (activity.mppUid) {
-        query = query.eq("mpp_uid", activity.mppUid);
-        if (activity.wbsFull) query = query.eq("wbs_full", activity.wbsFull);
-      } else if (activity.mppTaskId) {
-        query = query.eq("mpp_task_id", activity.mppTaskId);
-        if (activity.wbsFull) query = query.eq("wbs_full", activity.wbsFull);
-      } else {
-        query = query.eq("name", activity.name);
+        const { data } = await supabase
+          .from("cpm_activities")
+          .select("id")
+          .eq("mpp_uid", activity.mppUid)
+          .maybeSingle();
+        if (data) return data;
       }
 
-      const { data } = await query.maybeSingle();
+      // 2nd: mpp_task_id + wbs_full fallback
+      if (activity.mppTaskId) {
+        let query = supabase.from("cpm_activities").select("id").eq("mpp_task_id", activity.mppTaskId);
+        if (activity.wbsFull) query = query.eq("wbs_full", activity.wbsFull);
+        const { data } = await query.maybeSingle();
+        if (data) return data;
+      }
+
+      // 3rd: name fallback
+      const { data } = await supabase
+        .from("cpm_activities")
+        .select("id")
+        .eq("name", activity.name)
+        .maybeSingle();
       return data;
     },
   });
