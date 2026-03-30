@@ -122,13 +122,26 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
     setProcessing(false);
   };
 
-  const handleDone = () => {
-    // Delete any remaining orphans without mappings silently
-    remaining.forEach(async (orphan) => {
-      if (orphan.mappedTaskCount === 0) {
+  const handleDone = async () => {
+    // Fix 3: Warn about unresolved orphans with mappings, use Promise.all instead of forEach
+    const withMappings = remaining.filter((o) => o.mappedTaskCount > 0);
+    const withoutMappings = remaining.filter((o) => o.mappedTaskCount === 0);
+
+    if (withMappings.length > 0) {
+      toast.warning(`${withMappings.length}개 Activity에 미처리 매핑이 남아있습니다. 해당 매핑은 해제됩니다.`);
+      // Clean up mappings for unresolved orphans
+      await Promise.all(withMappings.map(async (orphan) => {
+        await supabase.from("cpm_task_mappings").delete().eq("activity_id", orphan.id);
         await supabase.from("cpm_activities").delete().eq("id", orphan.id);
-      }
-    });
+        await logAction(orphan, "deleted");
+      }));
+    }
+
+    // Delete orphans without mappings
+    await Promise.all(withoutMappings.map(async (orphan) => {
+      await supabase.from("cpm_activities").delete().eq("id", orphan.id);
+    }));
+
     onComplete();
   };
 
