@@ -1586,20 +1586,31 @@ function removeBldgFilterItem(val) {
   var m = {}; activities.forEach(function(a){m[a.id]=a;});
   var o = getOrder(m); if(!o)return;
   var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
-  drawNetwork(o,m,pe,window._activeWbsFilter||null,window._activeBldgFilter);
+  drawNetwork(o,m,pe,window._activeWbsFilter||null,window._activeBldgFilter,window._activeText1Filter||null);
+}
+
+function removeText1FilterItem(val) {
+  if (!window._activeText1Filter) return;
+  window._activeText1Filter.delete(val);
+  if (window._activeText1Filter.size === 0) window._activeText1Filter = null;
+  var m = {}; activities.forEach(function(a){m[a.id]=a;});
+  var o = getOrder(m); if(!o)return;
+  var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
+  drawNetwork(o,m,pe,window._activeWbsFilter||null,window._activeBldgFilter||null,window._activeText1Filter);
 }
 
 function clearAllFilters() {
-  const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0);
+  const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0) || (window._activeText1Filter && window._activeText1Filter.size > 0);
   if (!hadFilter) return;
   window._activeWbsFilter = null;
   window._activeBldgFilter = null;
+  window._activeText1Filter = null;
   const map = {};
   activities.forEach(a => { map[a.id] = a; });
   const order = getOrder(map);
   if (!order) return;
   const projectEnd = Math.max(...activities.map(a => a.ef || 0));
-  drawNetwork(order, map, projectEnd, null, null);
+  drawNetwork(order, map, projectEnd, null, null, null);
   showToast('전체 공정 표시');
   // WBS 탭 하이라이트 제거
   document.querySelectorAll('#wbsContent .wbs-node').forEach(el => {
@@ -1623,8 +1634,33 @@ function applyBldgFilter(bldgValue) {
   const order = getOrder(map);
   if (!order) return;
   const projectEnd = Math.max(...activities.map(a => a.ef || 0));
-  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter);
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter, window._activeText1Filter || null);
   showToast(window._activeBldgFilter ? `BLDG 필터: ${[...window._activeBldgFilter].join(', ')}` : '전체 BLDG 표시');
+
+  // 네트워크 탭으로 자동 전환
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('networkPanel').classList.add('active');
+  document.querySelector('.tab-btn').classList.add('active');
+}
+
+function applyText1Filter(text1Value) {
+  if (!calculated) { showToast('먼저 CPM 계산을 실행하세요'); return; }
+  if (!window._activeText1Filter) window._activeText1Filter = new Set();
+  if (window._activeText1Filter.has(text1Value)) {
+    window._activeText1Filter.delete(text1Value);
+  } else {
+    window._activeText1Filter.add(text1Value);
+  }
+  if (window._activeText1Filter.size === 0) window._activeText1Filter = null;
+
+  const map = {};
+  activities.forEach(a => { map[a.id] = a; });
+  const order = getOrder(map);
+  if (!order) return;
+  const projectEnd = Math.max(...activities.map(a => a.ef || 0));
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter || null, window._activeBldgFilter || null, window._activeText1Filter);
+  showToast(window._activeText1Filter ? `Text1 필터: ${[...window._activeText1Filter].join(', ')}` : '전체 Text1 표시');
 
   // 네트워크 탭으로 자동 전환
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
