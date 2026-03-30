@@ -125,17 +125,23 @@ export function TeamProgressChart() {
     return members.find(m => m.id === id)?.name ?? "Unknown";
   };
 
-  // Behind-schedule tasks for selected team
-  const behindTasks = selectedTeam
+  // All tasks for selected team (excluding summary)
+  const allTeamTasks = selectedTeam
     ? tasks
-        .filter(t => t.team_id === selectedTeam.id)
+        .filter(t => t.team_id === selectedTeam.id && !t.is_summary)
         .map(t => {
           const planned = calcPlannedProgress(t.start_date, t.end_date);
           return { ...t, planned, gap: t.current_progress - planned };
         })
-        .filter(t => t.gap < 0)
         .sort((a, b) => a.gap - b.gap)
     : [];
+
+  const teamAvgPlanned = allTeamTasks.length > 0
+    ? Math.round(allTeamTasks.reduce((s, t) => s + t.planned, 0) / allTeamTasks.length)
+    : 0;
+  const teamAvgActual = allTeamTasks.length > 0
+    ? Math.round(allTeamTasks.reduce((s, t) => s + t.current_progress, 0) / allTeamTasks.length)
+    : 0;
 
   return (
     <>
