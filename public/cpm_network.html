@@ -612,60 +612,108 @@ function syncFromDOM() {
 function renderSidebar() {
   const list = document.getElementById('activityList');
   list.innerHTML = '';
+  if (!window._collapsedWbsGroups) window._collapsedWbsGroups = new Set();
+
+  // Group by WBS Level1
+  const groups = new Map();
   activities.forEach(a => {
-    const card = document.createElement('div');
-    card.className = 'activity-card' + (a.isCritical ? ' critical' : '');
-    card.setAttribute('data-act-id', a.id);
-    card.style.cursor = 'pointer';
-    card.onclick = function(e) {
-      if (e.target.tagName === 'BUTTON') return;
-      if (e.target.tagName === 'INPUT' && !e.target.readOnly) return;
-      handleSidebarCardClick(a.id);
+    const wbsL1 = (a.wbsFull || a.wbs || '').split('.')[0] || '기타';
+    if (!groups.has(wbsL1)) groups.set(wbsL1, []);
+    groups.get(wbsL1).push(a);
+  });
+
+  // Toggle all button
+  const toggleAllBtn = document.createElement('div');
+  toggleAllBtn.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:4px;';
+  const allCollapsed = window._collapsedWbsGroups.size >= groups.size && groups.size > 0;
+  toggleAllBtn.innerHTML = `<span style="cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--accent);padding:2px 6px;background:var(--surface2);border-radius:3px;border:1px solid var(--border)">${allCollapsed ? '▽ 전체 펼치기' : '△ 전체 접기'}</span>`;
+  toggleAllBtn.onclick = () => {
+    if (allCollapsed) {
+      window._collapsedWbsGroups.clear();
+    } else {
+      groups.forEach((_, k) => window._collapsedWbsGroups.add(k));
+    }
+    renderSidebar();
+  };
+  list.appendChild(toggleAllBtn);
+
+  groups.forEach((items, wbsL1) => {
+    const isCollapsed = window._collapsedWbsGroups.has(wbsL1);
+
+    // Group header
+    const header = document.createElement('div');
+    header.className = 'wbs-group-header' + (isCollapsed ? ' collapsed' : '');
+    header.innerHTML = `<span class="chevron">▼</span> WBS ${wbsL1} <span style="font-size:10px;color:#888;margin-left:auto;background:var(--bg);padding:1px 6px;border-radius:8px">${items.length}</span>`;
+
+    // Cards container
+    const container = document.createElement('div');
+    container.className = 'wbs-group-cards' + (isCollapsed ? ' hidden' : '');
+
+    header.onclick = () => {
+      const nowHidden = container.classList.toggle('hidden');
+      header.classList.toggle('collapsed', nowHidden);
+      if (nowHidden) window._collapsedWbsGroups.add(wbsL1);
+      else window._collapsedWbsGroups.delete(wbsL1);
     };
-    card.innerHTML = `
-      <div class="card-row1">
-        <span class="act-id" title="내부ID: ${a.id}">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</span>
-        ${a.wbsFull ? `<span style="font-family:var(--mono);font-size:10px;color:#5a7a9a;padding:2px 5px;background:var(--bg);border-radius:3px">${a.wbsFull}</span>` : ''}
-        ${(() => { const cf = a.customFields; const bv = cf && (cf.BLDG || cf.Text2 || cf['텍스트2']); return bv ? `<span onclick="event.stopPropagation(); applyBldgFilter('${bv.replace(/'/g,"\\'")}')" style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#c97a10;padding:2px 5px;background:rgba(201,122,16,0.1);border-radius:3px;border:1px solid rgba(201,122,16,0.3)" title="BLDG 필터: ${bv}">${bv}</span>` : ''; })()}
-        ${(() => { const cf = a.customFields; const tv = cf && (cf.Text1 || cf['\ud14d\uc2a4\ud2b81']); return tv ? `<span onclick="event.stopPropagation(); applyText1Filter('${tv.replace(/'/g,"\\'")}')" style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#6ea8fe;padding:2px 5px;background:rgba(110,168,254,0.1);border-radius:3px;border:1px solid rgba(110,168,254,0.3)" title="Text1 필터: ${tv}">${tv}</span>` : ''; })()}
-        <input class="act-name-input" id="name_${a.id}" placeholder="작업명 입력" value="${(a.name||'').replace(/"/g,'&quot;')}"
-          readonly>
-        <button class="btn-del" onclick="removeActivity('${a.id}')" ${window._readOnly ? 'style="display:none"' : ''}>×</button>
-      </div>
-      <div class="card-row2">
-        <div class="field-group">
-          <span class="field-label">기간(일)</span>
-          <input class="field-input" id="dur_${a.id}" type="number" min="1" value="${a.duration}" style="text-align:center"
+
+    items.forEach(a => {
+      const card = document.createElement('div');
+      card.className = 'activity-card' + (a.isCritical ? ' critical' : '');
+      card.setAttribute('data-act-id', a.id);
+      card.style.cursor = 'pointer';
+      card.onclick = function(e) {
+        if (e.target.tagName === 'BUTTON') return;
+        if (e.target.tagName === 'INPUT' && !e.target.readOnly) return;
+        handleSidebarCardClick(a.id);
+      };
+      card.innerHTML = `
+        <div class="card-row1">
+          <span class="act-id" title="내부ID: ${a.id}">${a.mppTaskId ? '#'+a.mppTaskId : a.id}</span>
+          ${a.wbsFull ? `<span style="font-family:var(--mono);font-size:10px;color:#5a7a9a;padding:2px 5px;background:var(--bg);border-radius:3px">${a.wbsFull}</span>` : ''}
+          ${(() => { const cf = a.customFields; const bv = cf && (cf.BLDG || cf.Text2 || cf['텍스트2']); return bv ? `<span onclick="event.stopPropagation(); applyBldgFilter('${bv.replace(/'/g,"\\'")}')" style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#c97a10;padding:2px 5px;background:rgba(201,122,16,0.1);border-radius:3px;border:1px solid rgba(201,122,16,0.3)" title="BLDG 필터: ${bv}">${bv}</span>` : ''; })()}
+          ${(() => { const cf = a.customFields; const tv = cf && (cf.Text1 || cf['\ud14d\uc2a4\ud2b81']); return tv ? `<span onclick="event.stopPropagation(); applyText1Filter('${tv.replace(/'/g,"\\'")}')" style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#6ea8fe;padding:2px 5px;background:rgba(110,168,254,0.1);border-radius:3px;border:1px solid rgba(110,168,254,0.3)" title="Text1 필터: ${tv}">${tv}</span>` : ''; })()}
+          <input class="act-name-input" id="name_${a.id}" placeholder="작업명 입력" value="${(a.name||'').replace(/"/g,'&quot;')}"
             readonly>
+          <button class="btn-del" onclick="removeActivity('${a.id}')" ${window._readOnly ? 'style="display:none"' : ''}>×</button>
         </div>
-        <div class="field-group" style="flex:2">
-          <span class="field-label">선행작업</span>
-          <input class="field-input" id="pred_${a.id}" placeholder="-"
-            value="${(a.predecessors||'')}"
-            readonly>
+        <div class="card-row2">
+          <div class="field-group">
+            <span class="field-label">기간(일)</span>
+            <input class="field-input" id="dur_${a.id}" type="number" min="1" value="${a.duration}" style="text-align:center"
+              readonly>
+          </div>
+          <div class="field-group" style="flex:2">
+            <span class="field-label">선행작업</span>
+            <input class="field-input" id="pred_${a.id}" placeholder="-"
+              value="${(a.predecessors||'')}"
+              readonly>
+          </div>
+          <div class="field-group" style="flex:2">
+            <span class="field-label">후행작업</span>
+            <input class="field-input" id="succ_${a.id}" placeholder="-"
+              value="${(a.successors||[]).join(', ')}"
+              readonly>
+          </div>
+          <div class="field-group" style="flex:.8">
+            <span class="field-label">WBS</span>
+            <input class="field-input" id="wbs_${a.id}" placeholder="1.1" value="${a.wbsFull||a.wbs||''}" readonly>
+          </div>
         </div>
-        <div class="field-group" style="flex:2">
-          <span class="field-label">후행작업</span>
-          <input class="field-input" id="succ_${a.id}" placeholder="-"
-            value="${(a.successors||[]).join(', ')}"
-            readonly>
-        </div>
-        <div class="field-group" style="flex:.8">
-          <span class="field-label">WBS</span>
-          <input class="field-input" id="wbs_${a.id}" placeholder="1.1" value="${a.wbsFull||a.wbs||''}" readonly>
-        </div>
-      </div>
-      ${a.es !== null ? `
-      <div class="cpm-badge">
-        <span class="badge">ES:${a.es}</span>
-        <span class="badge">EF:${a.ef}</span>
-        <span class="badge">LS:${a.ls}</span>
-        <span class="badge">LF:${a.lf}</span>
-        <span class="badge ${a.tf===0?'tf0':'float'}">TF:${a.tf}</span>
-        ${a.isCritical ? '<span class="badge tf0">★ CRITICAL</span>' : ''}
-      </div>` : ''}
-    `;
-    list.appendChild(card);
+        ${a.es !== null ? `
+        <div class="cpm-badge">
+          <span class="badge">ES:${a.es}</span>
+          <span class="badge">EF:${a.ef}</span>
+          <span class="badge">LS:${a.ls}</span>
+          <span class="badge">LF:${a.lf}</span>
+          <span class="badge ${a.tf===0?'tf0':'float'}">TF:${a.tf}</span>
+          ${a.isCritical ? '<span class="badge tf0">★ CRITICAL</span>' : ''}
+        </div>` : ''}
+      `;
+      container.appendChild(card);
+    });
+
+    list.appendChild(header);
+    list.appendChild(container);
   });
 }
 
