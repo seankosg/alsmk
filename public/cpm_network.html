@@ -129,6 +129,21 @@
   .activity-list::-webkit-scrollbar-track { background: transparent; }
   .activity-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
+  .wbs-group-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px; margin: 4px 0 2px;
+    cursor: pointer; user-select: none;
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    color: var(--accent); background: var(--surface2);
+    border-radius: 4px; border: 1px solid var(--border);
+  }
+  .wbs-group-header:hover { background: var(--border); }
+  .wbs-group-header .chevron {
+    transition: transform .2s; font-size: 10px; display: inline-block;
+  }
+  .wbs-group-header.collapsed .chevron { transform: rotate(-90deg); }
+  .wbs-group-cards.hidden { display: none; }
+
   .activity-card {
     background: var(--surface2);
     border: 1px solid var(--border);
