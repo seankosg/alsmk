@@ -189,7 +189,7 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
                 value={selectedTargets[orphan.id] ?? ""}
                 onValueChange={(v) => setSelectedTargets((prev) => ({ ...prev, [orphan.id]: v }))}
               >
-                <SelectTrigger className="w-[200px] h-8 text-xs">
+                <SelectTrigger className="w-[280px] h-8 text-xs">
                   <SelectValue placeholder="이전 대상 선택" />
                 </SelectTrigger>
                 <SelectContent>
