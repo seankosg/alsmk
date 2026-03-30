@@ -78,8 +78,9 @@ export function useUnreadMessages() {
   useEffect(() => {
     if (!memberId) return;
 
+    const channelName = `unread-dm-listener-${memberId}-${Date.now()}`;
     const channel = supabase
-      .channel("unread-dm-listener")
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "direct_messages" },
