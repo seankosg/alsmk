@@ -1,0 +1,1 @@
+ALTER TABLE public.cpm_task_mappings ADD CONSTRAINT cpm_task_mappings_activity_task_unique UNIQUE (activity_id, task_id);
