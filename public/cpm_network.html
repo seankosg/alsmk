@@ -506,7 +506,10 @@
       </div>
       <button class="btn-add" onclick="addActivity()" style="display:none">+ 추가</button>
     </div>
-    <div id="toggleAllContainer" style="padding:4px 8px 0;flex-shrink:0;display:none"></div>
+    <div id="sidebarFixedControls" style="padding:4px 8px 0;flex-shrink:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <div id="sidebarFilterBadges" style="display:flex;flex-wrap:wrap;gap:3px;flex:1"></div>
+      <div id="toggleAllContainer" style="flex-shrink:0"></div>
+    </div>
     <div class="activity-list" id="activityList"></div>
     <div class="sidebar-footer">
       <div class="upload-zone" id="uploadZone"
@@ -635,11 +638,38 @@ function renderSidebar() {
     window._collapsedWbsGroupsInitialized = true;
   }
 
-  // Toggle all button (fixed above scroll area)
+  // Filter badges (fixed above scroll area)
+  const filterBadgesEl = document.getElementById('sidebarFilterBadges');
+  const bldgVals = new Set();
+  const text1Vals = new Set();
+  activities.forEach(a => {
+    const cf = a.customFields || {};
+    const bv = cf.BLDG || cf.Text2 || cf['\ud14d\uc2a4\ud2b82'];
+    const tv = cf.Text1 || cf['\ud14d\uc2a4\ud2b81'];
+    if (bv) bldgVals.add(bv);
+    if (tv) text1Vals.add(tv);
+  });
+  let badgeHtml = '';
+  const sortedBldg = [...bldgVals].sort();
+  const sortedText1 = [...text1Vals].sort();
+  sortedBldg.forEach(v => {
+    const active = window._activeBldgFilter && window._activeBldgFilter.has(v);
+    badgeHtml += `<span onclick="applyBldgFilter('${v.replace(/'/g,"\\'")}')" style="cursor:pointer;font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid rgba(201,122,16,${active?'0.8':'0.3'});color:#c97a10;background:rgba(201,122,16,${active?'0.25':'0.08'})" title="BLDG: ${v}">${v}</span>`;
+  });
+  sortedText1.forEach(v => {
+    const active = window._activeText1Filter && window._activeText1Filter.has(v);
+    badgeHtml += `<span onclick="applyText1Filter('${v.replace(/'/g,"\\'")}')" style="cursor:pointer;font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid rgba(110,168,254,${active?'0.8':'0.3'});color:#6ea8fe;background:rgba(110,168,254,${active?'0.25':'0.08'})" title="Text1: ${v}">${v}</span>`;
+  });
+  filterBadgesEl.innerHTML = badgeHtml;
+
+  // Toggle all button
   const toggleContainer = document.getElementById('toggleAllContainer');
+  const fixedControls = document.getElementById('sidebarFixedControls');
   const allCollapsed = window._collapsedWbsGroups.size >= groups.size && groups.size > 0;
+  const hasContent = groups.size > 0 || badgeHtml;
+  fixedControls.style.display = hasContent ? 'flex' : 'none';
   toggleContainer.style.display = groups.size > 0 ? '' : 'none';
-  toggleContainer.innerHTML = `<div style="display:flex;justify-content:flex-end"><span style="cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--accent);padding:2px 6px;background:var(--surface2);border-radius:3px;border:1px solid var(--border)">${allCollapsed ? '▽ 전체 펼치기' : '△ 전체 접기'}</span></div>`;
+  toggleContainer.innerHTML = groups.size > 0 ? `<span style="cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--accent);padding:2px 6px;background:var(--surface2);border-radius:3px;border:1px solid var(--border);white-space:nowrap">${allCollapsed ? '▽ 전체 펼치기' : '△ 전체 접기'}</span>` : '';
   toggleContainer.onclick = () => {
     if (allCollapsed) {
       window._collapsedWbsGroups.clear();
@@ -1699,6 +1729,7 @@ function removeBldgFilterItem(val) {
   var o = getOrder(m); if(!o)return;
   var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
   drawNetwork(o,m,pe,window._activeWbsFilter||null,window._activeBldgFilter,window._activeText1Filter||null);
+  renderSidebar();
 }
 
 function removeText1FilterItem(val) {
@@ -1709,6 +1740,7 @@ function removeText1FilterItem(val) {
   var o = getOrder(m); if(!o)return;
   var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
   drawNetwork(o,m,pe,window._activeWbsFilter||null,window._activeBldgFilter||null,window._activeText1Filter);
+  renderSidebar();
 }
 
 function clearAllFilters() {
@@ -1729,6 +1761,7 @@ function clearAllFilters() {
     el.style.outline = '';
     el.style.outlineOffset = '';
   });
+  renderSidebar();
 }
 
 function applyBldgFilter(bldgValue) {
@@ -1754,6 +1787,7 @@ function applyBldgFilter(bldgValue) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('networkPanel').classList.add('active');
   document.querySelector('.tab-btn').classList.add('active');
+  renderSidebar();
 }
 
 function applyText1Filter(text1Value) {
@@ -1779,6 +1813,7 @@ function applyText1Filter(text1Value) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('networkPanel').classList.add('active');
   document.querySelector('.tab-btn').classList.add('active');
+  renderSidebar();
 }
 
 function getOrder(map) {
