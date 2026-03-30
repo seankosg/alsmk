@@ -498,6 +498,7 @@
       </div>
       <button class="btn-add" onclick="addActivity()" style="display:none">+ 추가</button>
     </div>
+    <div id="toggleAllContainer" style="padding:4px 8px 0;flex-shrink:0;display:none"></div>
     <div class="activity-list" id="activityList"></div>
     <div class="sidebar-footer">
       <div class="upload-zone" id="uploadZone"
@@ -622,12 +623,12 @@ function renderSidebar() {
     groups.get(wbsL1).push(a);
   });
 
-  // Toggle all button
-  const toggleAllBtn = document.createElement('div');
-  toggleAllBtn.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:4px;';
+  // Toggle all button (fixed above scroll area)
+  const toggleContainer = document.getElementById('toggleAllContainer');
   const allCollapsed = window._collapsedWbsGroups.size >= groups.size && groups.size > 0;
-  toggleAllBtn.innerHTML = `<span style="cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--accent);padding:2px 6px;background:var(--surface2);border-radius:3px;border:1px solid var(--border)">${allCollapsed ? '▽ 전체 펼치기' : '△ 전체 접기'}</span>`;
-  toggleAllBtn.onclick = () => {
+  toggleContainer.style.display = groups.size > 0 ? '' : 'none';
+  toggleContainer.innerHTML = `<div style="display:flex;justify-content:flex-end"><span style="cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--accent);padding:2px 6px;background:var(--surface2);border-radius:3px;border:1px solid var(--border)">${allCollapsed ? '▽ 전체 펼치기' : '△ 전체 접기'}</span></div>`;
+  toggleContainer.onclick = () => {
     if (allCollapsed) {
       window._collapsedWbsGroups.clear();
     } else {
@@ -635,7 +636,6 @@ function renderSidebar() {
     }
     renderSidebar();
   };
-  list.appendChild(toggleAllBtn);
 
   groups.forEach((items, wbsL1) => {
     const isCollapsed = window._collapsedWbsGroups.has(wbsL1);
