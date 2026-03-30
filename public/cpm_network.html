@@ -1123,10 +1123,26 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     if (!p) return;
     const isC  = a.isCritical;
     const isPT = isPassThrough(id);
-    const fill   = isPT ? '#1a1200' : isC ? '#1f1010' : '#131b2a';
-    const stroke = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#2a3347';
-    const strokeW = (isC || isPT) ? 2 : 1;
-    const hColor  = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#4da6ff';
+    const text1Val = getActivityText1(a);
+    const isKuku = text1Val === 'KUKU';
+    const isKukuPred = kukuPredecessorIds.has(id);
+    const isDimmed = !isKuku && !isKukuPred && !isC && !isPT;
+
+    // Role-based colors
+    let fill, stroke, strokeW, hColor;
+    if (isPT) {
+      fill = '#1a1200'; stroke = '#c97a10'; strokeW = 2; hColor = '#c97a10';
+    } else if (isC) {
+      // CP: red stroke/header, but fill based on role
+      fill = isKuku ? '#0f1f2e' : isKukuPred ? '#1a1a0f' : '#1f1010';
+      stroke = '#ff4d4d'; strokeW = 2.5; hColor = '#ff4d4d';
+    } else if (isKuku) {
+      fill = '#0f1f2e'; stroke = '#3b82f6'; strokeW = 1.5; hColor = '#3b82f6';
+    } else if (isKukuPred) {
+      fill = '#1a1a0f'; stroke = '#eab308'; strokeW = 1.5; hColor = '#eab308';
+    } else {
+      fill = '#1a1a1a'; stroke = '#555'; strokeW = 1; hColor = '#888';
+    }
     const nameShort = escHtml((a.name||'').length > 14 ? (a.name||'').slice(0,13)+'…' : (a.name||''));
     const displayId  = a.mppTaskId ? `#${a.mppTaskId}` : id;
     const displayWbs = a.wbsFull || a.wbs || '';
