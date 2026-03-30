@@ -1571,7 +1571,7 @@ function removeWbsFilterItem(code) {
   var m = {}; activities.forEach(function(a){m[a.id]=a;});
   var o = getOrder(m); if(!o)return;
   var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
-  drawNetwork(o,m,pe,window._activeWbsFilter,window._activeBldgFilter||null);
+  drawNetwork(o,m,pe,window._activeWbsFilter,window._activeBldgFilter||null,window._activeText1Filter||null);
   // WBS 탭 하이라이트 업데이트
   document.querySelectorAll('#wbsContent .wbs-node').forEach(function(el){
     var wc=el.getAttribute('data-wbs')||'';
