@@ -1,0 +1,2 @@
+ALTER TABLE public.cpm_activities DROP CONSTRAINT cpm_activities_mpp_task_id_wbs_full_key;
+ALTER TABLE public.cpm_activities ADD CONSTRAINT cpm_activities_mpp_uid_wbs_full_key UNIQUE (mpp_uid, wbs_full);
