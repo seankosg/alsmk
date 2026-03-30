@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -25,38 +25,67 @@ export function useAuth() {
     loading: true,
   });
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          // Defer role/member lookup to avoid deadlock with auth
-          setTimeout(async () => {
-            const [roleResult, memberResult] = await Promise.all([
-              supabase.rpc("has_role", {
-                _user_id: session.user.id,
-                _role: "admin",
-              }),
-              supabase
-                .from("members")
-                .select("id, name, is_pm")
-                .eq("user_id", session.user.id)
-                .maybeSingle(),
-            ]);
+  const fetchingForRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
 
-            const admin = roleResult.data === true;
-            const pm = memberResult.data?.is_pm === true;
-            setState({
-              user: session.user,
-              session,
-              isAdmin: admin,
-              isPm: pm,
-              isAdminOrPm: admin || pm,
-              memberId: memberResult.data?.id ?? null,
-              memberName: memberResult.data?.name ?? null,
-              loading: false,
-            });
-          }, 0);
+  const fetchRoles = useCallback(async (user: User, session: Session) => {
+    // Prevent duplicate concurrent fetches for the same user
+    if (fetchingForRef.current === user.id) return;
+    fetchingForRef.current = user.id;
+
+    try {
+      const [roleResult, memberResult] = await Promise.all([
+        supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }),
+        supabase
+          .from("members")
+          .select("id, name, is_pm")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
+
+      if (!mountedRef.current) return;
+
+      // If RPC errored, keep previous role values instead of defaulting to false
+      if (roleResult.error || memberResult.error) {
+        console.warn("Role fetch error:", roleResult.error, memberResult.error);
+        setState((prev) => ({ ...prev, user, session, loading: false }));
+        return;
+      }
+
+      const admin = roleResult.data === true;
+      const pm = memberResult.data?.is_pm === true;
+      setState({
+        user,
+        session,
+        isAdmin: admin,
+        isPm: pm,
+        isAdminOrPm: admin || pm,
+        memberId: memberResult.data?.id ?? null,
+        memberName: memberResult.data?.name ?? null,
+        loading: false,
+      });
+    } finally {
+      if (fetchingForRef.current === user.id) {
+        fetchingForRef.current = null;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          // Set user/session immediately but keep loading until roles resolve
+          setState((prev) => ({
+            ...prev,
+            user: session.user,
+            session,
+          }));
+          fetchRoles(session.user, session);
         } else {
+          fetchingForRef.current = null;
           setState({
             user: null,
             session: null,
@@ -79,8 +108,11 @@ export function useAuth() {
       // onAuthStateChange will handle the rest
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      mountedRef.current = false;
+      subscription.unsubscribe();
+    };
+  }, [fetchRoles]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
