@@ -167,9 +167,22 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{orphan.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  WBS: {orphan.wbs_full ?? "-"} · 매핑 {orphan.mappedTaskCount}개
-                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {(() => {
+                    const cf = orphan.custom_fields || {};
+                    const bldg = cf.BLDG || cf.Text2 || cf['텍스트2'];
+                    const wbsParts = (orphan.wbs_full || '').split('.');
+                    const wbsL2 = wbsParts.length >= 2 ? `${wbsParts[0]}.${wbsParts[1]}` : null;
+                    return (
+                      <>
+                        {bldg && <span className="bg-muted px-1.5 py-0.5 rounded font-medium">{bldg}</span>}
+                        {wbsL2 && <span>WBS L2: {wbsL2}</span>}
+                      </>
+                    );
+                  })()}
+                  <span>WBS: {orphan.wbs_full ?? "-"}</span>
+                  <span>· 매핑 {orphan.mappedTaskCount}개</span>
+                </div>
               </div>
 
               <Select
