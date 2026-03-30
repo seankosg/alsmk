@@ -1,79 +1,47 @@
 
 
-# 네트워크 필터 적용 시 매핑 버튼 미표시 — 원인 분석 및 수정 계획
+# Admin View 미표시 원인 분석 및 수정 계획
 
-## 원인 분석
+## 원인
 
-`ActivityTaskPanel`에서 매핑 버튼은 `dbActivity?.id`가 존재할 때만 렌더링됩니다 (line 373).
+`useAuth`의 `onAuthStateChange`에서 `setTimeout(async () => {...}, 0)` 을 사용하여 역할 조회를 비동기로 지연합니다. 문제는:
 
-`dbActivity` 조회 쿼리 (line 67-83):
-```javascript
-let query = supabase.from("cpm_activities").select("id");
-if (activity.mppTaskId) {
-  query = query.eq("mpp_task_id", activity.mppTaskId);
-}
-if (activity.wbsFull) {
-  query = query.eq("wbs_full", activity.wbsFull);
-}
-const { data } = await query.maybeSingle();
-```
+1. **`onAuthStateChange`가 여러 번 fire** — `INITIAL_SESSION`, `TOKEN_REFRESHED` 등 이벤트마다 새 `setTimeout`이 예약됨
+2. **경쟁 조건** — 첫 번째 `setTimeout` 콜백이 `await Promise.all()`로 DB 조회 중일 때, 두 번째 이벤트가 fire되면 또 다른 `setTimeout`이 예약됨. 두 번째 콜백이 먼저 완료되면 `isAdmin: true`를 설정하지만, 뒤늦게 완료된 첫 번째 콜백이 다시 `isAdmin: false`로 덮어쓸 수 있음
+3. **RPC 실패 무시** — `roleResult.error`를 체크하지 않음. 네트워크 타이밍이나 토큰 전파 지연으로 RPC가 실패하면 `roleResult.data`가 `null`이 되어 `admin = false`로 설정됨
 
-**문제점**: `mpp_task_id`는 XML 재 Export 시 값이 변할 수 있고, **DB 유니크 제약이 `mpp_uid, wbs_full`로 변경**되었기 때문에 `mpp_task_id`로 조회하면:
-1. **중복 매칭**: 같은 `mpp_task_id + wbs_full` 조합이 여러 행에 존재 → `.maybeSingle()`이 에러 반환 → `data = null`
-2. **불일치**: DB에는 `mpp_uid`가 기준인데 `mpp_task_id`로 조회하면 매칭 실패
+### Workspace 측 영향
 
-필터와의 관계: 필터가 없을 때는 이미 열린 패널의 캐시된 `dbActivity`가 유지되지만, **필터 적용 후 다른 노드를 클릭하면 새 쿼리가 실행**되고 이때 조회 실패가 발생합니다.
+`Workspace.tsx` line 67: `const showTabs = !isAdmin && !isPm` — `isAdmin`이 `false`로 잘못 설정되면 일반 사용자 뷰(탭 표시)가 나타남
 
 ## 수정 계획
 
-### 변경 파일: `src/components/cpm/ActivityTaskPanel.tsx`
+### 변경 파일: `src/hooks/useAuth.ts`
 
-**dbActivity 조회를 `mpp_uid + wbs_full` 기반으로 변경** — DB 유니크 제약과 일치시킴:
+1. **`setTimeout` 제거, 직접 `getSession()` 기반으로 변경** — `onAuthStateChange` 내부에서는 user/session만 즉시 설정하고, 역할 조회는 별도 함수로 분리
+2. **중복 호출 방지** — 현재 처리 중인 user ID를 추적하여 동일 사용자에 대한 중복 역할 조회 방지
+3. **에러 핸들링 추가** — RPC 실패 시 재시도 또는 기존 상태 유지
 
-```javascript
-const { data: dbActivity } = useQuery({
-  queryKey: ["cpm_activity_by_mpp", activity.mppUid, activity.wbsFull],
-  queryFn: async () => {
-    let query = supabase.from("cpm_activities").select("id");
-    
-    // Primary: mpp_uid + wbs_full (DB unique constraint)
-    if (activity.mppUid) {
-      query = query.eq("mpp_uid", activity.mppUid);
-    }
-    if (activity.wbsFull) {
-      query = query.eq("wbs_full", activity.wbsFull);
-    }
-    
-    // Fallback: mpp_task_id + wbs_full
-    if (!activity.mppUid && activity.mppTaskId) {
-      query = supabase.from("cpm_activities").select("id")
-        .eq("mpp_task_id", activity.mppTaskId);
-      if (activity.wbsFull) query = query.eq("wbs_full", activity.wbsFull);
-    }
-    
-    // Last resort: name match
-    if (!activity.mppUid && !activity.mppTaskId) {
-      query = supabase.from("cpm_activities").select("id")
-        .eq("name", activity.name);
-    }
-    
-    const { data } = await query.maybeSingle();
-    return data;
-  },
-});
+```text
+변경 로직:
+
+onAuthStateChange:
+  session 있음 → user/session만 즉시 setState (loading 유지)
+                → fetchRoles(session.user.id) 호출
+  session 없음 → 초기화 + loading: false
+
+fetchRoles(userId):
+  if (이미 같은 userId 처리 중) return;
+  처리중 플래그 설정
+  Promise.all([has_role RPC, members 조회])
+  에러 없으면 → setState (isAdmin, isPm 등 + loading: false)
+  에러 있으면 → 기존 값 유지 + loading: false
+  처리중 플래그 해제
 ```
 
-### 핵심 변경 사항
+### 기대 효과
 
-| 항목 | 기존 | 변경 |
-|------|------|------|
-| 조회 키 | `mpp_task_id` + `wbs_full` | `mpp_uid` + `wbs_full` (DB 유니크 제약과 일치) |
-| queryKey | `activity.id` (iframe 내부 ID) | `activity.mppUid, activity.wbsFull` (안정적) |
-| Fallback | `name` only | `mpp_task_id` → `name` 2단계 |
-
-## 기대 효과
-
-- DB 유니크 제약(`mpp_uid, wbs_full`)과 조회 로직이 일치하여 `.maybeSingle()`이 정확히 1행 반환
-- 필터 적용 여부와 무관하게 모든 노드 클릭 시 매핑 버튼 정상 표시
-- `mpp_uid`는 XML 재 Export에도 불변이므로 안정적 매칭
+- `setTimeout` 경쟁 조건 제거
+- RPC 실패 시에도 안정적 동작
+- Admin 로그인 시 항상 정확한 역할 표시
 
