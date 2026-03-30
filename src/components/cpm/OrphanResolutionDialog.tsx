@@ -67,10 +67,20 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
     if (!targetId) return;
     setProcessing(true);
     try {
-      await supabase
+      // Fix 4: Use RPC for atomic migration, merging with existing target mappings
+      const { data: existingTargetMappings } = await supabase
         .from("cpm_task_mappings")
-        .update({ activity_id: targetId })
-        .eq("activity_id", orphan.id);
+        .select("task_id")
+        .eq("activity_id", targetId);
+      const existingTaskIds = (existingTargetMappings || []).map((m) => m.task_id);
+      const mergedTaskIds = [...new Set([...existingTaskIds, ...orphan.mappedTaskIds])];
+
+      await supabase.rpc("upsert_activity_mappings", {
+        _activity_id: targetId,
+        _task_ids: mergedTaskIds,
+      });
+      // Delete orphan's old mappings and the activity itself
+      await supabase.from("cpm_task_mappings").delete().eq("activity_id", orphan.id);
       await supabase.from("cpm_activities").delete().eq("id", orphan.id);
       await logAction(orphan, "migrated", targetId);
       const target = newActivities.find((a) => a.id === targetId);
@@ -112,13 +122,26 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
     setProcessing(false);
   };
 
-  const handleDone = () => {
-    // Delete any remaining orphans without mappings silently
-    remaining.forEach(async (orphan) => {
-      if (orphan.mappedTaskCount === 0) {
+  const handleDone = async () => {
+    // Fix 3: Warn about unresolved orphans with mappings, use Promise.all instead of forEach
+    const withMappings = remaining.filter((o) => o.mappedTaskCount > 0);
+    const withoutMappings = remaining.filter((o) => o.mappedTaskCount === 0);
+
+    if (withMappings.length > 0) {
+      toast.warning(`${withMappings.length}개 Activity에 미처리 매핑이 남아있습니다. 해당 매핑은 해제됩니다.`);
+      // Clean up mappings for unresolved orphans
+      await Promise.all(withMappings.map(async (orphan) => {
+        await supabase.from("cpm_task_mappings").delete().eq("activity_id", orphan.id);
         await supabase.from("cpm_activities").delete().eq("id", orphan.id);
-      }
-    });
+        await logAction(orphan, "deleted");
+      }));
+    }
+
+    // Delete orphans without mappings
+    await Promise.all(withoutMappings.map(async (orphan) => {
+      await supabase.from("cpm_activities").delete().eq("id", orphan.id);
+    }));
+
     onComplete();
   };
 
