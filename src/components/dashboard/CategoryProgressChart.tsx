@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList } from "recharts";
@@ -212,12 +213,21 @@ export function CategoryProgressChart() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm font-medium truncate">{t.title}</p>
-                  <p className="text-xs text-muted-foreground">{getMemberName(t.assignee_id)}</p>
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <p className="text-sm font-medium truncate flex-1 min-w-0">{t.title}</p>
+                    <span className="text-xs text-muted-foreground shrink-0">{getMemberName(t.assignee_id)}</span>
+                  </div>
+                  {t.action_plan && (
+                    <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{t.action_plan}</p>
+                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <Progress value={t.current_progress} className="h-1.5 flex-1 [&>div]:bg-primary" />
+                    <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">{t.current_progress}%</span>
+                  </div>
                 </div>
                 <div className="text-right shrink-0">
                   <span className="text-sm font-mono font-bold text-destructive">{t.gap}%</span>
-                  <p className="text-[10px] text-muted-foreground">Plan {t.planned}% / Actual {t.current_progress}%</p>
+                  <p className="text-[10px] text-muted-foreground">Plan {t.planned}%</p>
                 </div>
               </div>
             ))}
