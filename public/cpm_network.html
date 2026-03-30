@@ -2914,6 +2914,7 @@ function loadFromStorage() {
     window._wbsNames     = data.wbsNames || {};
     window._activeWbsFilter = data.wbsFilter ? new Set(Array.isArray(data.wbsFilter) ? data.wbsFilter : [data.wbsFilter]) : null;
     window._activeBldgFilter = data.bldgFilter ? new Set(Array.isArray(data.bldgFilter) ? data.bldgFilter : [data.bldgFilter]) : null;
+    window._activeText1Filter = data.text1Filter ? new Set(Array.isArray(data.text1Filter) ? data.text1Filter : [data.text1Filter]) : null;
     if (data.projStart)  window._projStart = new Date(data.projStart);
 
     const saved = new Date(data.savedAt);
