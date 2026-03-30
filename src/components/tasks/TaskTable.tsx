@@ -609,7 +609,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                     );
                   })}
                 </TableBody>
-              </Table>
+              </table>
             </div>
           )}
         </CardContent>
