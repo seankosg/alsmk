@@ -65,6 +65,11 @@ Phase 2+3+4+5 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_sna
 - All actions logged to activity_log with details (resolution type, migrated_to, task_ids)
 - OrphanResolutionDialog: per-orphan migrate (dropdown) or delete, bulk delete all
 - **CRITICAL**: Orphan detection only runs on `isNewImport: true` (new XML upload). Hydration and manual recalculation use `upsertActivitiesOnly` (no orphan detection).
+- **ID-based orphan detection**: Uses `.select()` on upsert to get returned IDs; orphans = DB rows not in upserted set (fixes null key issues).
+- **Duplicate name guard**: Auto-migration skips activity names that appear more than once; sends to OrphanResolutionDialog instead.
+- **Atomic migration**: Uses `upsert_activity_mappings` RPC with merged task IDs to prevent duplicate mappings.
+- **Query limit**: `.limit(5000)` on cpm_activities queries to avoid 1000-row truncation.
+- **DB unique constraint**: `cpm_task_mappings(activity_id, task_id)` UNIQUE prevents duplicate mapping rows.
 
 ## Mapping Atomicity
 - `upsert_activity_mappings(_activity_id, _task_ids[])` RPC: atomic delete+insert for Activity→Task mappings
