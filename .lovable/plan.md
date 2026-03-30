@@ -1,94 +1,92 @@
 
 
-# CPM 네트워크 노드 색상 계획 제안
+# WBS Level1 기준 사이드바 Activity 접기/펼치기
 
-## 현재 색상 체계 (기존)
+## 개요
 
-```text
-┌──────────────────┬──────────────┬──────────────┬──────────────┐
-│ 구분              │ fill (배경)   │ stroke (테두리)│ header bar   │
-├──────────────────┼──────────────┼──────────────┼──────────────┤
-│ 일반 노드         │ #131b2a      │ #2a3347      │ #4da6ff      │
-│ 크리티컬 패스      │ #1f1010      │ #ff4d4d      │ #ff4d4d      │
-│ 패스스루(필터 외 CP)│ #1a1200      │ #c97a10      │ #c97a10      │
-└──────────────────┴──────────────┴──────────────┴──────────────┘
+사이드바의 Activity 카드 목록을 WBS Level1 (예: `1`, `2`, `3`) 기준으로 그룹화하여 접고 펼 수 있는 collapsible 섹션으로 변경합니다.
+
+## 변경 파일
+
+`public/cpm_network.html` (단일 파일)
+
+## 변경 내용
+
+### 1. CSS 추가 (~line 130 부근)
+
+```css
+.wbs-group-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px; margin: 4px 0 2px;
+  cursor: pointer; user-select: none;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  color: var(--accent); background: var(--surface2);
+  border-radius: 4px; border: 1px solid var(--border);
+}
+.wbs-group-header:hover { background: var(--border); }
+.wbs-group-header .chevron {
+  transition: transform .2s; font-size: 10px;
+}
+.wbs-group-header.collapsed .chevron { transform: rotate(-90deg); }
+.wbs-group-cards { /* 카드 컨테이너 */ }
+.wbs-group-cards.hidden { display: none; }
 ```
 
-## 제안: Text1 기반 5단계 노드 색상 체계
+### 2. `renderSidebar()` 함수 수정 (~line 597-655)
 
-전체 보기(필터 미적용) 시 노드를 **역할별로 구분**합니다.
+기존: `activities.forEach` → 카드를 flat하게 append
 
-```text
-┌────────┬──────────────┬──────────────────┬──────────────────┬──────────────────┐
-│ Text1  │ 의미          │ fill (배경)       │ stroke (테두리)   │ header bar       │
-├────────┼──────────────┼──────────────────┼──────────────────┼──────────────────┤
-│ KUKU   │ 건축 (당사)    │ #0f1f2e (진한청)  │ #3b82f6 (파랑)    │ #3b82f6          │
-│ 선행*  │ KUKU 선행작업  │ #1a1a0f (진한황)  │ #eab308 (노랑)    │ #eab308          │
-│ HS     │ 발주처         │ #1a1a1a (어두움)  │ #555 (회색)       │ #888             │
-│ TOMO   │ 토목          │ #1a1a1a          │ #555             │ #888             │
-│ PLNT   │ 플랜트        │ #1a1a1a          │ #555             │ #888             │
-│ MS     │ 마일스톤       │ #1a1a1a          │ #555             │ #888             │
-│ CP노드 │ 크리티컬 패스   │ (위 배경 유지)    │ #ff4d4d (빨강)    │ #ff4d4d          │
-└────────┴──────────────┴──────────────────┴──────────────────┴──────────────────┘
+변경:
+1. Activity를 WBS Level1로 그룹화: `wbsFull.split('.')[0]` 기준
+2. 각 그룹별로:
+   - **그룹 헤더** div 생성 (WBS L1 값 + Activity 수 뱃지 + 접기/펼치기 chevron)
+   - **카드 컨테이너** div 생성 → 기존 카드를 컨테이너에 append
+3. 헤더 클릭 시 카드 컨테이너 `hidden` 토글 + chevron 방향 전환
+4. `window._collapsedWbsGroups` (Set)으로 접힌 상태 유지 → renderSidebar 재호출 시에도 상태 보존
 
-* "선행" = KUKU가 아니지만, KUKU Activity의 직접 선행작업(predecessor)인 Activity
-```
+```javascript
+function renderSidebar() {
+  const list = document.getElementById('activityList');
+  list.innerHTML = '';
+  if (!window._collapsedWbsGroups) window._collapsedWbsGroups = new Set();
 
-### 핵심 설계 원칙
+  // Group by WBS Level1
+  const groups = new Map();
+  activities.forEach(a => {
+    const wbsL1 = (a.wbsFull || a.wbs || '').split('.')[0] || '기타';
+    if (!groups.has(wbsL1)) groups.set(wbsL1, []);
+    groups.get(wbsL1).push(a);
+  });
 
-1. **KUKU = 파란색 강조** — 당 사업본부 Activity가 시각적으로 즉시 구분됨
-2. **KUKU 선행작업 = 노란색** — 타 파티지만 KUKU에 직접 영향을 주는 Activity를 별도 강조
-3. **나머지 타 파티 = 어둡고 흐림** — opacity 0.5 적용하여 배경처럼 보이도록
-4. **크리티컬 패스 = 빨간 테두리/헤더 오버레이** — 필터 무관하게 항상 CP 노드는 빨간 테두리 유지 (fill은 역할별 색상 유지)
-
-### CP와 역할 색상의 조합 규칙
-
-```text
-if (isCritical) {
-  stroke = '#ff4d4d'    // CP 빨강 항상 우선
-  strokeWidth = 2.5
-  headerBar = '#ff4d4d'
-  fill = 역할별 배경색 유지
-} else if (isKuku) {
-  fill/stroke/header = 파랑 계열
-} else if (isKukuPredecessor) {
-  fill/stroke/header = 노랑 계열
-} else {
-  fill/stroke/header = 회색 (+ opacity 0.5)
+  groups.forEach((items, wbsL1) => {
+    const isCollapsed = window._collapsedWbsGroups.has(wbsL1);
+    
+    // Group header
+    const header = document.createElement('div');
+    header.className = 'wbs-group-header' + (isCollapsed ? ' collapsed' : '');
+    header.innerHTML = `<span class="chevron">▼</span> WBS ${wbsL1} <span style="...">${items.length}</span>`;
+    header.onclick = () => { /* toggle collapsed state, toggle container visibility */ };
+    
+    // Cards container
+    const container = document.createElement('div');
+    container.className = 'wbs-group-cards' + (isCollapsed ? ' hidden' : '');
+    
+    items.forEach(a => { /* 기존 카드 생성 로직 그대로 */ });
+    
+    list.appendChild(header);
+    list.appendChild(container);
+  });
 }
 ```
 
-### "KUKU 선행작업" 판별 로직
+### 3. 전체 접기/펼치기 단축 기능 (선택)
 
-```javascript
-// predLinkMap에서 KUKU Activity의 predecessor 중 KUKU가 아닌 것을 수집
-const kukuPredecessorIds = new Set();
-activities.forEach(a => {
-  const text1 = a.customFields?.Text1 || a.customFields?.['텍스트1'] || '';
-  if (text1 === 'KUKU') {
-    predLinkMap[a.id]?.forEach(p => {
-      const pred = map[p.id];
-      const predText1 = pred?.customFields?.Text1 || pred?.customFields?.['텍스트1'] || '';
-      if (predText1 !== 'KUKU') kukuPredecessorIds.add(p.id);
-    });
-  }
-});
-```
+사이드바 헤더 영역에 "▽ 전체 펼치기 / △ 전체 접기" 토글 버튼 추가.
 
-## 구현 범위
+## 기대 결과
 
-- **변경 파일**: `public/cpm_network.html` (단일 파일)
-- **변경 위치**: `drawNetwork` 함수 내 노드 색상 결정 로직 (line ~1101-1108)
-- **추가**: KUKU predecessor Set 계산 로직 (drawNetwork 진입부)
-- **추가**: 타 파티 노드 SVG 그룹에 `opacity="0.5"` 적용
-
-## 시각적 결과 요약
-
-```text
-전체 보기:
-  ■ 파랑  = KUKU (건축, 당사 관리 대상)
-  ■ 노랑  = KUKU 선행 (타 파티지만 모니터링 필요)
-  □ 흐림  = 나머지 타 파티 (배경 수준)
-  ▬ 빨강  = 크리티컬 패스 (테두리/헤더, 모든 역할에 오버레이)
-```
+- WBS Level1별 그룹 헤더 표시 (예: `WBS 1 (23)`, `WBS 2 (15)`)
+- 헤더 클릭으로 해당 그룹 카드 접기/펼치기
+- 접힌 상태는 `renderSidebar` 재호출 시에도 유지
+- 기존 카드 내용, 필터, 클릭 동작 모두 유지
 
