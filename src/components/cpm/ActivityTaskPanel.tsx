@@ -63,20 +63,22 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [expandedAssignees, setExpandedAssignees] = useState<Set<string>>(new Set());
 
-  // Get DB activity ID
+  // Get DB activity ID — primary: mpp_uid+wbs_full (matches DB unique constraint)
   const { data: dbActivity } = useQuery({
-    queryKey: ["cpm_activity_by_mpp", activity.id],
+    queryKey: ["cpm_activity_by_mpp", activity.mppUid, activity.wbsFull],
     queryFn: async () => {
       let query = supabase.from("cpm_activities").select("id");
-      if (activity.mppTaskId) {
+
+      if (activity.mppUid) {
+        query = query.eq("mpp_uid", activity.mppUid);
+        if (activity.wbsFull) query = query.eq("wbs_full", activity.wbsFull);
+      } else if (activity.mppTaskId) {
         query = query.eq("mpp_task_id", activity.mppTaskId);
-      }
-      if (activity.wbsFull) {
-        query = query.eq("wbs_full", activity.wbsFull);
-      }
-      if (!activity.mppTaskId && !activity.wbsFull) {
+        if (activity.wbsFull) query = query.eq("wbs_full", activity.wbsFull);
+      } else {
         query = query.eq("name", activity.name);
       }
+
       const { data } = await query.maybeSingle();
       return data;
     },
