@@ -8,6 +8,15 @@ import { useCpmViewModel } from "@/hooks/useCpmViewModel";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
 
+/** Generate a composite semantic key: BLDG::WBS_L2::Name */
+function getSemanticKey(activity: { name: string; wbsFull?: string | null; customFields?: Record<string, string> | null }): string {
+  const cf = activity.customFields || {};
+  const bldg = cf.BLDG || cf.Text2 || cf['텍스트2'] || '_';
+  const wbsParts = (activity.wbsFull || '').split('.');
+  const wbsL2 = wbsParts.length >= 2 ? `${wbsParts[0]}.${wbsParts[1]}` : (wbsParts[0] || '_');
+  return `${bldg}::${wbsL2}::${activity.name}`;
+}
+
 const CpmScheduler = () => {
   const [selectedActivity, setSelectedActivity] = useState<CpmActivity | null>(null);
   const [pendingSnapshot, setPendingSnapshot] = useState<any>(null);
