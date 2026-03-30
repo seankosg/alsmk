@@ -613,7 +613,11 @@ function syncFromDOM() {
 function renderSidebar() {
   const list = document.getElementById('activityList');
   list.innerHTML = '';
-  if (!window._collapsedWbsGroups) window._collapsedWbsGroups = new Set();
+  if (!window._collapsedWbsGroups) {
+    // Default: all groups collapsed on first load
+    window._collapsedWbsGroups = new Set();
+    window._collapsedWbsGroupsInitialized = false;
+  }
 
   // Group by WBS Level1
   const groups = new Map();
@@ -622,6 +626,12 @@ function renderSidebar() {
     if (!groups.has(wbsL1)) groups.set(wbsL1, []);
     groups.get(wbsL1).push(a);
   });
+
+  // On first render, collapse all groups by default
+  if (!window._collapsedWbsGroupsInitialized && groups.size > 0) {
+    groups.forEach((_, k) => window._collapsedWbsGroups.add(k));
+    window._collapsedWbsGroupsInitialized = true;
+  }
 
   // Toggle all button (fixed above scroll area)
   const toggleContainer = document.getElementById('toggleAllContainer');
