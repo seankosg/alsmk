@@ -949,14 +949,15 @@ function calculate(forceReadOnly) {
 let _nodePositions = {};   // module-level: actId → {x, y}
 const _NODE_W = 160, _NODE_H = 104;
 
-// filterWbs: Set|null, filterBldg: Set|null
-function drawNetwork(order, map, projectEnd, filterWbs, filterBldg) {
+// filterWbs: Set|null, filterBldg: Set|null, filterText1: Set|null
+function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1) {
   const NODE_W = _NODE_W, NODE_H = _NODE_H, GAP_X = 60, GAP_Y = 50;
 
-  // ── 필터 적용 (WBS AND BLDG) ──────────────────────────────────
+  // ── 필터 적용 (WBS AND BLDG AND Text1) ──────────────────────────────────
   const hasWbsFilter = filterWbs && filterWbs.size > 0;
   const hasBldgFilter = filterBldg && filterBldg.size > 0;
-  const hasFilter = hasWbsFilter || hasBldgFilter;
+  const hasText1Filter = filterText1 && filterText1.size > 0;
+  const hasFilter = hasWbsFilter || hasBldgFilter || hasText1Filter;
   const isInFilter = id => {
     const a = map[id];
     if (hasWbsFilter) {
@@ -971,6 +972,11 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg) {
       const cf = a.customFields;
       const bv = cf && (cf.BLDG || cf.Text2 || cf['\ud14d\uc2a4\ud2b82']) || '';
       if (!filterBldg.has(bv)) return false;
+    }
+    if (hasText1Filter) {
+      const cf = a.customFields;
+      const tv = cf && (cf.Text1 || cf['\ud14d\uc2a4\ud2b81']) || '';
+      if (!filterText1.has(tv)) return false;
     }
     return true;
   };
