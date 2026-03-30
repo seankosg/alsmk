@@ -1539,7 +1539,7 @@ function applyWbsFilter(wbsCode) {
     showToast(`WBS 필터: ${[...window._activeWbsFilter].join(', ')}`);
   }
 
-  drawNetwork(order, map, projectEnd, window._activeWbsFilter, window._activeBldgFilter || null);
+  drawNetwork(order, map, projectEnd, window._activeWbsFilter, window._activeBldgFilter || null, window._activeText1Filter || null);
 
   // WBS 탭 하이라이트 업데이트
   document.querySelectorAll('#wbsContent .wbs-node').forEach(el => {
