@@ -1019,6 +1019,27 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
   // 표시할 order만 추림
   const visOrder = order.filter(id => visibleSet.has(id));
 
+  // ── KUKU 선행작업 판별 (전체 order 기준) ──────────────────────
+  const getActivityText1 = a => {
+    const cf = a?.customFields;
+    return cf && (cf.Text1 || cf['\ud14d\uc2a4\ud2b81']) || '';
+  };
+  const kukuIds = new Set(order.filter(id => getActivityText1(map[id]) === 'KUKU'));
+  const kukuPredecessorIds = new Set();
+  // getPredIds not available yet, use raw predLinks/predecessors from map
+  kukuIds.forEach(kid => {
+    const ka = map[kid]; if (!ka) return;
+    let preds = [];
+    if (ka.predLinks && ka.predLinks.trim()) {
+      preds = ka.predLinks.split(',').map(t => t.split(':')[0].trim()).filter(s => map[s]);
+    } else {
+      preds = (ka.predecessors || '').split(',').map(s => s.trim()).filter(s => map[s]);
+    }
+    preds.forEach(pid => {
+      if (getActivityText1(map[pid]) !== 'KUKU') kukuPredecessorIds.add(pid);
+    });
+  });
+
   // Assign columns (levels) via longest path from start (visible only)
   // predLinks 우선, 없으면 predecessors fallback
   const getPredIds = id => {
