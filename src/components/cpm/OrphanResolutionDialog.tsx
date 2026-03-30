@@ -229,8 +229,6 @@ export function OrphanResolutionDialog({ orphans, newActivities, userName, onCom
                 삭제
               </Button>
             </div>
-          ))}
-
           {remaining.length === 0 && (
             <p className="text-center text-sm text-muted-foreground py-6">모든 항목이 처리되었습니다.</p>
           )}
