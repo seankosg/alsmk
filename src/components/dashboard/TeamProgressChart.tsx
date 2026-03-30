@@ -234,7 +234,7 @@ export function TeamProgressChart() {
                   <p className="text-xs text-muted-foreground">{getMemberName(t.assignee_id)}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className="text-sm font-mono font-bold text-destructive">{t.gap}%</span>
+                  <span className={`text-sm font-mono font-bold ${t.gap >= 0 ? "text-green-600" : "text-destructive"}`}>{t.gap >= 0 ? `+${t.gap}` : t.gap}%</span>
                   <p className="text-[10px] text-muted-foreground">Plan {t.planned}% / Actual {t.current_progress}%</p>
                 </div>
               </div>
