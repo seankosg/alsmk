@@ -200,11 +200,16 @@ const CpmScheduler = () => {
         continue;
       }
 
-      const match = nameToNewActivity.get(orphan.name);
+      // Match by semantic key
+      const orphanSk = orphan.semantic_key || getSemanticKey({
+        name: orphan.name,
+        wbsFull: orphan.wbs_full,
+        customFields: orphan.custom_fields as Record<string, string> | null,
+      });
+      const match = skToNewActivity.get(orphanSk);
       if (match) {
         // Fix 4: Use RPC for atomic mapping migration to prevent duplicates
         const allTaskIds = [...taskIds];
-        // Get existing mappings on target activity
         const { data: existingTargetMappings } = await supabase
           .from("cpm_task_mappings")
           .select("task_id")
@@ -224,7 +229,7 @@ const CpmScheduler = () => {
           user_name: currentUserName,
           details: {
             name: orphan.name, wbs_full: orphan.wbs_full, mpp_task_id: orphan.mpp_task_id,
-            migrated_to: match.id, migrated_task_ids: taskIds, resolution: "auto_migrated",
+            semantic_key: orphanSk, migrated_to: match.id, migrated_task_ids: taskIds, resolution: "auto_migrated_by_semantic_key",
           },
         });
         autoMigratedCount++;
@@ -232,17 +237,22 @@ const CpmScheduler = () => {
         unmatchedOrphans.push({
           id: orphan.id, name: orphan.name, wbs_full: orphan.wbs_full,
           mpp_task_id: orphan.mpp_task_id, mappedTaskCount: taskIds.length, mappedTaskIds: taskIds,
+          semantic_key: orphanSk, custom_fields: orphan.custom_fields as Record<string, string> | null,
         });
       }
     }
 
     if (autoMigratedCount > 0) {
-      toast.success(`${autoMigratedCount}개 Activity 매핑이 자동 이전되었습니다`);
+      toast.success(`${autoMigratedCount}개 Activity 매핑이 시맨틱 키 기반으로 자동 이전되었습니다`);
     }
 
     if (unmatchedOrphans.length > 0) {
       toast.info(`${unmatchedOrphans.length}개 Activity의 매핑을 확인해주세요`);
-      setNewActivityList(newActivitiesDb.map((a) => ({ id: a.id, name: a.name, wbs_full: a.wbs_full })));
+      setNewActivityList(newActivitiesDb.map((a) => ({
+        id: a.id, name: a.name, wbs_full: a.wbs_full,
+        semantic_key: a.semantic_key,
+        custom_fields: a.custom_fields as Record<string, string> | null,
+      })));
       setOrphansToResolve(unmatchedOrphans);
     }
 
