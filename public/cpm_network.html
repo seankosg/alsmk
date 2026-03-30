@@ -1740,6 +1740,7 @@ function removeText1FilterItem(val) {
   var o = getOrder(m); if(!o)return;
   var pe = Math.max.apply(null, activities.map(function(a){return a.ef||0;}));
   drawNetwork(o,m,pe,window._activeWbsFilter||null,window._activeBldgFilter||null,window._activeText1Filter);
+  renderSidebar();
 }
 
 function clearAllFilters() {
