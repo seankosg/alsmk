@@ -134,7 +134,7 @@ const CpmScheduler = () => {
     // Fix 6: Use .limit(5000) to avoid 1000-row truncation
     const { data: allDbActivities } = await supabase
       .from("cpm_activities")
-      .select("id, name, mpp_task_id, wbs_full")
+      .select("id, name, mpp_task_id, wbs_full, semantic_key, custom_fields")
       .limit(5000);
 
     if (!allDbActivities?.length) {
