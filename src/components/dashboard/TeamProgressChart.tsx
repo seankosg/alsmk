@@ -82,7 +82,8 @@ export function TeamProgressChart() {
     const avgPlanned = weightedAvg(teamTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
     const behindCount = teamTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0).length;
-    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, id: team.id, fullName: team.name, behindCount };
+    const aheadCount = teamTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) > 0).length;
+    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, id: team.id, fullName: team.name, behindCount, aheadCount };
   });
 
   // Individual chart data
@@ -94,10 +95,11 @@ export function TeamProgressChart() {
       const avgPlanned = weightedAvg(memberTasks, t => calcPlannedProgress(t.start_date, t.end_date));
       const gap = avgActual - avgPlanned;
       const behindCount = memberTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0).length;
+      const aheadCount = memberTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) > 0).length;
       const truncName = m.name.length > 6 ? m.name.slice(0, 6) + "…" : m.name;
-      return { name: truncName, planned: avgPlanned, actual: avgActual, gap, id: m.id, fullName: m.name, behindCount };
+      return { name: truncName, planned: avgPlanned, actual: avgActual, gap, id: m.id, fullName: m.name, behindCount, aheadCount };
     })
-    .filter(Boolean) as { name: string; planned: number; actual: number; gap: number; id: string; fullName: string; behindCount: number }[];
+    .filter(Boolean) as { name: string; planned: number; actual: number; gap: number; id: string; fullName: string; behindCount: number; aheadCount: number }[];
 
   const chartData = viewMode === "team" ? teamChartData : individualChartData;
 
@@ -126,13 +128,16 @@ export function TeamProgressChart() {
     const entry = chartData[index];
     const gap = entry?.gap ?? 0;
     const behindCount = entry?.behindCount ?? 0;
+    const aheadCount = entry?.aheadCount ?? 0;
     const gapColor = gap >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))";
     const gapText = gap >= 0 ? `+${gap}%p` : `${gap}%p`;
     return (
       <g>
-        {behindCount > 0 && (
-          <text x={x + width / 2} y={y - 34} textAnchor="middle" fontSize={10} fontWeight={700} fill="hsl(var(--destructive))">
-            ▼{behindCount}
+        {(aheadCount > 0 || behindCount > 0) && (
+          <text x={x + width / 2} y={y - 34} textAnchor="middle" fontSize={10} fontWeight={700}>
+            {aheadCount > 0 && <tspan fill="hsl(var(--success))">▲{aheadCount}</tspan>}
+            {aheadCount > 0 && behindCount > 0 && <tspan fill="hsl(var(--muted-foreground))"> </tspan>}
+            {behindCount > 0 && <tspan fill="hsl(var(--destructive))">▼{behindCount}</tspan>}
           </text>
         )}
         <text x={x + width / 2} y={y - 20} textAnchor="middle" fontSize={10} fontWeight={600} fill={gapColor}>
