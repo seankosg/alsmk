@@ -344,9 +344,8 @@ const CpmScheduler = () => {
             title="CPM Network Scheduler"
             sandbox="allow-scripts allow-same-origin allow-popups"
             onLoad={() => {
-              iframeRef.current?.contentWindow?.postMessage({ type: "set-read-only", readOnly: !isAdminOrPm }, "*");
-              // Primary hydration: send snapshot + statuses + customFields in one shot
-              hydrateIframe(iframeRef.current?.contentWindow || null);
+              // Don't hydrate here — wait for cpm-iframe-ready handshake
+              console.log("[CPM] iframe onLoad fired, waiting for iframe-ready signal...");
             }}
           />
         </div>
