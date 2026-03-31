@@ -1,52 +1,44 @@
 
 
-# CPM 네트워크 미표시 및 404 문제 종합 해결 계획
+# 경고 노드 네비게이션 기능 추가
 
-## 진단된 문제 3가지
+## 개요
 
-### 1. Published 사이트 404 (캡쳐 화면의 문제)
-**원인**: PWA Service Worker가 `cpm_network.html`을 포함한 모든 HTML 파일을 공격적으로 캐싱하고 있음 (`globPatterns: ["**/*.{js,css,html,...}"]`). 이전 빌드의 캐시가 남아있어 새 코드가 반영되지 않고, 경우에 따라 오래된 index.html이 서빙되어 /cpm 라우트가 404로 표시됨.
+경고 요약 바의 `● 3`, `● 7`, `● 12` 카운트를 클릭하면 해당 유형의 경고 노드 목록을 표시하고, 클릭으로 네트워크 캔버스 이동 + 사이드바 하이라이트가 연동되도록 합니다.
 
-### 2. Hydration 경쟁 조건 (새 브라우저에서 CPM 빈 화면)
-**원인**: iframe `onLoad` 시점에 즉시 `cpm-hydrate`를 전송하지만, iframe 내부 스크립트의 `message` 리스너 등록이 아직 완료되지 않은 경우 메시지가 유실됨. 12초 후 localStorage/sample로 폴백하면서 서버 데이터가 있는데도 빈 화면이 표시됨.
+## 변경 파일: `public/cpm_network.html`
 
-### 3. 스냅샷 조회 정렬 기준 불일치
-**원인**: `useCpmViewModel.ts`에서 최신 스냅샷을 `updated_at DESC`로 조회하지만, 현재 append-only 히스토리 방식에서는 `created_at DESC`가 정확한 기준임.
+### 1. 경고 노드 목록 저장
 
-## 변경 계획
-
-### 파일 1: `vite.config.ts`
-- PWA `globPatterns`에서 `html` 제거 → `**/*.{js,css,ico,png,svg,woff,woff2}`
-- `cpm_network.html`이 SW 캐시에 갇히는 문제 방지
-- 또는 `navigateFallbackDenylist`에 `/cpm_network.html` 추가
-
-### 파일 2: `src/hooks/useCpmViewModel.ts`
-- 스냅샷 조회 2곳의 `order("updated_at", ...)` → `order("created_at", ...)` 변경
-
-### 파일 3: `public/cpm_network.html`
-- 초기화 블록에서 `request-db-snapshot` 대신 `cpm-iframe-ready` 메시지를 부모에게 전송
-- 12초 폴백에서 `loadSample()` 자동 호출 제거 → 대신 "서버 데이터 대기 중" 상태 유지 + 수동 초기화 버튼만 표시
-
-### 파일 4: `src/pages/CpmScheduler.tsx`
-- `onLoad`에서 즉시 `hydrateIframe()` 호출하는 대신, `cpm-iframe-ready` 메시지를 수신한 후에만 `hydrateIframe()` 실행
-- message handler에 `cpm-iframe-ready` 타입 추가
-- 기존 `request-db-snapshot` 핸들러도 호환성을 위해 유지
-
-```text
-현재 흐름:
-  iframe onLoad → parent 즉시 cpm-hydrate 전송
-                → iframe 리스너 미등록 시 메시지 유실
-                → 12초 후 sample 폴백
-
-개선 흐름:
-  iframe 스크립트 완료 → postMessage('cpm-iframe-ready')
-  parent receives ready → hydrateIframe() 실행
-  iframe receives hydrate → restore → calculate → render
-  hydrate 미수신 시 → 수동 초기화만 가능 (자동 sample 폴백 없음)
+`drawNetwork()` 완료 시 경고 유형별 activity ID 배열을 전역 변수에 저장:
+```js
+window._alertNodes = { critical: [...], warning: [...], info: [...] };
 ```
 
+### 2. 요약 바 카운트 클릭 → 드롭다운 목록
+
+`● 3` 등 카운트 span에 `cursor:pointer` + 클릭 이벤트 추가. 클릭 시 해당 유형의 activity 목록을 드롭다운(팝업)으로 표시:
+- 각 항목: `BLDG · WBS · Name` 형식
+- 항목 클릭 시 → 캔버스 panTo + 사이드바 scrollIntoView
+
+### 3. 캔버스 panTo 함수
+
+선택한 노드의 좌표(`x, y`)를 캔버스 중앙으로 이동하는 `panToNode(actId)` 함수 추가:
+- `_actMap`에서 좌표 조회
+- 캔버스 `translate` 조정 후 redraw
+- 해당 노드에 2초간 하이라이트 효과 (밝은 테두리 깜빡임)
+
+### 4. 사이드바 연동
+
+`panToNode()` 호출 시 사이드바에서 해당 카드도 `scrollIntoView` + `selected` 클래스 적용.
+
+### 5. 키보드 네비게이션 (선택적)
+
+드롭다운 열린 상태에서 `↑↓` 키로 항목 이동, `Enter`로 선택, `Esc`로 닫기.
+
 ## 기대 결과
-- Published 사이트에서 SW 캐시로 인한 404/빈 화면 문제 해소
-- 새 브라우저 접속 시에도 DB 스냅샷이 안정적으로 로드됨
-- append-only 히스토리에서 실제 최신 버전이 조회됨
+
+- 경고 요약 바에서 유형별 카운트 클릭 → 경고 노드 목록 팝업
+- 목록 항목 클릭 → 캔버스가 해당 노드로 자동 이동 + 사이드바 하이라이트
+- 수백 개 노드 중 문제 노드를 즉시 찾아갈 수 있음
 
