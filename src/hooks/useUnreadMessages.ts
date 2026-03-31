@@ -78,15 +78,18 @@ export function useUnreadMessages() {
   useEffect(() => {
     if (!memberId) return;
 
-    const channelName = `unread-dm-listener-${memberId}-${Date.now()}`;
-    const channel = supabase
-      .channel(channelName)
+    let cancelled = false;
+    const channelName = `unread-dm-${memberId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    
+    const channel = supabase.channel(channelName);
+    
+    channel
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "direct_messages" },
         (payload) => {
+          if (cancelled) return;
           const msg = payload.new as any;
-          // Only count messages not sent by me
           if (msg.sender_id !== memberId) {
             fetchUnread();
           }
@@ -96,13 +99,16 @@ export function useUnreadMessages() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "direct_messages" },
         () => {
-          // Re-fetch when messages are marked as read
+          if (cancelled) return;
           fetchUnread();
         }
-      )
-      .subscribe();
+      );
+
+    // Subscribe after all .on() calls
+    channel.subscribe();
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
     };
   }, [memberId, fetchUnread]);
