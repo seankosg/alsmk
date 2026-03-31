@@ -73,12 +73,13 @@ export async function exportDashboardExcel() {
   const { tasks, teams, milestones, members } = await fetchDashboardData();
   const wb = XLSX.utils.book_new();
 
-  const totalTasks = tasks.length;
-  const avgActual = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + t.current_progress, 0) / totalTasks) : 0;
-  const avgPlanned = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / totalTasks) : 0;
-  const completed = tasks.filter(t => t.current_progress >= 100).length;
-  const inProgress = tasks.filter(t => t.current_progress > 0 && t.current_progress < 100).length;
-  const notStarted = tasks.filter(t => t.current_progress === 0).length;
+  const nonSummary = tasks.filter((t: any) => !t.is_summary);
+  const totalTasks = nonSummary.length;
+  const avgActual = weightedAvg(nonSummary, (t: any) => t.current_progress);
+  const avgPlanned = weightedAvg(nonSummary, (t: any) => calcPlannedProgress(t.start_date, t.end_date));
+  const completed = nonSummary.filter((t: any) => t.current_progress >= 100).length;
+  const inProgress = nonSummary.filter((t: any) => t.current_progress > 0 && t.current_progress < 100).length;
+  const notStarted = nonSummary.filter((t: any) => t.current_progress === 0).length;
 
   // Sheet 1: Summary
   const summaryData = [
