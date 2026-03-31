@@ -59,7 +59,7 @@ interface TaskWithMember {
   parent_title: string;
 }
 
-export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props) {
+export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustomFieldsUpdated }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
