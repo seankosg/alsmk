@@ -1233,8 +1233,9 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     if (!a) return;
     const statusKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
     const sd = window._activityStatusMap && window._activityStatusMap[statusKey];
-    const gap = sd ? (sd.plannedPct - sd.actualPct) : 0;
-    _alertCache[id] = { gap, hasStatus: !!sd };
+    const hasMappedStatus = !!sd && (sd.totalTasks || 0) > 0;
+    const gap = hasMappedStatus ? (sd.plannedPct - sd.actualPct) : 0;
+    _alertCache[id] = { gap, hasStatus: hasMappedStatus };
   });
 
   // Draw arrows first — predLinks 우선, fallback predecessors
@@ -1320,7 +1321,7 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     // Check for mapped task status data
     const activityStatusKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
     const statusData = window._activityStatusMap && window._activityStatusMap[activityStatusKey];
-    const hasStatus = !!statusData;
+    const hasStatus = !!statusData && (statusData.totalTasks || 0) > 0;
 
     // Determine progress values
     const actualPct = hasStatus ? statusData.actualPct : progPct;
@@ -2030,21 +2031,22 @@ function showNodeTooltip(e, actId) {
 
   // 상태 아이콘 (매핑된 Task 상태) — use same key as network node
   const tooltipStatusKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
-  const st = (window._activityStatusMap || {})[tooltipStatusKey];
-  const statusRow = st ? `<div class="nt-cell" style="grid-column:1/-1">
+   const st = (window._activityStatusMap || {})[tooltipStatusKey];
+   const hasMappedStatus = !!st && (st.totalTasks || 0) > 0;
+   const statusRow = hasMappedStatus ? `<div class="nt-cell" style="grid-column:1/-1">
     <div class="nt-cell-label">Task 상태</div>
     <div class="nt-cell-val" style="font-size:11px;display:flex;gap:8px">
-      <span>●<span style="color:var(--text-dim)">${st.total||0}</span></span>
+      <span>●<span style="color:var(--text-dim)">${st.totalTasks||0}</span></span>
       <span style="color:#3dd68c">●<span>${st.onTrack||0}</span></span>
       <span style="color:#ff4d4d">●<span>${st.delayed||0}</span></span>
     </div>
   </div>` : '';
 
   // 진도율 (실적/계획)
-  const progressRow = st ? `<div class="nt-cell" style="grid-column:1/-1">
+  const progressRow = hasMappedStatus ? `<div class="nt-cell" style="grid-column:1/-1">
     <div class="nt-cell-label">진도율</div>
     <div class="nt-cell-val" style="font-size:11px">
-      실적 <span style="color:#4da6ff;font-weight:700">${st.actual??'-'}%</span> / 계획 <span style="color:#7a8ba0">${st.planned??'-'}%</span>
+      실적 <span style="color:#4da6ff;font-weight:700">${st.actualPct??'-'}%</span> / 계획 <span style="color:#7a8ba0">${st.plannedPct??'-'}%</span>
     </div>
   </div>` : '';
 
