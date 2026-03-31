@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import PptxGenJS from "pptxgenjs";
 import html2canvas from "html2canvas";
 import { supabase } from "@/integrations/supabase/client";
-import { calcPlannedProgress } from "@/lib/mockData";
+import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { differenceInCalendarDays, startOfDay, format } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 
