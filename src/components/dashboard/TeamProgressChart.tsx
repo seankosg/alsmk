@@ -11,15 +11,21 @@ import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { QueryErrorCard } from "./QueryErrorCard";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Building2, Users } from "lucide-react";
 
 const chartConfig = {
   planned: { label: "Planned", color: "hsl(var(--muted-foreground))" },
   actual: { label: "Actual", color: "hsl(var(--primary))" },
 };
 
+type ViewMode = "team" | "individual";
+
 export function TeamProgressChart() {
   const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
+  const [viewMode, setViewMode] = useState<ViewMode>("team");
   const [selectedTeam, setSelectedTeam] = useState<{ code: string; id: string; name: string } | null>(null);
+  const [selectedMember, setSelectedMember] = useState<{ id: string; name: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
   const { data: teams = [], isLoading: lt, isError: et, refetch: rt } = useQuery({
@@ -42,10 +48,6 @@ export function TeamProgressChart() {
     staleTime: 30_000,
   });
 
-  if (et || ett) {
-    return <QueryErrorCard title="Team Progress" onRetry={() => rt()} />;
-  }
-
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
@@ -66,21 +68,45 @@ export function TeamProgressChart() {
     staleTime: 30_000,
   });
 
-  const isLoading = lt || ltt;
+  if (et || ett) {
+    return <QueryErrorCard title="Team Progress" onRetry={() => rt()} />;
+  }
 
-  const chartData = teams.map((team) => {
-    const teamTasks = tasks.filter((t) => t.team_id === team.id && !t.is_summary);
+  const isLoading = lt || ltt;
+  const nonSummaryTasks = tasks.filter(t => !t.is_summary);
+
+  // Team chart data
+  const teamChartData = teams.map((team) => {
+    const teamTasks = nonSummaryTasks.filter((t) => t.team_id === team.id);
     const avgActual = weightedAvg(teamTasks, t => t.current_progress);
     const avgPlanned = weightedAvg(teamTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
-    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, teamId: team.id, teamName: team.name };
+    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, id: team.id, fullName: team.name };
   });
 
+  // Individual chart data
+  const individualChartData = members
+    .map((m) => {
+      const memberTasks = nonSummaryTasks.filter(t => t.assignee_id === m.id);
+      if (memberTasks.length === 0) return null;
+      const avgActual = weightedAvg(memberTasks, t => t.current_progress);
+      const avgPlanned = weightedAvg(memberTasks, t => calcPlannedProgress(t.start_date, t.end_date));
+      const gap = avgActual - avgPlanned;
+      const truncName = m.name.length > 6 ? m.name.slice(0, 6) + "…" : m.name;
+      return { name: truncName, planned: avgPlanned, actual: avgActual, gap, id: m.id, fullName: m.name };
+    })
+    .filter(Boolean) as { name: string; planned: number; actual: number; gap: number; id: string; fullName: string }[];
+
+  const chartData = viewMode === "team" ? teamChartData : individualChartData;
+
   const handleBarClick = (data: any) => {
-    if (data?.activePayload?.[0]?.payload) {
-      const d = data.activePayload[0].payload;
-      const team = teams.find(t => t.id === d.teamId);
+    if (!data?.activePayload?.[0]?.payload) return;
+    const d = data.activePayload[0].payload;
+    if (viewMode === "team") {
+      const team = teams.find(t => t.id === d.id);
       if (team) setSelectedTeam({ code: team.code, id: team.id, name: team.name });
+    } else {
+      setSelectedMember({ id: d.id, name: d.fullName });
     }
   };
 
@@ -116,26 +142,57 @@ export function TeamProgressChart() {
     return members.find(m => m.id === id)?.name ?? "Unknown";
   };
 
-  // All tasks for selected team (excluding summary)
-  const allTeamTasks = selectedTeam
-    ? tasks
-        .filter(t => t.team_id === selectedTeam.id && !t.is_summary)
-        .map(t => {
-          const planned = calcPlannedProgress(t.start_date, t.end_date);
-          return { ...t, planned, gap: t.current_progress - planned };
-        })
+  // Drilldown tasks for team
+  const drilldownTeamTasks = selectedTeam
+    ? nonSummaryTasks
+        .filter(t => t.team_id === selectedTeam.id)
+        .map(t => { const planned = calcPlannedProgress(t.start_date, t.end_date); return { ...t, planned, gap: t.current_progress - planned }; })
         .sort((a, b) => a.gap - b.gap)
     : [];
 
-  const teamAvgPlanned = weightedAvg(allTeamTasks, t => t.planned);
-  const teamAvgActual = weightedAvg(allTeamTasks, t => t.current_progress);
+  // Drilldown tasks for individual
+  const drilldownMemberTasks = selectedMember
+    ? nonSummaryTasks
+        .filter(t => t.assignee_id === selectedMember.id)
+        .map(t => { const planned = calcPlannedProgress(t.start_date, t.end_date); return { ...t, planned, gap: t.current_progress - planned }; })
+        .sort((a, b) => a.gap - b.gap)
+    : [];
+
+  const activeDrilldown = selectedTeam ? drilldownTeamTasks : drilldownMemberTasks;
+  const drilldownTitle = selectedTeam
+    ? `${selectedTeam.name} (${selectedTeam.code})`
+    : selectedMember?.name ?? "";
+  const drilldownAvgPlanned = weightedAvg(activeDrilldown, t => t.planned);
+  const drilldownAvgActual = weightedAvg(activeDrilldown, t => t.current_progress);
+  const isDrilldownOpen = (!!selectedTeam || !!selectedMember) && !selectedTask;
 
   return (
     <>
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Team Progress</CardTitle>
-          <p className="text-xs text-muted-foreground">Planned vs Actual by team — click a bar to drill down</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">
+                {viewMode === "team" ? "Team Progress" : "Individual Progress"}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Planned vs Actual — click a bar to drill down
+              </p>
+            </div>
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(v) => { if (v) setViewMode(v as ViewMode); }}
+              size="sm"
+            >
+              <ToggleGroupItem value="team" aria-label="Team view">
+                <Building2 className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="individual" aria-label="Individual view">
+                <Users className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -144,42 +201,15 @@ export function TeamProgressChart() {
             <ChartContainer config={chartConfig} className="h-[280px] w-full">
               <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 35 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="name"
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs fill-muted-foreground"
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  domain={[0, 100]}
-                  tickFormatter={(v) => `${v}%`}
-                  className="text-xs fill-muted-foreground"
-                  width={40}
-                />
-                <ChartTooltip
-                  content={<ChartTooltipContent />}
-                  cursor={{ fill: "hsl(var(--muted))", radius: 4 }}
-                />
-                <Bar
-                  dataKey="planned"
-                  fill="hsl(var(--muted-foreground) / 0.3)"
-                  radius={[4, 4, 0, 0]}
-                  name="Planned"
-                >
+                <XAxis dataKey="name" tickLine={false} axisLine={false} className="text-xs fill-muted-foreground" />
+                <YAxis tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} className="text-xs fill-muted-foreground" width={40} />
+                <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: "hsl(var(--muted))", radius: 4 }} />
+                <Bar dataKey="planned" fill="hsl(var(--muted-foreground) / 0.3)" radius={[4, 4, 0, 0]} name="Planned">
                   <LabelList dataKey="planned" content={renderPlannedLabel} />
                 </Bar>
-                <Bar
-                  dataKey="actual"
-                  radius={[4, 4, 0, 0]}
-                  name="Actual"
-                >
+                <Bar dataKey="actual" radius={[4, 4, 0, 0]} name="Actual">
                   {chartData.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill="hsl(var(--primary))"
-                    />
+                    <Cell key={`cell-${index}`} fill="hsl(var(--primary))" />
                   ))}
                   <LabelList dataKey="actual" content={renderActualLabel} />
                 </Bar>
@@ -189,20 +219,18 @@ export function TeamProgressChart() {
         </CardContent>
       </Card>
 
-      {/* Team drilldown dialog */}
-      <Dialog open={!!selectedTeam && !selectedTask} onOpenChange={(open) => { if (!open) setSelectedTeam(null); }}>
+      {/* Drilldown dialog */}
+      <Dialog open={isDrilldownOpen} onOpenChange={(open) => { if (!open) { setSelectedTeam(null); setSelectedMember(null); } }}>
         <DialogContent className="sm:max-w-[560px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-base">
-              {selectedTeam?.name} ({selectedTeam?.code}) — Task Progress
-            </DialogTitle>
+            <DialogTitle className="text-base">{drilldownTitle} — Task Progress</DialogTitle>
             <p className="text-xs text-muted-foreground">
-              {allTeamTasks.length}개 태스크 | 평균 Plan {teamAvgPlanned}% / Actual {teamAvgActual}%
+              {activeDrilldown.length}개 태스크 | 평균 Plan {drilldownAvgPlanned}% / Actual {drilldownAvgActual}%
             </p>
           </DialogHeader>
           <div className="space-y-2">
-            {allTeamTasks.length === 0 && <p className="text-sm text-muted-foreground">No tasks found.</p>}
-            {allTeamTasks.map((t) => (
+            {activeDrilldown.length === 0 && <p className="text-sm text-muted-foreground">No tasks found.</p>}
+            {activeDrilldown.map((t) => (
               <div
                 key={t.id}
                 onClick={() => setSelectedTask(t)}
@@ -221,7 +249,9 @@ export function TeamProgressChart() {
                   <p className="text-xs text-muted-foreground">{getMemberName(t.assignee_id)}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className={`text-sm font-mono font-bold ${t.gap >= 0 ? "text-green-600" : "text-destructive"}`}>{t.gap >= 0 ? `+${t.gap}` : t.gap}%</span>
+                  <span className={`text-sm font-mono font-bold ${t.gap >= 0 ? "text-green-600" : "text-destructive"}`}>
+                    {t.gap >= 0 ? `+${t.gap}` : t.gap}%
+                  </span>
                   <p className="text-[10px] text-muted-foreground">Plan {t.planned}% / Actual {t.current_progress}%</p>
                 </div>
               </div>
