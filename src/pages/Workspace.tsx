@@ -46,25 +46,7 @@ const Workspace = () => {
     return () => clearTimeout(timer);
   }, [highlightTaskId]);
 
-  const { data: myMember } = useQuery({
-    queryKey: ["my_member", memberId],
-    queryFn: async () => {
-      if (!memberId) return null;
-      const { data, error } = await supabase
-        .from("members")
-        .select("is_pm")
-        .eq("id", memberId)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!memberId,
-    staleTime: 30_000,
-  });
-
-  const isPm = myMember?.is_pm ?? false;
-  const isAdminOrPm = isAdmin || isPm;
-  const showTabs = !isAdmin && !isPm;
+  const showTabs = !isAdminOrPm;
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
