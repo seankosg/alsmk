@@ -42,7 +42,7 @@ export function SnapshotManager({
     const { data } = await supabase
       .from("cpm_snapshots")
       .select("id, name, data, created_at, updated_at")
-      .order("updated_at", { ascending: false });
+      .order("created_at", { ascending: false });
     setSnapshots((data as Snapshot[]) || []);
     setLoading(false);
   }, []);
