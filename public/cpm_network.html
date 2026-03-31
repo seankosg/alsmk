@@ -3459,8 +3459,8 @@ window.addEventListener('message', function(e) {
     if (progOv && activities.length) {
       var progPatched = 0;
       activities.forEach(function(a) {
-        if (a.mppUid && progOv[a.mppUid] !== undefined) {
-          a.progress = progOv[a.mppUid];
+        if (a.mppTaskId && progOv[a.mppTaskId] !== undefined) {
+          a.progress = progOv[a.mppTaskId];
           progPatched++;
         }
       });
