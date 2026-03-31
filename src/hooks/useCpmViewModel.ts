@@ -31,6 +31,33 @@ const getActivityStatusKey = (a: { name: string; wbs_full?: string | null; mpp_t
 
 export function useCpmViewModel() {
   const lastHydrateRef = useRef<string>("");
+  const [progressMode, setProgressMode] = useState<"auto" | "manual">("auto");
+
+  /** Batch-update all cpm_activities progress based on elapsed days */
+  const batchUpdateElapsedProgress = useCallback(async () => {
+    const { data: activities } = await supabase
+      .from("cpm_activities")
+      .select("id, start_date, finish_date")
+      .limit(5000);
+    if (!activities?.length) return;
+
+    const updates = activities
+      .filter((a) => a.start_date && a.finish_date)
+      .map((a) => ({
+        id: a.id,
+        progress: calcPlannedProgress(a.start_date!, a.finish_date!),
+      }));
+
+    // Batch upsert in chunks of 500
+    for (let i = 0; i < updates.length; i += 500) {
+      const chunk = updates.slice(i, i + 500);
+      await supabase.from("cpm_activities").upsert(
+        chunk.map((u) => ({ id: u.id, progress: u.progress, updated_at: new Date().toISOString() })),
+        { onConflict: "id" }
+      );
+    }
+    console.log(`[CPM] Auto-updated progress for ${updates.length} activities`);
+  }, []);
 
   /**
    * Assembles the full CPM view model from normalized DB tables.
