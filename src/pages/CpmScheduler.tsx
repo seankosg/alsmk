@@ -349,19 +349,17 @@ const CpmScheduler = () => {
       {/* Floating toolbar — Admin/PM only */}
       {isAdminOrPm && (
         <div className={`absolute top-2 z-10 flex items-center gap-2 transition-all ${selectedActivity ? `right-[${panelWidth + 10}px]` : 'right-2'}`} style={selectedActivity ? { right: panelWidth + 10 } : undefined}>
-          {/* Auto/Manual Progress Toggle */}
+          {/* Bulk Auto/Manual Toggle */}
           <div className="flex items-center gap-1.5 bg-card/90 backdrop-blur-sm border border-border rounded-lg px-3 py-1.5 shadow-sm">
-            <Label htmlFor="progress-mode" className="text-xs text-muted-foreground cursor-pointer select-none">
-              진행률
+            <Label className="text-xs text-muted-foreground select-none">
+              일괄 전환
             </Label>
-            <Switch
-              id="progress-mode"
-              checked={progressMode === "auto"}
-              onCheckedChange={toggleProgressMode}
-            />
-            <Badge variant={progressMode === "auto" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-              {progressMode === "auto" ? "Auto" : "Manual"}
-            </Badge>
+            <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => bulkToggleProgressMode("auto")}>
+              전체 Auto
+            </Button>
+            <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => bulkToggleProgressMode("manual")}>
+              전체 Manual
+            </Button>
           </div>
           <SnapshotManager
             onLoadSnapshot={handleLoadSnapshot}
