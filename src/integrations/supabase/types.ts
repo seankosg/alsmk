@@ -174,6 +174,7 @@ export type Database = {
           mpp_uid: string | null
           name: string
           progress: number | null
+          progress_mode: string
           semantic_key: string | null
           start_date: string | null
           tf: number | null
@@ -196,6 +197,7 @@ export type Database = {
           mpp_uid?: string | null
           name: string
           progress?: number | null
+          progress_mode?: string
           semantic_key?: string | null
           start_date?: string | null
           tf?: number | null
@@ -218,6 +220,7 @@ export type Database = {
           mpp_uid?: string | null
           name?: string
           progress?: number | null
+          progress_mode?: string
           semantic_key?: string | null
           start_date?: string | null
           tf?: number | null

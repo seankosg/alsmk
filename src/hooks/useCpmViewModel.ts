@@ -33,11 +33,12 @@ export function useCpmViewModel() {
   const lastHydrateRef = useRef<string>("");
   const [progressMode, setProgressMode] = useState<"auto" | "manual">("auto");
 
-  /** Batch-update all cpm_activities progress based on elapsed days */
+  /** Batch-update cpm_activities progress based on elapsed days (only 'auto' mode activities) */
   const batchUpdateElapsedProgress = useCallback(async () => {
     const { data: activities } = await supabase
       .from("cpm_activities")
-      .select("id, name, start_date, finish_date")
+      .select("id, name, start_date, finish_date, progress_mode")
+      .eq("progress_mode", "auto")
       .limit(5000);
     if (!activities?.length) return;
 
@@ -197,10 +198,11 @@ export function useCpmViewModel() {
       let progressOverrides: Record<string, number> | null = null;
       if (mode === "auto") {
         await batchUpdateElapsedProgress();
-        // Build progress overrides map (mppTaskId → progress) for iframe patching
+        // Build progress overrides map (mppTaskId → progress) for iframe patching (auto mode only)
         const { data: freshActivities } = await supabase
           .from("cpm_activities")
           .select("mpp_task_id, progress")
+          .eq("progress_mode", "auto")
           .not("mpp_task_id", "is", null)
           .not("progress", "is", null)
           .limit(5000);

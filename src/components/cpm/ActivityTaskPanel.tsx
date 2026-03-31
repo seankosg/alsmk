@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, ChevronDown, AlertTriangle, Link2, Calendar, Clock, ArrowRight, X, Pencil, Save, XCircle } from "lucide-react";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { useNavigate } from "react-router-dom";
 import { calcPlannedProgress } from "@/lib/mockData";
@@ -39,7 +40,6 @@ interface Props {
   onClose: () => void;
   onStatusChanged?: () => void;
   onCustomFieldsUpdated?: () => void;
-  progressMode?: "auto" | "manual";
 }
 
 interface TaskWithMember {
@@ -60,7 +60,7 @@ interface TaskWithMember {
   parent_title: string;
 }
 
-export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustomFieldsUpdated, progressMode = "auto" }: Props) {
+export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustomFieldsUpdated }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
@@ -72,6 +72,8 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
   const [isEditingProgress, setIsEditingProgress] = useState(false);
   const [editProgress, setEditProgress] = useState<string>("");
   const [savingProgress, setSavingProgress] = useState(false);
+  const [activityProgressMode, setActivityProgressMode] = useState<"auto" | "manual">("auto");
+  const [togglingMode, setTogglingMode] = useState(false);
 
   const EDITABLE_CF_KEYS = ['Text1', 'Text2', '텍스트1', '텍스트2', 'BLDG'];
 
@@ -85,7 +87,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
     setEditingCF({});
   }, []);
 
-  // Get DB activity ID — primary: mpp_uid only (WBS can change across XML re-exports)
+  // Get DB activity ID + progress_mode — primary: mpp_uid only (WBS can change across XML re-exports)
   const { data: dbActivity } = useQuery({
     queryKey: ["cpm_activity_by_mpp", activity.mppUid, activity.wbsFull],
     queryFn: async () => {
@@ -93,7 +95,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
       if (activity.mppUid) {
         const { data } = await supabase
           .from("cpm_activities")
-          .select("id")
+          .select("id, progress_mode")
           .eq("mpp_uid", activity.mppUid)
           .maybeSingle();
         if (data) return data;
@@ -101,7 +103,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
 
       // 2nd: mpp_task_id + wbs_full fallback
       if (activity.mppTaskId) {
-        let query = supabase.from("cpm_activities").select("id").eq("mpp_task_id", activity.mppTaskId);
+        let query = supabase.from("cpm_activities").select("id, progress_mode").eq("mpp_task_id", activity.mppTaskId);
         if (activity.wbsFull) query = query.eq("wbs_full", activity.wbsFull);
         const { data } = await query.maybeSingle();
         if (data) return data;
@@ -110,12 +112,19 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
       // 3rd: name fallback
       const { data } = await supabase
         .from("cpm_activities")
-        .select("id")
+        .select("id, progress_mode")
         .eq("name", activity.name)
         .maybeSingle();
       return data;
     },
   });
+
+  // Sync activityProgressMode when dbActivity changes
+  useEffect(() => {
+    if (dbActivity?.progress_mode) {
+      setActivityProgressMode(dbActivity.progress_mode as "auto" | "manual");
+    }
+  }, [dbActivity?.progress_mode]);
 
   const saveCustomFields = useCallback(async () => {
     if (!dbActivity?.id) return;
@@ -363,6 +372,31 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
               const prog = activity.progress;
               const showProgress = prog !== null && prog !== undefined;
               
+              const toggleActivityMode = async () => {
+                if (!dbActivity?.id) return;
+                setTogglingMode(true);
+                const newMode = activityProgressMode === "auto" ? "manual" : "auto";
+                try {
+                  const updatePayload: Record<string, any> = { progress_mode: newMode };
+                  if (newMode === "auto" && activity.startDate && activity.finishDate) {
+                    updatePayload.progress = calcPlannedProgress(activity.startDate, activity.finishDate);
+                  }
+                  const { error } = await supabase
+                    .from("cpm_activities")
+                    .update(updatePayload)
+                    .eq("id", dbActivity.id);
+                  if (error) throw error;
+                  setActivityProgressMode(newMode);
+                  queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+                  toast.success(newMode === "auto" ? "Auto 모드 — 경과일수 기반 자동 계산" : "Manual 모드 — 수동 편집 가능");
+                  onStatusChanged?.();
+                } catch (e: any) {
+                  toast.error("모드 변경 실패: " + (e.message || "Unknown"));
+                } finally {
+                  setTogglingMode(false);
+                }
+              };
+
               const saveProgress = async () => {
                 if (!dbActivity?.id) return;
                 const val = Math.max(0, Math.min(100, parseInt(editProgress) || 0));
@@ -385,42 +419,58 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
               };
 
               return (
-                <div className="bg-muted/50 rounded px-2 py-1.5 flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">MPP 진행률</span>
-                  {isEditingProgress ? (
-                    <>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={editProgress}
-                        onChange={(e) => setEditProgress(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') saveProgress(); if (e.key === 'Escape') setIsEditingProgress(false); }}
-                        className="h-6 w-16 text-xs px-1 font-mono"
-                        autoFocus
-                        disabled={savingProgress}
-                      />
-                      <span className="text-muted-foreground">%</span>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={saveProgress} disabled={savingProgress}>
-                        <Save className="h-3 w-3 text-primary" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setIsEditingProgress(false)} disabled={savingProgress}>
-                        <XCircle className="h-3 w-3 text-muted-foreground" />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Progress value={showProgress ? prog : 0} className="flex-1 h-1.5" />
-                      <span className="font-mono font-semibold text-foreground">{showProgress ? `${prog}%` : '-'}</span>
-                      {progressMode === "auto" && (
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">Auto</Badge>
-                      )}
-                      {isAdminOrPm && dbActivity?.id && progressMode !== "auto" && (
-                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => { setEditProgress(String(prog ?? 0)); setIsEditingProgress(true); }}>
-                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                <div className="bg-muted/50 rounded px-2 py-1.5 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">MPP 진행률</span>
+                    {isEditingProgress ? (
+                      <>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={editProgress}
+                          onChange={(e) => setEditProgress(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') saveProgress(); if (e.key === 'Escape') setIsEditingProgress(false); }}
+                          className="h-6 w-16 text-xs px-1 font-mono"
+                          autoFocus
+                          disabled={savingProgress}
+                        />
+                        <span className="text-muted-foreground">%</span>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={saveProgress} disabled={savingProgress}>
+                          <Save className="h-3 w-3 text-primary" />
                         </Button>
-                      )}
-                    </>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setIsEditingProgress(false)} disabled={savingProgress}>
+                          <XCircle className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Progress value={showProgress ? prog : 0} className="flex-1 h-1.5" />
+                        <span className="font-mono font-semibold text-foreground">{showProgress ? `${prog}%` : '-'}</span>
+                        {isAdminOrPm && dbActivity?.id && activityProgressMode === "manual" && (
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => { setEditProgress(String(prog ?? 0)); setIsEditingProgress(true); }}>
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {/* Per-activity Auto/Manual toggle */}
+                  {isAdminOrPm && dbActivity?.id && (
+                    <div className="flex items-center gap-1.5">
+                      <Switch
+                        checked={activityProgressMode === "auto"}
+                        onCheckedChange={toggleActivityMode}
+                        disabled={togglingMode}
+                        className="scale-75 origin-left"
+                      />
+                      <Badge variant={activityProgressMode === "auto" ? "default" : "secondary"} className="text-[9px] px-1.5 py-0 h-4">
+                        {activityProgressMode === "auto" ? "Auto" : "Manual"}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {activityProgressMode === "auto" ? "경과일수 자동 계산" : "수동 입력"}
+                      </span>
+                    </div>
                   )}
                 </div>
               );

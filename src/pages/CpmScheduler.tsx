@@ -7,9 +7,8 @@ import { OrphanResolutionDialog, OrphanActivity } from "@/components/cpm/OrphanR
 import { useCpmViewModel } from "@/hooks/useCpmViewModel";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 /** Generate a composite semantic key: BLDG::WBS_L2::Name */
 function getSemanticKey(activity: { name: string; wbsFull?: string | null; customFields?: Record<string, string> | null }): string {
@@ -30,25 +29,28 @@ const CpmScheduler = () => {
   const resizingRef = useRef(false);
   const queryClient = useQueryClient();
   const { isAdminOrPm, memberName } = useAuthContext();
-  const { hydrateIframe, refreshStatus, progressMode, setProgressMode, batchUpdateElapsedProgress } = useCpmViewModel();
+  const { hydrateIframe, refreshStatus, batchUpdateElapsedProgress } = useCpmViewModel();
   const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
 
-  // Toggle progress mode
-  const toggleProgressMode = useCallback(async () => {
-    const newMode = progressMode === "auto" ? "manual" : "auto";
-    await supabase
-      .from("project_settings")
-      .upsert({ key: "cpm_progress_mode", value: newMode, updated_at: new Date().toISOString() });
-    setProgressMode(newMode);
+  // Bulk toggle all activities' progress mode
+  const bulkToggleProgressMode = useCallback(async (targetMode: "auto" | "manual") => {
+    const { error } = await supabase
+      .from("cpm_activities")
+      .update({ progress_mode: targetMode })
+      .neq("progress_mode", targetMode);
+    if (error) {
+      toast.error("일괄 전환 실패: " + error.message);
+      return;
+    }
     
-    if (newMode === "auto") {
+    if (targetMode === "auto") {
       await batchUpdateElapsedProgress();
       refreshStatus(iframeRef.current?.contentWindow || null);
-      toast.success("자동 진행률 모드 활성화 — 경과일수 기반으로 갱신됨");
+      toast.success("전체 Activity → Auto 모드 전환 완료");
     } else {
-      toast.info("수동 진행률 모드로 전환됨");
+      toast.success("전체 Activity → Manual 모드 전환 완료");
     }
-  }, [progressMode, setProgressMode, batchUpdateElapsedProgress, refreshStatus]);
+  }, [batchUpdateElapsedProgress, refreshStatus]);
 
   // Save snapshot to DB (version history — always insert new row)
   const saveSnapshotToDb = useCallback(async (snapshotData: any) => {
@@ -346,19 +348,17 @@ const CpmScheduler = () => {
       {/* Floating toolbar — Admin/PM only */}
       {isAdminOrPm && (
         <div className={`absolute top-2 z-10 flex items-center gap-2 transition-all ${selectedActivity ? `right-[${panelWidth + 10}px]` : 'right-2'}`} style={selectedActivity ? { right: panelWidth + 10 } : undefined}>
-          {/* Auto/Manual Progress Toggle */}
+          {/* Bulk Auto/Manual Toggle */}
           <div className="flex items-center gap-1.5 bg-card/90 backdrop-blur-sm border border-border rounded-lg px-3 py-1.5 shadow-sm">
-            <Label htmlFor="progress-mode" className="text-xs text-muted-foreground cursor-pointer select-none">
-              진행률
+            <Label className="text-xs text-muted-foreground select-none">
+              일괄 전환
             </Label>
-            <Switch
-              id="progress-mode"
-              checked={progressMode === "auto"}
-              onCheckedChange={toggleProgressMode}
-            />
-            <Badge variant={progressMode === "auto" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-              {progressMode === "auto" ? "Auto" : "Manual"}
-            </Badge>
+            <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => bulkToggleProgressMode("auto")}>
+              전체 Auto
+            </Button>
+            <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => bulkToggleProgressMode("manual")}>
+              전체 Manual
+            </Button>
           </div>
           <SnapshotManager
             onLoadSnapshot={handleLoadSnapshot}
@@ -417,7 +417,7 @@ const CpmScheduler = () => {
                 onClose={() => setSelectedActivity(null)}
                 onStatusChanged={() => refreshStatus(iframeRef.current?.contentWindow || null)}
                 onCustomFieldsUpdated={() => setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 300)}
-                progressMode={progressMode}
+                
               />
             </div>
           </div>
