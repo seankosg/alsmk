@@ -1482,6 +1482,8 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     if (cc) cc.textContent = alertCriticalCount;
     if (wc) wc.textContent = alertWarningCount;
     if (ic) ic.textContent = alertInfoCount;
+    // Store alert node lists globally for dropdown navigation
+    window._alertNodes = { critical: alertCriticalNodes, warning: alertWarningNodes, info: alertInfoNodes };
   }
 
   const container = document.getElementById('svgContainer');
