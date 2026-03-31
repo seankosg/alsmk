@@ -11,6 +11,10 @@ import { ActivityStream } from "@/components/dashboard/ActivityStream";
 import { PersonnelTable } from "@/components/dashboard/PersonnelTable";
 import { PartStatusBoard } from "@/components/dashboard/PartStatusBoard";
 import { ExportReportDialog } from "@/components/dashboard/ExportReportDialog";
+import { KukuProgressOverview } from "@/components/dashboard/KukuProgressOverview";
+import { KukuCoverageRate } from "@/components/dashboard/KukuCoverageRate";
+import { KukuPredecessorWatch } from "@/components/dashboard/KukuPredecessorWatch";
+import { KukuDelayRiskBoard } from "@/components/dashboard/KukuDelayRiskBoard";
 
 const Index = () => {
   return (
@@ -56,6 +60,17 @@ const Index = () => {
         <div data-export-id="upcoming-deadlines">
           <UpcomingDeadlines />
         </div>
+      </div>
+
+      {/* KUKU (건축사업본부) CPM Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <KukuProgressOverview />
+        <KukuCoverageRate />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <KukuPredecessorWatch />
+        <KukuDelayRiskBoard />
       </div>
 
       <div data-export-id="team-heatmap">
