@@ -1323,18 +1323,22 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     const plannedPct = hasStatus ? statusData.plannedPct : progPct;
     const barW = NODE_W - 16;
 
-    // ── Alert Detection ──
+    // ── Alert Detection (using configurable thresholds) ──
     const alertInfo = _alertCache[id] || { gap: 0, hasStatus: false };
     const gap = alertInfo.gap;
-    const isSevereDelay = alertInfo.hasStatus && gap >= 25;
-    const isModerateDelay = alertInfo.hasStatus && gap >= 10 && !isSevereDelay;
-    const isCpDelay = isC && alertInfo.hasStatus && gap >= 5;
+    const _tModerate = window._alertThresholds?.moderate ?? 10;
+    const _tSevere = window._alertThresholds?.severe ?? 25;
+    const _tCp = window._alertThresholds?.cpDelay ?? 5;
+    const _tPred = window._alertThresholds?.predDelay ?? 10;
+    const isSevereDelay = alertInfo.hasStatus && gap >= _tSevere;
+    const isModerateDelay = alertInfo.hasStatus && gap >= _tModerate && !isSevereDelay;
+    const isCpDelay = isC && alertInfo.hasStatus && gap >= _tCp;
     const isFloatExhausted = !isC && (a.tf !== null && a.tf !== undefined && a.tf <= 0);
     // Predecessor delay propagation
     const predIds = getPredIds(id);
     const hasPredDelay = predIds.some(pid => {
       const pc = _alertCache[pid];
-      return pc && pc.hasStatus && pc.gap >= 10;
+      return pc && pc.hasStatus && pc.gap >= _tPred;
     });
 
     // Determine alert level
