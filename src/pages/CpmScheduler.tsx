@@ -335,7 +335,7 @@ const CpmScheduler = () => {
         <div className={`${selectedActivity ? 'flex-1' : 'w-full'} transition-all`}>
           <iframe
             ref={iframeRef}
-            src="/cpm_network.html"
+            src={`/cpm_network.html${cpmCacheBuster}`}
             className="w-full h-full border-0"
             title="CPM Network Scheduler"
             sandbox="allow-scripts allow-same-origin allow-popups"
