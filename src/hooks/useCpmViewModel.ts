@@ -181,8 +181,8 @@ export function useCpmViewModel() {
       const version = result?.version || {
         source: "db",
         name: snapshot?.name || "DB",
-        time: snapshot?.updated_at
-          ? new Date(snapshot.updated_at).toLocaleString("ko-KR")
+        time: snapshot?.created_at
+          ? new Date(snapshot.created_at).toLocaleString("ko-KR")
           : new Date().toLocaleString("ko-KR"),
       };
 
