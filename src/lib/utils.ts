@@ -8,6 +8,9 @@ export function cn(...inputs: ClassValue[]) {
 /** Parse "YYYY-MM-DD" as local midnight (avoids UTC offset issues with new Date() / parseISO). */
 export function parseLocalDate(dateStr: string | undefined | null): Date {
   if (!dateStr) return new Date(NaN);
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day);
+  // Handle both "YYYY-MM-DD" and "YYYY-MM-DDTHH:mm:ss" formats
+  const datePart = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+  const parts = datePart.split("-").map(Number);
+  if (parts.length < 3 || parts.some(isNaN)) return new Date(NaN);
+  return new Date(parts[0], parts[1] - 1, parts[2]);
 }
