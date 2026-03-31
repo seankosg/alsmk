@@ -44,14 +44,15 @@ export function ProjectHUD() {
     );
   }
 
-  const totalTasks = tasks.length;
-  const avgProgress = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + t.current_progress, 0) / totalTasks) : 0;
-  const avgPlanned = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / totalTasks) : 0;
+  const nonSummaryTasks = tasks.filter(t => !t.is_summary);
+  const totalTasks = nonSummaryTasks.length;
+  const avgProgress = weightedAvg(nonSummaryTasks, t => t.current_progress);
+  const avgPlanned = weightedAvg(nonSummaryTasks, t => calcPlannedProgress(t.start_date, t.end_date));
   const gap = avgProgress - avgPlanned;
 
-  const completed = tasks.filter(t => t.current_progress >= 100).length;
-  const inProgress = tasks.filter(t => t.current_progress > 0 && t.current_progress < 100).length;
-  const notStarted = tasks.filter(t => t.current_progress === 0).length;
+  const completed = nonSummaryTasks.filter(t => t.current_progress >= 100).length;
+  const inProgress = nonSummaryTasks.filter(t => t.current_progress > 0 && t.current_progress < 100).length;
+  const notStarted = nonSummaryTasks.filter(t => t.current_progress === 0).length;
 
   const actualDonutData = [
     { name: "Actual", value: avgProgress },

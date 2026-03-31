@@ -127,12 +127,8 @@ export function TeamProgressChart() {
         .sort((a, b) => a.gap - b.gap)
     : [];
 
-  const teamAvgPlanned = allTeamTasks.length > 0
-    ? Math.round(allTeamTasks.reduce((s, t) => s + t.planned, 0) / allTeamTasks.length)
-    : 0;
-  const teamAvgActual = allTeamTasks.length > 0
-    ? Math.round(allTeamTasks.reduce((s, t) => s + t.current_progress, 0) / allTeamTasks.length)
-    : 0;
+  const teamAvgPlanned = weightedAvg(allTeamTasks, t => t.planned);
+  const teamAvgActual = weightedAvg(allTeamTasks, t => t.current_progress);
 
   return (
     <>
