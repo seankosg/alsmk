@@ -358,13 +358,69 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
             </div>
 
             {/* Progress */}
-            {activity.progress !== null && activity.progress !== undefined && (
-              <div className="bg-muted/50 rounded px-2 py-1.5 flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">MPP 진행률</span>
-                <Progress value={activity.progress} className="flex-1 h-1.5" />
-                <span className="font-mono font-semibold text-foreground">{activity.progress}%</span>
-              </div>
-            )}
+            {(() => {
+              const prog = activity.progress;
+              const showProgress = prog !== null && prog !== undefined;
+              
+              const saveProgress = async () => {
+                if (!dbActivity?.id) return;
+                const val = Math.max(0, Math.min(100, parseInt(editProgress) || 0));
+                setSavingProgress(true);
+                try {
+                  const { error } = await supabase
+                    .from("cpm_activities")
+                    .update({ progress: val })
+                    .eq("id", dbActivity.id);
+                  if (error) throw error;
+                  setIsEditingProgress(false);
+                  queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+                  toast.success(`MPP 진행률 ${val}%로 저장`);
+                  onStatusChanged?.();
+                } catch (e: any) {
+                  toast.error("저장 실패: " + (e.message || "Unknown"));
+                } finally {
+                  setSavingProgress(false);
+                }
+              };
+
+              return (
+                <div className="bg-muted/50 rounded px-2 py-1.5 flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">MPP 진행률</span>
+                  {isEditingProgress ? (
+                    <>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={editProgress}
+                        onChange={(e) => setEditProgress(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveProgress(); if (e.key === 'Escape') setIsEditingProgress(false); }}
+                        className="h-6 w-16 text-xs px-1 font-mono"
+                        autoFocus
+                        disabled={savingProgress}
+                      />
+                      <span className="text-muted-foreground">%</span>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={saveProgress} disabled={savingProgress}>
+                        <Save className="h-3 w-3 text-primary" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setIsEditingProgress(false)} disabled={savingProgress}>
+                        <XCircle className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Progress value={showProgress ? prog : 0} className="flex-1 h-1.5" />
+                      <span className="font-mono font-semibold text-foreground">{showProgress ? `${prog}%` : '-'}</span>
+                      {isAdminOrPm && dbActivity?.id && (
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => { setEditProgress(String(prog ?? 0)); setIsEditingProgress(true); }}>
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Predecessors */}
             {activity.predecessors && activity.predecessors.length > 0 && (
