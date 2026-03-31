@@ -1954,35 +1954,36 @@ function applyText1Filter(text1Value) {
 }
 
 function getOrder(map) {
-  // Build predecessor list from both predecessors field AND predLinks
+  // Unified with calculate(): predLinks first, fallback to predecessors
   const inDeg = {};
-  const predOf = {};
-  activities.forEach(a => { inDeg[a.id] = 0; predOf[a.id] = new Set(); });
+  const succs = {};
+  activities.forEach(a => { inDeg[a.id] = 0; succs[a.id] = []; });
   activities.forEach(a => {
-    // From predecessors field
-    (a.predecessors||'').split(',').map(s=>s.trim()).filter(s=>map[s])
-      .forEach(pid => { predOf[a.id].add(pid); });
-    // From predLinks field (XML upload data)
-    if (a.predLinks) {
-      a.predLinks.split(',').map(s=>s.trim()).filter(Boolean)
-        .forEach(link => {
-          const pid = link.split(':')[0];
-          if (map[pid]) predOf[a.id].add(pid);
-        });
-    }
+    const rawStr = (a.predLinks && a.predLinks.trim())
+      ? a.predLinks
+      : (a.predecessors || '');
+    rawStr.split(',').forEach(token => {
+      const pid = token.trim().split(':')[0].trim();
+      if (pid && map[pid]) {
+        inDeg[a.id]++;
+        succs[pid].push(a.id);
+      }
+    });
   });
-  activities.forEach(a => { inDeg[a.id] = predOf[a.id].size; });
-  const queue = activities.filter(a => inDeg[a.id]===0).map(a=>a.id);
+  const queue = activities.filter(a => inDeg[a.id] === 0).map(a => a.id);
   const order = [];
   while (queue.length) {
     const cur = queue.shift();
     order.push(cur);
-    (map[cur].successors||[]).forEach(sid => {
-      if (predOf[sid] && predOf[sid].has(cur)) {
-        inDeg[sid]--;
-        if (inDeg[sid]===0) queue.push(sid);
-      }
+    succs[cur].forEach(sid => {
+      inDeg[sid]--;
+      if (inDeg[sid] === 0) queue.push(sid);
     });
+  }
+  if (order.length < activities.length) {
+    const missing = activities.filter(a => !order.includes(a.id));
+    console.warn(`[getOrder] ${missing.length} nodes excluded from order:`,
+      missing.map(a => `${a.mppTaskId||a.id} (${a.wbs||''})`).join(', '));
   }
   return order;
 }
