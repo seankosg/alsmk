@@ -51,33 +51,19 @@ export function SnapshotManager({
     if (open) fetchSnapshots();
   }, [open, fetchSnapshots]);
 
-  // When pendingSnapshot arrives (from iframe), save it
+  // When pendingSnapshot arrives (from iframe), save it (always insert new version)
   useEffect(() => {
     if (!pendingSnapshot || !saving) return;
     const doSave = async () => {
-      const name = saveName.trim() || "default";
-
-      const { data: existing } = await supabase
-        .from("cpm_snapshots")
-        .select("id")
-        .eq("name", name)
-        .maybeSingle();
-
+      const name = saveName.trim() || "auto";
       const { data: { user } } = await supabase.auth.getUser();
       const snapData = { ...pendingSnapshot, name };
 
-      if (existing) {
-        await supabase
-          .from("cpm_snapshots")
-          .update({ data: snapData, updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
-      } else {
-        await supabase
-          .from("cpm_snapshots")
-          .insert({ name, data: snapData, created_by: user?.id || null });
-      }
+      await supabase
+        .from("cpm_snapshots")
+        .insert({ name, data: snapData, created_by: user?.id || null });
 
-      toast.success(`"${name}" 저장 완료`);
+      toast.success(`"${name}" 버전 저장 완료`);
       setSaveName("");
       setSaving(false);
       onSnapshotHandled();
