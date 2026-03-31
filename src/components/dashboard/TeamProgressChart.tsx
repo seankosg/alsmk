@@ -81,7 +81,8 @@ export function TeamProgressChart() {
     const avgActual = weightedAvg(teamTasks, t => t.current_progress);
     const avgPlanned = weightedAvg(teamTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
-    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, id: team.id, fullName: team.name };
+    const behindCount = teamTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0).length;
+    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, id: team.id, fullName: team.name, behindCount };
   });
 
   // Individual chart data
@@ -92,10 +93,11 @@ export function TeamProgressChart() {
       const avgActual = weightedAvg(memberTasks, t => t.current_progress);
       const avgPlanned = weightedAvg(memberTasks, t => calcPlannedProgress(t.start_date, t.end_date));
       const gap = avgActual - avgPlanned;
+      const behindCount = memberTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0).length;
       const truncName = m.name.length > 6 ? m.name.slice(0, 6) + "…" : m.name;
-      return { name: truncName, planned: avgPlanned, actual: avgActual, gap, id: m.id, fullName: m.name };
+      return { name: truncName, planned: avgPlanned, actual: avgActual, gap, id: m.id, fullName: m.name, behindCount };
     })
-    .filter(Boolean) as { name: string; planned: number; actual: number; gap: number; id: string; fullName: string }[];
+    .filter(Boolean) as { name: string; planned: number; actual: number; gap: number; id: string; fullName: string; behindCount: number }[];
 
   const chartData = viewMode === "team" ? teamChartData : individualChartData;
 
@@ -123,10 +125,16 @@ export function TeamProgressChart() {
     const { x, y, width, value, index } = props;
     const entry = chartData[index];
     const gap = entry?.gap ?? 0;
+    const behindCount = entry?.behindCount ?? 0;
     const gapColor = gap >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))";
     const gapText = gap >= 0 ? `+${gap}%p` : `${gap}%p`;
     return (
       <g>
+        {behindCount > 0 && (
+          <text x={x + width / 2} y={y - 34} textAnchor="middle" fontSize={10} fontWeight={700} fill="hsl(var(--destructive))">
+            ▼{behindCount}
+          </text>
+        )}
         <text x={x + width / 2} y={y - 20} textAnchor="middle" fontSize={10} fontWeight={600} fill={gapColor}>
           {gapText}
         </text>
@@ -203,7 +211,7 @@ export function TeamProgressChart() {
             const dynamicWidth = needsScroll ? chartData.length * minBarWidth : undefined;
             const chartElement = (
               <ChartContainer config={chartConfig} className="h-[280px]" style={dynamicWidth ? { width: dynamicWidth, minWidth: "100%" } : { width: "100%" }}>
-                <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 35 }}>
+                <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 45 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" tickLine={false} axisLine={false} className="text-xs fill-muted-foreground" interval={0} angle={viewMode === "individual" && chartData.length > 8 ? -35 : 0} textAnchor={viewMode === "individual" && chartData.length > 8 ? "end" : "middle"} height={viewMode === "individual" && chartData.length > 8 ? 60 : 30} />
                   <YAxis tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} className="text-xs fill-muted-foreground" width={40} />
