@@ -358,8 +358,8 @@ const Workspace = () => {
           <Button variant="outline" onClick={() => navigate("/tasks/import")}>
             <Upload className="mr-2 h-4 w-4" /> Import
           </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <FileDown className="mr-2 h-4 w-4" /> Export
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+            <FileDown className="mr-2 h-4 w-4" /> {exporting ? "Exporting..." : "Export"}
           </Button>
           <AddTaskDialog />
         </div>
