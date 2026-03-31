@@ -219,7 +219,13 @@ export function TeamProgressChart() {
                   </Bar>
               </BarChart>
             </ChartContainer>
-          )}
+            );
+            return needsScroll ? (
+              <div className="overflow-x-auto">
+                {chartElement}
+              </div>
+            ) : chartElement;
+          })()}
         </CardContent>
       </Card>
 
