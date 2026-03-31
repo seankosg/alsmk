@@ -198,10 +198,11 @@ export function useCpmViewModel() {
       let progressOverrides: Record<string, number> | null = null;
       if (mode === "auto") {
         await batchUpdateElapsedProgress();
-        // Build progress overrides map (mppTaskId → progress) for iframe patching
+        // Build progress overrides map (mppTaskId → progress) for iframe patching (auto mode only)
         const { data: freshActivities } = await supabase
           .from("cpm_activities")
           .select("mpp_task_id, progress")
+          .eq("progress_mode", "auto")
           .not("mpp_task_id", "is", null)
           .not("progress", "is", null)
           .limit(5000);

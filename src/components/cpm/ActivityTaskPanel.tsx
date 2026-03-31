@@ -73,6 +73,8 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
   const [isEditingProgress, setIsEditingProgress] = useState(false);
   const [editProgress, setEditProgress] = useState<string>("");
   const [savingProgress, setSavingProgress] = useState(false);
+  const [activityProgressMode, setActivityProgressMode] = useState<"auto" | "manual">("auto");
+  const [togglingMode, setTogglingMode] = useState(false);
 
   const EDITABLE_CF_KEYS = ['Text1', 'Text2', '텍스트1', '텍스트2', 'BLDG'];
 
