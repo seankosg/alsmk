@@ -373,6 +373,31 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
               const prog = activity.progress;
               const showProgress = prog !== null && prog !== undefined;
               
+              const toggleActivityMode = async () => {
+                if (!dbActivity?.id) return;
+                setTogglingMode(true);
+                const newMode = activityProgressMode === "auto" ? "manual" : "auto";
+                try {
+                  const updatePayload: Record<string, any> = { progress_mode: newMode };
+                  if (newMode === "auto" && activity.startDate && activity.finishDate) {
+                    updatePayload.progress = calcPlannedProgress(activity.startDate, activity.finishDate);
+                  }
+                  const { error } = await supabase
+                    .from("cpm_activities")
+                    .update(updatePayload)
+                    .eq("id", dbActivity.id);
+                  if (error) throw error;
+                  setActivityProgressMode(newMode);
+                  queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+                  toast.success(newMode === "auto" ? "Auto 모드 — 경과일수 기반 자동 계산" : "Manual 모드 — 수동 편집 가능");
+                  onStatusChanged?.();
+                } catch (e: any) {
+                  toast.error("모드 변경 실패: " + (e.message || "Unknown"));
+                } finally {
+                  setTogglingMode(false);
+                }
+              };
+
               const saveProgress = async () => {
                 if (!dbActivity?.id) return;
                 const val = Math.max(0, Math.min(100, parseInt(editProgress) || 0));
