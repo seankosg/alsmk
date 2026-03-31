@@ -3231,6 +3231,19 @@ if (window.parent !== window) {
       }
     }
   }, 15000);
+  // Restore alert thresholds from localStorage
+  try {
+    const savedThresholds = localStorage.getItem('cpm_alert_thresholds');
+    if (savedThresholds) {
+      window._alertThresholds = JSON.parse(savedThresholds);
+      const t = window._alertThresholds;
+      const el = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      el('thresholdModerate', t.moderate ?? 10);
+      el('thresholdSevere', t.severe ?? 25);
+      el('thresholdCpDelay', t.cpDelay ?? 5);
+      el('thresholdPredDelay', t.predDelay ?? 10);
+    }
+  } catch(e) {}
   // Signal parent that iframe is ready to receive data (handshake)
   console.log('[CPM] Sending cpm-iframe-ready to parent');
   window.parent.postMessage({ type: 'cpm-iframe-ready' }, '*');
