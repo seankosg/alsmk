@@ -39,6 +39,7 @@ interface Props {
   onClose: () => void;
   onStatusChanged?: () => void;
   onCustomFieldsUpdated?: () => void;
+  progressMode?: "auto" | "manual";
 }
 
 interface TaskWithMember {
