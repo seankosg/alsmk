@@ -1,49 +1,65 @@
 
 
-# 경과일수 기반 MPP 진행률 자동 업데이트
+# KUKU 중심 CPM 대시보드 위젯 구현
 
 ## 개요
 
-`cpm_activities`의 `start_date`/`finish_date`를 이용하여 경과일수 기반 계획 진행률을 자동 계산하고 `progress` 컬럼에 저장합니다.
+건축사업본부(KUKU) 중심의 CPM 연계 위젯 4개를 프로젝트 대시보드(Index 페이지)에 추가합니다. 데이터 소스는 `cpm_activities` 테이블의 `custom_fields->Text1 = 'KUKU'`로 필터링합니다.
 
-**공식**: `progress = min(100, max(0, round((오늘 - start_date + 1) / (finish_date - start_date + 1) × 100)))`
+## 위젯 구성
 
-## Auto/Manual 모드
+### 1. KUKU Activity Progress Overview
+- **파일**: `src/components/dashboard/KukuProgressOverview.tsx`
+- KUKU 액티비티 전체 요약: 총 개수, 완료(100%), 진행중, 미시작(0%), 크리티컬 패스 개수
+- 가중 평균 진행률 (duration 기반) vs MPP 경과일수 기반 계획 진행률 비교
+- 수평 progress bar로 Actual vs Planned 시각화
 
-`project_settings` 테이블에 `cpm_progress_mode` 키를 추가하여 모드를 관리합니다:
-- **auto** (기본값): CPM 페이지 로드 시(hydration) 모든 activity의 progress를 경과일수 기반으로 자동 갱신
-- **manual**: 기존 방식 유지 (XML 값 또는 수동 입력)
+### 2. KUKU Predecessor Watch
+- **파일**: `src/components/dashboard/KukuPredecessorWatch.tsx`
+- KUKU 액티비티의 선행(predecessor) 중 **타 파티**(Text1 ≠ KUKU) 액티비티 목록
+- 선행 데이터: `cpm_snapshots`의 snapshot data에서 predecessor 관계를 추출
+- 각 선행 액티비티의 progress vs 경과일수 기반 계획 진행률, gap 표시
+- 지연(gap < -5%) 항목은 빨간 강조, 정상은 녹색
 
-Admin/PM만 모드를 전환할 수 있으며, 전환 UI는 SnapshotManager 옆 토글 버튼으로 제공합니다.
+### 3. KUKU Delay Risk Board
+- **파일**: `src/components/dashboard/KukuDelayRiskBoard.tsx`  
+- KUKU 액티비티 중 progress < 계획 진행률 - 5%인 지연 항목 리스트
+- 매핑된 태스크가 있으면 태스크 가중 평균 actual vs planned 표시
+- 매핑 없으면 MPP progress vs 경과일수 계획 비교
+- gap% 내림차순 정렬, critical path 항목에 CP 배지
 
-## 변경 사항
+### 4. KUKU Coverage Rate
+- **파일**: `src/components/dashboard/KukuCoverageRate.tsx`
+- KUKU 액티비티 중 태스크 매핑이 있는 비율 (매핑 커버리지)
+- 도넛 차트: 매핑됨 vs 미매핑
+- 미매핑 액티비티 목록 (WBS, 이름) — 클릭 시 CPM 페이지로 이동
 
-### 1. `src/hooks/useCpmViewModel.ts`
-- `hydrateIframe()` 시작 시 `project_settings`에서 `cpm_progress_mode` 조회
-- `auto` 모드이면: 모든 `cpm_activities`에 대해 `start_date`/`finish_date` 기반 progress 계산 → DB batch update → 이후 기존 hydrate 로직 진행
-- 계산 함수: `calcElapsedProgress(startDate, finishDate)` — `calcPlannedProgress`와 동일 로직을 activity 날짜에 적용
+## 데이터 조회 전략
 
-### 2. `src/lib/mockData.ts`
-- `calcPlannedProgress`를 `calcElapsedProgress`로도 재사용 가능하도록 export (이미 동일 로직이므로 별도 함수 불필요, 기존 함수 활용)
+모든 위젯이 동일한 데이터셋을 사용하므로 **공통 커스텀 훅** `src/hooks/useKukuDashboard.ts`를 생성:
+- `cpm_activities` (custom_fields, progress, duration, start_date, finish_date, is_critical, mpp_task_id)
+- `cpm_task_mappings` (activity_id, task_id)
+- `tasks` (current_progress, start_date, end_date) — 매핑된 태스크만
+- `cpm_snapshots` (latest, predecessor 관계 추출용)
+- React Query `queryKey: ["kuku-dashboard"]`, staleTime 30초
 
-### 3. `src/pages/CpmScheduler.tsx`
-- Auto/Manual 토글 버튼 추가 (SnapshotManager 옆, Admin/PM 전용)
-- 토글 시 `project_settings` upsert (`cpm_progress_mode` = 'auto' | 'manual')
-- Auto 모드 활성화 시 즉시 progress 일괄 업데이트 실행 + iframe refreshStatus
+## 대시보드 배치 (Index.tsx)
 
-### 4. `src/components/cpm/ActivityTaskPanel.tsx`
-- Auto 모드일 때 MPP 진행률 옆에 "Auto" 배지 표시
-- Auto 모드일 때 수동 편집 버튼(Pencil) 비활성화 (자동 계산값이 우선)
+Behind Schedule/Upcoming Deadlines 아래, Team Heatmap 위에 배치:
 
-## 자동 업데이트 타이밍
+```text
+[KUKU Progress Overview]  [KUKU Coverage Rate]     ← 2-col grid
+[KUKU Predecessor Watch]  [KUKU Delay Risk Board]  ← 2-col grid
+```
 
-1. **CPM 페이지 진입 시**: hydration 과정에서 auto 모드이면 일괄 갱신
-2. **모드 전환 시**: Manual → Auto 전환 즉시 일괄 갱신
-3. `start_date`가 없거나 `finish_date`가 없는 activity는 progress를 변경하지 않음 (기존 값 유지)
+## 변경 파일 목록
 
-## 영향 범위
-
-- 네트워크 노드: 매핑 태스크가 없는 노드는 이 자동 계산된 progress가 표시됨
-- 대시보드 CPM 위젯 (향후): 이 값을 MPP 계획 진행률로 사용
-- 스냅샷: DB progress가 업데이트되므로 다음 스냅샷에 반영
+| 파일 | 변경 |
+|------|------|
+| `src/hooks/useKukuDashboard.ts` | 신규 — 공통 데이터 훅 |
+| `src/components/dashboard/KukuProgressOverview.tsx` | 신규 |
+| `src/components/dashboard/KukuPredecessorWatch.tsx` | 신규 |
+| `src/components/dashboard/KukuDelayRiskBoard.tsx` | 신규 |
+| `src/components/dashboard/KukuCoverageRate.tsx` | 신규 |
+| `src/pages/Index.tsx` | 위젯 4개 import + 배치 추가 |
 
