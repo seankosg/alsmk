@@ -412,7 +412,10 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
                     <>
                       <Progress value={showProgress ? prog : 0} className="flex-1 h-1.5" />
                       <span className="font-mono font-semibold text-foreground">{showProgress ? `${prog}%` : '-'}</span>
-                      {isAdminOrPm && dbActivity?.id && (
+                      {progressMode === "auto" && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">Auto</Badge>
+                      )}
+                      {isAdminOrPm && dbActivity?.id && progressMode !== "auto" && (
                         <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => { setEditProgress(String(prog ?? 0)); setIsEditingProgress(true); }}>
                           <Pencil className="h-3 w-3 text-muted-foreground" />
                         </Button>
