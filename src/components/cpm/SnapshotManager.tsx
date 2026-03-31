@@ -127,7 +127,7 @@ export function SnapshotManager({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
             <Database className="h-4 w-4 text-primary" />
-            CPM 스냅샷 관리
+            CPM 스냅샷 버전 히스토리
           </DialogTitle>
         </DialogHeader>
 
