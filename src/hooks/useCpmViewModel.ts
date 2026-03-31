@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { calcPlannedProgress } from "@/lib/mockData";
 
@@ -31,6 +31,34 @@ const getActivityStatusKey = (a: { name: string; wbs_full?: string | null; mpp_t
 
 export function useCpmViewModel() {
   const lastHydrateRef = useRef<string>("");
+  const [progressMode, setProgressMode] = useState<"auto" | "manual">("auto");
+
+  /** Batch-update all cpm_activities progress based on elapsed days */
+  const batchUpdateElapsedProgress = useCallback(async () => {
+    const { data: activities } = await supabase
+      .from("cpm_activities")
+      .select("id, name, start_date, finish_date")
+      .limit(5000);
+    if (!activities?.length) return;
+
+    const updates = activities
+      .filter((a) => a.start_date && a.finish_date)
+      .map((a) => ({
+        id: a.id,
+        name: a.name,
+        progress: calcPlannedProgress(a.start_date!, a.finish_date!),
+      }));
+
+    // Batch upsert in chunks of 500
+    for (let i = 0; i < updates.length; i += 500) {
+      const chunk = updates.slice(i, i + 500);
+      await supabase.from("cpm_activities").upsert(
+        chunk.map((u) => ({ id: u.id, name: u.name, progress: u.progress, updated_at: new Date().toISOString() })),
+        { onConflict: "id" }
+      );
+    }
+    console.log(`[CPM] Auto-updated progress for ${updates.length} activities`);
+  }, []);
 
   /**
    * Assembles the full CPM view model from normalized DB tables.
@@ -157,6 +185,19 @@ export function useCpmViewModel() {
     async (iframeWindow: Window | null) => {
       if (!iframeWindow) return;
 
+      // Check progress mode and auto-update if needed
+      const { data: modeSetting } = await supabase
+        .from("project_settings")
+        .select("value")
+        .eq("key", "cpm_progress_mode")
+        .maybeSingle();
+      const mode = (modeSetting?.value as "auto" | "manual") || "auto";
+      setProgressMode(mode);
+
+      if (mode === "auto") {
+        await batchUpdateElapsedProgress();
+      }
+
       const result = await buildStatusAndCustomFields();
 
       // Load the latest snapshot for graph structure (even if no activities in DB)
@@ -226,5 +267,5 @@ export function useCpmViewModel() {
     [buildStatusAndCustomFields],
   );
 
-  return { hydrateIframe, refreshStatus, buildStatusAndCustomFields };
+  return { hydrateIframe, refreshStatus, buildStatusAndCustomFields, progressMode, setProgressMode, batchUpdateElapsedProgress };
 }
