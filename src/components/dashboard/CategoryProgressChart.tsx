@@ -73,7 +73,8 @@ export function CategoryProgressChart() {
     const avgActual = weightedAvg(catTasks, t => t.current_progress);
     const avgPlanned = weightedAvg(catTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
-    return { name: cat, planned: avgPlanned, actual: avgActual, gap };
+    const behindCount = catTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0).length;
+    return { name: cat, planned: avgPlanned, actual: avgActual, gap, behindCount };
   });
 
   const handleBarClick = (data: any) => {
@@ -95,10 +96,16 @@ export function CategoryProgressChart() {
     const { x, y, width, value, index } = props;
     const entry = chartData[index];
     const gap = entry?.gap ?? 0;
+    const behindCount = entry?.behindCount ?? 0;
     const gapColor = gap >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))";
     const gapText = gap >= 0 ? `+${gap}%p` : `${gap}%p`;
     return (
       <g>
+        {behindCount > 0 && (
+          <text x={x + width / 2} y={y - 34} textAnchor="middle" fontSize={10} fontWeight={700} fill="hsl(var(--destructive))">
+            ▼{behindCount}
+          </text>
+        )}
         <text x={x + width / 2} y={y - 20} textAnchor="middle" fontSize={10} fontWeight={600} fill={gapColor}>
           {gapText}
         </text>
@@ -137,7 +144,7 @@ export function CategoryProgressChart() {
             <Skeleton className="h-[220px] w-full" />
           ) : (
             <ChartContainer config={chartConfig} className="h-[280px] w-full">
-              <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 35 }}>
+              <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 45 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="name"
