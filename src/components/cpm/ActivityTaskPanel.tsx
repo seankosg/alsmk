@@ -38,6 +38,7 @@ interface Props {
   activity: CpmActivity;
   onClose: () => void;
   onStatusChanged?: () => void;
+  onCustomFieldsUpdated?: () => void;
 }
 
 interface TaskWithMember {
