@@ -1871,6 +1871,8 @@ function updateAlertThresholds() {
   const c = parseInt(document.getElementById('thresholdCpDelay')?.value) || 5;
   const p = parseInt(document.getElementById('thresholdPredDelay')?.value) || 10;
   window._alertThresholds = { moderate: m, severe: s, cpDelay: c, predDelay: p };
+  // Persist to localStorage
+  try { localStorage.setItem('cpm_alert_thresholds', JSON.stringify(window._alertThresholds)); } catch(e) {}
   // Re-draw network with updated thresholds
   if (window._lastCalcOrder && window._lastCalcMap) {
     drawNetwork(window._lastCalcOrder, window._lastCalcMap, window._lastCalcProjectEnd,
