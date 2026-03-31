@@ -1,81 +1,73 @@
 
 
-# Text1/Text2 필터 뱃지 버튼을 사이드바 상단에 고정 배치
+# CPM 네트워크 노드 경고 시각화 시스템 (수정)
 
 ## 개요
 
-현재 Text1(사업본부)과 Text2(BLDG) 필터는 사이드바 카드 내 뱃지를 클릭해야만 적용 가능합니다. 이를 사이드바 최상단(전체 펼치기 버튼 왼쪽)에 고유값 뱃지 버튼으로 고정 배치하여, 스크롤 없이 바로 필터를 적용/해제할 수 있게 합니다.
+진도/일정 데이터와 네트워크 구조 데이터로 5가지 경고를 노드에 직접 시각화합니다. 변경 파일: `public/cpm_network.html` 단일 파일.
 
-## 변경 파일
+## 경고 유형 및 판별 기준
 
-`public/cpm_network.html` (단일 파일)
+| 경고 | 조건 | 시각화 |
+|------|------|--------|
+| **진도 지연** | actual < planned - 10% | 노드 **우측 상단**에 주황 `▲` |
+| **심각 지연** | actual < planned - 25% | 노드 **우측 상단**에 빨간 `▲▲` + 테두리 점멸 |
+| **일정 초과** | overdueDays > 0 | 기존 `⚠ +Nd` 유지 |
+| **CP 지연** | CP 노드 + actual < planned - 5% | 노드 **우측 상단**에 🔥 + 테두리 점멸 |
+| **여유시간 소진** | TF ≤ 0, 비CP | 주황 점선 테두리 + TF 빨간 표시 |
+| **선행 지연 전파** | predecessor 지연 10%+ | 연결선 주황 + 노드 **우측 상단**에 🔗 |
 
 ## 변경 내용
 
-### 1. HTML: `toggleAllContainer` 위에 필터 뱃지 컨테이너 추가 (~line 509)
-
-```html
-<div id="sidebarFilterBadges" style="padding:4px 8px 0;flex-shrink:0;display:none;flex-wrap:wrap;gap:4px;align-items:center"></div>
-<div id="toggleAllContainer" style="padding:4px 8px 0;flex-shrink:0;display:none"></div>
+### 1. CSS — 점멸 애니메이션
+```css
+@keyframes alertBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.node-alert-blink { animation: alertBlink 1.2s ease-in-out infinite; }
 ```
 
-### 2. `renderSidebar()` 내에서 필터 뱃지 렌더링 로직 추가 (~line 638 부근)
+### 2. `drawNetwork()` — 경고 판별 로직
 
-- 모든 activity에서 Text1, Text2(BLDG) 고유값 수집
-- 각 고유값을 뱃지 버튼으로 렌더링
-  - Text2(BLDG): 주황 계열 (`#c97a10`), 클릭 시 `applyBldgFilter(val)` 호출
-  - Text1(사업본부): 파랑 계열 (`#6ea8fe`), 클릭 시 `applyText1Filter(val)` 호출
-- 현재 활성 필터(`window._activeBldgFilter`, `window._activeText1Filter`)에 포함된 값은 배경 강조(활성 상태 표시)
-- 값이 하나도 없으면 컨테이너 숨김
+기존 `statusData` 조회 이후 `gap`, `isSevereDelay`, `isModerateDelay`, `isCpDelay`, `isFloatExhausted`, `hasPredDelay` 계산. 이전 계획과 동일한 로직.
+
+### 3. 경고 아이콘 위치 — **노드 우측 상단**
 
 ```javascript
-// renderSidebar() 내부, toggleContainer 로직 앞에 추가
-const filterBadgesEl = document.getElementById('sidebarFilterBadges');
-const bldgVals = new Set();
-const text1Vals = new Set();
-activities.forEach(a => {
-  const cf = a.customFields || {};
-  const bv = cf.BLDG || cf.Text2 || cf['텍스트2'];
-  const tv = cf.Text1 || cf['텍스트1'];
-  if (bv) bldgVals.add(bv);
-  if (tv) text1Vals.add(tv);
-});
-let badgeHtml = '';
-// BLDG badges (주황)
-bldgVals.forEach(v => {
-  const active = window._activeBldgFilter?.has(v);
-  badgeHtml += `<span onclick="applyBldgFilter('${v}')" style="cursor:pointer;font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid rgba(201,122,16,${active?'0.8':'0.3'});color:#c97a10;background:rgba(201,122,16,${active?'0.25':'0.08'})">${v}</span>`;
-});
-// Text1 badges (파랑)
-text1Vals.forEach(v => {
-  const active = window._activeText1Filter?.has(v);
-  badgeHtml += `<span onclick="applyText1Filter('${v}')" style="cursor:pointer;font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid rgba(110,168,254,${active?'0.8':'0.3'});color:#6ea8fe;background:rgba(110,168,254,${active?'0.25':'0.08'})">${v}</span>`;
-});
-filterBadgesEl.style.display = badgeHtml ? 'flex' : 'none';
-filterBadgesEl.innerHTML = badgeHtml;
+// 아이콘을 노드 우측 상단에 배치
+let alertIcon = '';
+const iconX = NODE_W - 14;  // 우측 여백
+const iconY = 12;            // 상단 여백
+
+if (isSevereDelay) alertIcon = `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end" font-weight="700">▲▲</text>`;
+else if (isModerateDelay) alertIcon = `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff9800" text-anchor="end" font-weight="700">▲</text>`;
+
+if (isCpDelay) alertIcon += `<text x="${iconX - 16}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end">🔥</text>`;
+
+if (hasPredDelay && !isSevereDelay && !isModerateDelay) {
+  alertIcon += `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff9800" text-anchor="end">🔗</text>`;
+}
 ```
 
-### 3. 필터 적용/해제 후 사이드바 재렌더링
+### 4. 노드 테두리 동적 변경
 
-`applyBldgFilter`, `applyText1Filter`, `clearAllFilters`, `removeBldgFilterItem`, `removeText1FilterItem` 함수 말미에 `renderSidebar()` 호출 추가 (뱃지 활성 상태 갱신).
+- **critical** (심각지연/CP지연): `stroke='#ff4d4d'`, `strokeW=2.5`, class `node-alert-blink`
+- **warning** (보통지연/여유시간소진): `stroke='#ff9800'`, `strokeW=2`, `stroke-dasharray="4,2"`
+- **info** (선행지연전파): 기존 색상 유지, 연결선만 주황
 
-### 4. `toggleAllContainer` 레이아웃 조정
+### 5. 연결선 — 선행 지연 전파
 
-필터 뱃지 행과 전체 접기/펼치기 버튼을 한 줄에 배치하는 대안:
+predecessor가 10%+ 지연이면 edge 색상을 `#ff9800`으로 변경.
 
-```html
-<div id="sidebarFixedControls" style="padding:4px 8px 0;flex-shrink:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-  <div id="sidebarFilterBadges" style="display:flex;flex-wrap:wrap;gap:3px;flex:1"></div>
-  <div id="toggleAllContainer"></div>
-</div>
-```
+### 6. 여유시간(TF) 강조
 
-이렇게 하면 뱃지들이 왼쪽, 전체 접기/펼치기가 오른쪽에 같은 줄로 고정됩니다.
+`a.tf <= 0`이면 TF 텍스트를 `#ff4d4d`로 변경.
+
+### 7. 사이드바 경고 요약 바
+
+필터 뱃지 아래에 `[● 3] [● 7] [● 12]` 형태로 critical/warning/info 카운트 표시. `drawNetwork()` 완료 후 집계.
 
 ## 기대 결과
 
-- 사이드바 최상단에 BLDG(주황) + Text1(파랑) 필터 뱃지가 고정 표시
-- 스크롤해도 위치 유지 (기존 `toggleAllContainer`와 동일한 `flex-shrink:0` 영역)
-- 뱃지 클릭으로 필터 토글, 활성 필터는 배경 강조로 시각적 구분
-- 기존 카드 내 뱃지 클릭 필터도 그대로 유지
+- 경고 아이콘이 노드 **우측 상단**에 표시되어 기존 노드명/WBS 정보와 겹치지 않음
+- critical 노드는 빨간 점멸 테두리로 즉시 식별
+- 사이드바 요약으로 전체 경고 현황 한눈에 파악
 
