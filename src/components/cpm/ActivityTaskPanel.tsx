@@ -385,11 +385,36 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
             {/* Custom Fields */}
             {activity.customFields && Object.keys(activity.customFields).length > 0 && (
               <div className="bg-muted/50 rounded px-2 py-1.5 text-xs space-y-1">
-                <div className="text-[10px] text-muted-foreground font-semibold">Custom Fields</div>
-                {Object.entries(activity.customFields).map(([key, val]) => (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground font-semibold">Custom Fields</span>
+                  {isAdminOrPm && !isEditingCF && (
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={startEditingCF}>
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  )}
+                  {isEditingCF && (
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={cancelEditingCF} disabled={savingCF}>
+                        <XCircle className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={saveCustomFields} disabled={savingCF}>
+                        <Save className="h-3 w-3 text-primary" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {Object.entries(isEditingCF ? editingCF : activity.customFields).map(([key, val]) => (
                   <div key={key} className="flex items-center gap-1.5 text-foreground">
-                    <span className="text-muted-foreground font-mono">{key}</span>
-                    <span className="ml-auto font-semibold">{val}</span>
+                    <span className="text-muted-foreground font-mono shrink-0">{key}</span>
+                    {isEditingCF && EDITABLE_CF_KEYS.includes(key) ? (
+                      <Input
+                        className="ml-auto h-5 text-xs px-1 py-0 w-28 text-right font-semibold"
+                        value={editingCF[key] || ''}
+                        onChange={(e) => setEditingCF(prev => ({ ...prev, [key]: e.target.value }))}
+                      />
+                    ) : (
+                      <span className="ml-auto font-semibold">{val}</span>
+                    )}
                   </div>
                 ))}
               </div>
