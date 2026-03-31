@@ -1268,8 +1268,9 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
 
   // Draw nodes — visOrder is an array of IDs
 
-  // Alert counters for summary bar
+  // Alert counters and node lists for summary bar navigation
   let alertCriticalCount = 0, alertWarningCount = 0, alertInfoCount = 0;
+  const alertCriticalNodes = [], alertWarningNodes = [], alertInfoNodes = [];
 
   visOrder.forEach(id => {
     const a = map[id];
