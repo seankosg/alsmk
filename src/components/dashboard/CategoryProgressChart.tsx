@@ -144,7 +144,7 @@ export function CategoryProgressChart() {
             <Skeleton className="h-[220px] w-full" />
           ) : (
             <ChartContainer config={chartConfig} className="h-[280px] w-full">
-              <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 35 }}>
+              <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 45 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="name"
