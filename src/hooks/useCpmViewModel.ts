@@ -194,8 +194,22 @@ export function useCpmViewModel() {
       const mode = (modeSetting?.value as "auto" | "manual") || "auto";
       setProgressMode(mode);
 
+      let progressOverrides: Record<string, number> | null = null;
       if (mode === "auto") {
         await batchUpdateElapsedProgress();
+        // Build progress overrides map (mppUid → progress) for iframe patching
+        const { data: freshActivities } = await supabase
+          .from("cpm_activities")
+          .select("mpp_uid, progress")
+          .not("mpp_uid", "is", null)
+          .not("progress", "is", null)
+          .limit(5000);
+        if (freshActivities?.length) {
+          progressOverrides = {};
+          freshActivities.forEach((a) => {
+            if (a.mpp_uid) progressOverrides![a.mpp_uid] = a.progress!;
+          });
+        }
       }
 
       const result = await buildStatusAndCustomFields();
@@ -236,13 +250,14 @@ export function useCpmViewModel() {
           customFieldsMap,
           statuses,
           version,
+          progressOverrides,
         },
         "*",
       );
 
       console.log(`[CPM] Hydrate sent: ${statuses.length} statuses, ${Object.keys(customFieldsMap).length} customFields, snapshot=${!!snapshot}`);
     },
-    [buildStatusAndCustomFields],
+    [buildStatusAndCustomFields, batchUpdateElapsedProgress],
   );
 
   /**
