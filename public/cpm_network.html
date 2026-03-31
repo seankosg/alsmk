@@ -3454,7 +3454,20 @@ window.addEventListener('message', function(e) {
       calculated = false;
     }
 
-    // 2. Patch customFields from DB (always overwrite — DB is source of truth)
+    // 2. Patch progress from DB (auto mode — elapsed-day calculation)
+    var progOv = e.data.progressOverrides;
+    if (progOv && activities.length) {
+      var progPatched = 0;
+      activities.forEach(function(a) {
+        if (a.mppUid && progOv[a.mppUid] !== undefined) {
+          a.progress = progOv[a.mppUid];
+          progPatched++;
+        }
+      });
+      if (progPatched > 0) console.log('[CPM] Hydrate: patched progress for ' + progPatched + ' activities');
+    }
+
+    // 3. Patch customFields from DB (always overwrite — DB is source of truth)
     var cfMap = e.data.customFieldsMap;
     if (cfMap && activities.length) {
       var cfPatched = 0;
