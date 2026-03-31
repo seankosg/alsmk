@@ -33,22 +33,25 @@ const CpmScheduler = () => {
   const { hydrateIframe, refreshStatus, progressMode, setProgressMode, batchUpdateElapsedProgress } = useCpmViewModel();
   const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
 
-  // Toggle progress mode
-  const toggleProgressMode = useCallback(async () => {
-    const newMode = progressMode === "auto" ? "manual" : "auto";
-    await supabase
-      .from("project_settings")
-      .upsert({ key: "cpm_progress_mode", value: newMode, updated_at: new Date().toISOString() });
-    setProgressMode(newMode);
+  // Bulk toggle all activities' progress mode
+  const bulkToggleProgressMode = useCallback(async (targetMode: "auto" | "manual") => {
+    const { error } = await supabase
+      .from("cpm_activities")
+      .update({ progress_mode: targetMode })
+      .neq("progress_mode", targetMode);
+    if (error) {
+      toast.error("일괄 전환 실패: " + error.message);
+      return;
+    }
     
-    if (newMode === "auto") {
+    if (targetMode === "auto") {
       await batchUpdateElapsedProgress();
       refreshStatus(iframeRef.current?.contentWindow || null);
-      toast.success("자동 진행률 모드 활성화 — 경과일수 기반으로 갱신됨");
+      toast.success("전체 Activity → Auto 모드 전환 완료");
     } else {
-      toast.info("수동 진행률 모드로 전환됨");
+      toast.success("전체 Activity → Manual 모드 전환 완료");
     }
-  }, [progressMode, setProgressMode, batchUpdateElapsedProgress, refreshStatus]);
+  }, [batchUpdateElapsedProgress, refreshStatus]);
 
   // Save snapshot to DB (version history — always insert new row)
   const saveSnapshotToDb = useCallback(async (snapshotData: any) => {
