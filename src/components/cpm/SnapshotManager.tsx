@@ -165,7 +165,7 @@ export function SnapshotManager({
             </div>
           ) : (
             <div className="space-y-1.5">
-              {snapshots.map((snap) => (
+              {snapshots.map((snap, idx) => (
                 <div
                   key={snap.id}
                   className="group flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5 hover:bg-muted/60 transition-colors cursor-pointer"
@@ -173,6 +173,9 @@ export function SnapshotManager({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-mono shrink-0">
+                        v{snapshots.length - idx}
+                      </span>
                       {snap.name}
                       {snap.name === "auto" && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
@@ -187,7 +190,7 @@ export function SnapshotManager({
                       <span>·</span>
                       <span className="flex items-center gap-0.5">
                         <Clock className="h-3 w-3" />
-                        {format(new Date(snap.updated_at), "yyyy-MM-dd HH:mm")}
+                        {format(new Date(snap.created_at), "yyyy-MM-dd HH:mm")}
                       </span>
                     </div>
                   </div>
@@ -196,7 +199,7 @@ export function SnapshotManager({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => handleLoad(snap)}
+                      onClick={(e) => { e.stopPropagation(); handleLoad(snap); }}
                     >
                       <Upload className="h-3.5 w-3.5" />
                     </Button>
