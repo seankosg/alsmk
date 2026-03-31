@@ -70,17 +70,8 @@ export function TeamProgressChart() {
 
   const chartData = teams.map((team) => {
     const teamTasks = tasks.filter((t) => t.team_id === team.id && !t.is_summary);
-    const avgActual =
-      teamTasks.length > 0
-        ? Math.round(teamTasks.reduce((s, t) => s + t.current_progress, 0) / teamTasks.length)
-        : 0;
-    const avgPlanned =
-      teamTasks.length > 0
-        ? Math.round(
-            teamTasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) /
-              teamTasks.length
-          )
-        : 0;
+    const avgActual = weightedAvg(teamTasks, t => t.current_progress);
+    const avgPlanned = weightedAvg(teamTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
     return { name: team.code, planned: avgPlanned, actual: avgActual, gap, teamId: team.id, teamName: team.name };
   });
