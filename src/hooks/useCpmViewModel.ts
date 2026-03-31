@@ -162,8 +162,8 @@ export function useCpmViewModel() {
       // Load the latest snapshot for graph structure (even if no activities in DB)
       const { data: snapshot } = await supabase
         .from("cpm_snapshots")
-        .select("data, updated_at, name")
-        .order("updated_at", { ascending: false })
+        .select("data, created_at, name")
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
