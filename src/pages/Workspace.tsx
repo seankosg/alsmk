@@ -25,6 +25,7 @@ const Workspace = () => {
   const { isAdmin, isPm, isAdminOrPm, memberId } = useAuthContext();
   const [filterMode, setFilterMode] = useState<"mine" | "team" | "project">("mine");
   const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [deepLinkTask, setDeepLinkTask] = useState<any>(null);
   const highlightTaskId = searchParams.get("task");
@@ -236,36 +237,90 @@ const Workspace = () => {
     }
   };
 
-  const handleExport = () => {
-    const getMemberName = (id: string | null) => !id ? "" : members.find(m => m.id === id)?.name ?? "";
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const getMemberName = (id: string | null) => !id ? "" : members.find(m => m.id === id)?.name ?? "";
 
-    const rows = tasks.map(t => {
-      const isSummary = (t as any).is_summary;
-      const planned = calcPlannedProgress(t.start_date, t.end_date);
-      const gap = t.current_progress - planned;
-      const remaining = t.actual_finish ? 0 : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
-      const dDay = t.actual_finish ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`;
+      // Fetch comments with author info
+      const { data: allComments = [] } = await supabase
+        .from("task_comments")
+        .select("task_id, message, author_id, created_at")
+        .order("created_at", { ascending: true });
 
-      return {
-        "Type": isSummary ? "Summary" : (t as any).parent_id ? "  └ Subtask" : "Task",
-        "assignee": getMemberName(t.assignee_id),
-        "Category": t.category ?? "",
-        "Subject": t.title,
-        "Action Plan": t.action_plan ?? "",
-        "Start": t.start_date,
-        "Finish": t.end_date,
-        "D-Day": dDay,
-        "Plan %": planned,
-        "Actual %": t.current_progress,
-        "차이 %": gap,
-        "Actual Finish": t.actual_finish ?? "",
-      };
-    });
+      // Group comments by task_id
+      const commentsByTask = new Map<string, typeof allComments>();
+      for (const c of allComments) {
+        if (!commentsByTask.has(c.task_id)) commentsByTask.set(c.task_id, []);
+        commentsByTask.get(c.task_id)!.push(c);
+      }
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Action Plan");
-    XLSX.writeFile(wb, `ALSMK_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      // Build hierarchical order: Summary → its Subtasks, then independent Tasks
+      const summaries = tasks.filter(t => t.is_summary).sort((a, b) => (a.task_code ?? "").localeCompare(b.task_code ?? ""));
+      const subtasksByParent = new Map<string, typeof tasks>();
+      const independentTasks: typeof tasks = [];
+      for (const t of tasks) {
+        if (t.is_summary) continue;
+        if (t.parent_id) {
+          if (!subtasksByParent.has(t.parent_id)) subtasksByParent.set(t.parent_id, []);
+          subtasksByParent.get(t.parent_id)!.push(t);
+        } else {
+          independentTasks.push(t);
+        }
+      }
+      independentTasks.sort((a, b) => (a.task_code ?? "").localeCompare(b.task_code ?? ""));
+
+      const ordered: typeof tasks = [];
+      for (const s of summaries) {
+        ordered.push(s);
+        const children = subtasksByParent.get(s.id) ?? [];
+        children.sort((a, b) => (a.task_code ?? "").localeCompare(b.task_code ?? ""));
+        ordered.push(...children);
+      }
+      ordered.push(...independentTasks);
+
+      const rows = ordered.map(t => {
+        const planned = calcPlannedProgress(t.start_date, t.end_date);
+        const gap = t.current_progress - planned;
+        const remaining = t.actual_finish ? 0 : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
+        const dDay = t.actual_finish ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`;
+
+        // Format comments
+        const taskComments = commentsByTask.get(t.id) ?? [];
+        const commentsStr = taskComments.map(c => {
+          const authorName = getMemberName(c.author_id);
+          const date = new Date(c.created_at).toLocaleDateString("ko-KR");
+          return `${authorName} (${date}): ${c.message}`;
+        }).join("\n");
+
+        return {
+          "Type": t.is_summary ? "Summary" : t.parent_id ? "  └ Subtask" : "Task",
+          "Task Code": t.task_code ?? "",
+          "Assignee": getMemberName(t.assignee_id),
+          "Category": t.category ?? "",
+          "Subject": t.title,
+          "Action Plan": t.action_plan ?? "",
+          "Start": t.start_date,
+          "Finish": t.end_date,
+          "D-Day": dDay,
+          "Plan %": planned,
+          "Actual %": t.current_progress,
+          "차이 %": gap,
+          "Actual Finish": t.actual_finish ?? "",
+          "Comments": commentsStr,
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Action Plan");
+      XLSX.writeFile(wb, `ALSMK_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.success("Excel 파일이 다운로드되었습니다.");
+    } catch (err: any) {
+      toast.error(err.message || "Export 실패");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -303,8 +358,8 @@ const Workspace = () => {
           <Button variant="outline" onClick={() => navigate("/tasks/import")}>
             <Upload className="mr-2 h-4 w-4" /> Import
           </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <FileDown className="mr-2 h-4 w-4" /> Export
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+            <FileDown className="mr-2 h-4 w-4" /> {exporting ? "Exporting..." : "Export"}
           </Button>
           <AddTaskDialog />
         </div>
