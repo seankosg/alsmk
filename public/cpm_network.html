@@ -1866,8 +1866,8 @@ function toggleAlertSettings() {
 }
 
 function updateAlertThresholds() {
-  const m = parseInt(document.getElementById('thresholdModerate')?.value) || 10;
-  const s = parseInt(document.getElementById('thresholdSevere')?.value) || 25;
+  const m = parseInt(document.getElementById('thresholdModerate')?.value) || 5;
+  const s = parseInt(document.getElementById('thresholdSevere')?.value) || 10;
   const c = parseInt(document.getElementById('thresholdCpDelay')?.value) || 5;
   const p = parseInt(document.getElementById('thresholdPredDelay')?.value) || 10;
   window._alertThresholds = { moderate: m, severe: s, cpDelay: c, predDelay: p };
