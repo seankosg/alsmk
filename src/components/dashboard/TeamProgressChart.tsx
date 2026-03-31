@@ -95,10 +95,11 @@ export function TeamProgressChart() {
       const avgPlanned = weightedAvg(memberTasks, t => calcPlannedProgress(t.start_date, t.end_date));
       const gap = avgActual - avgPlanned;
       const behindCount = memberTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0).length;
+      const aheadCount = memberTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) > 0).length;
       const truncName = m.name.length > 6 ? m.name.slice(0, 6) + "…" : m.name;
-      return { name: truncName, planned: avgPlanned, actual: avgActual, gap, id: m.id, fullName: m.name, behindCount };
+      return { name: truncName, planned: avgPlanned, actual: avgActual, gap, id: m.id, fullName: m.name, behindCount, aheadCount };
     })
-    .filter(Boolean) as { name: string; planned: number; actual: number; gap: number; id: string; fullName: string; behindCount: number }[];
+    .filter(Boolean) as { name: string; planned: number; actual: number; gap: number; id: string; fullName: string; behindCount: number; aheadCount: number }[];
 
   const chartData = viewMode === "team" ? teamChartData : individualChartData;
 
