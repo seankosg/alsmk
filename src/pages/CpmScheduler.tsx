@@ -29,7 +29,7 @@ const CpmScheduler = () => {
   const resizingRef = useRef(false);
   const queryClient = useQueryClient();
   const { isAdminOrPm, memberName } = useAuthContext();
-  const { hydrateIframe, refreshStatus, progressMode, setProgressMode, batchUpdateElapsedProgress } = useCpmViewModel();
+  const { hydrateIframe, refreshStatus, batchUpdateElapsedProgress } = useCpmViewModel();
   const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
 
   // Bulk toggle all activities' progress mode
