@@ -1874,6 +1874,7 @@ function updateAlertThresholds() {
   }
 }
 
+function clearAllFilters() {
   const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0) || (window._activeText1Filter && window._activeText1Filter.size > 0);
   if (!hadFilter) return;
   window._activeWbsFilter = null;
