@@ -1251,7 +1251,7 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       const isCrit = map[pid].isCritical && a.isCritical;
       // Predecessor delay propagation: orange edge
       const predAlert = _alertCache[pid];
-      const predDelayed = predAlert && predAlert.hasStatus && predAlert.gap >= 10;
+      const predDelayed = predAlert && predAlert.hasStatus && predAlert.gap >= (window._alertThresholds?.predDelay ?? 10);
       const color = isCrit ? '#ff4d4d' : predDelayed ? '#ff9800' : '#3d4f6e';
       const strokeW = isCrit ? 2.5 : predDelayed ? 2 : 1.5;
       const markerId = isCrit ? 'arr-crit' : 'arr-norm';
