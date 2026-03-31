@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
@@ -28,6 +28,7 @@ const CpmScheduler = () => {
   const queryClient = useQueryClient();
   const { isAdminOrPm, memberName } = useAuthContext();
   const { hydrateIframe, refreshStatus } = useCpmViewModel();
+  const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
 
   // Save snapshot to DB (version history — always insert new row)
   const saveSnapshotToDb = useCallback(async (snapshotData: any) => {
@@ -334,7 +335,7 @@ const CpmScheduler = () => {
         <div className={`${selectedActivity ? 'flex-1' : 'w-full'} transition-all`}>
           <iframe
             ref={iframeRef}
-            src="/cpm_network.html"
+            src={`/cpm_network.html${cpmCacheBuster}`}
             className="w-full h-full border-0"
             title="CPM Network Scheduler"
             sandbox="allow-scripts allow-same-origin allow-popups"
