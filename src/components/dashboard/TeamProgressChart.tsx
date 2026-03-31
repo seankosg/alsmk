@@ -211,7 +211,7 @@ export function TeamProgressChart() {
             const dynamicWidth = needsScroll ? chartData.length * minBarWidth : undefined;
             const chartElement = (
               <ChartContainer config={chartConfig} className="h-[280px]" style={dynamicWidth ? { width: dynamicWidth, minWidth: "100%" } : { width: "100%" }}>
-                <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 35 }}>
+                <BarChart data={chartData} barGap={2} barCategoryGap="20%" onClick={handleBarClick} style={{ cursor: "pointer" }} margin={{ top: 45 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" tickLine={false} axisLine={false} className="text-xs fill-muted-foreground" interval={0} angle={viewMode === "individual" && chartData.length > 8 ? -35 : 0} textAnchor={viewMode === "individual" && chartData.length > 8 ? "end" : "middle"} height={viewMode === "individual" && chartData.length > 8 ? 60 : 30} />
                   <YAxis tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} className="text-xs fill-muted-foreground" width={40} />
