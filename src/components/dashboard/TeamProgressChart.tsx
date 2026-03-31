@@ -81,7 +81,8 @@ export function TeamProgressChart() {
     const avgActual = weightedAvg(teamTasks, t => t.current_progress);
     const avgPlanned = weightedAvg(teamTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
-    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, id: team.id, fullName: team.name };
+    const behindCount = teamTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0).length;
+    return { name: team.code, planned: avgPlanned, actual: avgActual, gap, id: team.id, fullName: team.name, behindCount };
   });
 
   // Individual chart data
