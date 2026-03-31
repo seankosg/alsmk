@@ -25,6 +25,7 @@ const Workspace = () => {
   const { isAdmin, isPm, isAdminOrPm, memberId } = useAuthContext();
   const [filterMode, setFilterMode] = useState<"mine" | "team" | "project">("mine");
   const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [deepLinkTask, setDeepLinkTask] = useState<any>(null);
   const highlightTaskId = searchParams.get("task");
