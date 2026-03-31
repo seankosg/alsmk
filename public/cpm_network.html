@@ -41,6 +41,8 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes alertBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .node-alert-blink { animation: alertBlink 1.2s ease-in-out infinite; }
 
   html, body {
     height: 100%;
