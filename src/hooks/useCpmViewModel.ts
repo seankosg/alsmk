@@ -250,6 +250,7 @@ export function useCpmViewModel() {
           customFieldsMap,
           statuses,
           version,
+          progressOverrides,
         },
         "*",
       );
