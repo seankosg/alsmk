@@ -96,10 +96,16 @@ export function CategoryProgressChart() {
     const { x, y, width, value, index } = props;
     const entry = chartData[index];
     const gap = entry?.gap ?? 0;
+    const behindCount = entry?.behindCount ?? 0;
     const gapColor = gap >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))";
     const gapText = gap >= 0 ? `+${gap}%p` : `${gap}%p`;
     return (
       <g>
+        {behindCount > 0 && (
+          <text x={x + width / 2} y={y - 34} textAnchor="middle" fontSize={10} fontWeight={700} fill="hsl(var(--destructive))">
+            ▼{behindCount}
+          </text>
+        )}
         <text x={x + width / 2} y={y - 20} textAnchor="middle" fontSize={10} fontWeight={600} fill={gapColor}>
           {gapText}
         </text>
