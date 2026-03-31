@@ -28,6 +28,7 @@ const CpmScheduler = () => {
   const queryClient = useQueryClient();
   const { isAdminOrPm, memberName } = useAuthContext();
   const { hydrateIframe, refreshStatus } = useCpmViewModel();
+  const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
 
   // Save snapshot to DB (version history — always insert new row)
   const saveSnapshotToDb = useCallback(async (snapshotData: any) => {
