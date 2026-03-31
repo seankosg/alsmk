@@ -158,11 +158,8 @@ export function useCpmViewModel() {
       if (!iframeWindow) return;
 
       const result = await buildStatusAndCustomFields();
-      if (!result) return;
 
-      const { statuses, customFieldsMap, version } = result;
-
-      // Load the latest snapshot for graph structure
+      // Load the latest snapshot for graph structure (even if no activities in DB)
       const { data: snapshot } = await supabase
         .from("cpm_snapshots")
         .select("data, updated_at, name")
@@ -170,8 +167,24 @@ export function useCpmViewModel() {
         .limit(1)
         .maybeSingle();
 
+      // If no activities AND no snapshot, nothing to hydrate
+      if (!result && !snapshot) {
+        console.log("[CPM] No activities or snapshot found — skipping hydrate");
+        return;
+      }
+
       const hydrateId = Date.now().toString();
       lastHydrateRef.current = hydrateId;
+
+      const statuses = result?.statuses || [];
+      const customFieldsMap = result?.customFieldsMap || {};
+      const version = result?.version || {
+        source: "db",
+        name: snapshot?.name || "DB",
+        time: snapshot?.updated_at
+          ? new Date(snapshot.updated_at).toLocaleString("ko-KR")
+          : new Date().toLocaleString("ko-KR"),
+      };
 
       // Send unified hydrate message
       iframeWindow.postMessage(
@@ -186,7 +199,7 @@ export function useCpmViewModel() {
         "*",
       );
 
-      console.log(`[CPM] Hydrate sent: ${statuses.length} statuses, ${Object.keys(customFieldsMap).length} customFields`);
+      console.log(`[CPM] Hydrate sent: ${statuses.length} statuses, ${Object.keys(customFieldsMap).length} customFields, snapshot=${!!snapshot}`);
     },
     [buildStatusAndCustomFields],
   );
