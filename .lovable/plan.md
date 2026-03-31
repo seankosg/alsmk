@@ -1,65 +1,66 @@
 
 
-# KUKU 중심 CPM 대시보드 위젯 구현
+# Workspace Excel Export 전면 재검토 및 수정
 
-## 개요
+## 현재 문제점
 
-건축사업본부(KUKU) 중심의 CPM 연계 위젯 4개를 프로젝트 대시보드(Index 페이지)에 추가합니다. 데이터 소스는 `cpm_activities` 테이블의 `custom_fields->Text1 = 'KUKU'`로 필터링합니다.
+### 1. Type 구분 로직 결함
+현재 코드 (line 250):
+```javascript
+isSummary ? "Summary" : (t as any).parent_id ? "  └ Subtask" : "Task"
+```
+- `is_summary=true` → Summary
+- `parent_id`가 있음 → Subtask
+- 나머지 → Task
 
-## 위젯 구성
+**문제**: Export는 `tasks` 배열을 flat하게 순회하므로 Summary 밑에 Subtask가 연속 배치되지 않음. TaskTable은 `grouped` 로직으로 부모-자식 순서를 보장하지만, Export는 DB 정렬(`title, start_date, end_date`) 그대로 출력.
 
-### 1. KUKU Activity Progress Overview
-- **파일**: `src/components/dashboard/KukuProgressOverview.tsx`
-- KUKU 액티비티 전체 요약: 총 개수, 완료(100%), 진행중, 미시작(0%), 크리티컬 패스 개수
-- 가중 평균 진행률 (duration 기반) vs MPP 경과일수 기반 계획 진행률 비교
-- 수평 progress bar로 Actual vs Planned 시각화
+### 2. Task Code 누락
+`task_code` 컬럼이 Export에 포함되지 않음.
 
-### 2. KUKU Predecessor Watch
-- **파일**: `src/components/dashboard/KukuPredecessorWatch.tsx`
-- KUKU 액티비티의 선행(predecessor) 중 **타 파티**(Text1 ≠ KUKU) 액티비티 목록
-- 선행 데이터: `cpm_snapshots`의 snapshot data에서 predecessor 관계를 추출
-- 각 선행 액티비티의 progress vs 경과일수 기반 계획 진행률, gap 표시
-- 지연(gap < -5%) 항목은 빨간 강조, 정상은 녹색
+### 3. Comments 누락
+`task_comments` 데이터가 Export에 포함되지 않음.
 
-### 3. KUKU Delay Risk Board
-- **파일**: `src/components/dashboard/KukuDelayRiskBoard.tsx`  
-- KUKU 액티비티 중 progress < 계획 진행률 - 5%인 지연 항목 리스트
-- 매핑된 태스크가 있으면 태스크 가중 평균 actual vs planned 표시
-- 매핑 없으면 MPP progress vs 경과일수 계획 비교
-- gap% 내림차순 정렬, critical path 항목에 CP 배지
+### 4. Action Plan 누락 가능성
+Summary 태스크는 `action_plan`이 `null`로 설정됨 (Generate Summaries에서 의도적). Export에서 `t.action_plan ?? ""`로 처리하므로 빈 문자열 출력 — **이것은 정상 동작**. 단, 개별 Task의 action_plan이 누락되는 경우는 없어야 함.
 
-### 4. KUKU Coverage Rate
-- **파일**: `src/components/dashboard/KukuCoverageRate.tsx`
-- KUKU 액티비티 중 태스크 매핑이 있는 비율 (매핑 커버리지)
-- 도넛 차트: 매핑됨 vs 미매핑
-- 미매핑 액티비티 목록 (WBS, 이름) — 클릭 시 CPM 페이지로 이동
+### 5. 정렬 불일치
+TaskTable은 Summary → Subtask 계층 구조로 표시하지만, Export는 계층 무시하고 flat 정렬.
 
-## 데이터 조회 전략
+## 수정 계획: `src/pages/Workspace.tsx` — `handleExport` 함수
 
-모든 위젯이 동일한 데이터셋을 사용하므로 **공통 커스텀 훅** `src/hooks/useKukuDashboard.ts`를 생성:
-- `cpm_activities` (custom_fields, progress, duration, start_date, finish_date, is_critical, mpp_task_id)
-- `cpm_task_mappings` (activity_id, task_id)
-- `tasks` (current_progress, start_date, end_date) — 매핑된 태스크만
-- `cpm_snapshots` (latest, predecessor 관계 추출용)
-- React Query `queryKey: ["kuku-dashboard"]`, staleTime 30초
+### 변경 사항
 
-## 대시보드 배치 (Index.tsx)
+1. **`handleExport`를 `async`로 변경** — comments fetch 필요
 
-Behind Schedule/Upcoming Deadlines 아래, Team Heatmap 위에 배치:
+2. **계층 정렬 적용**: TaskTable의 `grouped` 로직과 동일하게 Summary → Subtask 순서 보장
+   - Summary/독립 Task를 task_code 순 정렬
+   - 각 Summary 아래에 해당 Subtask를 task_code 순 삽입
 
-```text
-[KUKU Progress Overview]  [KUKU Coverage Rate]     ← 2-col grid
-[KUKU Predecessor Watch]  [KUKU Delay Risk Board]  ← 2-col grid
+3. **Task Code 컬럼 추가**: Type 다음에 배치
+
+4. **Comments 컬럼 추가**: `task_comments` 테이블에서 전체 fetch → task별로 `"작성자 (날짜): 메시지"` 형태로 줄바꿈 연결
+
+5. **Export row 구조**:
+```
+Type | Task Code | Assignee | Category | Subject | Action Plan | Start | Finish | D-Day | Plan % | Actual % | 차이 % | Actual Finish | Comments
 ```
 
-## 변경 파일 목록
+6. **Export 버튼에 로딩 상태 추가** (async 전환에 따른 UX)
 
-| 파일 | 변경 |
+## Type 정의 (명확화)
+
+| 조건 | Type 값 |
+|------|---------|
+| `is_summary = true` | Summary |
+| `parent_id != null` (부모가 Summary) | └ Subtask |
+| `is_summary = false` AND `parent_id = null` | Task |
+
+이 정의는 현재 코드와 동일하며 정확합니다. 문제는 Type 구분이 아니라 **정렬 순서**입니다.
+
+## 변경 파일
+
+| 파일 | 내용 |
 |------|------|
-| `src/hooks/useKukuDashboard.ts` | 신규 — 공통 데이터 훅 |
-| `src/components/dashboard/KukuProgressOverview.tsx` | 신규 |
-| `src/components/dashboard/KukuPredecessorWatch.tsx` | 신규 |
-| `src/components/dashboard/KukuDelayRiskBoard.tsx` | 신규 |
-| `src/components/dashboard/KukuCoverageRate.tsx` | 신규 |
-| `src/pages/Index.tsx` | 위젯 4개 import + 배치 추가 |
+| `src/pages/Workspace.tsx` | `handleExport` async 전환, 계층 정렬, task_code·comments 컬럼 추가, 로딩 state |
 
