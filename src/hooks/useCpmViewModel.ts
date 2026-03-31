@@ -130,8 +130,8 @@ export function useCpmViewModel() {
     // 6. Get version info from latest snapshot
     const { data: latestSnapshot } = await supabase
       .from("cpm_snapshots")
-      .select("name, updated_at")
-      .order("updated_at", { ascending: false })
+      .select("name, created_at")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
