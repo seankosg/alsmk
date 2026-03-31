@@ -1242,6 +1242,9 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
 
   // Draw nodes — visOrder is an array of IDs
 
+  // Alert counters for summary bar
+  let alertCriticalCount = 0, alertWarningCount = 0, alertInfoCount = 0;
+
   visOrder.forEach(id => {
     const a = map[id];
     if (!a) return;
@@ -1259,7 +1262,6 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     if (isPT) {
       fill = '#1a1200'; stroke = '#c97a10'; strokeW = 2; hColor = '#c97a10';
     } else if (isC) {
-      // CP: red stroke/header, but fill based on role
       fill = isKuku ? '#0f1f2e' : isKukuPred ? '#1a1a0f' : '#1f1010';
       stroke = '#ff4d4d'; strokeW = 2.5; hColor = '#ff4d4d';
     } else if (isKuku) {
@@ -1298,6 +1300,52 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     const plannedPct = hasStatus ? statusData.plannedPct : progPct;
     const barW = NODE_W - 16;
 
+    // ── Alert Detection ──
+    const alertInfo = _alertCache[id] || { gap: 0, hasStatus: false };
+    const gap = alertInfo.gap;
+    const isSevereDelay = alertInfo.hasStatus && gap >= 25;
+    const isModerateDelay = alertInfo.hasStatus && gap >= 10 && !isSevereDelay;
+    const isCpDelay = isC && alertInfo.hasStatus && gap >= 5;
+    const isFloatExhausted = !isC && (a.tf !== null && a.tf !== undefined && a.tf <= 0);
+    // Predecessor delay propagation
+    const predIds = getPredIds(id);
+    const hasPredDelay = predIds.some(pid => {
+      const pc = _alertCache[pid];
+      return pc && pc.hasStatus && pc.gap >= 10;
+    });
+
+    // Determine alert level
+    let alertLevel = 'none';
+    if (isSevereDelay || isCpDelay) { alertLevel = 'critical'; alertCriticalCount++; }
+    else if (isModerateDelay || isFloatExhausted) { alertLevel = 'warning'; alertWarningCount++; }
+    else if (hasPredDelay) { alertLevel = 'info'; alertInfoCount++; }
+
+    // Override stroke based on alert level (except passthrough nodes)
+    let alertStrokeDash = '';
+    let alertBlinkClass = '';
+    if (!isPT && alertLevel === 'critical') {
+      stroke = '#ff4d4d'; strokeW = 2.5; alertBlinkClass = ' node-alert-blink';
+    } else if (!isPT && !isC && alertLevel === 'warning') {
+      stroke = '#ff9800'; strokeW = 2; alertStrokeDash = 'stroke-dasharray="4,2"';
+    }
+
+    // Alert icon (top-right)
+    let alertIcon = '';
+    const iconX = NODE_W - 6;
+    const iconY = 11;
+    if (isSevereDelay) {
+      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="9" fill="#ff4d4d" text-anchor="end" font-weight="700">▲▲</text>`;
+    } else if (isModerateDelay) {
+      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="9" fill="#ff9800" text-anchor="end" font-weight="700">▲</text>`;
+    }
+    if (isCpDelay) {
+      const cpIconX = alertIcon ? iconX - 20 : iconX;
+      alertIcon += `<text x="${cpIconX}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end">🔥</text>`;
+    }
+    if (hasPredDelay && !isSevereDelay && !isModerateDelay && !isCpDelay) {
+      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff9800" text-anchor="end">🔗</text>`;
+    }
+
     // Status indicator row (task counts)
     let statusRow = '';
     if (hasStatus) {
@@ -1314,6 +1362,9 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     // Y offsets: push content down by 12 when status row exists
     const yOff = hasStatus ? 12 : 0;
 
+    // TF color override for float exhaustion
+    const tfColor = (a.tf !== null && a.tf !== undefined && a.tf <= 0) ? '#ff4d4d' : (isC ? '#ff6060' : '#7a8ba0');
+
     // Layered progress bar
     let progressBar = '';
     if (hasProg || hasStatus) {
@@ -1328,16 +1379,12 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       `;
 
       if (actualPct < plannedPct) {
-        // Gap portion in red (from actual to planned)
         progressBar += `<rect x="${8 + actualW}" y="${barY}" width="${Math.max(0, plannedW - actualW)}" height="6" rx="3" fill="#ff4d4d"/>`;
-        // Actual in blue
         progressBar += `<rect x="8" y="${barY}" width="${actualW}" height="6" rx="3" fill="#4da6ff"/>`;
       } else {
-        // Actual >= planned: blue covers planned
         progressBar += `<rect x="8" y="${barY}" width="${actualW}" height="6" rx="3" fill="#4da6ff"/>`;
       }
 
-      // Label: actual%/planned% for mapped, just pct% for unmapped
       if (hasStatus) {
         progressBar += `<text x="${NODE_W - 8}" y="${barY - 2}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="${actualPct < plannedPct ? '#ff4d4d' : '#4da6ff'}" text-anchor="end" font-weight="600">${actualPct}/${plannedPct}%</text>`;
       } else {
@@ -1354,9 +1401,10 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
         onmouseleave="hideNodeTooltip()"
         onmousemove="moveNodeTooltip(event)">
         <rect x="3" y="4" width="${NODE_W}" height="${NODE_H}" rx="6" fill="rgba(0,0,0,.4)"/>
-        <rect width="${NODE_W}" height="${NODE_H}" rx="6"
-          fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>
+        <rect class="${alertBlinkClass}" width="${NODE_W}" height="${NODE_H}" rx="6"
+          fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" ${alertStrokeDash}/>
         <rect width="${NODE_W}" height="4" rx="3" fill="${hColor}" opacity=".8"/>
+        ${alertIcon}
         ${statusRow}
         <text x="8" y="${18 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" font-weight="600"
           fill="${hColor}">${displayId}</text>
@@ -1375,11 +1423,10 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
           ? `<text x="${NODE_W/2}" y="${65 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0" text-anchor="middle">${fmtDate(a.startDate)} ~</text>
              <text x="${NODE_W/2}" y="${75 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#7a8ba0" text-anchor="middle">${fmtDate(a.finishDate)}</text>`
           : `<text x="8" y="${67 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="#7a8ba0">ES:${a.es} EF:${a.ef}</text>
-             <text x="${NODE_W-8}" y="${67 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="${isC?'#ff6060':'#7a8ba0'}" text-anchor="end">TF:${a.tf}</text>`
+             <text x="${NODE_W-8}" y="${67 + yOff}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="9" fill="${tfColor}" text-anchor="end">TF:${a.tf}</text>`
         }
         ${progressBar}
         ${(() => {
-          // Overdue warning (Task finishes after Activity finish_date)
           const overdueData = statusData && statusData.overdue;
           const overdueDays = statusData && statusData.overdueDays;
           if (overdueData && overdueDays > 0) {
@@ -1392,6 +1439,19 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       </g>
     `;
   });
+
+  // Update alert summary bar
+  const alertBar = document.getElementById('alertSummaryBar');
+  if (alertBar) {
+    const total = alertCriticalCount + alertWarningCount + alertInfoCount;
+    alertBar.style.display = total > 0 ? 'flex' : 'none';
+    const cc = document.getElementById('alertCriticalCount');
+    const wc = document.getElementById('alertWarningCount');
+    const ic = document.getElementById('alertInfoCount');
+    if (cc) cc.textContent = alertCriticalCount;
+    if (wc) wc.textContent = alertWarningCount;
+    if (ic) ic.textContent = alertInfoCount;
+  }
 
   const container = document.getElementById('svgContainer');
   container.innerHTML = `
