@@ -88,7 +88,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
     setEditingCF({});
   }, []);
 
-  // Get DB activity ID — primary: mpp_uid only (WBS can change across XML re-exports)
+  // Get DB activity ID + progress_mode — primary: mpp_uid only (WBS can change across XML re-exports)
   const { data: dbActivity } = useQuery({
     queryKey: ["cpm_activity_by_mpp", activity.mppUid, activity.wbsFull],
     queryFn: async () => {
@@ -96,7 +96,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
       if (activity.mppUid) {
         const { data } = await supabase
           .from("cpm_activities")
-          .select("id")
+          .select("id, progress_mode")
           .eq("mpp_uid", activity.mppUid)
           .maybeSingle();
         if (data) return data;
@@ -104,7 +104,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
 
       // 2nd: mpp_task_id + wbs_full fallback
       if (activity.mppTaskId) {
-        let query = supabase.from("cpm_activities").select("id").eq("mpp_task_id", activity.mppTaskId);
+        let query = supabase.from("cpm_activities").select("id, progress_mode").eq("mpp_task_id", activity.mppTaskId);
         if (activity.wbsFull) query = query.eq("wbs_full", activity.wbsFull);
         const { data } = await query.maybeSingle();
         if (data) return data;
@@ -113,12 +113,19 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
       // 3rd: name fallback
       const { data } = await supabase
         .from("cpm_activities")
-        .select("id")
+        .select("id, progress_mode")
         .eq("name", activity.name)
         .maybeSingle();
       return data;
     },
   });
+
+  // Sync activityProgressMode when dbActivity changes
+  useEffect(() => {
+    if (dbActivity?.progress_mode) {
+      setActivityProgressMode(dbActivity.progress_mode as "auto" | "manual");
+    }
+  }, [dbActivity?.progress_mode]);
 
   const saveCustomFields = useCallback(async () => {
     if (!dbActivity?.id) return;
