@@ -68,6 +68,9 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
   const [isEditingCF, setIsEditingCF] = useState(false);
   const [editingCF, setEditingCF] = useState<Record<string, string>>({});
   const [savingCF, setSavingCF] = useState(false);
+  const [isEditingProgress, setIsEditingProgress] = useState(false);
+  const [editProgress, setEditProgress] = useState<string>("");
+  const [savingProgress, setSavingProgress] = useState(false);
 
   const EDITABLE_CF_KEYS = ['Text1', 'Text2', '텍스트1', '텍스트2', 'BLDG'];
 
