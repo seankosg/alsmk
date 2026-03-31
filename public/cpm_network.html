@@ -516,6 +516,29 @@
       <span style="color:#ff4d4d;cursor:default" title="Critical alerts">● <span id="alertCriticalCount">0</span></span>
       <span style="color:#ff9800;cursor:default" title="Warning alerts">● <span id="alertWarningCount">0</span></span>
       <span style="color:#6ea8fe;cursor:default" title="Info alerts">● <span id="alertInfoCount">0</span></span>
+      <span style="margin-left:auto;cursor:pointer;font-size:10px;color:var(--text-dim);padding:1px 5px;border:1px solid var(--border);border-radius:3px" onclick="toggleAlertSettings()" title="경고 임계값 설정">⚙</span>
+    </div>
+    <div id="alertSettingsPanel" style="padding:4px 8px 6px;flex-shrink:0;display:none;flex-direction:column;gap:4px;font-size:10px;font-family:var(--mono);background:var(--surface2);border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#ff9800;min-width:70px">보통지연 ≥</span>
+        <input type="number" id="thresholdModerate" value="10" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <span style="color:var(--text-dim)">%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#ff4d4d;min-width:70px">심각지연 ≥</span>
+        <input type="number" id="thresholdSevere" value="25" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <span style="color:var(--text-dim)">%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#ff4d4d;min-width:70px">CP지연 ≥</span>
+        <input type="number" id="thresholdCpDelay" value="5" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <span style="color:var(--text-dim)">%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#ff9800;min-width:70px">선행지연 ≥</span>
+        <input type="number" id="thresholdPredDelay" value="10" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <span style="color:var(--text-dim)">%</span>
+      </div>
     </div>
     <div class="activity-list" id="activityList"></div>
     <div class="sidebar-footer">
