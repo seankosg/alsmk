@@ -105,10 +105,10 @@ export async function exportDashboardExcel() {
   // Sheet 3: Team Progress
   const tpHeader = ["Team", "Tasks", "Avg Plan %", "Avg Actual %", "Gap (%p)"];
   const tpRows = teams.map(team => {
-    const tt = tasks.filter(t => t.team_id === team.id);
+    const tt = tasks.filter((t: any) => t.team_id === team.id && !t.is_summary);
     const cnt = tt.length;
-    const ap = cnt > 0 ? Math.round(tt.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / cnt) : 0;
-    const aa = cnt > 0 ? Math.round(tt.reduce((s, t) => s + t.current_progress, 0) / cnt) : 0;
+    const ap = weightedAvg(tt, (t: any) => calcPlannedProgress(t.start_date, t.end_date));
+    const aa = weightedAvg(tt, (t: any) => t.current_progress);
     return [team.name, cnt, `${ap}%`, `${aa}%`, `${aa - ap}%p`];
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([tpHeader, ...tpRows]), "Team Progress");
