@@ -1330,8 +1330,8 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     // ── Alert Detection (using configurable thresholds) ──
     const alertInfo = _alertCache[id] || { gap: 0, hasStatus: false };
     const gap = alertInfo.gap;
-    const _tModerate = window._alertThresholds?.moderate ?? 10;
-    const _tSevere = window._alertThresholds?.severe ?? 25;
+    const _tModerate = window._alertThresholds?.moderate ?? 5;
+    const _tSevere = window._alertThresholds?.severe ?? 10;
     const _tCp = window._alertThresholds?.cpDelay ?? 5;
     const _tPred = window._alertThresholds?.predDelay ?? 10;
     const isSevereDelay = alertInfo.hasStatus && gap >= _tSevere;
