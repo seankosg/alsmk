@@ -1,7 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, ChevronDown, AlertTriangle, Link2, Calendar, Clock, ArrowRight, X } from "lucide-react";
+import { ChevronRight, ChevronDown, AlertTriangle, Link2, Calendar, Clock, ArrowRight, X, Pencil, Save, XCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,6 +38,7 @@ interface Props {
   activity: CpmActivity;
   onClose: () => void;
   onStatusChanged?: () => void;
+  onCustomFieldsUpdated?: () => void;
 }
 
 interface TaskWithMember {
@@ -56,12 +59,27 @@ interface TaskWithMember {
   parent_title: string;
 }
 
-export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props) {
+export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustomFieldsUpdated }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [expandedAssignees, setExpandedAssignees] = useState<Set<string>>(new Set());
+  const [isEditingCF, setIsEditingCF] = useState(false);
+  const [editingCF, setEditingCF] = useState<Record<string, string>>({});
+  const [savingCF, setSavingCF] = useState(false);
+
+  const EDITABLE_CF_KEYS = ['Text1', 'Text2', '텍스트1', '텍스트2', 'BLDG'];
+
+  const startEditingCF = useCallback(() => {
+    setEditingCF({ ...(activity.customFields || {}) });
+    setIsEditingCF(true);
+  }, [activity.customFields]);
+
+  const cancelEditingCF = useCallback(() => {
+    setIsEditingCF(false);
+    setEditingCF({});
+  }, []);
 
   // Get DB activity ID — primary: mpp_uid only (WBS can change across XML re-exports)
   const { data: dbActivity } = useQuery({
@@ -95,7 +113,45 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
     },
   });
 
-  // Get mapped tasks
+  const saveCustomFields = useCallback(async () => {
+    if (!dbActivity?.id) return;
+    setSavingCF(true);
+    try {
+      const merged = { ...(activity.customFields || {}), ...editingCF };
+      Object.keys(merged).forEach(k => { if (!merged[k]) delete merged[k]; });
+
+      const oldBldg = activity.customFields?.BLDG || activity.customFields?.Text2 || activity.customFields?.['텍스트2'] || '_';
+      const newBldg = merged.BLDG || merged.Text2 || merged['텍스트2'] || '_';
+      const bldgChanged = oldBldg !== newBldg;
+
+      const updatePayload: Record<string, any> = { custom_fields: merged };
+
+      if (bldgChanged) {
+        const wbsParts = (activity.wbsFull || '').split('.');
+        const wbsL2 = wbsParts.length >= 2 ? `${wbsParts[0]}.${wbsParts[1]}` : (wbsParts[0] || '_');
+        updatePayload.semantic_key = `${newBldg}::${wbsL2}::${activity.name}`;
+      }
+
+      const { error } = await supabase
+        .from("cpm_activities")
+        .update(updatePayload)
+        .eq("id", dbActivity.id);
+
+      if (error) throw error;
+
+      setIsEditingCF(false);
+      setEditingCF({});
+      queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+      toast.success("Custom Fields 저장 완료");
+      onCustomFieldsUpdated?.();
+    } catch (e: any) {
+      toast.error("저장 실패: " + (e.message || "Unknown error"));
+    } finally {
+      setSavingCF(false);
+    }
+  }, [dbActivity?.id, editingCF, activity.customFields, activity.wbsFull, activity.name, queryClient, onCustomFieldsUpdated]);
+
+
   const { data: mappedTasks = [], refetch: refetchMappings } = useQuery({
     queryKey: ["cpm_task_mappings", dbActivity?.id],
     queryFn: async () => {
@@ -329,11 +385,36 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged }: Props)
             {/* Custom Fields */}
             {activity.customFields && Object.keys(activity.customFields).length > 0 && (
               <div className="bg-muted/50 rounded px-2 py-1.5 text-xs space-y-1">
-                <div className="text-[10px] text-muted-foreground font-semibold">Custom Fields</div>
-                {Object.entries(activity.customFields).map(([key, val]) => (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground font-semibold">Custom Fields</span>
+                  {isAdminOrPm && !isEditingCF && (
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={startEditingCF}>
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  )}
+                  {isEditingCF && (
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={cancelEditingCF} disabled={savingCF}>
+                        <XCircle className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={saveCustomFields} disabled={savingCF}>
+                        <Save className="h-3 w-3 text-primary" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {Object.entries(isEditingCF ? editingCF : activity.customFields).map(([key, val]) => (
                   <div key={key} className="flex items-center gap-1.5 text-foreground">
-                    <span className="text-muted-foreground font-mono">{key}</span>
-                    <span className="ml-auto font-semibold">{val}</span>
+                    <span className="text-muted-foreground font-mono shrink-0">{key}</span>
+                    {isEditingCF && EDITABLE_CF_KEYS.includes(key) ? (
+                      <Input
+                        className="ml-auto h-5 text-xs px-1 py-0 w-28 text-right font-semibold"
+                        value={editingCF[key] || ''}
+                        onChange={(e) => setEditingCF(prev => ({ ...prev, [key]: e.target.value }))}
+                      />
+                    ) : (
+                      <span className="ml-auto font-semibold">{val}</span>
+                    )}
                   </div>
                 ))}
               </div>
