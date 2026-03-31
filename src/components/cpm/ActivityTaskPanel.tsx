@@ -420,42 +420,58 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
               };
 
               return (
-                <div className="bg-muted/50 rounded px-2 py-1.5 flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">MPP 진행률</span>
-                  {isEditingProgress ? (
-                    <>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={editProgress}
-                        onChange={(e) => setEditProgress(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') saveProgress(); if (e.key === 'Escape') setIsEditingProgress(false); }}
-                        className="h-6 w-16 text-xs px-1 font-mono"
-                        autoFocus
-                        disabled={savingProgress}
-                      />
-                      <span className="text-muted-foreground">%</span>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={saveProgress} disabled={savingProgress}>
-                        <Save className="h-3 w-3 text-primary" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setIsEditingProgress(false)} disabled={savingProgress}>
-                        <XCircle className="h-3 w-3 text-muted-foreground" />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Progress value={showProgress ? prog : 0} className="flex-1 h-1.5" />
-                      <span className="font-mono font-semibold text-foreground">{showProgress ? `${prog}%` : '-'}</span>
-                      {progressMode === "auto" && (
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">Auto</Badge>
-                      )}
-                      {isAdminOrPm && dbActivity?.id && progressMode !== "auto" && (
-                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => { setEditProgress(String(prog ?? 0)); setIsEditingProgress(true); }}>
-                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                <div className="bg-muted/50 rounded px-2 py-1.5 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">MPP 진행률</span>
+                    {isEditingProgress ? (
+                      <>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={editProgress}
+                          onChange={(e) => setEditProgress(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') saveProgress(); if (e.key === 'Escape') setIsEditingProgress(false); }}
+                          className="h-6 w-16 text-xs px-1 font-mono"
+                          autoFocus
+                          disabled={savingProgress}
+                        />
+                        <span className="text-muted-foreground">%</span>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={saveProgress} disabled={savingProgress}>
+                          <Save className="h-3 w-3 text-primary" />
                         </Button>
-                      )}
-                    </>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setIsEditingProgress(false)} disabled={savingProgress}>
+                          <XCircle className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Progress value={showProgress ? prog : 0} className="flex-1 h-1.5" />
+                        <span className="font-mono font-semibold text-foreground">{showProgress ? `${prog}%` : '-'}</span>
+                        {isAdminOrPm && dbActivity?.id && activityProgressMode === "manual" && (
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => { setEditProgress(String(prog ?? 0)); setIsEditingProgress(true); }}>
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {/* Per-activity Auto/Manual toggle */}
+                  {isAdminOrPm && dbActivity?.id && (
+                    <div className="flex items-center gap-1.5">
+                      <Switch
+                        checked={activityProgressMode === "auto"}
+                        onCheckedChange={toggleActivityMode}
+                        disabled={togglingMode}
+                        className="scale-75 origin-left"
+                      />
+                      <Badge variant={activityProgressMode === "auto" ? "default" : "secondary"} className="text-[9px] px-1.5 py-0 h-4">
+                        {activityProgressMode === "auto" ? "Auto" : "Manual"}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {activityProgressMode === "auto" ? "경과일수 자동 계산" : "수동 입력"}
+                      </span>
+                    </div>
                   )}
                 </div>
               );
