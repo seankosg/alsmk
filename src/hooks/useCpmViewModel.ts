@@ -130,16 +130,16 @@ export function useCpmViewModel() {
     // 6. Get version info from latest snapshot
     const { data: latestSnapshot } = await supabase
       .from("cpm_snapshots")
-      .select("name, updated_at")
-      .order("updated_at", { ascending: false })
+      .select("name, created_at")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     const version = {
       source: "db",
       name: latestSnapshot?.name || "DB",
-      time: latestSnapshot?.updated_at
-        ? new Date(latestSnapshot.updated_at).toLocaleString("ko-KR")
+      time: latestSnapshot?.created_at
+        ? new Date(latestSnapshot.created_at).toLocaleString("ko-KR")
         : new Date().toLocaleString("ko-KR"),
     };
 
@@ -162,8 +162,8 @@ export function useCpmViewModel() {
       // Load the latest snapshot for graph structure (even if no activities in DB)
       const { data: snapshot } = await supabase
         .from("cpm_snapshots")
-        .select("data, updated_at, name")
-        .order("updated_at", { ascending: false })
+        .select("data, created_at, name")
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -181,8 +181,8 @@ export function useCpmViewModel() {
       const version = result?.version || {
         source: "db",
         name: snapshot?.name || "DB",
-        time: snapshot?.updated_at
-          ? new Date(snapshot.updated_at).toLocaleString("ko-KR")
+        time: snapshot?.created_at
+          ? new Date(snapshot.created_at).toLocaleString("ko-KR")
           : new Date().toLocaleString("ko-KR"),
       };
 

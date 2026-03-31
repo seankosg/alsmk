@@ -3213,24 +3213,21 @@ function loadFromStorage() {
 // Always wait for parent React to send cpm-hydrate (DB-centric flow).
 // localStorage is only used as a fast preview while waiting.
 if (window.parent !== window) {
-  // Show loading overlay — parent will send cpm-hydrate
+  // Show loading overlay — parent will send cpm-hydrate after handshake
   document.getElementById('loadingOverlay').style.display = 'flex';
-  // Fallback: if parent doesn't hydrate within 12s, try localStorage then sample
+  // Fallback: if parent doesn't hydrate within 15s, show manual init option (NO auto sample)
   window._dbLoadTimeout = setTimeout(() => {
-    document.getElementById('loadingOverlay').style.display = 'none';
     if (!calculated) {
-      const localRestored = loadFromStorage();
-      if (localRestored) {
-        calculated = false;
-        calculate(true);
-      } else {
-        loadSample();
-        calculate(true);
+      console.warn('[CPM] Hydrate timeout — no data received from parent');
+      var overlay = document.getElementById('loadingOverlay');
+      if (overlay) {
+        overlay.innerHTML = '<div style="text-align:center;color:#aaa"><div style="font-size:14px;margin-bottom:8px">서버 데이터 대기 시간 초과</div><button onclick="loadSample();calculate(true);this.parentElement.parentElement.style.display=\'none\'" style="padding:6px 16px;background:#2a3a5c;color:#ccc;border:1px solid #3d4f6e;border-radius:4px;cursor:pointer;font-size:12px">샘플로 초기화</button></div>';
       }
     }
-  }, 12000);
-  // Also notify parent we're ready (legacy compatibility)
-  window.parent.postMessage({ type: 'request-db-snapshot' }, '*');
+  }, 15000);
+  // Signal parent that iframe is ready to receive data (handshake)
+  console.log('[CPM] Sending cpm-iframe-ready to parent');
+  window.parent.postMessage({ type: 'cpm-iframe-ready' }, '*');
 } else {
   // Standalone mode (not in iframe)
   const restored = loadFromStorage();
