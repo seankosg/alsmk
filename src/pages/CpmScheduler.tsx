@@ -7,9 +7,8 @@ import { OrphanResolutionDialog, OrphanActivity } from "@/components/cpm/OrphanR
 import { useCpmViewModel } from "@/hooks/useCpmViewModel";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 /** Generate a composite semantic key: BLDG::WBS_L2::Name */
 function getSemanticKey(activity: { name: string; wbsFull?: string | null; customFields?: Record<string, string> | null }): string {
