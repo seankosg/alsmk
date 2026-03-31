@@ -3587,6 +3587,96 @@ function handleSidebarCardClick(actId) {
   }
 }
 
+// ─── Alert Dropdown Navigation ──────────────────────────────────
+let _openAlertType = null;
+
+function toggleAlertDropdown(type) {
+  const dd = document.getElementById('alertDropdown');
+  if (!dd) return;
+  if (_openAlertType === type) { dd.style.display = 'none'; _openAlertType = null; return; }
+  _openAlertType = type;
+  const nodes = (window._alertNodes && window._alertNodes[type]) || [];
+  if (nodes.length === 0) {
+    dd.innerHTML = '<div style="padding:8px 10px;color:var(--text-dim);font-size:10px">해당 유형의 경고 없음</div>';
+    dd.style.display = 'block';
+    return;
+  }
+  const colorMap = { critical: '#ff4d4d', warning: '#ff9800', info: '#6ea8fe' };
+  const labelMap = { critical: 'Critical', warning: 'Warning', info: 'Info' };
+  const actMap = {};
+  activities.forEach(a => actMap[a.id] = a);
+
+  let html = `<div style="padding:4px 8px;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+    <span style="color:${colorMap[type]};font-weight:600">● ${labelMap[type]} (${nodes.length})</span>
+    <span style="cursor:pointer;padding:0 4px" onclick="closeAlertDropdown()">✕</span>
+  </div>`;
+  nodes.forEach((id, idx) => {
+    const a = actMap[id];
+    if (!a) return;
+    const cf = a.customFields || {};
+    const bldg = cf.BLDG || cf.Text2 || cf['텍스트2'] || '';
+    const wbsParts = (a.wbsFull || '').split('.');
+    const wbsShort = wbsParts.length >= 2 ? wbsParts[0] + '.' + wbsParts[1] : (wbsParts[0] || '');
+    const nameShort = a.name.length > 20 ? a.name.slice(0, 20) + '…' : a.name;
+    html += `<div style="padding:4px 8px;cursor:pointer;font-size:10px;border-bottom:1px solid var(--border);display:flex;gap:4px;align-items:center;white-space:nowrap;overflow:hidden"
+      onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background=''"
+      onclick="navigateToAlertNode('${id}')" data-alert-idx="${idx}">
+      ${bldg ? `<span style="color:#c97a10;font-weight:600;flex-shrink:0">${bldg}</span><span style="color:var(--border)">·</span>` : ''}
+      <span style="color:var(--text-dim);flex-shrink:0">${wbsShort}</span>
+      <span style="color:var(--border)">·</span>
+      <span style="color:var(--text);overflow:hidden;text-overflow:ellipsis">${nameShort}</span>
+    </div>`;
+  });
+  dd.innerHTML = html;
+  dd.style.display = 'block';
+
+  // Keyboard navigation
+  dd._keyHandler = function(e) {
+    if (_openAlertType !== type) { document.removeEventListener('keydown', dd._keyHandler); return; }
+    const items = dd.querySelectorAll('[data-alert-idx]');
+    if (!items.length) return;
+    let cur = dd._curIdx ?? -1;
+    if (e.key === 'ArrowDown') { e.preventDefault(); cur = Math.min(cur + 1, items.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cur = Math.max(cur - 1, 0); }
+    else if (e.key === 'Enter' && cur >= 0) { e.preventDefault(); items[cur].click(); return; }
+    else if (e.key === 'Escape') { e.preventDefault(); closeAlertDropdown(); return; }
+    else return;
+    dd._curIdx = cur;
+    items.forEach((it, i) => it.style.background = i === cur ? 'var(--surface)' : '');
+    items[cur]?.scrollIntoView({ block: 'nearest' });
+  };
+  document.addEventListener('keydown', dd._keyHandler);
+}
+
+function closeAlertDropdown() {
+  const dd = document.getElementById('alertDropdown');
+  if (dd) { dd.style.display = 'none'; dd._curIdx = -1; }
+  _openAlertType = null;
+}
+
+function navigateToAlertNode(actId) {
+  closeAlertDropdown();
+  switchTab('network');
+  setTimeout(() => {
+    scrollToNode(actId);
+    highlightSidebarCard(actId);
+    // Send activity-click to parent for side panel
+    if (window.parent !== window) {
+      const map = {};
+      activities.forEach(a => map[a.id] = a);
+      const a = map[actId];
+      if (a) {
+        window.parent.postMessage({ type: 'activity-click', activity: buildActivityPayload(a) }, '*');
+      }
+    }
+  }, 100);
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+  if (_openAlertType && !e.target.closest('#alertSummaryBar')) closeAlertDropdown();
+});
+
 </script>
 </body>
 </html>
