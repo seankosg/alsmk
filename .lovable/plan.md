@@ -1,36 +1,51 @@
 
 
-# Admin용 MPP 진행률 수동 입력 기능
+# 기간 가중 평균 진도율 적용
 
 ## 개요
 
-현재 MPP 진행률(`activity.progress`)은 XML에서 파싱된 값을 읽기 전용으로 표시합니다. Admin/PM 사용자가 이 값을 직접 수정하고 DB(`cpm_activities.progress`)에 저장할 수 있도록 합니다.
+모든 대시보드 진도율 계산을 **단순 산술 평균 → 기간(duration) 가중 평균**으로 변경합니다. 동시에 `is_summary` 태스크 필터링 버그도 수정합니다.
 
-## 변경 파일: `src/components/cpm/ActivityTaskPanel.tsx`
+## 가중 평균 공식
 
-### 1. MPP 진행률 표시 영역 수정 (약 lines 357-364)
+```text
+duration(t) = (end_date - start_date) / 86400000 + 1  (최소 1일)
 
-현재 읽기 전용 Progress bar를 조건부 편집 가능하게 변경:
-- **일반 사용자**: 기존과 동일 (Progress bar + 텍스트)
-- **Admin/PM**: 클릭 시 `<Input type="number">` 표시, 입력 후 Enter 또는 ✓ 버튼으로 저장
-
-### 2. 저장 로직
-
-```typescript
-await supabase
-  .from("cpm_activities")
-  .update({ progress: newProgress })
-  .eq("id", dbActivity.id);
+가중 평균 = Σ(progress × duration) / Σ(duration)
 ```
 
-저장 후:
-- query invalidation (`cpm_activity_by_mpp`)
-- `onStatusChanged()` 호출 → iframe `refreshStatus` 연동
-- iframe에서 해당 노드의 MPP 진행률 표시 갱신
+## 변경 사항
 
-### 3. 영향 범위
+### 1. `src/lib/mockData.ts` — 유틸 함수 2개 추가
 
-- `cpm_activities.progress` 컬럼만 업데이트 (semantic_key 등 다른 필드에 영향 없음)
-- iframe 네트워크 노드: 매핑된 태스크가 없는 경우 이 값이 노드에 표시되므로 즉시 반영됨
-- 스냅샷: 스냅샷은 iframe 내부 상태를 저장하므로, DB 값 변경은 다음 hydration 시 반영
+```typescript
+export function calcDuration(startDate: string, endDate: string): number { ... }
+export function weightedAvg(tasks: any[], valueFn: (t: any) => number): number { ... }
+```
+
+### 2. `src/components/dashboard/ProjectHUD.tsx`
+
+- `is_summary` 태스크 제외 (`tasks.filter(t => !t.is_summary)`)
+- `avgProgress`, `avgPlanned` 계산을 `weightedAvg()` 사용으로 변경
+- KPI 카운트(completed/inProgress/notStarted)도 `nonSummaryTasks` 기준
+
+### 3. `src/components/dashboard/CategoryProgressChart.tsx`
+
+- line 66: `!(t.is_summary && !t.category)` → `!t.is_summary` 로 수정
+- line 73-78: 카테고리별 `avgActual`, `avgPlanned`를 `weightedAvg()` 사용
+
+### 4. `src/components/dashboard/TeamProgressChart.tsx`
+
+- line 73-82: 팀별 `avgActual`, `avgPlanned`를 `weightedAvg()` 사용 (이미 `!t.is_summary` 필터 있음)
+
+### 5. `src/lib/dashboardExport.ts`
+
+- Excel Sheet1 Summary: `weightedAvg()` 적용 + `is_summary` 필터
+- Excel Sheet3 Team Progress: 동일 적용
+- PPT Slide1 KPI: 동일 적용
+
+## 영향 없는 영역
+
+- Behind Schedule / Overdue: 개별 태스크 gap 계산이므로 변경 불필요
+- Task Distribution 브래킷: 개별 태스크 분류이므로 변경 불필요
 
