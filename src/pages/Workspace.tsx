@@ -22,7 +22,7 @@ const Workspace = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { isAdmin, memberId } = useAuthContext();
+  const { isAdmin, isPm, isAdminOrPm, memberId } = useAuthContext();
   const [filterMode, setFilterMode] = useState<"mine" | "team" | "project">("mine");
   const [generating, setGenerating] = useState(false);
   const [allCollapsed, setAllCollapsed] = useState(false);
@@ -46,25 +46,7 @@ const Workspace = () => {
     return () => clearTimeout(timer);
   }, [highlightTaskId]);
 
-  const { data: myMember } = useQuery({
-    queryKey: ["my_member", memberId],
-    queryFn: async () => {
-      if (!memberId) return null;
-      const { data, error } = await supabase
-        .from("members")
-        .select("is_pm")
-        .eq("id", memberId)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!memberId,
-    staleTime: 30_000,
-  });
-
-  const isPm = myMember?.is_pm ?? false;
-  const isAdminOrPm = isAdmin || isPm;
-  const showTabs = !isAdmin && !isPm;
+  const showTabs = !isAdminOrPm;
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
