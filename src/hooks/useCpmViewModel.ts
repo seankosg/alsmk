@@ -37,7 +37,7 @@ export function useCpmViewModel() {
   const batchUpdateElapsedProgress = useCallback(async () => {
     const { data: activities } = await supabase
       .from("cpm_activities")
-      .select("id, start_date, finish_date")
+      .select("id, name, start_date, finish_date")
       .limit(5000);
     if (!activities?.length) return;
 
@@ -45,6 +45,7 @@ export function useCpmViewModel() {
       .filter((a) => a.start_date && a.finish_date)
       .map((a) => ({
         id: a.id,
+        name: a.name,
         progress: calcPlannedProgress(a.start_date!, a.finish_date!),
       }));
 
@@ -52,7 +53,7 @@ export function useCpmViewModel() {
     for (let i = 0; i < updates.length; i += 500) {
       const chunk = updates.slice(i, i + 500);
       await supabase.from("cpm_activities").upsert(
-        chunk.map((u) => ({ id: u.id, progress: u.progress, updated_at: new Date().toISOString() })),
+        chunk.map((u) => ({ id: u.id, name: u.name, progress: u.progress, updated_at: new Date().toISOString() })),
         { onConflict: "id" }
       );
     }
