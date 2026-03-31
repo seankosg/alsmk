@@ -29,30 +29,16 @@ const CpmScheduler = () => {
   const { isAdminOrPm, memberName } = useAuthContext();
   const { hydrateIframe, refreshStatus } = useCpmViewModel();
 
-  // Save snapshot to DB (auto-save from iframe calculate)
+  // Save snapshot to DB (version history — always insert new row)
   const saveSnapshotToDb = useCallback(async (snapshotData: any) => {
-    const name = snapshotData.name || "default";
-    
-    const { data: existing } = await supabase
-      .from("cpm_snapshots")
-      .select("id")
-      .eq("name", name)
-      .maybeSingle();
-
+    const name = snapshotData.name || "auto";
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (existing) {
-      await supabase
-        .from("cpm_snapshots")
-        .update({ data: snapshotData, updated_at: new Date().toISOString() })
-        .eq("id", existing.id);
-    } else {
-      await supabase
-        .from("cpm_snapshots")
-        .insert({ name, data: snapshotData, created_by: user?.id || null });
-    }
+    await supabase
+      .from("cpm_snapshots")
+      .insert({ name, data: snapshotData, created_by: user?.id || null });
     
-    console.log(`[CPM Snapshot] Saved to DB: "${name}"`);
+    console.log(`[CPM Snapshot] Version saved: "${name}"`);
   }, []);
 
   // Send specific snapshot to iframe (from SnapshotManager)

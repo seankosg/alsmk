@@ -42,7 +42,7 @@ export function SnapshotManager({
     const { data } = await supabase
       .from("cpm_snapshots")
       .select("id, name, data, created_at, updated_at")
-      .order("updated_at", { ascending: false });
+      .order("created_at", { ascending: false });
     setSnapshots((data as Snapshot[]) || []);
     setLoading(false);
   }, []);
@@ -51,33 +51,19 @@ export function SnapshotManager({
     if (open) fetchSnapshots();
   }, [open, fetchSnapshots]);
 
-  // When pendingSnapshot arrives (from iframe), save it
+  // When pendingSnapshot arrives (from iframe), save it (always insert new version)
   useEffect(() => {
     if (!pendingSnapshot || !saving) return;
     const doSave = async () => {
-      const name = saveName.trim() || "default";
-
-      const { data: existing } = await supabase
-        .from("cpm_snapshots")
-        .select("id")
-        .eq("name", name)
-        .maybeSingle();
-
+      const name = saveName.trim() || "auto";
       const { data: { user } } = await supabase.auth.getUser();
       const snapData = { ...pendingSnapshot, name };
 
-      if (existing) {
-        await supabase
-          .from("cpm_snapshots")
-          .update({ data: snapData, updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
-      } else {
-        await supabase
-          .from("cpm_snapshots")
-          .insert({ name, data: snapData, created_by: user?.id || null });
-      }
+      await supabase
+        .from("cpm_snapshots")
+        .insert({ name, data: snapData, created_by: user?.id || null });
 
-      toast.success(`"${name}" 저장 완료`);
+      toast.success(`"${name}" 버전 저장 완료`);
       setSaveName("");
       setSaving(false);
       onSnapshotHandled();
@@ -141,7 +127,7 @@ export function SnapshotManager({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
             <Database className="h-4 w-4 text-primary" />
-            CPM 스냅샷 관리
+            CPM 스냅샷 버전 히스토리
           </DialogTitle>
         </DialogHeader>
 
@@ -179,7 +165,7 @@ export function SnapshotManager({
             </div>
           ) : (
             <div className="space-y-1.5">
-              {snapshots.map((snap) => (
+              {snapshots.map((snap, idx) => (
                 <div
                   key={snap.id}
                   className="group flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5 hover:bg-muted/60 transition-colors cursor-pointer"
@@ -187,6 +173,9 @@ export function SnapshotManager({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-mono shrink-0">
+                        v{snapshots.length - idx}
+                      </span>
                       {snap.name}
                       {snap.name === "auto" && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
@@ -201,7 +190,7 @@ export function SnapshotManager({
                       <span>·</span>
                       <span className="flex items-center gap-0.5">
                         <Clock className="h-3 w-3" />
-                        {format(new Date(snap.updated_at), "yyyy-MM-dd HH:mm")}
+                        {format(new Date(snap.created_at), "yyyy-MM-dd HH:mm")}
                       </span>
                     </div>
                   </div>
@@ -210,7 +199,7 @@ export function SnapshotManager({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => handleLoad(snap)}
+                      onClick={(e) => { e.stopPropagation(); handleLoad(snap); }}
                     >
                       <Upload className="h-3.5 w-3.5" />
                     </Button>
