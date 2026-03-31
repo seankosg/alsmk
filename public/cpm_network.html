@@ -512,11 +512,12 @@
       <div id="sidebarFilterBadges" style="display:flex;flex-wrap:wrap;gap:3px;flex:1"></div>
       <div id="toggleAllContainer" style="flex-shrink:0"></div>
     </div>
-    <div id="alertSummaryBar" style="padding:2px 8px;flex-shrink:0;display:flex;gap:8px;font-size:11px;font-family:var(--mono);align-items:center">
-      <span style="color:#ff4d4d;cursor:default" title="Critical alerts">● <span id="alertCriticalCount">0</span></span>
-      <span style="color:#ff9800;cursor:default" title="Warning alerts">● <span id="alertWarningCount">0</span></span>
-      <span style="color:#6ea8fe;cursor:default" title="Info alerts">● <span id="alertInfoCount">0</span></span>
+    <div id="alertSummaryBar" style="padding:2px 8px;flex-shrink:0;display:flex;gap:8px;font-size:11px;font-family:var(--mono);align-items:center;position:relative">
+      <span style="color:#ff4d4d;cursor:pointer" title="Critical alerts — 클릭하여 목록 보기" onclick="toggleAlertDropdown('critical')">● <span id="alertCriticalCount">0</span></span>
+      <span style="color:#ff9800;cursor:pointer" title="Warning alerts — 클릭하여 목록 보기" onclick="toggleAlertDropdown('warning')">● <span id="alertWarningCount">0</span></span>
+      <span style="color:#6ea8fe;cursor:pointer" title="Info alerts — 클릭하여 목록 보기" onclick="toggleAlertDropdown('info')">● <span id="alertInfoCount">0</span></span>
       <span style="margin-left:auto;cursor:pointer;font-size:10px;color:var(--text-dim);padding:1px 5px;border:1px solid var(--border);border-radius:3px" onclick="toggleAlertSettings()" title="경고 임계값 설정">⚙</span>
+      <div id="alertDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--surface2);border:1px solid var(--border);border-radius:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.4);margin-top:2px"></div>
     </div>
     <div id="alertSettingsPanel" style="padding:4px 8px 6px;flex-shrink:0;display:none;flex-direction:column;gap:4px;font-size:10px;font-family:var(--mono);background:var(--surface2);border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:6px">
