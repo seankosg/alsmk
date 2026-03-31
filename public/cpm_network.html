@@ -522,12 +522,12 @@
     <div id="alertSettingsPanel" style="padding:4px 8px 6px;flex-shrink:0;display:none;flex-direction:column;gap:4px;font-size:10px;font-family:var(--mono);background:var(--surface2);border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:6px">
         <span style="color:#ff9800;min-width:70px">보통지연 ≥</span>
-        <input type="number" id="thresholdModerate" value="10" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <input type="number" id="thresholdModerate" value="5" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
         <span style="color:var(--text-dim)">%</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <span style="color:#ff4d4d;min-width:70px">심각지연 ≥</span>
-        <input type="number" id="thresholdSevere" value="25" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <input type="number" id="thresholdSevere" value="10" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
         <span style="color:var(--text-dim)">%</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
@@ -1330,8 +1330,8 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     // ── Alert Detection (using configurable thresholds) ──
     const alertInfo = _alertCache[id] || { gap: 0, hasStatus: false };
     const gap = alertInfo.gap;
-    const _tModerate = window._alertThresholds?.moderate ?? 10;
-    const _tSevere = window._alertThresholds?.severe ?? 25;
+    const _tModerate = window._alertThresholds?.moderate ?? 5;
+    const _tSevere = window._alertThresholds?.severe ?? 10;
     const _tCp = window._alertThresholds?.cpDelay ?? 5;
     const _tPred = window._alertThresholds?.predDelay ?? 10;
     const isSevereDelay = alertInfo.hasStatus && gap >= _tSevere;
@@ -1858,7 +1858,7 @@ function removeText1FilterItem(val) {
 }
 
 // ── Alert threshold settings ──
-window._alertThresholds = { moderate: 10, severe: 25, cpDelay: 5, predDelay: 10 };
+window._alertThresholds = { moderate: 5, severe: 10, cpDelay: 5, predDelay: 10 };
 
 function toggleAlertSettings() {
   const panel = document.getElementById('alertSettingsPanel');
@@ -1866,8 +1866,8 @@ function toggleAlertSettings() {
 }
 
 function updateAlertThresholds() {
-  const m = parseInt(document.getElementById('thresholdModerate')?.value) || 10;
-  const s = parseInt(document.getElementById('thresholdSevere')?.value) || 25;
+  const m = parseInt(document.getElementById('thresholdModerate')?.value) || 5;
+  const s = parseInt(document.getElementById('thresholdSevere')?.value) || 10;
   const c = parseInt(document.getElementById('thresholdCpDelay')?.value) || 5;
   const p = parseInt(document.getElementById('thresholdPredDelay')?.value) || 10;
   window._alertThresholds = { moderate: m, severe: s, cpDelay: c, predDelay: p };
