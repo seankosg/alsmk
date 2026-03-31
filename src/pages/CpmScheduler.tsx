@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
 import { SnapshotManager } from "@/components/cpm/SnapshotManager";
@@ -7,6 +7,9 @@ import { OrphanResolutionDialog, OrphanActivity } from "@/components/cpm/OrphanR
 import { useCpmViewModel } from "@/hooks/useCpmViewModel";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 /** Generate a composite semantic key: BLDG::WBS_L2::Name */
 function getSemanticKey(activity: { name: string; wbsFull?: string | null; customFields?: Record<string, string> | null }): string {
