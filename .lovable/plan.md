@@ -1,38 +1,17 @@
 
 
-# Team Progress 차트 — 지연 태스크 수 배지 추가
+# Activity별 MPP 진행률 Auto/Manual 토글 — 확인 사항 반영
 
-## 변경 파일: `src/components/dashboard/TeamProgressChart.tsx`
+새 XML 업로드 시 기본 모드 `auto` 동작은 이미 계획에 포함되어 있습니다:
 
-### 1. chartData에 `behindCount` 추가 (lines 79-98)
+- DB 컬럼: `progress_mode TEXT NOT NULL DEFAULT 'auto'`
+- `upsertActivities`/`upsertActivitiesOnly`에서 `progress_mode`를 명시하지 않으므로 DB 기본값 `'auto'` 자동 적용
+- 기존 activity들도 마이그레이션 시 `DEFAULT 'auto'`로 설정됨
 
-팀/개인 chartData 계산 시 `gap < 0`인 태스크 수를 `behindCount`로 추가:
+기존 승인된 계획대로 구현을 진행합니다:
 
-```typescript
-const behindCount = teamTasks.filter(t => 
-  t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0
-).length;
-return { name, planned, actual, gap, id, fullName, behindCount };
-```
-
-### 2. `renderActualLabel` 수정 (lines 122-137)
-
-현재 구조 (위→아래): gap 텍스트 → actual% 값
-
-변경 후 (위→아래):
-- **지연 배지** `▼3` (빨간색, behindCount > 0일 때만)
-- **gap 텍스트** `+2%p` 또는 `-5%p`
-- **actual% 값** `56%`
-
-```text
-    ▼3        ← 빨간 배지 (y - 34)
-   -5%p       ← gap (y - 20)
-    56%       ← actual (y - 6)
-```
-
-margin top을 35→45로 조정하여 3줄이 바 위에 충분히 표시되도록 함.
-
-### 3. 타입 업데이트
-
-chartData 타입에 `behindCount: number` 추가 (individualChartData의 filter 타입 포함).
+1. **DB 마이그레이션**: `cpm_activities`에 `progress_mode` 컬럼 추가 (DEFAULT 'auto')
+2. **useCpmViewModel.ts**: `batchUpdateElapsedProgress`에서 `progress_mode = 'auto'`인 activity만 필터
+3. **ActivityTaskPanel.tsx**: activity별 Auto/Manual Switch 토글 + 모드에 따른 편집 제어
+4. **CpmScheduler.tsx**: 전역 토글을 일괄 전환 기능으로 변경
 
