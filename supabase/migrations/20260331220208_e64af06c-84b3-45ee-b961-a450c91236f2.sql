@@ -1,0 +1,1 @@
+ALTER TABLE public.cpm_activities ADD COLUMN progress_mode TEXT NOT NULL DEFAULT 'auto';
