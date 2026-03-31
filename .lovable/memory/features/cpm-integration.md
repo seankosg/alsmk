@@ -3,7 +3,7 @@ Phase 2+3+4+5 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_sna
 ## Tables
 - cpm_activities: mpp_uid, mpp_task_id, name, duration, progress, wbs_full, is_critical, is_milestone, start/finish dates, ES/EF/LS/LF/TF
 - cpm_task_mappings: activity_id → task_id (many-to-many, unique constraint)
-- cpm_snapshots: name, data (jsonb full network state), created_by, timestamps — shared across all users
+- cpm_snapshots: name, data (jsonb full network state), created_by, timestamps — **버전 히스토리 방식** (덮어쓰기 없이 항상 새 행 INSERT, created_at DESC 정렬)
 
 ## postMessage Protocol
 - iframe → parent: `cpm-calculated`, `activity-click`, `activity-detail-click`, `snapshot-save`, `request-db-snapshot`, `snapshot-current`
