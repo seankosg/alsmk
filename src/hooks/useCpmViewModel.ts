@@ -266,5 +266,5 @@ export function useCpmViewModel() {
     [buildStatusAndCustomFields],
   );
 
-  return { hydrateIframe, refreshStatus, buildStatusAndCustomFields };
+  return { hydrateIframe, refreshStatus, buildStatusAndCustomFields, progressMode, setProgressMode, batchUpdateElapsedProgress };
 }
