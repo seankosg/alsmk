@@ -1851,7 +1851,27 @@ function removeText1FilterItem(val) {
   renderSidebar();
 }
 
-function clearAllFilters() {
+// ── Alert threshold settings ──
+window._alertThresholds = { moderate: 10, severe: 25, cpDelay: 5, predDelay: 10 };
+
+function toggleAlertSettings() {
+  const panel = document.getElementById('alertSettingsPanel');
+  if (panel) panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+}
+
+function updateAlertThresholds() {
+  const m = parseInt(document.getElementById('thresholdModerate')?.value) || 10;
+  const s = parseInt(document.getElementById('thresholdSevere')?.value) || 25;
+  const c = parseInt(document.getElementById('thresholdCpDelay')?.value) || 5;
+  const p = parseInt(document.getElementById('thresholdPredDelay')?.value) || 10;
+  window._alertThresholds = { moderate: m, severe: s, cpDelay: c, predDelay: p };
+  // Re-draw network with updated thresholds
+  if (window._lastCalcOrder && window._lastCalcMap) {
+    drawNetwork(window._lastCalcOrder, window._lastCalcMap, window._lastCalcProjectEnd,
+      window._activeWbsFilter || null, window._activeBldgFilter || null, window._activeText1Filter);
+  }
+}
+
   const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0) || (window._activeText1Filter && window._activeText1Filter.size > 0);
   if (!hadFilter) return;
   window._activeWbsFilter = null;
