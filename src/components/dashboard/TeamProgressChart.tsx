@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList } from "recharts";
-import { calcPlannedProgress } from "@/lib/mockData";
+import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { QueryErrorCard } from "./QueryErrorCard";
@@ -70,17 +70,8 @@ export function TeamProgressChart() {
 
   const chartData = teams.map((team) => {
     const teamTasks = tasks.filter((t) => t.team_id === team.id && !t.is_summary);
-    const avgActual =
-      teamTasks.length > 0
-        ? Math.round(teamTasks.reduce((s, t) => s + t.current_progress, 0) / teamTasks.length)
-        : 0;
-    const avgPlanned =
-      teamTasks.length > 0
-        ? Math.round(
-            teamTasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) /
-              teamTasks.length
-          )
-        : 0;
+    const avgActual = weightedAvg(teamTasks, t => t.current_progress);
+    const avgPlanned = weightedAvg(teamTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
     return { name: team.code, planned: avgPlanned, actual: avgActual, gap, teamId: team.id, teamName: team.name };
   });
@@ -136,12 +127,8 @@ export function TeamProgressChart() {
         .sort((a, b) => a.gap - b.gap)
     : [];
 
-  const teamAvgPlanned = allTeamTasks.length > 0
-    ? Math.round(allTeamTasks.reduce((s, t) => s + t.planned, 0) / allTeamTasks.length)
-    : 0;
-  const teamAvgActual = allTeamTasks.length > 0
-    ? Math.round(allTeamTasks.reduce((s, t) => s + t.current_progress, 0) / allTeamTasks.length)
-    : 0;
+  const teamAvgPlanned = weightedAvg(allTeamTasks, t => t.planned);
+  const teamAvgActual = weightedAvg(allTeamTasks, t => t.current_progress);
 
   return (
     <>

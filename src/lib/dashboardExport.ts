@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import PptxGenJS from "pptxgenjs";
 import html2canvas from "html2canvas";
 import { supabase } from "@/integrations/supabase/client";
-import { calcPlannedProgress } from "@/lib/mockData";
+import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { differenceInCalendarDays, startOfDay, format } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 
@@ -73,12 +73,13 @@ export async function exportDashboardExcel() {
   const { tasks, teams, milestones, members } = await fetchDashboardData();
   const wb = XLSX.utils.book_new();
 
-  const totalTasks = tasks.length;
-  const avgActual = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + t.current_progress, 0) / totalTasks) : 0;
-  const avgPlanned = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / totalTasks) : 0;
-  const completed = tasks.filter(t => t.current_progress >= 100).length;
-  const inProgress = tasks.filter(t => t.current_progress > 0 && t.current_progress < 100).length;
-  const notStarted = tasks.filter(t => t.current_progress === 0).length;
+  const nonSummary = tasks.filter((t: any) => !t.is_summary);
+  const totalTasks = nonSummary.length;
+  const avgActual = weightedAvg(nonSummary, (t: any) => t.current_progress);
+  const avgPlanned = weightedAvg(nonSummary, (t: any) => calcPlannedProgress(t.start_date, t.end_date));
+  const completed = nonSummary.filter((t: any) => t.current_progress >= 100).length;
+  const inProgress = nonSummary.filter((t: any) => t.current_progress > 0 && t.current_progress < 100).length;
+  const notStarted = nonSummary.filter((t: any) => t.current_progress === 0).length;
 
   // Sheet 1: Summary
   const summaryData = [
@@ -104,10 +105,10 @@ export async function exportDashboardExcel() {
   // Sheet 3: Team Progress
   const tpHeader = ["Team", "Tasks", "Avg Plan %", "Avg Actual %", "Gap (%p)"];
   const tpRows = teams.map(team => {
-    const tt = tasks.filter(t => t.team_id === team.id);
+    const tt = tasks.filter((t: any) => t.team_id === team.id && !t.is_summary);
     const cnt = tt.length;
-    const ap = cnt > 0 ? Math.round(tt.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / cnt) : 0;
-    const aa = cnt > 0 ? Math.round(tt.reduce((s, t) => s + t.current_progress, 0) / cnt) : 0;
+    const ap = weightedAvg(tt, (t: any) => calcPlannedProgress(t.start_date, t.end_date));
+    const aa = weightedAvg(tt, (t: any) => t.current_progress);
     return [team.name, cnt, `${ap}%`, `${aa}%`, `${aa - ap}%p`];
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([tpHeader, ...tpRows]), "Team Progress");
@@ -182,13 +183,14 @@ export async function exportDashboardPptxWithCaptures(selectedSections: string[]
   pptx.author = "ALSMK Project";
 
   // === Slide 1: Title + KPI ===
-  const totalTasks = tasks.length;
-  const avgActual = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + t.current_progress, 0) / totalTasks) : 0;
-  const avgPlanned = totalTasks > 0 ? Math.round(tasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / totalTasks) : 0;
+  const nonSummary = tasks.filter((t: any) => !t.is_summary);
+  const totalTasks = nonSummary.length;
+  const avgActual = weightedAvg(nonSummary, (t: any) => t.current_progress);
+  const avgPlanned = weightedAvg(nonSummary, (t: any) => calcPlannedProgress(t.start_date, t.end_date));
   const gap = avgActual - avgPlanned;
-  const completed = tasks.filter(t => t.current_progress >= 100).length;
-  const inProgress = tasks.filter(t => t.current_progress > 0 && t.current_progress < 100).length;
-  const notStarted = tasks.filter(t => t.current_progress === 0).length;
+  const completed = nonSummary.filter((t: any) => t.current_progress >= 100).length;
+  const inProgress = nonSummary.filter((t: any) => t.current_progress > 0 && t.current_progress < 100).length;
+  const notStarted = nonSummary.filter((t: any) => t.current_progress === 0).length;
 
   const slide1 = pptx.addSlide();
   slide1.background = { color: NAVY };

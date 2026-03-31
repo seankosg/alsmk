@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList } from "recharts";
-import { calcPlannedProgress } from "@/lib/mockData";
+import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 
@@ -62,20 +62,16 @@ export function CategoryProgressChart() {
     staleTime: 30_000,
   });
 
-  // Exclude summary tasks without a category
-  const filteredTasks = tasks.filter(t => !(t.is_summary && !t.category));
+  // Exclude summary tasks
+  const filteredTasks = tasks.filter(t => !t.is_summary);
 
   // Group tasks by category
   const categories = Array.from(new Set(filteredTasks.map(t => t.category || "Uncategorized")));
 
   const chartData = categories.map((cat) => {
     const catTasks = filteredTasks.filter(t => (t.category || "Uncategorized") === cat);
-    const avgActual = catTasks.length > 0
-      ? Math.round(catTasks.reduce((s, t) => s + t.current_progress, 0) / catTasks.length)
-      : 0;
-    const avgPlanned = catTasks.length > 0
-      ? Math.round(catTasks.reduce((s, t) => s + calcPlannedProgress(t.start_date, t.end_date), 0) / catTasks.length)
-      : 0;
+    const avgActual = weightedAvg(catTasks, t => t.current_progress);
+    const avgPlanned = weightedAvg(catTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
     return { name: cat, planned: avgPlanned, actual: avgActual, gap };
   });
