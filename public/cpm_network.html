@@ -1200,6 +1200,17 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
   let arrows = '';
   let nodes  = '';
 
+  // Pre-compute alert status for each activity (used by edges and nodes)
+  const _alertCache = {};
+  visOrder.forEach(id => {
+    const a = map[id];
+    if (!a) return;
+    const statusKey = `${a.mppTaskId || 'no-mpp'}::${a.wbsFull || a.wbs || 'no-wbs'}::${a.name || ''}`;
+    const sd = window._activityStatusMap && window._activityStatusMap[statusKey];
+    const gap = sd ? (sd.plannedPct - sd.actualPct) : 0;
+    _alertCache[id] = { gap, hasStatus: !!sd };
+  });
+
   // Draw arrows first — predLinks 우선, fallback predecessors
   visOrder.forEach(id => {
     const a = map[id];
@@ -1213,8 +1224,11 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       const x2 = dst.x,          y2 = dst.y + NODE_H/2;
       const cx1 = x1 + (x2-x1)*0.5, cx2 = x2 - (x2-x1)*0.5;
       const isCrit = map[pid].isCritical && a.isCritical;
-      const color = isCrit ? '#ff4d4d' : '#3d4f6e';
-      const strokeW = isCrit ? 2.5 : 1.5;
+      // Predecessor delay propagation: orange edge
+      const predAlert = _alertCache[pid];
+      const predDelayed = predAlert && predAlert.hasStatus && predAlert.gap >= 10;
+      const color = isCrit ? '#ff4d4d' : predDelayed ? '#ff9800' : '#3d4f6e';
+      const strokeW = isCrit ? 2.5 : predDelayed ? 2 : 1.5;
       const markerId = isCrit ? 'arr-crit' : 'arr-norm';
       arrows += `
         <path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}"
