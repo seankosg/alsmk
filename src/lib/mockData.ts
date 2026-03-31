@@ -71,6 +71,31 @@ export const mockPersonnelTargets = [
   { id: "pt8", team_id: "t4", part_id: "p8", target_headcount: 6, current_headcount: 5 },
 ];
 
+// Helper: calculate duration in days (inclusive, minimum 1)
+export function calcDuration(startDate: string, endDate: string): number {
+  const DAY = 86_400_000;
+  const start = Date.UTC(
+    ...startDate.split("-").map((v, i) => (i === 1 ? Number(v) - 1 : Number(v))) as [number, number, number]
+  );
+  const end = Date.UTC(
+    ...endDate.split("-").map((v, i) => (i === 1 ? Number(v) - 1 : Number(v))) as [number, number, number]
+  );
+  return Math.max(1, Math.round((end - start) / DAY) + 1);
+}
+
+// Helper: duration-weighted average
+export function weightedAvg(
+  tasks: { start_date: string; end_date: string }[],
+  valueFn: (t: any) => number
+): number {
+  if (tasks.length === 0) return 0;
+  const totalDur = tasks.reduce((s, t) => s + calcDuration(t.start_date, t.end_date), 0);
+  if (totalDur === 0) return 0;
+  return Math.round(
+    tasks.reduce((s, t) => s + valueFn(t) * calcDuration(t.start_date, t.end_date), 0) / totalDur
+  );
+}
+
 // Helper: calculate planned progress (start & end dates are both inclusive working days)
 export function calcPlannedProgress(startDate: string, endDate: string): number {
   const DAY = 86_400_000;
