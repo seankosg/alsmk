@@ -417,7 +417,7 @@ const CpmScheduler = () => {
                 onClose={() => setSelectedActivity(null)}
                 onStatusChanged={() => refreshStatus(iframeRef.current?.contentWindow || null)}
                 onCustomFieldsUpdated={() => setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 300)}
-                progressMode={progressMode}
+                
               />
             </div>
           </div>
