@@ -184,6 +184,19 @@ export function useCpmViewModel() {
     async (iframeWindow: Window | null) => {
       if (!iframeWindow) return;
 
+      // Check progress mode and auto-update if needed
+      const { data: modeSetting } = await supabase
+        .from("project_settings")
+        .select("value")
+        .eq("key", "cpm_progress_mode")
+        .maybeSingle();
+      const mode = (modeSetting?.value as "auto" | "manual") || "auto";
+      setProgressMode(mode);
+
+      if (mode === "auto") {
+        await batchUpdateElapsedProgress();
+      }
+
       const result = await buildStatusAndCustomFields();
 
       // Load the latest snapshot for graph structure (even if no activities in DB)
