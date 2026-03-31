@@ -257,7 +257,7 @@ export function useCpmViewModel() {
 
       console.log(`[CPM] Hydrate sent: ${statuses.length} statuses, ${Object.keys(customFieldsMap).length} customFields, snapshot=${!!snapshot}`);
     },
-    [buildStatusAndCustomFields],
+    [buildStatusAndCustomFields, batchUpdateElapsedProgress],
   );
 
   /**
