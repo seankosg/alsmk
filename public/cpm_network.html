@@ -516,6 +516,29 @@
       <span style="color:#ff4d4d;cursor:default" title="Critical alerts">● <span id="alertCriticalCount">0</span></span>
       <span style="color:#ff9800;cursor:default" title="Warning alerts">● <span id="alertWarningCount">0</span></span>
       <span style="color:#6ea8fe;cursor:default" title="Info alerts">● <span id="alertInfoCount">0</span></span>
+      <span style="margin-left:auto;cursor:pointer;font-size:10px;color:var(--text-dim);padding:1px 5px;border:1px solid var(--border);border-radius:3px" onclick="toggleAlertSettings()" title="경고 임계값 설정">⚙</span>
+    </div>
+    <div id="alertSettingsPanel" style="padding:4px 8px 6px;flex-shrink:0;display:none;flex-direction:column;gap:4px;font-size:10px;font-family:var(--mono);background:var(--surface2);border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#ff9800;min-width:70px">보통지연 ≥</span>
+        <input type="number" id="thresholdModerate" value="10" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <span style="color:var(--text-dim)">%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#ff4d4d;min-width:70px">심각지연 ≥</span>
+        <input type="number" id="thresholdSevere" value="25" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <span style="color:var(--text-dim)">%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#ff4d4d;min-width:70px">CP지연 ≥</span>
+        <input type="number" id="thresholdCpDelay" value="5" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <span style="color:var(--text-dim)">%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#ff9800;min-width:70px">선행지연 ≥</span>
+        <input type="number" id="thresholdPredDelay" value="10" min="1" max="100" style="width:48px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 4px;color:var(--text);font-family:var(--mono);font-size:10px;text-align:center" onchange="updateAlertThresholds()">
+        <span style="color:var(--text-dim)">%</span>
+      </div>
     </div>
     <div class="activity-list" id="activityList"></div>
     <div class="sidebar-footer">
@@ -1063,6 +1086,8 @@ const _NODE_W = 160, _NODE_H = 104;
 
 // filterWbs: Set|null, filterBldg: Set|null, filterText1: Set|null
 function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1) {
+  // Store for re-draw (e.g. threshold changes)
+  window._lastCalcOrder = order; window._lastCalcMap = map; window._lastCalcProjectEnd = projectEnd;
   const NODE_W = _NODE_W, NODE_H = _NODE_H, GAP_X = 60, GAP_Y = 50;
 
   // ── 필터 적용 (WBS AND BLDG AND Text1) ──────────────────────────────────
@@ -1226,7 +1251,7 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       const isCrit = map[pid].isCritical && a.isCritical;
       // Predecessor delay propagation: orange edge
       const predAlert = _alertCache[pid];
-      const predDelayed = predAlert && predAlert.hasStatus && predAlert.gap >= 10;
+      const predDelayed = predAlert && predAlert.hasStatus && predAlert.gap >= (window._alertThresholds?.predDelay ?? 10);
       const color = isCrit ? '#ff4d4d' : predDelayed ? '#ff9800' : '#3d4f6e';
       const strokeW = isCrit ? 2.5 : predDelayed ? 2 : 1.5;
       const markerId = isCrit ? 'arr-crit' : 'arr-norm';
@@ -1300,18 +1325,22 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     const plannedPct = hasStatus ? statusData.plannedPct : progPct;
     const barW = NODE_W - 16;
 
-    // ── Alert Detection ──
+    // ── Alert Detection (using configurable thresholds) ──
     const alertInfo = _alertCache[id] || { gap: 0, hasStatus: false };
     const gap = alertInfo.gap;
-    const isSevereDelay = alertInfo.hasStatus && gap >= 25;
-    const isModerateDelay = alertInfo.hasStatus && gap >= 10 && !isSevereDelay;
-    const isCpDelay = isC && alertInfo.hasStatus && gap >= 5;
+    const _tModerate = window._alertThresholds?.moderate ?? 10;
+    const _tSevere = window._alertThresholds?.severe ?? 25;
+    const _tCp = window._alertThresholds?.cpDelay ?? 5;
+    const _tPred = window._alertThresholds?.predDelay ?? 10;
+    const isSevereDelay = alertInfo.hasStatus && gap >= _tSevere;
+    const isModerateDelay = alertInfo.hasStatus && gap >= _tModerate && !isSevereDelay;
+    const isCpDelay = isC && alertInfo.hasStatus && gap >= _tCp;
     const isFloatExhausted = !isC && (a.tf !== null && a.tf !== undefined && a.tf <= 0);
     // Predecessor delay propagation
     const predIds = getPredIds(id);
     const hasPredDelay = predIds.some(pid => {
       const pc = _alertCache[pid];
-      return pc && pc.hasStatus && pc.gap >= 10;
+      return pc && pc.hasStatus && pc.gap >= _tPred;
     });
 
     // Determine alert level
@@ -1824,7 +1853,27 @@ function removeText1FilterItem(val) {
   renderSidebar();
 }
 
-function clearAllFilters() {
+// ── Alert threshold settings ──
+window._alertThresholds = { moderate: 10, severe: 25, cpDelay: 5, predDelay: 10 };
+
+function toggleAlertSettings() {
+  const panel = document.getElementById('alertSettingsPanel');
+  if (panel) panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+}
+
+function updateAlertThresholds() {
+  const m = parseInt(document.getElementById('thresholdModerate')?.value) || 10;
+  const s = parseInt(document.getElementById('thresholdSevere')?.value) || 25;
+  const c = parseInt(document.getElementById('thresholdCpDelay')?.value) || 5;
+  const p = parseInt(document.getElementById('thresholdPredDelay')?.value) || 10;
+  window._alertThresholds = { moderate: m, severe: s, cpDelay: c, predDelay: p };
+  // Re-draw network with updated thresholds
+  if (window._lastCalcOrder && window._lastCalcMap) {
+    drawNetwork(window._lastCalcOrder, window._lastCalcMap, window._lastCalcProjectEnd,
+      window._activeWbsFilter || null, window._activeBldgFilter || null, window._activeText1Filter);
+  }
+}
+
   const hadFilter = (window._activeWbsFilter && window._activeWbsFilter.size > 0) || (window._activeBldgFilter && window._activeBldgFilter.size > 0) || (window._activeText1Filter && window._activeText1Filter.size > 0);
   if (!hadFilter) return;
   window._activeWbsFilter = null;
