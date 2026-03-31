@@ -1,44 +1,48 @@
 
 
-# 경고 노드 네비게이션 기능 추가
+# Custom Fields 편집 시 영향받는 데이터/로직 분석
 
-## 개요
+## 영향 범위 요약
 
-경고 요약 바의 `● 3`, `● 7`, `● 12` 카운트를 클릭하면 해당 유형의 경고 노드 목록을 표시하고, 클릭으로 네트워크 캔버스 이동 + 사이드바 하이라이트가 연동되도록 합니다.
+Text1, Text2(BLDG) 값을 수정하면 다음 5개 영역이 영향을 받습니다.
 
-## 변경 파일: `public/cpm_network.html`
+### 1. Semantic Key (시맨틱 키) — ⚠️ 가장 중요
+- **파일**: `CpmScheduler.tsx` → `getSemanticKey()`
+- **구조**: `BLDG::WBS_L2::Name` (BLDG = Text2)
+- **영향**: Text2/BLDG를 변경하면 semantic_key가 바뀜 → 다음 XML 업로드 시 **고아 Activity 자동 이전 매칭이 실패**할 수 있음
+- **대응**: 저장 시 `cpm_activities.semantic_key`도 함께 재계산하여 DB 업데이트 필요
 
-### 1. 경고 노드 목록 저장
+### 2. iframe 네트워크 노드 표시
+- **파일**: `cpm_network.html`
+- **영향**: 노드 카드에 BLDG 뱃지, 사이드바 카드에 BLDG/Text1 뱃지 표시
+- **대응**: 저장 후 `refreshStatus()` 호출 → `customFieldsMap` 갱신 → iframe에 `cpm-status-refresh` 전송. 다만 현재 `cpm-status-refresh`는 활성 그래프 내 `customFields`를 오버라이드하므로 DB 업데이트만 하면 반영됨
 
-`drawNetwork()` 완료 시 경고 유형별 activity ID 배열을 전역 변수에 저장:
-```js
-window._alertNodes = { critical: [...], warning: [...], info: [...] };
-```
+### 3. 필터 시스템 (BLDG 필터, Text1 필터)
+- **파일**: `cpm_network.html` → `applyBldgFilter()`, `applyText1Filter()`
+- **영향**: BLDG/Text1 값이 바뀌면 필터 뱃지 목록과 필터링 결과가 변경됨
+- **대응**: `refreshStatus()` 후 네트워크 redraw 시 자동 반영 (필터 뱃지는 `renderSidebar()` 재실행 시 갱신)
 
-### 2. 요약 바 카운트 클릭 → 드롭다운 목록
+### 4. Hydration & customFieldsMap
+- **파일**: `useCpmViewModel.ts` lines 122-128
+- **구조**: `customFieldsMap[mppTaskId::wbsFull] = custom_fields`
+- **영향**: DB의 custom_fields가 변경되면 다음 hydration/refresh 시 iframe에 새 값이 전달됨
+- **대응**: 저장 후 `refreshStatus()` 호출이면 충분
 
-`● 3` 등 카운트 span에 `cursor:pointer` + 클릭 이벤트 추가. 클릭 시 해당 유형의 activity 목록을 드롭다운(팝업)으로 표시:
-- 각 항목: `BLDG · WBS · Name` 형식
-- 항목 클릭 시 → 캔버스 panTo + 사이드바 scrollIntoView
+### 5. 경고 시스템 (Alert Navigation)
+- **파일**: `cpm_network.html` → 경고 드롭다운 목록
+- **영향**: 드롭다운에 `BLDG · WBS · Name` 형식으로 표시 → BLDG 값 변경 시 표시명 변경
+- **대응**: 네트워크 redraw 시 자동 반영
 
-### 3. 캔버스 panTo 함수
+## 구현 시 필수 반영 사항
 
-선택한 노드의 좌표(`x, y`)를 캔버스 중앙으로 이동하는 `panToNode(actId)` 함수 추가:
-- `_actMap`에서 좌표 조회
-- 캔버스 `translate` 조정 후 redraw
-- 해당 노드에 2초간 하이라이트 효과 (밝은 테두리 깜빡임)
+| 작업 | 설명 |
+|------|------|
+| DB update `custom_fields` | `cpm_activities` JSONB 컬럼 업데이트 |
+| DB update `semantic_key` | BLDG(Text2) 변경 시 `BLDG::WBS_L2::Name` 재계산하여 함께 업데이트 |
+| `refreshStatus()` 호출 | iframe에 변경된 customFields 전파 |
+| query invalidation | `cpm_activity_by_mpp` 캐시 무효화 |
 
-### 4. 사이드바 연동
+## 결론
 
-`panToNode()` 호출 시 사이드바에서 해당 카드도 `scrollIntoView` + `selected` 클래스 적용.
-
-### 5. 키보드 네비게이션 (선택적)
-
-드롭다운 열린 상태에서 `↑↓` 키로 항목 이동, `Enter`로 선택, `Esc`로 닫기.
-
-## 기대 결과
-
-- 경고 요약 바에서 유형별 카운트 클릭 → 경고 노드 목록 팝업
-- 목록 항목 클릭 → 캔버스가 해당 노드로 자동 이동 + 사이드바 하이라이트
-- 수백 개 노드 중 문제 노드를 즉시 찾아갈 수 있음
+기존에 승인된 계획에 **semantic_key 재계산 및 동시 업데이트**만 추가하면 됩니다. 나머지(필터, 경고, 노드 표시)는 `refreshStatus()` 체인으로 자동 반영됩니다. 구현을 진행할까요?
 
