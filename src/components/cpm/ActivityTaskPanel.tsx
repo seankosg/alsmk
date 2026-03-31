@@ -81,46 +81,6 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
     setEditingCF({});
   }, []);
 
-  const saveCustomFields = useCallback(async () => {
-    if (!dbActivity?.id) return;
-    setSavingCF(true);
-    try {
-      const merged = { ...(activity.customFields || {}), ...editingCF };
-      // Remove empty keys
-      Object.keys(merged).forEach(k => { if (!merged[k]) delete merged[k]; });
-
-      // Check if BLDG/Text2 changed → recalculate semantic_key
-      const oldBldg = activity.customFields?.BLDG || activity.customFields?.Text2 || activity.customFields?.['텍스트2'] || '_';
-      const newBldg = merged.BLDG || merged.Text2 || merged['텍스트2'] || '_';
-      const bldgChanged = oldBldg !== newBldg;
-
-      const updatePayload: Record<string, any> = { custom_fields: merged };
-
-      if (bldgChanged) {
-        const wbsParts = (activity.wbsFull || '').split('.');
-        const wbsL2 = wbsParts.length >= 2 ? `${wbsParts[0]}.${wbsParts[1]}` : (wbsParts[0] || '_');
-        updatePayload.semantic_key = `${newBldg}::${wbsL2}::${activity.name}`;
-      }
-
-      const { error } = await supabase
-        .from("cpm_activities")
-        .update(updatePayload)
-        .eq("id", dbActivity.id);
-
-      if (error) throw error;
-
-      setIsEditingCF(false);
-      setEditingCF({});
-      queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-      toast.success("Custom Fields 저장 완료");
-      onCustomFieldsUpdated?.();
-    } catch (e: any) {
-      toast.error("저장 실패: " + (e.message || "Unknown error"));
-    } finally {
-      setSavingCF(false);
-    }
-  }, [dbActivity?.id, editingCF, activity.customFields, activity.wbsFull, activity.name, queryClient, onCustomFieldsUpdated]);
-
   // Get DB activity ID — primary: mpp_uid only (WBS can change across XML re-exports)
   const { data: dbActivity } = useQuery({
     queryKey: ["cpm_activity_by_mpp", activity.mppUid, activity.wbsFull],
