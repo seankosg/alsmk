@@ -73,7 +73,8 @@ export function CategoryProgressChart() {
     const avgActual = weightedAvg(catTasks, t => t.current_progress);
     const avgPlanned = weightedAvg(catTasks, t => calcPlannedProgress(t.start_date, t.end_date));
     const gap = avgActual - avgPlanned;
-    return { name: cat, planned: avgPlanned, actual: avgActual, gap };
+    const behindCount = catTasks.filter(t => t.current_progress - calcPlannedProgress(t.start_date, t.end_date) < 0).length;
+    return { name: cat, planned: avgPlanned, actual: avgActual, gap, behindCount };
   });
 
   const handleBarClick = (data: any) => {
