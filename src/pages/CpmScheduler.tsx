@@ -252,17 +252,22 @@ const CpmScheduler = () => {
     const handler = (e: MessageEvent) => {
       if (!e.data?.type) return;
 
+      // Handshake: iframe signals it's ready to receive data
+      if (e.data.type === "cpm-iframe-ready") {
+        console.log("[CPM] Received iframe-ready signal, sending hydrate...");
+        iframeRef.current?.contentWindow?.postMessage({ type: "set-read-only", readOnly: !isAdminOrPm }, "*");
+        hydrateIframe(iframeRef.current?.contentWindow || null);
+        return;
+      }
+
       if (e.data.type === "cpm-calculated") {
         if (isAdminOrPm) {
           if (e.data.isNewImport) {
-            // Full upsert with orphan detection (only on new XML import)
             upsertActivities(e.data.activities);
           } else {
-            // Lightweight upsert: only update activity data, no orphan detection
             upsertActivitiesOnly(e.data.activities);
           }
         }
-        // For all users, refresh status after calculation
         setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
       }
       if (e.data.type === "activity-click") {
@@ -275,8 +280,7 @@ const CpmScheduler = () => {
         if (isAdminOrPm) saveSnapshotToDb(e.data.snapshot);
       }
       if (e.data.type === "request-db-snapshot") {
-        // Legacy: iframe still requests DB snapshot on init
-        // We handle this via hydrateIframe on onLoad, but handle for safety
+        // Legacy compatibility
         hydrateIframe(iframeRef.current?.contentWindow || null);
       }
       if (e.data.type === "snapshot-current") {
