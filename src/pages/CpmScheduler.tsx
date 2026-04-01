@@ -52,16 +52,44 @@ const CpmScheduler = () => {
     }
   }, [batchUpdateElapsedProgress, refreshStatus]);
 
-  // Save snapshot to DB (version history — always insert new row)
+  // Save snapshot to DB (version history — always insert new row, including task mappings)
   const saveSnapshotToDb = useCallback(async (snapshotData: any) => {
     const name = snapshotData.name || "auto";
     const { data: { user } } = await supabase.auth.getUser();
 
+    // Fetch all task mappings with mpp_uid for portable storage
+    const { data: allActivities } = await supabase
+      .from("cpm_activities")
+      .select("id, mpp_uid")
+      .limit(5000);
+    const { data: allMappings } = await supabase
+      .from("cpm_task_mappings")
+      .select("activity_id, task_id")
+      .limit(10000);
+
+    // Build mpp_uid → task_ids[] mapping for snapshot portability
+    const idToMppUid = new Map<string, string>();
+    (allActivities || []).forEach((a) => { if (a.mpp_uid) idToMppUid.set(a.id, a.mpp_uid); });
+
+    const mppUidTaskMap = new Map<string, string[]>();
+    (allMappings || []).forEach((m) => {
+      const mppUid = idToMppUid.get(m.activity_id);
+      if (!mppUid) return;
+      if (!mppUidTaskMap.has(mppUid)) mppUidTaskMap.set(mppUid, []);
+      mppUidTaskMap.get(mppUid)!.push(m.task_id);
+    });
+
+    const taskMappings = Array.from(mppUidTaskMap.entries()).map(([mpp_uid, task_ids]) => ({
+      mpp_uid, task_ids,
+    }));
+
+    const enrichedData = { ...snapshotData, taskMappings };
+
     await supabase
       .from("cpm_snapshots")
-      .insert({ name, data: snapshotData, created_by: user?.id || null });
+      .insert({ name, data: enrichedData, created_by: user?.id || null });
     
-    console.log(`[CPM Snapshot] Version saved: "${name}"`);
+    console.log(`[CPM Snapshot] Version saved: "${name}" (${taskMappings.length} mapping groups)`);
   }, []);
 
   // Send specific snapshot to iframe (from SnapshotManager)
