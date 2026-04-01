@@ -1,53 +1,30 @@
 
 
-# CPM 노드 Overdue 시각화 개선 — 빨간 깜박임 + 경고 아이콘 크기
+# Overdue 깜박임 노드 필터 기능
 
-## 문제 분석
+## 개요
+CPM 네트워크에서 빨간 글로우로 깜박이는 노드(매핑 없이 종료일 지난 activity)만 필터링하여 표시하는 기능 추가.
 
-1. **빨간 깜박임 미작동**: `node-alert-blink` CSS 클래스가 메인 `<rect>`에 적용되어 `opacity` 전체(fill 포함)를 깜박임 → fill이 어두운 색이라 시각적 차이가 거의 없음
-2. **⚠ 아이콘 시인성**: `font-size="9"`, 위치가 `NODE_W-6, y=11`로 다른 텍스트(BLDG, Text1)와 겹침
+## 구현 방식
 
-## 변경: `public/cpm_network.html`
+### `public/cpm_network.html`
 
-### 1. CSS 애니메이션 개선 (line 44-45)
+1. **사이드바 요약 바 영역에 필터 토글 버튼 추가**
+   - 기존 경고 요약 바(●●●) 옆에 "⚠ Overdue Only" 토글 버튼 배치
+   - 클릭 시 `window._filterOverdueOnly = true/false` 토글
 
-현재 `opacity` 기반 → **stroke 전용 글로우 rect**를 별도 레이어로 추가하는 방식으로 변경:
+2. **렌더링 필터 적용**
+   - `_filterOverdueOnly === true`일 때, `renderNetwork()` 내에서 `_alertCache`의 `isUnmappedOverdue === true`인 노드만 표시
+   - 해당 노드와 직접 연결된 링크(선행/후행)도 함께 표시하여 네트워크 맥락 유지
+   - 필터 해제 시 전체 노드 복원
 
-```css
-@keyframes alertBlink {
-  0%, 100% { stroke-opacity: 1; filter: drop-shadow(0 0 6px #ff4d4d); }
-  50% { stroke-opacity: 0.2; filter: drop-shadow(0 0 1px #ff4d4d); }
-}
-.node-alert-blink { animation: alertBlink 1.2s ease-in-out infinite; }
-```
-
-→ fill은 그대로, **테두리(stroke)만 글로우 효과로 깜박임**
-
-### 2. 메인 rect에서 blink 분리 (line 1447-1448)
-
-현재: 메인 rect에 `class="${alertBlinkClass}"` 적용
-변경: 메인 rect는 class 제거, **별도 overlay rect 추가**:
-
-```svg
-<!-- 기존 메인 rect (fill 담당, 깜박임 없음) -->
-<rect width="${NODE_W}" height="${NODE_H}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" />
-<!-- critical일 때만 추가되는 글로우 rect -->
-<rect class="node-alert-blink" width="${NODE_W}" height="${NODE_H}" rx="6"
-  fill="none" stroke="#ff4d4d" stroke-width="3" />
-```
-
-### 3. ⚠ 아이콘 크기 및 위치 개선 (line 1385-1387)
-
-| 항목 | 현재 | 변경 |
-|------|------|------|
-| font-size | 9 | 13 |
-| 위치 | `NODE_W-6, 11` (우상단, 텍스트와 겹침) | `NODE_W-4, -6` (노드 위쪽 바깥) |
-
-아이콘이 노드 상단 바깥으로 돌출되어 다른 텍스트와 겹치지 않음
+3. **필터 상태 시각 피드백**
+   - 버튼 활성화 시 빨간색 배경으로 변경
+   - 필터링된 노드 수 표시 (예: "⚠ 3")
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `public/cpm_network.html` | CSS 애니메이션 수정, overlay rect 분리, ⚠ 아이콘 크기/위치 조정 |
+| `public/cpm_network.html` | 필터 토글 버튼 UI + 렌더링 필터 로직 추가 |
 
