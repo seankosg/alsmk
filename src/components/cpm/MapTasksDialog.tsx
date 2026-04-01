@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { Link2, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,15 +36,14 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
     enabled: open,
   });
 
-  // Get all tasks with team/member info
+  // Get all tasks with team/member info (including summaries and subtasks)
   const { data: allTasks = [] } = useQuery({
     queryKey: ["all_tasks_for_mapping"],
     queryFn: async () => {
       const { data: tasks } = await supabase
         .from("tasks")
-        .select("id, title, task_code, team_id, assignee_id, current_progress, start_date, end_date, is_summary")
+        .select("id, title, task_code, team_id, assignee_id, current_progress, start_date, end_date, is_summary, parent_id")
         .is("deleted_at", null)
-        .eq("is_summary", false)
         .order("title");
       if (!tasks) return [];
 
@@ -66,14 +66,45 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
     enabled: open,
   });
 
-  // Sync selectedIds when existingMappings loads/updates
-  useEffect(() => {
-    if (open && existingMappings.length > 0) {
-      setSelectedIds(new Set(existingMappings));
-    }
-  }, [existingMappings, open]);
+  // Build children map: parent_id → child tasks
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, typeof allTasks>();
+    allTasks.filter(t => t.parent_id).forEach(t => {
+      const list = map.get(t.parent_id!) || [];
+      list.push(t);
+      map.set(t.parent_id!, list);
+    });
+    return map;
+  }, [allTasks]);
 
-  const filtered = allTasks.filter(t => {
+  // Display tasks: only those without parent_id (Summary + standalone Task)
+  const displayTasks = useMemo(() => allTasks.filter(t => !t.parent_id), [allTasks]);
+
+  // Sync selectedIds when existingMappings loads — reverse-map subtask mappings to Summary
+  useEffect(() => {
+    if (!open || allTasks.length === 0) return;
+    const mappedSet = new Set(existingMappings);
+    const selected = new Set<string>();
+
+    displayTasks.forEach(t => {
+      const children = childrenMap.get(t.id);
+      if (children?.length) {
+        // Summary: select if ANY child is mapped
+        if (children.some(c => mappedSet.has(c.id))) {
+          selected.add(t.id);
+        }
+      } else {
+        // Standalone task: direct match
+        if (mappedSet.has(t.id)) {
+          selected.add(t.id);
+        }
+      }
+    });
+
+    setSelectedIds(selected);
+  }, [existingMappings, open, allTasks, displayTasks, childrenMap]);
+
+  const filtered = displayTasks.filter(t => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -95,14 +126,26 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Expand: Summary → subtask IDs, standalone → itself
+      const expandedIds = new Set<string>();
+      selectedIds.forEach(id => {
+        const children = childrenMap.get(id);
+        if (children?.length) {
+          children.forEach(c => expandedIds.add(c.id));
+        } else {
+          expandedIds.add(id);
+        }
+      });
+
       const { error } = await supabase.rpc("upsert_activity_mappings", {
         _activity_id: activityId,
-        _task_ids: [...selectedIds],
+        _task_ids: [...expandedIds],
       });
       if (error) throw error;
 
       await queryClient.invalidateQueries({ queryKey: ["cpm_existing_mappings", activityId] });
-      toast.success(`${selectedIds.size}개 Task 매핑 완료`);
+      await queryClient.invalidateQueries({ queryKey: ["cpm_mapped_task_ids"] });
+      toast.success(`${expandedIds.size}개 Task 매핑 완료`);
       onMapped();
       setOpen(false);
     } catch (err: any) {
@@ -150,23 +193,33 @@ export function MapTasksDialog({ activityId, activityName, onMapped }: Props) {
 
         <ScrollArea className="min-h-0 flex-1 border rounded" scrollbarClassName="w-3">
           <div className="divide-y divide-border pr-4">
-            {filtered.map(t => (
-              <label
-                key={t.id}
-                className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer"
-              >
-                <Checkbox
-                  checked={selectedIds.has(t.id)}
-                  onCheckedChange={() => toggle(t.id)}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-foreground truncate">{t.title}</div>
-                  <div className="text-[10px] font-mono text-muted-foreground">
-                    {t.task_code || "-"} · {t.team_name} · {t.assignee_name || "미배정"} · {t.current_progress}%
+            {filtered.map(t => {
+              const childCount = childrenMap.get(t.id)?.length || 0;
+              return (
+                <label
+                  key={t.id}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer"
+                >
+                  <Checkbox
+                    checked={selectedIds.has(t.id)}
+                    onCheckedChange={() => toggle(t.id)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-foreground truncate flex items-center gap-1.5">
+                      {t.title}
+                      {t.is_summary && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 shrink-0">
+                          Summary · {childCount}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground">
+                      {t.task_code || "-"} · {t.team_name} · {t.assignee_name || "미배정"} · {t.current_progress}%
+                    </div>
                   </div>
-                </div>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
         </ScrollArea>
 
