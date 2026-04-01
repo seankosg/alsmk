@@ -256,6 +256,7 @@ export function useCpmViewModel() {
           statuses,
           version,
           progressOverrides,
+          autoModeIds,
         },
         "*",
       );
