@@ -1,28 +1,45 @@
 
 
-# CPM 수동 리로드 버튼 추가
+# CPM 새로고침 불가 — 근본 원인 및 수정
 
-## 현재 상황
-- 데이터가 사라졌을 때 복구하려면 브라우저 전체를 새로고침해야 하며, 이마저도 race condition으로 실패할 수 있음
-- 수동으로 hydration을 재요청하는 UI가 없음
+## 근본 원인
 
-## 구현
+`public/cpm_network.html` 1979행에 **`SyntaxError: Illegal return statement`** 발생.
 
-### `src/pages/CpmScheduler.tsx`
-- 플로팅 툴바에 **🔄 새로고침** 버튼 추가 (Admin/PM 전용 영역 옆)
-- 클릭 시 `hydrateIframe(iframeRef.current?.contentWindow)` 직접 호출
-- 비Admin 사용자용으로도 별도 위치에 작은 새로고침 버튼 배치
+`toggleOverdueFilter()` 함수를 추가하면서 `applyBldgFilter(bldgValue)` 함수의 선언부(`function applyBldgFilter(bldgValue) {`)가 누락됨. 함수 본문(1979~2002행)이 함수 바깥에 노출되어, `return` 문이 전역 스코프에서 실행 → **전체 JavaScript 파싱이 중단** → iframe의 `window.addEventListener('message', ...)` 리스너가 등록되지 않음 → `cpm-hydrate` 메시지를 수신 불가.
 
-### 동작
-1. 버튼 클릭 → `hydrateIframe()` 호출 → DB에서 최신 스냅샷 + 상태 데이터를 iframe에 전송
-2. iframe이 `cpm-hydrate` 메시지를 수신하면 네트워크 복원
-3. toast로 "CPM 데이터 새로고침 완료" 표시
+**즉, iframe의 JS가 완전히 깨져있어서 어떤 메시지도 수신할 수 없는 상태입니다.**
 
-이 방법은 승인된 핸드쉐이크 자동 재전송 계획과 별도로, 사용자가 직접 복구할 수 있는 즉각적인 해결책입니다.
+## 수정
+
+### `public/cpm_network.html` — 1978행
+
+현재 (함수 선언 누락):
+```
+}  // ← toggleOverdueFilter 닫힘 (line 1976)
+
+
+  if (!calculated) { ... return; }  // ← line 1979: 전역 스코프의 return → SyntaxError
+```
+
+수정 — 1978행에 함수 선언부 추가:
+```
+}  // ← toggleOverdueFilter 닫힘 (line 1976)
+
+function applyBldgFilter(bldgValue) {
+  if (!calculated) { ... return; }
+```
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `src/pages/CpmScheduler.tsx` | 새로고침 버튼 추가, `hydrateIframe` 직접 호출 |
+| `public/cpm_network.html` | 1978행에 `function applyBldgFilter(bldgValue) {` 선언 복원 |
+
+## 부수 효과
+
+이 수정으로 다음 문제들이 모두 해결됩니다:
+- 새로고침 버튼 클릭 시 데이터 미로딩
+- 페이지 리로드 시 데이터 소실 (iframe ready → hydrate 핸드쉐이크 실패)
+- Overdue 필터 버튼 등 모든 iframe 내 기능 정상화
 
