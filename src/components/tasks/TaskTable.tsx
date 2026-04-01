@@ -162,6 +162,18 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     },
     staleTime: 30_000,
   });
+
+  // Expand mapped IDs to include parent Summary IDs
+  const cpmDisplayIds = useMemo(() => {
+    if (!cpmMappedTaskIds || !tasks.length) return new Set<string>();
+    const ids = new Set(cpmMappedTaskIds);
+    tasks.forEach((task: any) => {
+      if (task.parent_id && ids.has(task.id)) {
+        ids.add(task.parent_id);
+      }
+    });
+    return ids;
+  }, [cpmMappedTaskIds, tasks]);
   useEffect(() => {
     if (allCollapsed === prevAllCollapsedRef.current) return;
     prevAllCollapsedRef.current = allCollapsed;
