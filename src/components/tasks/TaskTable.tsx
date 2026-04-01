@@ -492,7 +492,12 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                     const hasParent = !!(task as any).parent_id;
                     const hasChildren = isSummary && tasks.some(t => t.parent_id === task.id);
                     const isCollapsed = collapsedSummaries.has(task.id);
-                    const planned = calcPlannedProgress(task.start_date, task.end_date);
+                    const planned = isSummary
+                      ? weightedAvg(
+                          tasks.filter(t => t.parent_id === task.id && !t.deleted_at),
+                          t => calcPlannedProgress(t.start_date, t.end_date)
+                        )
+                      : calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     const isEditingThis = editingProgressId === task.id;
                     const isCompleted = task.current_progress >= 100 || !!task.actual_finish;
