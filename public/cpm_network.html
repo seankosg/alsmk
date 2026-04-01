@@ -1370,24 +1370,25 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       stroke = '#ff9800'; strokeW = 2; alertStrokeDash = 'stroke-dasharray="4,2"';
     }
 
-    // Alert icon (top-right)
+    // Alert icon (top-right, positioned outside node for visibility)
     let alertIcon = '';
-    const iconX = NODE_W - 6;
-    const iconY = 11;
+    const iconX = NODE_W - 4;
+    const iconY = -6;
     if (isSevereDelay) {
-      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="9" fill="#ff4d4d" text-anchor="end" font-weight="700">▲▲</text>`;
+      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="13" fill="#ff4d4d" text-anchor="end" font-weight="700">▲▲</text>`;
     } else if (isModerateDelay) {
-      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="9" fill="#ff9800" text-anchor="end" font-weight="700">▲</text>`;
+      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="13" fill="#ff9800" text-anchor="end" font-weight="700">▲</text>`;
     }
     if (isCpDelay) {
-      const cpIconX = alertIcon ? iconX - 20 : iconX;
-      alertIcon += `<text x="${cpIconX}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end">🔥</text>`;
+      const cpIconX = alertIcon ? iconX - 24 : iconX;
+      alertIcon += `<text x="${cpIconX}" y="${iconY}" font-size="13" fill="#ff4d4d" text-anchor="end">🔥</text>`;
     }
     if (isUnmappedOverdue && !isSevereDelay && !isCpDelay) {
-      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end">⚠</text>`;
+      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="13" fill="#ff4d4d" text-anchor="end">⚠</text>`;
+      needsBlinkOverlay = true;
     }
     if (hasPredDelay && !isSevereDelay && !isModerateDelay && !isCpDelay && !isUnmappedOverdue) {
-      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff9800" text-anchor="end">🔗</text>`;
+      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="13" fill="#ff9800" text-anchor="end">🔗</text>`;
     }
 
     // Status indicator row (task counts)
