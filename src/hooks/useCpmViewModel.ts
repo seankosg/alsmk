@@ -195,23 +195,22 @@ export function useCpmViewModel() {
       const mode = (modeSetting?.value as "auto" | "manual") || "auto";
       setProgressMode(mode);
 
+      // Auto-update elapsed progress for auto-mode activities
+      await batchUpdateElapsedProgress();
+
+      // Build progress overrides map for ALL activities (both auto and manual)
       let progressOverrides: Record<string, number> | null = null;
-      if (mode === "auto") {
-        await batchUpdateElapsedProgress();
-        // Build progress overrides map (mppTaskId → progress) for iframe patching (auto mode only)
-        const { data: freshActivities } = await supabase
-          .from("cpm_activities")
-          .select("mpp_task_id, progress")
-          .eq("progress_mode", "auto")
-          .not("mpp_task_id", "is", null)
-          .not("progress", "is", null)
-          .limit(5000);
-        if (freshActivities?.length) {
-          progressOverrides = {};
-          freshActivities.forEach((a) => {
-            if (a.mpp_task_id) progressOverrides![a.mpp_task_id] = a.progress!;
-          });
-        }
+      const { data: freshActivities } = await supabase
+        .from("cpm_activities")
+        .select("mpp_task_id, progress")
+        .not("mpp_task_id", "is", null)
+        .not("progress", "is", null)
+        .limit(5000);
+      if (freshActivities?.length) {
+        progressOverrides = {};
+        freshActivities.forEach((a) => {
+          if (a.mpp_task_id) progressOverrides![a.mpp_task_id] = a.progress!;
+        });
       }
 
       const result = await buildStatusAndCustomFields();
@@ -272,11 +271,27 @@ export function useCpmViewModel() {
       const result = await buildStatusAndCustomFields();
       if (!result) return;
 
+      // Also include progressOverrides so manual edits are reflected
+      let progressOverrides: Record<string, number> | null = null;
+      const { data: freshActivities } = await supabase
+        .from("cpm_activities")
+        .select("mpp_task_id, progress")
+        .not("mpp_task_id", "is", null)
+        .not("progress", "is", null)
+        .limit(5000);
+      if (freshActivities?.length) {
+        progressOverrides = {};
+        freshActivities.forEach((a) => {
+          if (a.mpp_task_id) progressOverrides![a.mpp_task_id] = a.progress!;
+        });
+      }
+
       iframeWindow.postMessage(
         {
           type: "cpm-status-refresh",
           statuses: result.statuses,
           customFieldsMap: result.customFieldsMap,
+          progressOverrides,
         },
         "*",
       );
