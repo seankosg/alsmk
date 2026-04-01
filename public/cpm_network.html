@@ -1236,11 +1236,12 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     const sd = window._activityStatusMap && window._activityStatusMap[statusKey];
     const hasMappedStatus = !!sd && (sd.totalTasks || 0) > 0;
     const gap = hasMappedStatus ? (sd.plannedPct - sd.actualPct) : 0;
-    // Unmapped overdue: no mapped tasks + finish_date past + progress < 100
+    // Unmapped overdue: no mapped tasks + finish_date past + (auto-mode OR progress < 100)
+    const isAutoMode = window._autoModeIds && window._autoModeIds.has(a.mppTaskId);
     const isUnmappedOverdue = !hasMappedStatus
       && a.finishDate
       && new Date(a.finishDate) < _todayAlert
-      && (a.progress === null || a.progress === undefined || a.progress < 100);
+      && (isAutoMode || a.progress === null || a.progress === undefined || a.progress < 100);
     _alertCache[id] = { gap, hasStatus: hasMappedStatus, unmappedOverdue: !!isUnmappedOverdue };
   });
 
@@ -3466,7 +3467,10 @@ window.addEventListener('message', function(e) {
       calculated = false;
     }
 
-    // 2. Patch progress from DB (auto mode — elapsed-day calculation)
+    // 2. Store auto-mode activity IDs for unmapped overdue detection
+    window._autoModeIds = new Set(e.data.autoModeIds || []);
+
+    // 3. Patch progress from DB (auto mode — elapsed-day calculation)
     var progOv = e.data.progressOverrides;
     if (progOv && activities.length) {
       var progPatched = 0;
@@ -3520,6 +3524,7 @@ window.addEventListener('message', function(e) {
   // ─── Lightweight status refresh (no snapshot restore) ───
   if (e.data.type === 'cpm-status-refresh') {
     // Update status map
+    window._autoModeIds = new Set(e.data.autoModeIds || []);
     window._activityStatusMap = {};
     (e.data.statuses || []).forEach(function(s) {
       window._activityStatusMap[s.activityKey] = s;
