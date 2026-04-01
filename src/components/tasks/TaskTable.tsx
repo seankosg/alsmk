@@ -293,9 +293,20 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
       case "start": return t.start_date;
       case "finish": return t.end_date;
       case "dday": return t.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
-      case "plan": return calcPlannedProgress(t.start_date, t.end_date);
+      case "plan": {
+        const isSum = (t as any).is_summary === true;
+        return isSum
+          ? weightedAvg(tasks.filter(c => c.parent_id === t.id && !c.deleted_at), c => calcPlannedProgress(c.start_date, c.end_date))
+          : calcPlannedProgress(t.start_date, t.end_date);
+      }
       case "actual": return t.current_progress;
-      case "gap": return t.current_progress - calcPlannedProgress(t.start_date, t.end_date);
+      case "gap": {
+        const isSum2 = (t as any).is_summary === true;
+        const p = isSum2
+          ? weightedAvg(tasks.filter(c => c.parent_id === t.id && !c.deleted_at), c => calcPlannedProgress(c.start_date, c.end_date))
+          : calcPlannedProgress(t.start_date, t.end_date);
+        return t.current_progress - p;
+      }
       case "actualFinish": return t.actual_finish ?? "zzz";
       default: return "";
     }
