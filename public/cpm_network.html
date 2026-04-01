@@ -1381,7 +1381,10 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       const cpIconX = alertIcon ? iconX - 20 : iconX;
       alertIcon += `<text x="${cpIconX}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end">🔥</text>`;
     }
-    if (hasPredDelay && !isSevereDelay && !isModerateDelay && !isCpDelay) {
+    if (isUnmappedOverdue && !isSevereDelay && !isCpDelay) {
+      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end">⚠</text>`;
+    }
+    if (hasPredDelay && !isSevereDelay && !isModerateDelay && !isCpDelay && !isUnmappedOverdue) {
       alertIcon += `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff9800" text-anchor="end">🔗</text>`;
     }
 
