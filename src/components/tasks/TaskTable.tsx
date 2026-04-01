@@ -499,7 +499,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                         <TableCell className={`font-mono truncate ${statusTextColor} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.taskCode }}>
                           <span className="flex items-center gap-1">
                             {task.task_code}
-                            {cpmMappedTaskIds?.has(task.id) && (
+                            {cpmDisplayIds.has(task.id) && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Network className="h-3 w-3 text-info shrink-0" />
