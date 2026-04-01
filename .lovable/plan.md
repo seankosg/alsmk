@@ -1,66 +1,53 @@
 
 
-# 스냅샷 복원으로 매핑 데이터까지 복원되는가? — 분석 결과
+# CPM 노드 Overdue 시각화 개선 — 빨간 깜박임 + 경고 아이콘 크기
 
-## 결론: **아니오, 완벽히 복원되지 않습니다.**
+## 문제 분석
 
-스냅샷은 **CPM 네트워크 그래프(시각적 구조)**만 저장하며, **Task 매핑(`cpm_task_mappings`)은 포함되지 않습니다.**
+1. **빨간 깜박임 미작동**: `node-alert-blink` CSS 클래스가 메인 `<rect>`에 적용되어 `opacity` 전체(fill 포함)를 깜박임 → fill이 어두운 색이라 시각적 차이가 거의 없음
+2. **⚠ 아이콘 시인성**: `font-size="9"`, 위치가 `NODE_W-6, y=11`로 다른 텍스트(BLDG, Text1)와 겹침
 
----
+## 변경: `public/cpm_network.html`
 
-## 현재 스냅샷이 저장하는 것
+### 1. CSS 애니메이션 개선 (line 44-45)
 
-| 데이터 | 포함 여부 |
-|--------|-----------|
-| Activity 목록 (이름, WBS, 기간, 선행관계 등) | ✅ |
-| 날짜 (ES/EF/LS/LF, 시작/종료) | ✅ |
-| 진행률, Critical Path, 링크 타입/Lag | ✅ |
-| WBS 이름, 필터, 프로젝트 시작일 | ✅ |
-| Custom Fields | ✅ |
-| **cpm_task_mappings (Activity↔Task 매핑)** | ❌ |
-| **cpm_activities DB 행 (ID 등)** | ❌ |
+현재 `opacity` 기반 → **stroke 전용 글로우 rect**를 별도 레이어로 추가하는 방식으로 변경:
 
-## 새 XML 업로드 시 벌어지는 일
-
-```text
-1. 새 XML 업로드 → upsertActivities(isNewImport: true)
-2. 새 activity rows가 DB에 upsert (mpp_uid 기준)
-3. 구 activity 중 새 XML에 없는 것 → 고아(orphan) 판정
-4. 고아의 매핑 → 시맨틱 키 일치 시 자동 이전, 불일치 시 OrphanResolutionDialog
-5. 미해결 고아 → 삭제 (CASCADE로 매핑도 삭제)
+```css
+@keyframes alertBlink {
+  0%, 100% { stroke-opacity: 1; filter: drop-shadow(0 0 6px #ff4d4d); }
+  50% { stroke-opacity: 0.2; filter: drop-shadow(0 0 1px #ff4d4d); }
+}
+.node-alert-blink { animation: alertBlink 1.2s ease-in-out infinite; }
 ```
 
-이 과정에서 **매핑이 이미 삭제/이전된 후**이므로, 스냅샷을 로드해도:
-- iframe의 그래프 구조만 옛 상태로 복원됨
-- DB의 `cpm_activities`는 새 XML 기준 행이 그대로 유지
-- `cpm_task_mappings`는 이미 변경/삭제된 상태 — 복원 불가
+→ fill은 그대로, **테두리(stroke)만 글로우 효과로 깜박임**
 
-## 해결 방안
+### 2. 메인 rect에서 blink 분리 (line 1447-1448)
 
-스냅샷 저장 시 **매핑 데이터를 함께 저장**하고, 복원 시 **매핑도 함께 복원**하는 기능 추가가 필요합니다.
+현재: 메인 rect에 `class="${alertBlinkClass}"` 적용
+변경: 메인 rect는 class 제거, **별도 overlay rect 추가**:
 
-### 변경 내용
+```svg
+<!-- 기존 메인 rect (fill 담당, 깜박임 없음) -->
+<rect width="${NODE_W}" height="${NODE_H}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" />
+<!-- critical일 때만 추가되는 글로우 rect -->
+<rect class="node-alert-blink" width="${NODE_W}" height="${NODE_H}" rx="6"
+  fill="none" stroke="#ff4d4d" stroke-width="3" />
+```
 
-**1. 스냅샷 저장 시 매핑 포함** (`src/pages/CpmScheduler.tsx`)
-- `saveSnapshotToDb` 호출 전, `cpm_task_mappings` 전체를 조회
-- `cpm_activities`의 `mpp_uid → id` 매핑도 조회
-- 스냅샷 JSONB `data`에 `taskMappings` 필드 추가: `[{ mpp_uid, task_ids[] }]` 형태
+### 3. ⚠ 아이콘 크기 및 위치 개선 (line 1385-1387)
 
-**2. 스냅샷 복원 시 매핑 복원** (`src/pages/CpmScheduler.tsx`)
-- `handleLoadSnapshot`에서 `snapshot.data.taskMappings` 존재 시:
-  - 현재 DB의 `cpm_activities`에서 `mpp_uid → id` 조회
-  - 기존 매핑 전체 삭제 후, 스냅샷의 매핑 데이터로 재삽입
-- 복원 완료 후 `refreshStatus()` 호출
+| 항목 | 현재 | 변경 |
+|------|------|------|
+| font-size | 9 | 13 |
+| 위치 | `NODE_W-6, 11` (우상단, 텍스트와 겹침) | `NODE_W-4, -6` (노드 위쪽 바깥) |
 
-**3. 복원 확인 다이얼로그** (선택사항)
-- "매핑 데이터도 함께 복원하시겠습니까?" 확인 팝업 추가
-- 그래프만 복원 / 그래프+매핑 복원 선택 가능
+아이콘이 노드 상단 바깥으로 돌출되어 다른 텍스트와 겹치지 않음
 
-### 변경 파일
+## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `src/pages/CpmScheduler.tsx` | 저장 시 매핑 포함, 복원 시 매핑 재삽입 |
-
-DB 마이그레이션은 불필요 (`cpm_snapshots.data`가 JSONB이므로 필드 추가 자유)
+| `public/cpm_network.html` | CSS 애니메이션 수정, overlay rect 분리, ⚠ 아이콘 크기/위치 조정 |
 
