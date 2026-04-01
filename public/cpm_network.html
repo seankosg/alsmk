@@ -3522,6 +3522,15 @@ window.addEventListener('message', function(e) {
         if (cfm[key]) a.customFields = cfm[key];
       });
     }
+    // Apply progressOverrides if provided
+    var progOvR = e.data.progressOverrides;
+    if (progOvR && activities.length) {
+      activities.forEach(function(a) {
+        if (a.mppTaskId && progOvR[a.mppTaskId] !== undefined) {
+          a.progress = progOvR[a.mppTaskId];
+        }
+      });
+    }
     // Re-render network with updated statuses
     if (calculated && activities.length > 0) {
       var sMap = {};
