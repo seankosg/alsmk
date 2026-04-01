@@ -1,47 +1,58 @@
 
 
-# CPM 매핑 변경 계획 전체 요약
+# MPP 진도율 지연 시 Overdue 노드 빨간 깜박임 추가
 
-승인된 2개 계획을 정리합니다.
+## 현재 상태
+- `_alertCache`는 매핑된 태스크가 있는 경우(`hasStatus: true`)에만 gap을 계산
+- 매핑 없는 activity는 `gap: 0, hasStatus: false` → 경고 없음
+- 따라서 MPP 진도율만으로는 지연 감지 불가
 
----
+## 변경: `public/cpm_network.html`
 
-## 계획 1: MapTasksDialog — Summary 기반 그룹 매핑
+### 1. `_alertCache` 계산 확장 (lines 1230-1239)
 
-**현재 문제**: Subtask가 모두 개별 노출되어 매핑이 번거로움 (`is_summary = false` 필터로 Summary 제외, Subtask만 표시)
+매핑 없는 activity에 대해 MPP overdue 감지 추가:
 
-**변경 내용** (`src/components/cpm/MapTasksDialog.tsx`):
+```javascript
+// 기존: hasMappedStatus만 체크
+// 변경: 매핑 없을 때 finish_date < today && progress < 100 → overdue로 판정
+const today = new Date(); today.setHours(0,0,0,0);
+const isUnmappedOverdue = !hasMappedStatus 
+  && a.finishDate 
+  && new Date(a.finishDate) < today 
+  && (a.progress === null || a.progress === undefined || a.progress < 100);
 
-| 항목 | 현재 | 변경 후 |
-|------|------|---------|
-| 표시 목록 | `is_summary=false`인 태스크만 | `parent_id`가 없는 것만 (Summary + 단독 Task) |
-| Summary 표시 | 미표시 | Badge + 하위 태스크 수 표시 |
-| 저장 로직 | 선택된 ID 그대로 저장 | Summary 선택 시 하위 Subtask ID들로 확장(expand)하여 저장 |
-| 기존 매핑 로드 | task_id 직접 매칭 | Subtask가 매핑되어 있으면 parent Summary를 선택 상태로 역매핑 |
+_alertCache[id] = { 
+  gap, hasStatus: hasMappedStatus, 
+  unmappedOverdue: isUnmappedOverdue 
+};
+```
 
-**핵심 로직**:
-- 표시: `allTasks.filter(t => !t.parent_id)` — Summary + 단독 Task만
-- 저장: Summary ID → `childrenMap.get(id).map(c => c.id)`로 확장
-- 로드: 매핑된 subtask의 `parent_id`를 찾아 Summary 선택 상태 복원
+### 2. Alert Detection 로직 확장 (lines 1331-1353)
 
----
+`unmappedOverdue`를 critical alert로 처리:
 
-## 계획 2: TaskTable — CPM 매핑 아이콘을 Summary에도 표시
+```javascript
+const isUnmappedOverdue = alertInfo.unmappedOverdue;
+// 기존 조건에 추가
+if (isSevereDelay || isCpDelay || isUnmappedOverdue) { 
+  alertLevel = 'critical'; ... 
+}
+```
 
-**현재 문제**: `cpm_task_mappings`에는 subtask ID만 저장되므로 Summary에는 매핑 아이콘이 표시되지 않음
+→ 빨간 테두리 + `node-alert-blink` 애니메이션 자동 적용
 
-**변경 내용** (`src/components/tasks/TaskTable.tsx`):
+### 3. Alert 아이콘 추가 (lines 1364-1379)
 
-- `useMemo`로 확장 Set 생성: 매핑된 subtask의 `parent_id`(Summary ID)도 포함
-- 아이콘 조건을 `cpmMappedTaskIds?.has(task.id)` → `cpmDisplayIds.has(task.id)`로 변경
-- Summary + Subtask 모두 아이콘 표시
+unmappedOverdue인 경우 `⚠` 아이콘 표시
 
----
+## 결과
+- 매핑 태스크 없음 + finish_date가 오늘 이전 + MPP 진도 < 100% → 빨간 깜박임 테두리
+- 기존 매핑 기반 경고 로직은 변경 없음
 
-## 변경 파일 요약
+## 변경 파일
 
-| 파일 | 변경 |
+| 파일 | 내용 |
 |------|------|
-| `src/components/cpm/MapTasksDialog.tsx` | 쿼리 필터 변경, Summary Badge, 저장 시 expand, 로드 시 역매핑 |
-| `src/components/tasks/TaskTable.tsx` | `useMemo` 확장 Set으로 Summary에도 매핑 아이콘 표시 |
+| `public/cpm_network.html` | `_alertCache`에 unmappedOverdue 추가, alert 판정 조건 확장 |
 
