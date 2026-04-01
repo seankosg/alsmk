@@ -1353,8 +1353,9 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     });
 
     // Determine alert level
+    const isUnmappedOverdue = alertInfo.unmappedOverdue;
     let alertLevel = 'none';
-    if (isSevereDelay || isCpDelay) { alertLevel = 'critical'; alertCriticalCount++; alertCriticalNodes.push(id); }
+    if (isSevereDelay || isCpDelay || isUnmappedOverdue) { alertLevel = 'critical'; alertCriticalCount++; alertCriticalNodes.push(id); }
     else if (isModerateDelay || isFloatExhausted) { alertLevel = 'warning'; alertWarningCount++; alertWarningNodes.push(id); }
     else if (hasPredDelay) { alertLevel = 'info'; alertInfoCount++; alertInfoNodes.push(id); }
 
