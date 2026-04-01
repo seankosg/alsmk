@@ -516,7 +516,8 @@
       <span style="color:#ff4d4d;cursor:pointer" title="Critical alerts — 클릭하여 목록 보기" onclick="toggleAlertDropdown('critical')">● <span id="alertCriticalCount">0</span></span>
       <span style="color:#ff9800;cursor:pointer" title="Warning alerts — 클릭하여 목록 보기" onclick="toggleAlertDropdown('warning')">● <span id="alertWarningCount">0</span></span>
       <span style="color:#6ea8fe;cursor:pointer" title="Info alerts — 클릭하여 목록 보기" onclick="toggleAlertDropdown('info')">● <span id="alertInfoCount">0</span></span>
-      <span style="margin-left:auto;cursor:pointer;font-size:10px;color:var(--text-dim);padding:1px 5px;border:1px solid var(--border);border-radius:3px" onclick="toggleAlertSettings()" title="경고 임계값 설정">⚙</span>
+      <span id="overdueFilterBtn" style="margin-left:auto;cursor:pointer;font-size:10px;color:var(--text-dim);padding:1px 5px;border:1px solid var(--border);border-radius:3px;transition:all .2s" onclick="toggleOverdueFilter()" title="Overdue 노드만 표시">⚠ Overdue</span>
+      <span style="cursor:pointer;font-size:10px;color:var(--text-dim);padding:1px 5px;border:1px solid var(--border);border-radius:3px" onclick="toggleAlertSettings()" title="경고 임계값 설정">⚙</span>
       <div id="alertDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--surface2);border:1px solid var(--border);border-radius:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.4);margin-top:2px"></div>
     </div>
     <div id="alertSettingsPanel" style="padding:4px 8px 6px;flex-shrink:0;display:none;flex-direction:column;gap:4px;font-size:10px;font-family:var(--mono);background:var(--surface2);border-bottom:1px solid var(--border)">
