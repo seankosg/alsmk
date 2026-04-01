@@ -1236,11 +1236,12 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     const sd = window._activityStatusMap && window._activityStatusMap[statusKey];
     const hasMappedStatus = !!sd && (sd.totalTasks || 0) > 0;
     const gap = hasMappedStatus ? (sd.plannedPct - sd.actualPct) : 0;
-    // Unmapped overdue: no mapped tasks + finish_date past + progress < 100
+    // Unmapped overdue: no mapped tasks + finish_date past + (auto-mode OR progress < 100)
+    const isAutoMode = window._autoModeIds && window._autoModeIds.has(a.mppTaskId);
     const isUnmappedOverdue = !hasMappedStatus
       && a.finishDate
       && new Date(a.finishDate) < _todayAlert
-      && (a.progress === null || a.progress === undefined || a.progress < 100);
+      && (isAutoMode || a.progress === null || a.progress === undefined || a.progress < 100);
     _alertCache[id] = { gap, hasStatus: hasMappedStatus, unmappedOverdue: !!isUnmappedOverdue };
   });
 
