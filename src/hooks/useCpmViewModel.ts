@@ -202,15 +202,19 @@ export function useCpmViewModel() {
       let progressOverrides: Record<string, number> | null = null;
       const { data: freshActivities } = await supabase
         .from("cpm_activities")
-        .select("mpp_task_id, progress")
+        .select("mpp_task_id, progress, progress_mode")
         .not("mpp_task_id", "is", null)
         .not("progress", "is", null)
         .limit(5000);
+      let autoModeIds: string[] = [];
       if (freshActivities?.length) {
         progressOverrides = {};
         freshActivities.forEach((a) => {
           if (a.mpp_task_id) progressOverrides![a.mpp_task_id] = a.progress!;
         });
+        autoModeIds = freshActivities
+          .filter((a) => a.progress_mode === "auto" && a.mpp_task_id)
+          .map((a) => a.mpp_task_id!);
       }
 
       const result = await buildStatusAndCustomFields();
