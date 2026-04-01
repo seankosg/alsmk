@@ -3524,6 +3524,7 @@ window.addEventListener('message', function(e) {
   // ─── Lightweight status refresh (no snapshot restore) ───
   if (e.data.type === 'cpm-status-refresh') {
     // Update status map
+    window._autoModeIds = new Set(e.data.autoModeIds || []);
     window._activityStatusMap = {};
     (e.data.statuses || []).forEach(function(s) {
       window._activityStatusMap[s.activityKey] = s;
