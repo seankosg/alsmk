@@ -1448,7 +1448,7 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
         <rect x="3" y="4" width="${NODE_W}" height="${NODE_H}" rx="6" fill="rgba(0,0,0,.4)"/>
         <rect width="${NODE_W}" height="${NODE_H}" rx="6"
           fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" ${alertStrokeDash}/>
-        ${needsBlinkOverlay ? `<rect class="node-alert-blink" width="${NODE_W}" height="${NODE_H}" rx="6" fill="none" stroke="#ff4d4d" stroke-width="3"/>` : ''}
+        ${needsBlinkOverlay ? `<rect class="node-alert-blink" width="${NODE_W+4}" height="${NODE_H+4}" x="-2" y="-2" rx="8" fill="none" stroke="#ff4d4d" stroke-width="4"/>` : ''}
         <rect width="${NODE_W}" height="4" rx="3" fill="${hColor}" opacity=".8"/>
         ${alertIcon}
         ${statusRow}
