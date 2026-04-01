@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { calcPlannedProgress } from "@/lib/mockData";
+import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -280,7 +280,12 @@ const Workspace = () => {
       ordered.push(...independentTasks);
 
       const rows = ordered.map(t => {
-        const planned = calcPlannedProgress(t.start_date, t.end_date);
+        const planned = t.is_summary
+          ? weightedAvg(
+              tasks.filter(sub => sub.parent_id === t.id && !sub.deleted_at),
+              sub => calcPlannedProgress(sub.start_date, sub.end_date)
+            )
+          : calcPlannedProgress(t.start_date, t.end_date);
         const gap = t.current_progress - planned;
         const remaining = t.actual_finish ? 0 : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
         const dDay = t.actual_finish ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`;

@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, Users, MessageSquare, Plus, Link2 } from "lucide-react";
 import { toast } from "sonner";
-import { calcPlannedProgress } from "@/lib/mockData";
+import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { TaskComments } from "./TaskComments";
 import { SendMessageDialog } from "@/components/messages/SendMessageDialog";
@@ -130,7 +130,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   // Flag edit permission: only assignee, PM, or admin
   const canEditFlag = (auth.memberId === task.assignee_id) || auth.isAdminOrPm;
 
-  const planned = calcPlannedProgress(startDate, endDate);
+  const planned = isSummary
+    ? weightedAvg(
+        allTasks.filter((t: any) => t.parent_id === task.id && !t.deleted_at),
+        (t: any) => calcPlannedProgress(t.start_date, t.end_date)
+      )
+    : calcPlannedProgress(startDate, endDate);
   const gap = currentProgress - planned;
 
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name ?? "Unknown";
