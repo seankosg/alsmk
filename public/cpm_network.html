@@ -41,7 +41,7 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes alertBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes alertBlink { 0%,100%{ stroke-opacity:1; filter: drop-shadow(0 0 6px #ff4d4d); } 50%{ stroke-opacity:0.2; filter: drop-shadow(0 0 1px #ff4d4d); } }
   .node-alert-blink { animation: alertBlink 1.2s ease-in-out infinite; }
 
   html, body {
@@ -1363,30 +1363,32 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     // Override stroke based on alert level (except passthrough nodes)
     let alertStrokeDash = '';
     let alertBlinkClass = '';
+    let needsBlinkOverlay = false;
     if (!isPT && alertLevel === 'critical') {
-      stroke = '#ff4d4d'; strokeW = 2.5; alertBlinkClass = ' node-alert-blink';
+      stroke = '#ff4d4d'; strokeW = 2.5; needsBlinkOverlay = true;
     } else if (!isPT && !isC && alertLevel === 'warning') {
       stroke = '#ff9800'; strokeW = 2; alertStrokeDash = 'stroke-dasharray="4,2"';
     }
 
-    // Alert icon (top-right)
+    // Alert icon (top-right, positioned outside node for visibility)
     let alertIcon = '';
-    const iconX = NODE_W - 6;
-    const iconY = 11;
+    const iconX = NODE_W - 4;
+    const iconY = -6;
     if (isSevereDelay) {
-      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="9" fill="#ff4d4d" text-anchor="end" font-weight="700">▲▲</text>`;
+      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="13" fill="#ff4d4d" text-anchor="end" font-weight="700">▲▲</text>`;
     } else if (isModerateDelay) {
-      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="9" fill="#ff9800" text-anchor="end" font-weight="700">▲</text>`;
+      alertIcon = `<text x="${iconX}" y="${iconY}" font-family="var(--mono)" font-size="13" fill="#ff9800" text-anchor="end" font-weight="700">▲</text>`;
     }
     if (isCpDelay) {
-      const cpIconX = alertIcon ? iconX - 20 : iconX;
-      alertIcon += `<text x="${cpIconX}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end">🔥</text>`;
+      const cpIconX = alertIcon ? iconX - 24 : iconX;
+      alertIcon += `<text x="${cpIconX}" y="${iconY}" font-size="13" fill="#ff4d4d" text-anchor="end">🔥</text>`;
     }
     if (isUnmappedOverdue && !isSevereDelay && !isCpDelay) {
-      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff4d4d" text-anchor="end">⚠</text>`;
+      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="13" fill="#ff4d4d" text-anchor="end">⚠</text>`;
+      needsBlinkOverlay = true;
     }
     if (hasPredDelay && !isSevereDelay && !isModerateDelay && !isCpDelay && !isUnmappedOverdue) {
-      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="9" fill="#ff9800" text-anchor="end">🔗</text>`;
+      alertIcon += `<text x="${iconX}" y="${iconY}" font-size="13" fill="#ff9800" text-anchor="end">🔗</text>`;
     }
 
     // Status indicator row (task counts)
@@ -1444,8 +1446,9 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
         onmouseleave="hideNodeTooltip()"
         onmousemove="moveNodeTooltip(event)">
         <rect x="3" y="4" width="${NODE_W}" height="${NODE_H}" rx="6" fill="rgba(0,0,0,.4)"/>
-        <rect class="${alertBlinkClass}" width="${NODE_W}" height="${NODE_H}" rx="6"
+        <rect width="${NODE_W}" height="${NODE_H}" rx="6"
           fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" ${alertStrokeDash}/>
+        ${needsBlinkOverlay ? `<rect class="node-alert-blink" width="${NODE_W}" height="${NODE_H}" rx="6" fill="none" stroke="#ff4d4d" stroke-width="3"/>` : ''}
         <rect width="${NODE_W}" height="4" rx="3" fill="${hColor}" opacity=".8"/>
         ${alertIcon}
         ${statusRow}
