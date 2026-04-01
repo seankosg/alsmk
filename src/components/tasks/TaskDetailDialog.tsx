@@ -130,7 +130,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members
   // Flag edit permission: only assignee, PM, or admin
   const canEditFlag = (auth.memberId === task.assignee_id) || auth.isAdminOrPm;
 
-  const planned = calcPlannedProgress(startDate, endDate);
+  const planned = isSummary
+    ? weightedAvg(
+        allTasks.filter((t: any) => t.parent_id === task.id && !t.deleted_at),
+        (t: any) => calcPlannedProgress(t.start_date, t.end_date)
+      )
+    : calcPlannedProgress(startDate, endDate);
   const gap = currentProgress - planned;
 
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name ?? "Unknown";
