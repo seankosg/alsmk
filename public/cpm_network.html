@@ -1446,8 +1446,9 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
         onmouseleave="hideNodeTooltip()"
         onmousemove="moveNodeTooltip(event)">
         <rect x="3" y="4" width="${NODE_W}" height="${NODE_H}" rx="6" fill="rgba(0,0,0,.4)"/>
-        <rect class="${alertBlinkClass}" width="${NODE_W}" height="${NODE_H}" rx="6"
+        <rect width="${NODE_W}" height="${NODE_H}" rx="6"
           fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" ${alertStrokeDash}/>
+        ${needsBlinkOverlay ? `<rect class="node-alert-blink" width="${NODE_W}" height="${NODE_H}" rx="6" fill="none" stroke="#ff4d4d" stroke-width="3"/>` : ''}
         <rect width="${NODE_W}" height="4" rx="3" fill="${hColor}" opacity=".8"/>
         ${alertIcon}
         ${statusRow}
