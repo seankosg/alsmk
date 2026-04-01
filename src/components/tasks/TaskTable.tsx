@@ -250,6 +250,21 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
+  // Realtime: refresh tasks on any change (e.g. summary rollup recalculation)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`tasks_rt_${Math.random()}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "tasks",
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
   const readOnly = filterMode === "project";
 
   let filtered = [...tasks];

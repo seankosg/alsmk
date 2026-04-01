@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, Users, MessageSquare, Plus, Link2 } from "lucide-react";
 import { toast } from "sonner";
-import { calcPlannedProgress } from "@/lib/mockData";
+import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { TaskComments } from "./TaskComments";
 import { SendMessageDialog } from "@/components/messages/SendMessageDialog";
