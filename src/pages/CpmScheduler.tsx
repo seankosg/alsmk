@@ -92,16 +92,70 @@ const CpmScheduler = () => {
     console.log(`[CPM Snapshot] Version saved: "${name}" (${taskMappings.length} mapping groups)`);
   }, []);
 
+  // Restore task mappings from snapshot data
+  const restoreMappingsFromSnapshot = useCallback(async (taskMappings: { mpp_uid: string; task_ids: string[] }[]) => {
+    if (!taskMappings.length) return;
+
+    // Resolve mpp_uid → current DB activity id
+    const mppUids = taskMappings.map((m) => m.mpp_uid);
+    const { data: currentActivities } = await supabase
+      .from("cpm_activities")
+      .select("id, mpp_uid")
+      .in("mpp_uid", mppUids);
+
+    if (!currentActivities?.length) {
+      toast.warning("매핑 복원 실패: 일치하는 Activity가 없습니다");
+      return;
+    }
+
+    const mppUidToId = new Map<string, string>();
+    currentActivities.forEach((a) => { if (a.mpp_uid) mppUidToId.set(a.mpp_uid, a.id); });
+
+    let restoredCount = 0;
+    for (const mapping of taskMappings) {
+      const activityId = mppUidToId.get(mapping.mpp_uid);
+      if (!activityId || !mapping.task_ids.length) continue;
+
+      // Verify task_ids still exist
+      const { data: validTasks } = await supabase
+        .from("tasks")
+        .select("id")
+        .in("id", mapping.task_ids)
+        .is("deleted_at", null);
+      const validIds = (validTasks || []).map((t) => t.id);
+      if (!validIds.length) continue;
+
+      await supabase.rpc("upsert_activity_mappings", {
+        _activity_id: activityId,
+        _task_ids: validIds,
+      });
+      restoredCount++;
+    }
+
+    toast.success(`${restoredCount}개 Activity의 태스크 매핑이 복원되었습니다`);
+    queryClient.invalidateQueries({ queryKey: ["cpm_task_mappings"] });
+    queryClient.invalidateQueries({ queryKey: ["cpm_existing_mappings"] });
+    queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
+  }, [queryClient]);
+
   // Send specific snapshot to iframe (from SnapshotManager)
-  const handleLoadSnapshot = useCallback((snapshotData: any) => {
+  const handleLoadSnapshot = useCallback((snapshotData: any, restoreMappings: boolean = false) => {
     if (!iframeRef.current?.contentWindow) return;
     iframeRef.current.contentWindow.postMessage(
       { type: "snapshot-restore", snapshot: snapshotData, forceRestore: true },
       "*",
     );
-    // After snapshot restore, send fresh status + customFields
-    setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
-  }, [refreshStatus]);
+
+    // If requested, restore task mappings from snapshot
+    if (restoreMappings && snapshotData.taskMappings?.length) {
+      restoreMappingsFromSnapshot(snapshotData.taskMappings).then(() => {
+        setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+      });
+    } else {
+      // After snapshot restore, send fresh status + customFields
+      setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+    }
+  }, [refreshStatus, restoreMappingsFromSnapshot]);
 
   // Request current snapshot from iframe (for manual save)
   const handleRequestCurrentSnapshot = useCallback(() => {
