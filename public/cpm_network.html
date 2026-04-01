@@ -1228,6 +1228,7 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
 
   // Pre-compute alert status for each activity (used by edges and nodes)
   const _alertCache = {};
+  const _todayAlert = new Date(); _todayAlert.setHours(0,0,0,0);
   visOrder.forEach(id => {
     const a = map[id];
     if (!a) return;
@@ -1235,7 +1236,12 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     const sd = window._activityStatusMap && window._activityStatusMap[statusKey];
     const hasMappedStatus = !!sd && (sd.totalTasks || 0) > 0;
     const gap = hasMappedStatus ? (sd.plannedPct - sd.actualPct) : 0;
-    _alertCache[id] = { gap, hasStatus: hasMappedStatus };
+    // Unmapped overdue: no mapped tasks + finish_date past + progress < 100
+    const isUnmappedOverdue = !hasMappedStatus
+      && a.finishDate
+      && new Date(a.finishDate) < _todayAlert
+      && (a.progress === null || a.progress === undefined || a.progress < 100);
+    _alertCache[id] = { gap, hasStatus: hasMappedStatus, unmappedOverdue: !!isUnmappedOverdue };
   });
 
   // Draw arrows first — predLinks 우선, fallback predecessors
