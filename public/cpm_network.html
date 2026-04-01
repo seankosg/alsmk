@@ -41,7 +41,7 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes alertBlink { 0%,100%{ stroke-opacity:1; filter: drop-shadow(0 0 6px #ff4d4d); } 50%{ stroke-opacity:0.2; filter: drop-shadow(0 0 1px #ff4d4d); } }
+  @keyframes alertBlink { 0%,100%{ stroke-opacity:1; filter: drop-shadow(0 0 12px #ff4d4d) drop-shadow(0 0 4px #ff0000); } 50%{ stroke-opacity:0.15; filter: drop-shadow(0 0 2px #ff4d4d); } }
   .node-alert-blink { animation: alertBlink 1.2s ease-in-out infinite; }
 
   html, body {
