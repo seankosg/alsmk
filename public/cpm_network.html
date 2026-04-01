@@ -1363,8 +1363,9 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
     // Override stroke based on alert level (except passthrough nodes)
     let alertStrokeDash = '';
     let alertBlinkClass = '';
+    let needsBlinkOverlay = false;
     if (!isPT && alertLevel === 'critical') {
-      stroke = '#ff4d4d'; strokeW = 2.5; alertBlinkClass = ' node-alert-blink';
+      stroke = '#ff4d4d'; strokeW = 2.5; needsBlinkOverlay = true;
     } else if (!isPT && !isC && alertLevel === 'warning') {
       stroke = '#ff9800'; strokeW = 2; alertStrokeDash = 'stroke-dasharray="4,2"';
     }
