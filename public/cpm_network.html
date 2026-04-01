@@ -1957,7 +1957,25 @@ function clearAllFilters() {
   renderSidebar();
 }
 
-function applyBldgFilter(bldgValue) {
+window._filterOverdueOnly = false;
+
+function toggleOverdueFilter() {
+  window._filterOverdueOnly = !window._filterOverdueOnly;
+  const btn = document.getElementById('overdueFilterBtn');
+  if (btn) {
+    if (window._filterOverdueOnly) {
+      btn.style.background = '#ff4d4d'; btn.style.color = '#fff'; btn.style.borderColor = '#ff4d4d';
+    } else {
+      btn.style.background = ''; btn.style.color = 'var(--text-dim)'; btn.style.borderColor = 'var(--border)';
+    }
+  }
+  if (window._lastCalcOrder) {
+    drawNetwork(window._lastCalcOrder, window._lastCalcMap, window._lastCalcProjectEnd,
+      window._activeWbsFilter, window._activeBldgFilter, window._activeText1Filter);
+  }
+}
+
+
   if (!calculated) { showToast('먼저 CPM 계산을 실행하세요'); return; }
   if (!window._activeBldgFilter) window._activeBldgFilter = new Set();
   if (window._activeBldgFilter.has(bldgValue)) {
