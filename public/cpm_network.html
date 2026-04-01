@@ -3467,7 +3467,10 @@ window.addEventListener('message', function(e) {
       calculated = false;
     }
 
-    // 2. Patch progress from DB (auto mode — elapsed-day calculation)
+    // 2. Store auto-mode activity IDs for unmapped overdue detection
+    window._autoModeIds = new Set(e.data.autoModeIds || []);
+
+    // 3. Patch progress from DB (auto mode — elapsed-day calculation)
     var progOv = e.data.progressOverrides;
     if (progOv && activities.length) {
       var progPatched = 0;
