@@ -3,7 +3,13 @@ Phase 2+3+4+5 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_sna
 ## Tables
 - cpm_activities: mpp_uid, mpp_task_id, name, duration, progress, wbs_full, is_critical, is_milestone, start/finish dates, ES/EF/LS/LF/TF
 - cpm_task_mappings: activity_id → task_id (many-to-many, unique constraint)
-- cpm_snapshots: name, data (jsonb full network state), created_by, timestamps — **버전 히스토리 방식** (덮어쓰기 없이 항상 새 행 INSERT, created_at DESC 정렬)
+- cpm_snapshots: name, data (jsonb full network state + taskMappings), created_by, timestamps — **버전 히스토리 방식** (덮어쓰기 없이 항상 새 행 INSERT, created_at DESC 정렬)
+
+## Snapshot Task Mappings (Phase 6)
+- 저장 시: `cpm_task_mappings` + `cpm_activities.mpp_uid`를 조회하여 `data.taskMappings: [{mpp_uid, task_ids[]}]` 형태로 JSONB에 포함
+- 복원 시: `mpp_uid → current activity id` 변환 후 `upsert_activity_mappings` RPC로 매핑 재삽입
+- 복원 확인 다이얼로그: "그래프만 복원" / "그래프 + 매핑 복원" 선택 가능 (매핑이 있는 스냅샷만)
+- task_ids 유효성 검증: 삭제된 태스크(deleted_at IS NOT NULL) 제외
 
 ## postMessage Protocol
 - iframe → parent: `cpm-calculated`, `activity-click`, `activity-detail-click`, `snapshot-save`, `request-db-snapshot`, `snapshot-current`
