@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { calcPlannedProgress } from "@/lib/mockData";
+import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { TaskDetailDialog } from "./TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
@@ -293,9 +293,20 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
       case "start": return t.start_date;
       case "finish": return t.end_date;
       case "dday": return t.actual_finish ? Infinity : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
-      case "plan": return calcPlannedProgress(t.start_date, t.end_date);
+      case "plan": {
+        const isSum = (t as any).is_summary === true;
+        return isSum
+          ? weightedAvg(tasks.filter(c => c.parent_id === t.id && !c.deleted_at), c => calcPlannedProgress(c.start_date, c.end_date))
+          : calcPlannedProgress(t.start_date, t.end_date);
+      }
       case "actual": return t.current_progress;
-      case "gap": return t.current_progress - calcPlannedProgress(t.start_date, t.end_date);
+      case "gap": {
+        const isSum2 = (t as any).is_summary === true;
+        const p = isSum2
+          ? weightedAvg(tasks.filter(c => c.parent_id === t.id && !c.deleted_at), c => calcPlannedProgress(c.start_date, c.end_date))
+          : calcPlannedProgress(t.start_date, t.end_date);
+        return t.current_progress - p;
+      }
       case "actualFinish": return t.actual_finish ?? "zzz";
       default: return "";
     }
@@ -481,7 +492,12 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                     const hasParent = !!(task as any).parent_id;
                     const hasChildren = isSummary && tasks.some(t => t.parent_id === task.id);
                     const isCollapsed = collapsedSummaries.has(task.id);
-                    const planned = calcPlannedProgress(task.start_date, task.end_date);
+                    const planned = isSummary
+                      ? weightedAvg(
+                          tasks.filter(t => t.parent_id === task.id && !t.deleted_at),
+                          t => calcPlannedProgress(t.start_date, t.end_date)
+                        )
+                      : calcPlannedProgress(task.start_date, task.end_date);
                     const gap = task.current_progress - planned;
                     const isEditingThis = editingProgressId === task.id;
                     const isCompleted = task.current_progress >= 100 || !!task.actual_finish;
