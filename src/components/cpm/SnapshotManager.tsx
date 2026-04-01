@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Database, Save, Upload, Trash2, Clock } from "lucide-react";
+import { Database, Save, Upload, Trash2, Clock, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -18,7 +19,7 @@ interface Snapshot {
 }
 
 interface SnapshotManagerProps {
-  onLoadSnapshot: (snapshot: any) => void;
+  onLoadSnapshot: (snapshot: any, restoreMappings?: boolean) => void;
   onRequestCurrentSnapshot: () => void;
   pendingSnapshot: any | null;
   onSnapshotHandled: () => void;
@@ -36,6 +37,7 @@ export function SnapshotManager({
   const [saveName, setSaveName] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmSnap, setConfirmSnap] = useState<Snapshot | null>(null);
 
   const fetchSnapshots = useCallback(async () => {
     setLoading(true);
@@ -81,9 +83,22 @@ export function SnapshotManager({
     onRequestCurrentSnapshot();
   };
 
-  const handleLoad = (snap: Snapshot) => {
-    onLoadSnapshot(snap.data);
-    toast.success(`"${snap.name}" 불러오기 완료`);
+  const handleLoadClick = (snap: Snapshot) => {
+    const hasMappings = snap.data?.taskMappings?.length > 0;
+    if (hasMappings && isAdminOrPm) {
+      setConfirmSnap(snap);
+    } else {
+      onLoadSnapshot(snap.data, false);
+      toast.success(`"${snap.name}" 불러오기 완료`);
+      setOpen(false);
+    }
+  };
+
+  const handleConfirmRestore = (restoreMappings: boolean) => {
+    if (!confirmSnap) return;
+    onLoadSnapshot(confirmSnap.data, restoreMappings);
+    toast.success(`"${confirmSnap.name}" 불러오기 완료${restoreMappings ? " (매핑 포함)" : ""}`);
+    setConfirmSnap(null);
     setOpen(false);
   };
 
@@ -111,115 +126,159 @@ export function SnapshotManager({
     }
   };
 
+  const getMappingCount = (snap: Snapshot) => {
+    try {
+      return snap.data?.taskMappings?.length || 0;
+    } catch {
+      return 0;
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 bg-background/80 backdrop-blur border-border hover:bg-accent/20"
-        >
-          <Database className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Snapshots</span>
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Database className="h-4 w-4 text-primary" />
-            CPM 스냅샷 버전 히스토리
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 bg-background/80 backdrop-blur border-border hover:bg-accent/20"
+          >
+            <Database className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Snapshots</span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Database className="h-4 w-4 text-primary" />
+              CPM 스냅샷 버전 히스토리
+            </DialogTitle>
+          </DialogHeader>
 
-        {/* Save new — Admin/PM only */}
-        {isAdminOrPm && (
-          <div className="flex gap-2">
-            <Input
-              placeholder="스냅샷 이름 입력..."
-              value={saveName}
-              onChange={(e) => setSaveName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              className="text-sm h-9"
-            />
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saving || !saveName.trim()}
-              className="gap-1.5 shrink-0"
-            >
-              <Save className="h-3.5 w-3.5" />
-              저장
-            </Button>
-          </div>
-        )}
-
-        {/* List */}
-        <ScrollArea className="max-h-[360px]">
-          {loading ? (
-            <div className="text-center text-sm text-muted-foreground py-8">불러오는 중...</div>
-          ) : snapshots.length === 0 ? (
-            <div className="text-center text-sm text-muted-foreground py-8">
-              저장된 스냅샷이 없습니다
-              <br />
-              <span className="text-xs">XML 업로드 후 계산하고 이름을 입력해 저장하세요</span>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {snapshots.map((snap, idx) => (
-                <div
-                  key={snap.id}
-                  className="group flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5 hover:bg-muted/60 transition-colors cursor-pointer"
-                  onClick={() => handleLoad(snap)}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate flex items-center gap-1.5">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-mono shrink-0">
-                        v{snapshots.length - idx}
-                      </span>
-                      {snap.name}
-                      {snap.name === "auto" && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
-                          자동저장
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <span>{getActivityCount(snap)}개 Activity</span>
-                      <span>·</span>
-                      <span>CP {getCpCount(snap)}개</span>
-                      <span>·</span>
-                      <span className="flex items-center gap-0.5">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(snap.created_at), "yyyy-MM-dd HH:mm")}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 ml-2 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => { e.stopPropagation(); handleLoad(snap); }}
-                    >
-                      <Upload className="h-3.5 w-3.5" />
-                    </Button>
-                    {isAdminOrPm && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                        onClick={(e) => handleDelete(snap, e)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+          {/* Save new — Admin/PM only */}
+          {isAdminOrPm && (
+            <div className="flex gap-2">
+              <Input
+                placeholder="스냅샷 이름 입력..."
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                className="text-sm h-9"
+              />
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={saving || !saveName.trim()}
+                className="gap-1.5 shrink-0"
+              >
+                <Save className="h-3.5 w-3.5" />
+                저장
+              </Button>
             </div>
           )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+
+          {/* List */}
+          <ScrollArea className="max-h-[360px]">
+            {loading ? (
+              <div className="text-center text-sm text-muted-foreground py-8">불러오는 중...</div>
+            ) : snapshots.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                저장된 스냅샷이 없습니다
+                <br />
+                <span className="text-xs">XML 업로드 후 계산하고 이름을 입력해 저장하세요</span>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {snapshots.map((snap, idx) => {
+                  const mappingCount = getMappingCount(snap);
+                  return (
+                    <div
+                      key={snap.id}
+                      className="group flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5 hover:bg-muted/60 transition-colors cursor-pointer"
+                      onClick={() => handleLoadClick(snap)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-mono shrink-0">
+                            v{snapshots.length - idx}
+                          </span>
+                          {snap.name}
+                          {snap.name === "auto" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
+                              자동저장
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          <span>{getActivityCount(snap)}개 Activity</span>
+                          <span>·</span>
+                          <span>CP {getCpCount(snap)}개</span>
+                          {mappingCount > 0 && (
+                            <>
+                              <span>·</span>
+                              <span className="flex items-center gap-0.5 text-primary">
+                                <Link2 className="h-3 w-3" />
+                                {mappingCount}
+                              </span>
+                            </>
+                          )}
+                          <span>·</span>
+                          <span className="flex items-center gap-0.5">
+                            <Clock className="h-3 w-3" />
+                            {format(new Date(snap.created_at), "yyyy-MM-dd HH:mm")}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => { e.stopPropagation(); handleLoadClick(snap); }}
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                        </Button>
+                        {isAdminOrPm && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                            onClick={(e) => handleDelete(snap, e)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restore confirmation dialog */}
+      <AlertDialog open={!!confirmSnap} onOpenChange={(open) => { if (!open) setConfirmSnap(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>스냅샷 복원 옵션</AlertDialogTitle>
+            <AlertDialogDescription>
+              이 스냅샷에는 <strong>{confirmSnap?.data?.taskMappings?.length || 0}개</strong>의 Activity↔Task 매핑 데이터가 포함되어 있습니다.
+              매핑 데이터도 함께 복원하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setConfirmSnap(null)}>취소</AlertDialogCancel>
+            <Button variant="outline" onClick={() => handleConfirmRestore(false)}>
+              그래프만 복원
+            </Button>
+            <AlertDialogAction onClick={() => handleConfirmRestore(true)}>
+              그래프 + 매핑 복원
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
