@@ -82,25 +82,44 @@ export function useKukuDashboard() {
       // 1. Try runtime cache first
       const runtimeCache = queryClient.getQueryData<CpmRuntimeData>([CPM_RUNTIME_KEY]);
       let activities: ReturnType<typeof fromRuntime>[];
+      let isRuntimeSource = false;
 
       if (runtimeCache?.activities?.length) {
         console.log(`[KUKU] Using runtime cache (${runtimeCache.activities.length} activities, source: ${runtimeCache.source})`);
         activities = runtimeCache.activities.map(fromRuntime);
+        isRuntimeSource = true;
       } else {
         // Fallback: load from DB
         console.log("[KUKU] No runtime cache, falling back to DB");
         const { data: dbActivities } = await supabase
           .from("cpm_activities")
-          .select("id, name, wbs_full, mpp_task_id, duration, progress, progress_mode, is_critical, is_milestone, start_date, finish_date, custom_fields, pred_links")
+          .select("id, name, wbs_full, mpp_task_id, mpp_uid, duration, progress, progress_mode, is_critical, is_milestone, start_date, finish_date, custom_fields, pred_links")
           .limit(5000);
         if (!dbActivities?.length) return { kukuActivities: [], predecessors: [], allActivitiesCount: 0 };
         activities = dbActivities.map(a => ({
           ...a,
+          mpp_uid: a.mpp_uid || null,
           custom_fields: a.custom_fields as Record<string, string> | null,
         }));
       }
 
-      // 2. Load mappings + tasks from DB (always needed)
+      // 2. Runtime ID → DB UUID resolution
+      // When using runtime cache, activity.id is an iframe-internal ID (e.g. "A244"),
+      // but cpm_task_mappings.activity_id uses DB UUIDs. We resolve via mpp_uid.
+      let resolveDbId: (a: ReturnType<typeof fromRuntime>) => string = (a) => a.id;
+
+      if (isRuntimeSource) {
+        const { data: idRows } = await supabase
+          .from("cpm_activities")
+          .select("id, mpp_uid")
+          .limit(5000);
+        const mppUidToDbId = new Map<string, string>();
+        (idRows || []).forEach(r => { if (r.mpp_uid) mppUidToDbId.set(r.mpp_uid, r.id); });
+        resolveDbId = (a) => (a.mpp_uid ? mppUidToDbId.get(a.mpp_uid) : null) || a.id;
+        console.log(`[KUKU] Runtime→DB ID map: ${mppUidToDbId.size} entries`);
+      }
+
+      // 3. Load mappings + tasks from DB (always needed)
       const { data: mappings } = await supabase
         .from("cpm_task_mappings")
         .select("activity_id, task_id");
@@ -122,10 +141,12 @@ export function useKukuDashboard() {
         taskMap = Object.fromEntries((tasks || []).map((t) => [t.id, t]));
       }
 
-      // 3. Helper functions
-      const getText1 = (a: { custom_fields: Record<string, string> | null }) => {
-        const cf = a.custom_fields;
-        return cf?.Text1 || cf?.text1 || "";
+      // 4. Helper functions
+      const getEffectiveProgress = (a: { progress: number | null; progress_mode: string; start_date: string | null; finish_date: string | null }) => {
+        if (a.progress_mode === "auto" && a.start_date && a.finish_date) {
+          return calcPlannedProgress(a.start_date, a.finish_date);
+        }
+        return a.progress;
       };
 
       const getEffectiveProgress = (a: { progress: number | null; progress_mode: string; start_date: string | null; finish_date: string | null }) => {
