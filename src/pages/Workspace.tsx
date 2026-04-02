@@ -336,10 +336,12 @@ const Workspace = () => {
           <p className="text-sm text-muted-foreground">Your assigned tasks and progress</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleGenerateSummaries} disabled={generating}>
-            <ListTree className="mr-2 h-4 w-4" />
-            {generating ? "Generating..." : isAdminOrPm ? "Generate Summaries" : "Generate Summaries (내 태스크)"}
-          </Button>
+          {!readOnly && (
+            <Button variant="outline" onClick={handleGenerateSummaries} disabled={generating}>
+              <ListTree className="mr-2 h-4 w-4" />
+              {generating ? "Generating..." : isAdminOrPm ? "Generate Summaries" : "Generate Summaries (내 태스크)"}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setAllCollapsed(prev => !prev)}
@@ -347,26 +349,30 @@ const Workspace = () => {
             <ChevronsUpDown className="mr-2 h-4 w-4" />
             {allCollapsed ? "Expand All" : "Collapse All"}
           </Button>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline">
-                <Trash2 className="mr-2 h-4 w-4" /> Trash
+          {!readOnly && (
+            <>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline">
+                    <Trash2 className="mr-2 h-4 w-4" /> Trash
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-[400px] sm:w-[540px]">
+                  <SheetHeader>
+                    <SheetTitle>휴지통</SheetTitle>
+                  </SheetHeader>
+                  <DeletedTasksList />
+                </SheetContent>
+              </Sheet>
+              <Button variant="outline" onClick={() => navigate("/tasks/import")}>
+                <Upload className="mr-2 h-4 w-4" /> Import
               </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[400px] sm:w-[540px]">
-              <SheetHeader>
-                <SheetTitle>휴지통</SheetTitle>
-              </SheetHeader>
-              <DeletedTasksList />
-            </SheetContent>
-          </Sheet>
-          <Button variant="outline" onClick={() => navigate("/tasks/import")}>
-            <Upload className="mr-2 h-4 w-4" /> Import
-          </Button>
+            </>
+          )}
           <Button variant="outline" onClick={handleExport} disabled={exporting}>
             <FileDown className="mr-2 h-4 w-4" /> {exporting ? "Exporting..." : "Export"}
           </Button>
-          <AddTaskDialog />
+          {!readOnly && <AddTaskDialog />}
         </div>
       </div>
 
