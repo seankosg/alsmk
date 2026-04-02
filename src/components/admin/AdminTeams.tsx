@@ -25,7 +25,7 @@ export function AdminTeams() {
   const { data: teams = [], isLoading } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("teams").select("*").order("name");
+      const { data, error } = await supabase.from("teams").select("*").is("deleted_at", null).order("name");
       if (error) throw error;
       return data;
     },
