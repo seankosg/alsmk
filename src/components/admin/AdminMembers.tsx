@@ -59,7 +59,7 @@ export function AdminMembers() {
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("*").order("name");
+      const { data, error } = await supabase.from("members").select("*").is("deleted_at", null).order("name");
       if (error) throw error;
       return data;
     },
