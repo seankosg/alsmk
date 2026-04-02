@@ -149,14 +149,7 @@ export function useKukuDashboard() {
         return a.progress;
       };
 
-      const getEffectiveProgress = (a: { progress: number | null; progress_mode: string; start_date: string | null; finish_date: string | null }) => {
-        if (a.progress_mode === "auto" && a.start_date && a.finish_date) {
-          return calcPlannedProgress(a.start_date, a.finish_date);
-        }
-        return a.progress;
-      };
-
-      // 4. Build predecessor map from pred_links (already stored as mppTaskId)
+      // 5. Build predecessor map from pred_links (already stored as mppTaskId)
       const predMap = new Map<string, string[]>();
       activities.forEach((a) => {
         if (!a.pred_links?.trim() || !a.mpp_task_id) return;
