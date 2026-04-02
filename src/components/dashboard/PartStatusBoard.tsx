@@ -124,7 +124,7 @@ export function PartStatusBoard() {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Part Status Overview</CardTitle>
+            <CardTitle className="text-base">Team Status Overview</CardTitle>
           </div>
           <p className="text-xs text-muted-foreground">Behind Schedule · Upcoming D-7 · Issues by Part</p>
         </CardHeader>
