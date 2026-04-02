@@ -86,12 +86,41 @@ export function useKukuDashboard() {
       if (snapshot?.data) {
         const snapshotData = snapshot.data as any;
         const snapshotActivities = snapshotData.activities || snapshotData.nodes || [];
+
+        // Build snapshot internal ID → mppTaskId mapping
+        const snapshotIdToMpp = new Map<string, string>();
         snapshotActivities.forEach((a: any) => {
-          const preds: string[] = [];
-          if (a.predecessors?.length) preds.push(...a.predecessors.map((p: any) => typeof p === "string" ? p : p.id || p.from));
-          if (a.predLinks?.length) preds.push(...a.predLinks.map((p: any) => typeof p === "string" ? p : p.from || p.id));
-          if (preds.length) {
-            predMap.set(a.mppTaskId || a.id, [...new Set(preds)]);
+          if (a.id && a.mppTaskId) snapshotIdToMpp.set(a.id, a.mppTaskId);
+        });
+
+        snapshotActivities.forEach((a: any) => {
+          const rawPreds: string[] = [];
+
+          // predecessors (string or array)
+          if (a.predecessors) {
+            if (typeof a.predecessors === "string" && a.predecessors.length > 0) {
+              rawPreds.push(...a.predecessors.split(",").map((s: string) => s.trim()));
+            } else if (Array.isArray(a.predecessors)) {
+              rawPreds.push(...a.predecessors.map((p: any) => typeof p === "string" ? p : p.id || p.from));
+            }
+          }
+
+          // predLinks (comma-separated string like "A244:0:56,A250:1:0" or array)
+          if (a.predLinks) {
+            if (typeof a.predLinks === "string" && a.predLinks.length > 0) {
+              rawPreds.push(...a.predLinks.split(",").map((s: string) => s.split(":")[0].trim()));
+            } else if (Array.isArray(a.predLinks)) {
+              rawPreds.push(...a.predLinks.map((p: any) => typeof p === "string" ? p.split(":")[0] : p.from || p.id));
+            }
+          }
+
+          if (rawPreds.length) {
+            // Convert snapshot IDs (A244) to mppTaskId (292)
+            const mppPreds = rawPreds
+              .map((id) => snapshotIdToMpp.get(id) || id)
+              .filter(Boolean);
+            const key = a.mppTaskId || a.id;
+            predMap.set(key, [...new Set(mppPreds)]);
           }
         });
       }
