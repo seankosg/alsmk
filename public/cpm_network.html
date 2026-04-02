@@ -776,7 +776,13 @@ function renderSidebar() {
           <div class="field-group" style="flex:2">
             <span class="field-label">후행작업</span>
             <input class="field-input" id="succ_${a.id}" placeholder="-"
-              value="${(a.successors||[]).join(', ')}"
+              value="${(() => {
+                const mp = {}; activities.forEach(x=>mp[x.id]=x);
+                return activities.filter(o=>o.id!==a.id).filter(o=>{
+                  const ps=(o.predLinks&&o.predLinks.trim())?o.predLinks:(o.predecessors||'');
+                  return ps.split(',').map(s=>s.trim().split(':')[0].trim()).includes(a.id);
+                }).map(o=>(o.mppTaskId?'#'+o.mppTaskId:o.id)+' '+o.name).join(', ') || '-';
+              })()}"
               readonly>
           </div>
           <div class="field-group" style="flex:.8">
