@@ -126,8 +126,28 @@ export function AdminSettings() {
       if (res.data?.error) throw new Error(res.data.error);
       return res.data;
     },
-    onSuccess: (data) => {
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    onSuccess: async (data) => {
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+
+      // Try File System Access API for save-as dialog
+      if ("showSaveFilePicker" in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: `backup_${new Date().toISOString().slice(0, 10)}.json`,
+            types: [{ description: "JSON Files", accept: { "application/json": [".json"] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          toast.success("Backup saved successfully");
+          return;
+        } catch (err: any) {
+          if (err.name === "AbortError") return; // User cancelled
+        }
+      }
+
+      // Fallback for browsers without File System Access API
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
