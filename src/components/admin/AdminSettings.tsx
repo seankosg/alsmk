@@ -19,6 +19,8 @@ export function AdminSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [backupName, setBackupName] = useState("");
 
   // Auto backup settings
   const [autoEnabled, setAutoEnabled] = useState(false);
