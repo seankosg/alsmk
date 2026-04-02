@@ -1,51 +1,32 @@
 
 
-# CPM Summary Banner 구현 계획
+# CPM Summary Banner 개선
 
-## UI 레이아웃
+## 변경 내용
 
-KUKU 섹션 헤더 바로 아래에 단일 Card로 배치. 6개 KPI를 가로 그리드로 표시:
+### 1. `src/components/dashboard/CpmSummaryBanner.tsx`
 
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│  CPM Summary                                                          │
-│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
-│ │ 📊 1,247  │ │ 🔴  89   │ │ 🏗️  156  │ │ 🎯  42   │ │ 🔗 98/156│ │ ⚡Runtime│ │
-│ │Total Acts │ │Critical  │ │KUKU Acts │ │Milestones│ │Mapped    │ │Data Src  │ │
-│ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Data Source 카드 제거 → 헤더로 이동**
+- 6번째 KpiBox (Zap 아이콘, Runtime/DB 뱃지) 삭제
+- "CPM Summary" 텍스트 옆에 `text-muted-foreground/50` 스타일로 `· Runtime` 또는 `· DB` 표시
 
-- 반응형: `lg:grid-cols-6` / `md:grid-cols-3` / `sm:grid-cols-2`
-- 각 KPI: Lucide 아이콘 + 큰 숫자 + 작은 라벨
-- Critical Path 수가 높으면 빨간 뱃지, Mapped 비율 낮으면 노란 뱃지
-- Data Source는 "Runtime" (초록) / "DB" (회색) 뱃지 + 시각 표시
+**6번째 자리에 복합 KPI 카드 추가**
+- 하나의 KpiBox 크기 안에 3개 미니 지표를 세로로 배치:
+  - **Delayed**: `kukuActivities` 중 `progress < plannedProgress - 5` 인 건수 (빨간색)
+  - **Pred Alerts**: `predecessors` 중 `gap < -5` 인 건수 (주황색)
+  - **Gap**: 전체 KUKU 가중평균 (actual - planned) % (음수면 빨간, 양수면 초록)
+
+**아이콘·라벨 크기 확대**
+- 아이콘: `h-4 w-4` → `h-5 w-5`
+- 라벨 텍스트: `text-[11px]` → `text-xs`
+- 값 텍스트: `text-xl` → `text-2xl`
+
+### 2. `src/hooks/useKukuDashboard.ts`
+- 변경 불필요 — `kukuActivities`의 `progress`, `plannedProgress`와 `predecessors`의 `gap` 값이 이미 반환되므로 컴포넌트에서 직접 계산
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `src/hooks/useKukuDashboard.ts` | 반환값에 `criticalCount`, `milestoneCount`, `dataSource`, `lastSyncTime` 추가 |
-| `src/components/dashboard/CpmSummaryBanner.tsx` | 신규 — 6개 KPI 배너 컴포넌트 |
-| `src/pages/Index.tsx` | KUKU 헤더 아래에 `<CpmSummaryBanner />` 삽입 |
-
-## 구현 세부
-
-### 1. `useKukuDashboard.ts` 확장
-`queryFn` 내에서 이미 `activities` 배열을 순회하므로 추가 DB 호출 없이:
-```typescript
-criticalCount: activities.filter(a => a.is_critical).length,
-milestoneCount: activities.filter(a => a.is_milestone).length,
-dataSource: isRuntimeSource ? "runtime" : "db",
-lastSyncTime: runtimeCache?.lastSyncTime || null,
-```
-
-### 2. `CpmSummaryBanner.tsx` 
-- `useKukuDashboard()` 훅에서 데이터 소비
-- 6개 KPI를 `Card` 안 그리드로 렌더링
-- 로딩 중에는 `Skeleton` 표시
-- 데이터 없을 때 "CPM 데이터 없음" 메시지
-
-### 3. `Index.tsx`
-KUKU 헤더 + 새로고침 버튼 아래, 첫 번째 위젯 그리드 위에 배치
+| `src/components/dashboard/CpmSummaryBanner.tsx` | Data Source 카드 제거, 복합 KPI 카드 추가, 크기 확대, 헤더에 소스명 표시 |
 
