@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Download, Upload, Trash2, Database, Clock, History } from "lucide-react";
+import { Save, Download, Upload, Trash2, Database, Clock, History, Activity } from "lucide-react";
 import { format } from "date-fns";
 
 export function AdminSettings() {
