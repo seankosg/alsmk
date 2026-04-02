@@ -363,18 +363,19 @@ const CpmScheduler = () => {
       }
 
       if (e.data.type === "cpm-calculated") {
-        if (isAdminOrPm) {
-          if (e.data.isNewImport) {
-            upsertActivities(e.data.activities);
-          } else {
-            upsertActivitiesOnly(e.data.activities);
+        const doPostProcess = async () => {
+          if (isAdminOrPm) {
+            if (e.data.isNewImport) {
+              await upsertActivities(e.data.activities);
+            } else {
+              await upsertActivitiesOnly(e.data.activities);
+            }
           }
-        }
-        // Auto-mode: recalculate elapsed progress then refresh
-        batchUpdateElapsedProgress().then(() => {
+          await batchUpdateElapsedProgress();
           setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
           queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
-        });
+        };
+        doPostProcess();
       }
       if (e.data.type === "activity-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
