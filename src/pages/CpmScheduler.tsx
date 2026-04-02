@@ -428,21 +428,6 @@ const CpmScheduler = () => {
 
   return (
     <div className="h-full w-full flex flex-col relative">
-      {/* Manual refresh button — visible to all users */}
-      <div className="absolute top-2 left-2 z-10">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs px-2 gap-1 bg-card/90 backdrop-blur-sm border-border shadow-sm"
-          onClick={() => {
-            hydrateIframe(iframeRef.current?.contentWindow || null);
-            toast.success("CPM 데이터 새로고침 완료");
-          }}
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          새로고침
-        </Button>
-      </div>
 
       {/* Floating toolbar — Admin/PM only */}
       {isAdminOrPm && (
