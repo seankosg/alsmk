@@ -28,6 +28,7 @@ interface CalendarEvent {
 }
 
 export default function Calendar() {
+  const { readOnly } = useAuthContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week">("month");
   const [dialogOpen, setDialogOpen] = useState(false);
