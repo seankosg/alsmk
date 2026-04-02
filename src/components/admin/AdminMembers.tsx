@@ -175,14 +175,32 @@ export function AdminMembers() {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       const res = await supabase.functions.invoke("admin-manage-user", {
-        body: { action: "toggle-admin", user_id: userId, grant },
+        body: { action: "toggle-role", user_id: userId, role: "admin", grant },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (res.error) throw new Error(res.error.message);
       if (res.data?.error) throw new Error(res.data.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+      toast.success("Role updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const toggleGuestRole = useMutation({
+    mutationFn: async ({ userId, role, grant }: { userId: string; role: "guest" | "super_guest"; grant: boolean }) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "toggle-role", user_id: userId, role, grant },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.error) throw new Error(res.error.message);
+      if (res.data?.error) throw new Error(res.data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
       toast.success("Role updated");
     },
     onError: (e) => toast.error(e.message),
