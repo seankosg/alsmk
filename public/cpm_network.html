@@ -3519,7 +3519,27 @@ window.addEventListener('message', function(e) {
     return;
   }
   if (e.data.type === 'request-cpm-data') {
-    postCpmCalculated();
+    // Lightweight sync: send current activities without triggering DB upsert
+    if (window.parent === window || !calculated || !activities.length) return;
+    var runtimeData = activities.map(function(a) {
+      return {
+        id: a.id,
+        mppTaskId: a.mppTaskId || null,
+        mppUid: a._uid || null,
+        name: a.name || '',
+        duration: a.duration,
+        progress: a.progress,
+        wbsFull: a.wbsFull || a.wbs || '',
+        isCritical: a.isCritical,
+        isMilestone: a.isMilestone || false,
+        startDate: a.startDate ? fmtDate(a.startDate) : null,
+        finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
+        es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
+        customFields: a.customFields || {},
+        predLinks: a.predLinks || a.predecessors || ''
+      };
+    });
+    window.parent.postMessage({ type: 'cpm-runtime-data', activities: runtimeData }, '*');
   }
   if (e.data.type === 'activity-status-update') {
     window._activityStatusMap = {};
