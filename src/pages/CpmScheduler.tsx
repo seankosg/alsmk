@@ -34,36 +34,34 @@ const CpmScheduler = () => {
   const { isAdminOrPm, memberName } = useAuthContext();
   const { hydrateIframe, refreshStatus, batchUpdateElapsedProgress } = useCpmViewModel();
   const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
-  const highlightNodeRef = useRef<string | null>(searchParams.get("highlight"));
 
-  // Forward highlight param to iframe once it's ready + auto-open panel
+  // Reactive highlight param — re-runs whenever URL changes (works with keep-alive mount)
+  const highlightParam = searchParams.get("highlight");
+
   useEffect(() => {
-    const nodeId = highlightNodeRef.current;
-    if (!nodeId) return;
-    // Clear the param so it doesn't re-trigger
-    highlightNodeRef.current = null;
+    if (!highlightParam) return;
+    // Clear the param so it doesn't re-trigger on re-render
     setSearchParams((prev) => { prev.delete("highlight"); return prev; }, { replace: true });
     // Wait for iframe to be ready, then send focus-node
     const trySend = () => {
-      iframeRef.current?.contentWindow?.postMessage({ type: "focus-node", nodeId }, "*");
+      iframeRef.current?.contentWindow?.postMessage({ type: "focus-node", nodeId: highlightParam }, "*");
     };
     // Retry a few times since iframe may still be loading
     const timers = [500, 1500, 3000].map((delay) => setTimeout(trySend, delay));
 
     // Also auto-open the ActivityTaskPanel for this node
     (async () => {
-      // Try matching by mpp_task_id first, then by id
       let { data } = await supabase
         .from("cpm_activities")
         .select("*")
-        .eq("mpp_task_id", nodeId)
+        .eq("mpp_task_id", highlightParam)
         .limit(1)
         .maybeSingle();
       if (!data) {
         const res = await supabase
           .from("cpm_activities")
           .select("*")
-          .eq("id", nodeId)
+          .eq("id", highlightParam)
           .limit(1)
           .maybeSingle();
         data = res.data;
@@ -89,7 +87,7 @@ const CpmScheduler = () => {
     })();
 
     return () => timers.forEach(clearTimeout);
-  }, [setSearchParams]);
+  }, [highlightParam, setSearchParams]);
 
   // Bulk toggle all activities' progress mode
   const bulkToggleProgressMode = useCallback(async (targetMode: "auto" | "manual") => {
