@@ -36,7 +36,7 @@ export function KukuProgressOverview() {
   const gap = avgActual - avgPlanned;
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" />
