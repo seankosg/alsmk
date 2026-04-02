@@ -12,6 +12,7 @@ import { PersonnelTable } from "@/components/dashboard/PersonnelTable";
 import { PartStatusBoard } from "@/components/dashboard/PartStatusBoard";
 import { ExportReportDialog } from "@/components/dashboard/ExportReportDialog";
 import { KukuProgressOverview } from "@/components/dashboard/KukuProgressOverview";
+import { CpmSummaryBanner } from "@/components/dashboard/CpmSummaryBanner";
 import { KukuCoverageRate } from "@/components/dashboard/KukuCoverageRate";
 import { KukuPredecessorWatch } from "@/components/dashboard/KukuPredecessorWatch";
 import { KukuDelayRiskBoard } from "@/components/dashboard/KukuDelayRiskBoard";
@@ -141,6 +142,7 @@ const Index = () => {
           새로고침
         </Button>
       </div>
+      <CpmSummaryBanner />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <KukuProgressOverview />
         <KukuCoverageRate />
