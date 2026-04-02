@@ -1,42 +1,56 @@
 
 
-# 새 XML 업로드 후 자동모드 진도율 미표시 수정
+# 대시보드 2열 위젯 높이 동기화
 
-## 원인
+## 목적
+좌우로 나란히 배치된 위젯 쌍의 높이를 동일하게 맞춤 (우측 기준)
 
-새 XML 업로드 시 흐름:
-1. iframe → `cpm-calculated` (isNewImport: true) → `upsertActivities()` 실행
-2. XML의 원본 progress 값(보통 0%)이 DB에 저장됨
-3. `refreshStatus()`만 호출 → DB에서 progress를 읽어 iframe에 전송
-4. **`batchUpdateElapsedProgress()`가 호출되지 않음** → auto 모드임에도 경과일수 기반 진도율 계산이 안 됨
+## 수정: `src/pages/Index.tsx`
 
-반면 페이지 로드 시에는 `hydrateIframe()` → `batchUpdateElapsedProgress()` → progress 계산 후 전송하여 정상 동작
+모든 2열 그리드 컨테이너에 CSS Grid의 `items-stretch` (기본값)를 활용하되, 각 자식 위젯의 Card 컴포넌트가 부모 높이를 채우도록 `h-full` 클래스를 적용:
 
-## 수정: `src/pages/CpmScheduler.tsx`
+1. 각 `grid` 래퍼의 직계 자식 `div`에 `className="h-full"` 추가
+2. 각 위젯 컴포넌트 내부의 최상위 `<Card>`에 `className="h-full flex flex-col"` 적용
+3. `<CardContent>` 에 `flex-1 min-h-0` 추가하여 남은 공간을 채우도록 처리
 
-`cpm-calculated` 핸들러에서 upsert 완료 후 `batchUpdateElapsedProgress()`를 호출하고, 그 후 `refreshStatus()`를 실행하도록 변경:
+### 대상 위젯 (6개 그리드 행)
+- CategoryProgressChart / TeamProgressChart
+- OverdueTasksBoard / CriticalIssueBoard
+- BehindScheduleBoard / UpcomingDeadlines
+- KukuProgressOverview / KukuCoverageRate
+- KukuPredecessorWatch / KukuDelayRiskBoard
+- TeamHeatmap / PartStatusBoard
 
+### Index.tsx 변경 예시
+```tsx
+{/* 기존 */}
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div data-export-id="category-progress">
+    <CategoryProgressChart />
+  </div>
+  <div data-export-id="team-progress">
+    <TeamProgressChart />
+  </div>
+</div>
+
+{/* 변경: 자식에 h-full 추가 (grid items-stretch가 기본이므로 자식이 h-full이면 동일 높이) */}
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div data-export-id="category-progress" className="h-full">
+    <CategoryProgressChart />
+  </div>
+  <div data-export-id="team-progress" className="h-full">
+    <TeamProgressChart />
+  </div>
+</div>
 ```
-if (e.data.type === "cpm-calculated") {
-  if (isAdminOrPm) {
-    if (e.data.isNewImport) {
-      upsertActivities(e.data.activities);
-    } else {
-      upsertActivitiesOnly(e.data.activities);
-    }
-  }
-  // 자동 진도율 갱신 후 상태 전송
-  batchUpdateElapsedProgress().then(() => {
-    setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
-  });
-}
-```
 
-또한 `upsertActivities`와 `upsertActivitiesOnly` 내부의 `setTimeout(() => refreshStatus(...), 500)` 호출은 중복이므로 제거하거나, 외부 핸들러의 호출과 타이밍을 조정하여 이중 호출을 방지
+### 각 위젯 컴포넌트 수정
+최상위 `<Card>`에 `h-full flex flex-col`, `<CardContent>`에 `flex-1 min-h-0` 추가
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `src/pages/CpmScheduler.tsx` | cpm-calculated 핸들러에 batchUpdateElapsedProgress 호출 추가 |
+| `src/pages/Index.tsx` | 그리드 자식 div에 h-full 추가 |
+| 12개 위젯 컴포넌트 | Card에 h-full flex flex-col, CardContent에 flex-1 |
 
