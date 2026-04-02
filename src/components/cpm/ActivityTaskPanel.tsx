@@ -496,6 +496,25 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
               </div>
             )}
 
+            {/* Successors */}
+            {activity.successors && activity.successors.length > 0 && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 text-xs space-y-1">
+                <div className="text-[10px] text-muted-foreground font-semibold">후행 Activity ({activity.successors.length})</div>
+                {activity.successors.map((s, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-foreground">
+                    {s.mppTaskId && <span className="font-mono text-primary">#{s.mppTaskId}</span>}
+                    <span className="truncate">{s.name}</span>
+                    {s.wbs && <span className="text-muted-foreground font-mono ml-auto">{s.wbs}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {activity.successors && activity.successors.length === 0 && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 text-xs text-muted-foreground">
+                후행 Activity 없음 (종료 노드)
+              </div>
+            )}
+
             {/* Custom Fields */}
             {activity.customFields && Object.keys(activity.customFields).length > 0 && (
               <div className="bg-muted/50 rounded px-2 py-1.5 text-xs space-y-1">
