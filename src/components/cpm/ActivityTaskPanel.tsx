@@ -32,6 +32,7 @@ export interface CpmActivity {
   showDetail?: boolean;
   isPassThrough?: boolean;
   predecessors?: Array<{ id: string; mppTaskId: string | null; name: string; wbs: string }>;
+  successors?: Array<{ id: string; mppTaskId: string | null; name: string; wbs: string }>;
   customFields?: Record<string, string>;
 }
 
@@ -492,6 +493,25 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
             {activity.predecessors && activity.predecessors.length === 0 && (
               <div className="bg-muted/50 rounded px-2 py-1.5 text-xs text-muted-foreground">
                 선행 Activity 없음 (시작 노드)
+              </div>
+            )}
+
+            {/* Successors */}
+            {activity.successors && activity.successors.length > 0 && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 text-xs space-y-1">
+                <div className="text-[10px] text-muted-foreground font-semibold">후행 Activity ({activity.successors.length})</div>
+                {activity.successors.map((s, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-foreground">
+                    {s.mppTaskId && <span className="font-mono text-primary">#{s.mppTaskId}</span>}
+                    <span className="truncate">{s.name}</span>
+                    {s.wbs && <span className="text-muted-foreground font-mono ml-auto">{s.wbs}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {activity.successors && activity.successors.length === 0 && (
+              <div className="bg-muted/50 rounded px-2 py-1.5 text-xs text-muted-foreground">
+                후행 Activity 없음 (종료 노드)
               </div>
             )}
 

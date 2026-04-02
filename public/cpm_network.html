@@ -2078,8 +2078,9 @@ function showNodeTooltip(e, actId) {
   const isC  = a.isCritical;
   const isPT = !isC && a.tf === 0;
   const accentColor = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#4da6ff';
-  const predNames = (a.predecessors||'').split(',').map(s=>s.trim()).filter(Boolean)
-    .map(pid => { const p = map[pid]; return p ? (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name : pid; })
+  const rawPredStr = (a.predLinks && a.predLinks.trim()) ? a.predLinks : (a.predecessors||'');
+  const predNames = rawPredStr.split(',').map(s=>s.trim().split(':')[0].trim()).filter(s=>s&&map[s])
+    .map(pid => { const p = map[pid]; return (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name; })
     .join(', ') || '없음 (시작)';
 
   const dateRow = a.startDate
@@ -3407,17 +3408,31 @@ function handleNodeDblClick(event, actId) {
   highlightSidebarCard(actId);
 
   // Build predecessor details
-  const predNames = (a.predecessors||'').split(',').map(s=>s.trim()).filter(Boolean)
+  // predLinks 우선 파싱으로 #mppTaskId 정확히 표시
+  const rawPredStr = (a.predLinks && a.predLinks.trim()) ? a.predLinks : (a.predecessors||'');
+  const predNames = rawPredStr.split(',').map(s=>s.trim().split(':')[0].trim()).filter(s=>s&&actMap[s])
     .map(pid => {
       const p = actMap[pid];
-      return p ? { id: pid, mppTaskId: p.mppTaskId||null, name: p.name||'', wbs: p.wbsFull||p.wbs||'' } : { id: pid, mppTaskId: null, name: pid, wbs: '' };
+      return { id: pid, mppTaskId: p.mppTaskId||null, name: p.name||'', wbs: p.wbsFull||p.wbs||'' };
     });
+
+  // 후행(Successor) 빌드: 이 Activity를 선행으로 참조하는 모든 Activity
+  const successorNames = [];
+  activities.forEach(other => {
+    if (other.id === a.id) return;
+    const otherPredStr = (other.predLinks && other.predLinks.trim()) ? other.predLinks : (other.predecessors||'');
+    const otherPreds = otherPredStr.split(',').map(s=>s.trim().split(':')[0].trim()).filter(Boolean);
+    if (otherPreds.includes(a.id)) {
+      successorNames.push({ id: other.id, mppTaskId: other.mppTaskId||null, name: other.name||'', wbs: other.wbsFull||other.wbs||'' });
+    }
+  });
 
   window.parent.postMessage({
     type: 'activity-detail-click',
     activity: {
       ...buildActivityPayload(a),
       predecessors: predNames,
+      successors: successorNames,
       isPassThrough: !a.isCritical && a.tf === 0
     }
   }, '*');
