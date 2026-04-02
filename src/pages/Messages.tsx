@@ -103,7 +103,7 @@ export default function Messages() {
         <ConversationList
           selectedId={selectedConversation}
           onSelect={setSelectedConversation}
-          onNewMessage={() => setNewConvoOpen(true)}
+          onNewMessage={readOnly ? undefined : () => setNewConvoOpen(true)}
           onDelete={(id) => {
             if (selectedConversation === id) setSelectedConversation(null);
           }}
