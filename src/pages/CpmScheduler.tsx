@@ -72,17 +72,17 @@ const CpmScheduler = () => {
         setSelectedActivity({
           id: data.id,
           name: data.name,
-          wbsFull: data.wbs_full,
+          wbsFull: data.wbs_full || "",
           duration: data.duration,
           progress: data.progress,
           isCritical: data.is_critical,
           isMilestone: data.is_milestone,
           mppTaskId: data.mpp_task_id,
-          predLinks: data.pred_links,
-          customFields: data.custom_fields as Record<string, string> | null,
+          mppUid: data.mpp_uid,
+          customFields: (data.custom_fields as Record<string, string> | null) ?? undefined,
           startDate: data.start_date,
           finishDate: data.finish_date,
-          progressMode: data.progress_mode as "auto" | "manual",
+          es: data.es ?? 0, ef: data.ef ?? 0, ls: data.ls ?? 0, lf: data.lf ?? 0, tf: data.tf ?? 0,
           showDetail: true,
         });
       }
