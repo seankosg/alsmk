@@ -103,9 +103,13 @@ Deno.serve(async (req) => {
 
     // Check if we should save to DB
     let saveToDb = false;
+    let backupName = `auto_${new Date().toISOString().slice(0, 10)}`;
     try {
       const body = await req.json();
       saveToDb = body?.save_to_db === true;
+      if (body?.backup_name && typeof body.backup_name === "string") {
+        backupName = body.backup_name.trim().slice(0, 100) || backupName;
+      }
     } catch {
       // No body or invalid JSON — just return the export
     }
