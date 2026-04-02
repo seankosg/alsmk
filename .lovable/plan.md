@@ -1,32 +1,41 @@
 
 
-# CPM Summary Banner 개선
+# highlight 노드 이동 수정 — searchParams 반응형 전환
 
-## 변경 내용
+## 원인 (1줄 요약)
+`useRef` + `useEffect([])` 조합은 keep-alive 컴포넌트에서 URL 변경을 감지하지 못함
 
-### 1. `src/components/dashboard/CpmSummaryBanner.tsx`
+## 변경: `src/pages/CpmScheduler.tsx`
 
-**Data Source 카드 제거 → 헤더로 이동**
-- 6번째 KpiBox (Zap 아이콘, Runtime/DB 뱃지) 삭제
-- "CPM Summary" 텍스트 옆에 `text-muted-foreground/50` 스타일로 `· Runtime` 또는 `· DB` 표시
+**삭제** (line 37):
+```typescript
+const highlightNodeRef = useRef<string | null>(searchParams.get("highlight"));
+```
 
-**6번째 자리에 복합 KPI 카드 추가**
-- 하나의 KpiBox 크기 안에 3개 미니 지표를 세로로 배치:
-  - **Delayed**: `kukuActivities` 중 `progress < plannedProgress - 5` 인 건수 (빨간색)
-  - **Pred Alerts**: `predecessors` 중 `gap < -5` 인 건수 (주황색)
-  - **Gap**: 전체 KUKU 가중평균 (actual - planned) % (음수면 빨간, 양수면 초록)
+**교체** (line 40~51의 useEffect):
+```typescript
+const highlightParam = searchParams.get("highlight");
 
-**아이콘·라벨 크기 확대**
-- 아이콘: `h-4 w-4` → `h-5 w-5`
-- 라벨 텍스트: `text-[11px]` → `text-xs`
-- 값 텍스트: `text-xl` → `text-2xl`
+useEffect(() => {
+  if (!highlightParam) return;
+  
+  // URL에서 param 제거 (재트리거 방지)
+  setSearchParams((prev) => { prev.delete("highlight"); return prev; }, { replace: true });
+  
+  // iframe에 focus-node 전송 (로딩 타이밍 대비 재시도)
+  const trySend = () => {
+    iframeRef.current?.contentWindow?.postMessage({ type: "focus-node", nodeId: highlightParam }, "*");
+  };
+  const timers = [500, 1500, 3000].map((d) => setTimeout(trySend, d));
+  
+  // ActivityTaskPanel 자동 열기 (기존 DB 조회 로직 그대로)
+  (async () => { /* 기존 mpp_task_id/id 조회 → setSelectedActivity */ })();
+  
+  return () => timers.forEach(clearTimeout);
+}, [highlightParam]);
+```
 
-### 2. `src/hooks/useKukuDashboard.ts`
-- 변경 불필요 — `kukuActivities`의 `progress`, `plannedProgress`와 `predecessors`의 `gap` 값이 이미 반환되므로 컴포넌트에서 직접 계산
+핵심: `useRef` 기반 1회 실행 → `searchParams.get("highlight")` 값을 의존성으로 감시하여 URL 변경 시마다 재실행.
 
-## 변경 파일
-
-| 파일 | 내용 |
-|------|------|
-| `src/components/dashboard/CpmSummaryBanner.tsx` | Data Source 카드 제거, 복합 KPI 카드 추가, 크기 확대, 헤더에 소스명 표시 |
+변경량: ~15줄 수정, 로직 변경 없음 (감시 방식만 전환)
 
