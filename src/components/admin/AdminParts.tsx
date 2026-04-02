@@ -35,7 +35,7 @@ export function AdminParts() {
   const { data: parts = [], isLoading } = useQuery({
     queryKey: ["parts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("parts").select("*, teams(name)").order("name");
+      const { data, error } = await supabase.from("parts").select("*, teams(name)").is("deleted_at", null).order("name");
       if (error) throw error;
       return data;
     },
