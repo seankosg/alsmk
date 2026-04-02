@@ -171,7 +171,8 @@ export function useKukuDashboard() {
       const kukuActivities: KukuActivity[] = activities
         .filter((a) => getText1(a) === "KUKU")
         .map((a) => {
-          const tIds = activityMappings.get(a.id) || [];
+          const dbId = resolveDbId(a);
+          const tIds = activityMappings.get(dbId) || [];
           const validTasks = tIds.map((id) => taskMap[id]).filter(Boolean);
           const effectiveProgress = getEffectiveProgress(a);
           const plannedProgress = a.start_date && a.finish_date
