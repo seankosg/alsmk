@@ -236,6 +236,7 @@ export function useKukuDashboard() {
 
           predInfos.push({
             id: predAct.id,
+            mpp_task_id: predAct.mpp_task_id,
             name: predAct.name,
             wbs_full: predAct.wbs_full,
             text1: getText1(predAct),
