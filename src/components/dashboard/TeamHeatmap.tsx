@@ -98,7 +98,7 @@ export function TeamHeatmap() {
 
   return (
     <>
-      <Card>
+      <Card className="h-full flex flex-col">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Team Heatmap — Gap Analysis</CardTitle>
           <p className="text-xs text-muted-foreground">Part colors based on Planned vs Actual gap. Click a part to drill down.</p>
