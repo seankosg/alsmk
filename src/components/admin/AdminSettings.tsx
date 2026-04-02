@@ -51,12 +51,12 @@ export function AdminSettings() {
 
   // Auto backup settings from project_settings
   const { data: backupSettings } = useQuery({
-    queryKey: ["project_settings", "backup"],
+    queryKey: ["project_settings", "backup_and_kuku"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_settings")
         .select("key, value")
-        .in("key", ["auto_backup_enabled", "auto_backup_interval", "auto_backup_retention"]);
+        .in("key", ["auto_backup_enabled", "auto_backup_interval", "auto_backup_retention", "kuku_delay_threshold", "kuku_pred_threshold"]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((r) => (map[r.key] = r.value));
@@ -69,6 +69,8 @@ export function AdminSettings() {
       setAutoEnabled(backupSettings.auto_backup_enabled === "true");
       setAutoInterval(backupSettings.auto_backup_interval || "daily");
       setAutoRetention(backupSettings.auto_backup_retention || "30");
+      setKukuDelayThreshold(backupSettings.kuku_delay_threshold || "5");
+      setKukuPredThreshold(backupSettings.kuku_pred_threshold || "5");
     }
   }, [backupSettings]);
 
