@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { useKukuDashboard } from "@/hooks/useKukuDashboard";
 import { Eye, Loader2, AlertTriangle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
 
 export function KukuPredecessorWatch() {
   const { data, isLoading } = useKukuDashboard();
