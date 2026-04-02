@@ -36,7 +36,7 @@ const CpmScheduler = () => {
   const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
   const highlightNodeRef = useRef<string | null>(searchParams.get("highlight"));
 
-  // Forward highlight param to iframe once it's ready
+  // Forward highlight param to iframe once it's ready + auto-open panel
   useEffect(() => {
     const nodeId = highlightNodeRef.current;
     if (!nodeId) return;
@@ -49,6 +49,45 @@ const CpmScheduler = () => {
     };
     // Retry a few times since iframe may still be loading
     const timers = [500, 1500, 3000].map((delay) => setTimeout(trySend, delay));
+
+    // Also auto-open the ActivityTaskPanel for this node
+    (async () => {
+      // Try matching by mpp_task_id first, then by id
+      let { data } = await supabase
+        .from("cpm_activities")
+        .select("*")
+        .eq("mpp_task_id", nodeId)
+        .limit(1)
+        .maybeSingle();
+      if (!data) {
+        const res = await supabase
+          .from("cpm_activities")
+          .select("*")
+          .eq("id", nodeId)
+          .limit(1)
+          .maybeSingle();
+        data = res.data;
+      }
+      if (data) {
+        setSelectedActivity({
+          id: data.id,
+          name: data.name,
+          wbsFull: data.wbs_full || "",
+          duration: data.duration,
+          progress: data.progress,
+          isCritical: data.is_critical,
+          isMilestone: data.is_milestone,
+          mppTaskId: data.mpp_task_id,
+          mppUid: data.mpp_uid,
+          customFields: (data.custom_fields as Record<string, string> | null) ?? undefined,
+          startDate: data.start_date,
+          finishDate: data.finish_date,
+          es: data.es ?? 0, ef: data.ef ?? 0, ls: data.ls ?? 0, lf: data.lf ?? 0, tf: data.tf ?? 0,
+          showDetail: true,
+        });
+      }
+    })();
+
     return () => timers.forEach(clearTimeout);
   }, [setSearchParams]);
 
