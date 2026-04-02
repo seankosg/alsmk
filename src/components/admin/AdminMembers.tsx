@@ -64,17 +64,20 @@ export function AdminMembers() {
     },
   });
 
-  const { data: adminUserIds = [] } = useQuery({
-    queryKey: ["admin-roles"],
+  const { data: userRoles = [] } = useQuery({
+    queryKey: ["all-user-roles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_roles")
-        .select("user_id")
-        .eq("role", "admin");
+        .select("user_id, role");
       if (error) throw error;
-      return data.map((r) => r.user_id);
+      return data;
     },
   });
+
+  const adminUserIds = userRoles.filter((r) => r.role === "admin").map((r) => r.user_id);
+  const guestUserIds = userRoles.filter((r) => r.role === "guest").map((r) => r.user_id);
+  const superGuestUserIds = userRoles.filter((r) => r.role === "super_guest").map((r) => r.user_id);
 
   const save = useMutation({
     mutationFn: async () => {
