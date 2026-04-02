@@ -124,9 +124,11 @@ export default function Calendar() {
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrev}><ChevronLeft className="h-4 w-4" /></Button>
           <span className="text-sm font-semibold min-w-[140px] text-center">{headerLabel}</span>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNext}><ChevronRight className="h-4 w-4" /></Button>
-          <Button size="sm" onClick={() => { setSelectedEvent(null); setSelectedDate(format(new Date(), "yyyy-MM-dd")); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-1" /> 일정 추가
-          </Button>
+          {!readOnly && (
+            <Button size="sm" onClick={() => { setSelectedEvent(null); setSelectedDate(format(new Date(), "yyyy-MM-dd")); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" /> 일정 추가
+            </Button>
+          )}
         </div>
       </div>
 
