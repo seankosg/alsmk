@@ -138,7 +138,7 @@ export function CategoryProgressChart() {
 
   return (
     <>
-      <Card>
+      <Card className="h-full flex flex-col">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Category Progress</CardTitle>
           <p className="text-xs text-muted-foreground">Planned vs Actual by category — click a bar to drill down</p>
