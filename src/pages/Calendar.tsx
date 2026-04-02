@@ -82,12 +82,14 @@ export default function Calendar() {
   const handleToday = () => setCurrentDate(new Date());
 
   const handleDateClick = (date: Date) => {
+    if (readOnly) return;
     setSelectedDate(format(date, "yyyy-MM-dd"));
     setSelectedEvent(null);
     setDialogOpen(true);
   };
 
   const handleEventClick = (event: CalendarEvent) => {
+    if (readOnly) return;
     setSelectedEvent(event);
     setSelectedDate(event.event_date);
     setDialogOpen(true);
