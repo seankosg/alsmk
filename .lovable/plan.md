@@ -1,53 +1,42 @@
 
 
-# 좌측 사이드바 선행/후행 #mppTaskId 표시 수정
+# 새 XML 업로드 후 자동모드 진도율 미표시 수정
 
-## 현재 상태
+## 원인
 
-- **우측 React 패널**: ✅ 선행/후행 모두 `#mppTaskId`로 정상 표시
-- **네트워크 툴팁**: ✅ 선행은 `#mppTaskId`, 후행은 미표시
-- **좌측 iframe 사이드바 카드**: ❌ `a.predecessors` 원시 문자열(`A244,A250`) 그대로 표시
+새 XML 업로드 시 흐름:
+1. iframe → `cpm-calculated` (isNewImport: true) → `upsertActivities()` 실행
+2. XML의 원본 progress 값(보통 0%)이 DB에 저장됨
+3. `refreshStatus()`만 호출 → DB에서 progress를 읽어 iframe에 전송
+4. **`batchUpdateElapsedProgress()`가 호출되지 않음** → auto 모드임에도 경과일수 기반 진도율 계산이 안 됨
 
-## 수정: `public/cpm_network.html`
+반면 페이지 로드 시에는 `hydrateIframe()` → `batchUpdateElapsedProgress()` → progress 계산 후 전송하여 정상 동작
 
-### 1. 선행작업 input (line 766)
-`a.predecessors` 대신 `predLinks`를 파싱하여 `#mppTaskId + 이름` 형태로 변환:
+## 수정: `src/pages/CpmScheduler.tsx`
 
-```javascript
-// 변경 전
-value="${(a.predecessors||'')}"
+`cpm-calculated` 핸들러에서 upsert 완료 후 `batchUpdateElapsedProgress()`를 호출하고, 그 후 `refreshStatus()`를 실행하도록 변경:
 
-// 변경 후: predLinks 파싱 → #mppTaskId 이름 형식
-value="${(() => {
-  const raw = (a.predLinks&&a.predLinks.trim())?a.predLinks:(a.predecessors||'');
-  const map = {}; activities.forEach(x=>map[x.id]=x);
-  return raw.split(',').map(s=>s.trim().split(':')[0].trim())
-    .filter(s=>s&&map[s])
-    .map(pid=>{const p=map[pid]; return (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name;})
-    .join(', ') || '-';
-})()}"
+```
+if (e.data.type === "cpm-calculated") {
+  if (isAdminOrPm) {
+    if (e.data.isNewImport) {
+      upsertActivities(e.data.activities);
+    } else {
+      upsertActivitiesOnly(e.data.activities);
+    }
+  }
+  // 자동 진도율 갱신 후 상태 전송
+  batchUpdateElapsedProgress().then(() => {
+    setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+  });
+}
 ```
 
-### 2. 후행작업 input (line 772)
-현재 `a.successors`가 비어있거나 A-ID만 있으므로, 동적으로 후행을 계산:
-
-```javascript
-// 변경 후: 실시간 successor 계산 → #mppTaskId 이름 형식
-value="${(() => {
-  const map = {}; activities.forEach(x=>map[x.id]=x);
-  return activities.filter(o=>o.id!==a.id).filter(o=>{
-    const ps=(o.predLinks&&o.predLinks.trim())?o.predLinks:(o.predecessors||'');
-    return ps.split(',').map(s=>s.trim().split(':')[0].trim()).includes(a.id);
-  }).map(o=>(o.mppTaskId?'#'+o.mppTaskId:o.id)+' '+o.name).join(', ') || '-';
-})()}"
-```
-
-### 3. 툴팁에 후행 추가 (line 2081~2084)
-기존 선행 표시 아래에 후행 정보도 추가
+또한 `upsertActivities`와 `upsertActivitiesOnly` 내부의 `setTimeout(() => refreshStatus(...), 500)` 호출은 중복이므로 제거하거나, 외부 핸들러의 호출과 타이밍을 조정하여 이중 호출을 방지
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `public/cpm_network.html` | 좌측 사이드바 카드의 선행/후행을 #mppTaskId로 변환 + 툴팁에 후행 추가 |
+| `src/pages/CpmScheduler.tsx` | cpm-calculated 핸들러에 batchUpdateElapsedProgress 호출 추가 |
 
