@@ -1,39 +1,46 @@
 
 
-# KUKU Predecessor Watch — 완료일 기준 지연일수 표시
+# KUKU Predecessor Watch 중복 제거
 
-## 변경 내용
+## 원인
+중복 방지 키가 `${predAct.id}::${ka.id}` (선행+후행 쌍)이므로, 동일 선행 Activity가 여러 KUKU Activity의 predecessor이면 각각 별도 행으로 표시됨.
 
-### 1. `src/hooks/useKukuDashboard.ts`
+## 수정 방안
 
-**PredecessorInfo 인터페이스에 필드 추가** (line 33 근처):
+### `src/hooks/useKukuDashboard.ts`
+
+1. **PredecessorInfo 인터페이스 변경**:
+   - `kukuSuccessorName: string` → `kukuSuccessorNames: string[]` (복수형)
+
+2. **중복 방지 키를 `predAct.id`만으로 변경**:
+   - 같은 선행 Activity가 이미 추가되었으면, 기존 항목의 `kukuSuccessorNames` 배열에 후행 이름만 추가
+   - 새로운 선행이면 신규 항목 생성
+
 ```typescript
-finish_date: string | null;
-delayDays: number | null;  // 오늘 - finish_date (양수면 지연)
+// 기존
+const key = `${predAct.id}::${ka.id}`;
+
+// 변경
+const key = predAct.mpp_task_id || predAct.id;
+const existing = predInfoMap.get(key);
+if (existing) {
+  existing.kukuSuccessorNames.push(ka.name);
+  return;
+}
 ```
 
-**predInfos.push 로직에 값 추가** (line 241~252):
-- `finish_date: predAct.finish_date`
-- `delayDays`: `finish_date`가 있고 오늘보다 과거이면 `Math.floor((today - finishDate) / 86400000)`, 아니면 `null`
+### `src/components/dashboard/KukuPredecessorWatch.tsx`
 
-### 2. `src/components/dashboard/KukuPredecessorWatch.tsx`
+- `p.kukuSuccessorName` → `p.kukuSuccessorNames.join(", ")` 표시
+- 여러 KUKU에 영향을 미치는 경우 "→ KUKU-A, KUKU-B" 형태로 표시
 
-**우측 정보 영역에 지연일수 표시** (line 57~63):
-- 기존 Actual/Plan/Gap 아래에 `delayDays > 0`이면 빨간색으로 `D+{일수}` 표시
-- `delayDays`가 null이거나 0 이하이면 표시하지 않음
-
-```text
-기존:          추가 후:
-Actual 45%     Actual 45%
-Plan 70%       Plan 70%
--25%p          -25%p
-               D+12
-```
+### `src/components/dashboard/CpmSummaryBanner.tsx`
+- `kukuSuccessorName` 참조가 있으면 `kukuSuccessorNames`로 변경
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `src/hooks/useKukuDashboard.ts` | `PredecessorInfo`에 `finish_date`, `delayDays` 추가 |
-| `src/components/dashboard/KukuPredecessorWatch.tsx` | 지연일수 `D+N` 표시 |
+| `src/hooks/useKukuDashboard.ts` | 중복 키를 선행 ID만으로 변경, `kukuSuccessorNames` 배열화 |
+| `src/components/dashboard/KukuPredecessorWatch.tsx` | 복수 후행 이름 표시 |
 
