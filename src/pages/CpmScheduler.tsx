@@ -391,6 +391,10 @@ const CpmScheduler = () => {
       if (e.data.type === "snapshot-current") {
         setPendingSnapshot(e.data.snapshot);
       }
+      if (e.data.type === "cpm-refresh-request") {
+        hydrateIframe(iframeRef.current?.contentWindow || null);
+        toast.success("CPM 데이터 새로고침 완료");
+      }
     };
 
     window.addEventListener("message", handler);
