@@ -51,10 +51,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [hasVisitedCpm, setHasVisitedCpm] = useState(false);
   const isCpmRoute = location.pathname === "/cpm";
+  const isDashboardRoute = location.pathname === "/";
+  const shouldMountCpm = hasVisitedCpm || isCpmRoute || isDashboardRoute;
 
   useEffect(() => {
-    if (isCpmRoute && !hasVisitedCpm) setHasVisitedCpm(true);
-  }, [isCpmRoute, hasVisitedCpm]);
+    if ((isCpmRoute || isDashboardRoute) && !hasVisitedCpm) setHasVisitedCpm(true);
+  }, [isCpmRoute, isDashboardRoute, hasVisitedCpm]);
 
   if (auth.loading) {
     return (
@@ -123,7 +125,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </header>
             <main className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 relative flex flex-col">
-              {hasVisitedCpm && (
+              {shouldMountCpm && (
                 <div style={{ display: isCpmRoute ? 'block' : 'none' }} className="absolute inset-0">
                   <CpmScheduler />
                 </div>

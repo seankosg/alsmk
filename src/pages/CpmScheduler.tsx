@@ -197,6 +197,34 @@ const CpmScheduler = () => {
       .join(",");
   }, []);
 
+  const buildRuntimeActivities = useCallback((activities: any[]): CpmRuntimeData["activities"] => {
+    const idToMpp = new Map<string, string>();
+    activities.forEach((a) => {
+      if (a?.id && a?.mppTaskId) idToMpp.set(a.id, a.mppTaskId);
+    });
+
+    return activities.map((a) => ({
+      id: a.id,
+      mppTaskId: a.mppTaskId || null,
+      mppUid: a.mppUid || a._uid || null,
+      name: a.name || "",
+      duration: a.duration || 0,
+      progress: a.progress ?? 0,
+      wbsFull: a.wbsFull || a.wbs || "",
+      isCritical: Boolean(a.isCritical),
+      isMilestone: Boolean(a.isMilestone),
+      startDate: a.startDate || null,
+      finishDate: a.finishDate || null,
+      es: a.es ?? 0,
+      ef: a.ef ?? 0,
+      ls: a.ls ?? 0,
+      lf: a.lf ?? 0,
+      tf: a.tf ?? 0,
+      customFields: a.customFields || {},
+      predLinks: convertPredLinks(a.predLinks || a.predecessors || null, idToMpp) || "",
+    }));
+  }, [convertPredLinks]);
+
   // Lightweight upsert: only update activity data, NO orphan detection
   const upsertActivitiesOnly = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
@@ -413,7 +441,7 @@ const CpmScheduler = () => {
       if (e.data.type === "cpm-calculated") {
         // Store runtime cache immediately (before DB upsert)
         const runtimeData: CpmRuntimeData = {
-          activities: e.data.activities,
+          activities: buildRuntimeActivities(e.data.activities || []),
           lastSyncTime: Date.now(),
           source: "cpm-calculated",
         };
@@ -436,7 +464,7 @@ const CpmScheduler = () => {
       // Lightweight runtime sync (no DB upsert) — triggered from dashboard
       if (e.data.type === "cpm-runtime-data") {
         const runtimeData: CpmRuntimeData = {
-          activities: e.data.activities,
+          activities: buildRuntimeActivities(e.data.activities || []),
           lastSyncTime: Date.now(),
           source: "cpm-runtime-data",
         };
@@ -467,7 +495,7 @@ const CpmScheduler = () => {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [upsertActivities, upsertActivitiesOnly, saveSnapshotToDb, hydrateIframe, refreshStatus, isAdminOrPm]);
+  }, [upsertActivities, upsertActivitiesOnly, saveSnapshotToDb, hydrateIframe, refreshStatus, isAdminOrPm, buildRuntimeActivities]);
 
   // Realtime subscription for cpm_task_mappings changes
   useEffect(() => {
