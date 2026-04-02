@@ -32,11 +32,21 @@ const Index = () => {
     }, 300);
   }, [queryClient]);
 
+  // On mount: request current CPM data from hidden iframe for runtime cache sync
+  useEffect(() => {
+    // The CpmScheduler iframe is kept alive by AppLayout even when not on /cpm
+    // Send request-cpm-data to get latest graph state into runtime cache
+    const iframe = document.querySelector<HTMLIFrameElement>('iframe[src*="cpm_network"]');
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage({ type: "request-cpm-data" }, "*");
+    }
+  }, []);
+
+  // Realtime: watch task mappings and task progress changes (not cpm_activities — that comes from runtime cache)
   useEffect(() => {
     const channelName = `dashboard-kuku-rt-${Math.random().toString(36).slice(2)}`;
     const channel = supabase
       .channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cpm_activities' }, debouncedInvalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cpm_task_mappings' }, debouncedInvalidate)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, debouncedInvalidate)
       .subscribe();
@@ -45,6 +55,7 @@ const Index = () => {
       supabase.removeChannel(channel);
     };
   }, [debouncedInvalidate]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

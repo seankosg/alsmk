@@ -9,6 +9,7 @@ import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { CPM_RUNTIME_KEY, CpmRuntimeData } from "@/lib/cpmRuntimeCache";
 
 /** Generate a composite semantic key: BLDG::WBS_L2::Name */
 function getSemanticKey(activity: { name: string; wbsFull?: string | null; customFields?: Record<string, string> | null }): string {
@@ -410,6 +411,15 @@ const CpmScheduler = () => {
       }
 
       if (e.data.type === "cpm-calculated") {
+        // Store runtime cache immediately (before DB upsert)
+        const runtimeData: CpmRuntimeData = {
+          activities: e.data.activities,
+          lastSyncTime: Date.now(),
+          source: "cpm-calculated",
+        };
+        queryClient.setQueryData([CPM_RUNTIME_KEY], runtimeData);
+        queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+
         const doPostProcess = async () => {
           if (isAdminOrPm) {
             if (e.data.isNewImport) {
@@ -419,10 +429,19 @@ const CpmScheduler = () => {
             }
           }
           await batchUpdateElapsedProgress();
-          setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
-          queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+          refreshStatus(iframeRef.current?.contentWindow || null);
         };
         doPostProcess();
+      }
+      // Lightweight runtime sync (no DB upsert) — triggered from dashboard
+      if (e.data.type === "cpm-runtime-data") {
+        const runtimeData: CpmRuntimeData = {
+          activities: e.data.activities,
+          lastSyncTime: Date.now(),
+          source: "cpm-runtime-data",
+        };
+        queryClient.setQueryData([CPM_RUNTIME_KEY], runtimeData);
+        queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
       }
       if (e.data.type === "activity-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
