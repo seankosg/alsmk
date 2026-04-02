@@ -247,6 +247,8 @@ export function useKukuDashboard() {
         });
       });
 
+      console.log(`[KUKU] Result: ${kukuActivities.length} KUKU activities, ${predInfos.length} predecessors (total: ${activities.length})`);
+
       return {
         kukuActivities,
         predecessors: predInfos.sort((a, b) => a.gap - b.gap),
