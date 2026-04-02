@@ -42,11 +42,12 @@ export function useKukuDashboard() {
   return useQuery<KukuDashboardData>({
     queryKey: ["kuku-dashboard"],
     staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       // 1. Load all activities
       const { data: activities } = await supabase
         .from("cpm_activities")
-        .select("id, name, wbs_full, mpp_task_id, mpp_uid, duration, progress, is_critical, is_milestone, start_date, finish_date, custom_fields, pred_links")
+        .select("id, name, wbs_full, mpp_task_id, mpp_uid, duration, progress, progress_mode, is_critical, is_milestone, start_date, finish_date, custom_fields, pred_links")
         .limit(5000);
       if (!activities?.length) return { kukuActivities: [], predecessors: [], allActivitiesCount: 0 };
 
@@ -100,12 +101,20 @@ export function useKukuDashboard() {
         return cf?.Text1 || cf?.text1 || "";
       };
 
+      const getEffectiveProgress = (a: typeof activities[0]) => {
+        if (a.progress_mode === "auto" && a.start_date && a.finish_date) {
+          return calcPlannedProgress(a.start_date, a.finish_date);
+        }
+        return a.progress;
+      };
+
       // 5. Build KUKU activities
       const kukuActivities: KukuActivity[] = activities
         .filter((a) => getText1(a) === "KUKU")
         .map((a) => {
           const tIds = activityMappings.get(a.id) || [];
           const validTasks = tIds.map((id) => taskMap[id]).filter(Boolean);
+          const effectiveProgress = getEffectiveProgress(a);
           const plannedProgress = a.start_date && a.finish_date
             ? calcPlannedProgress(a.start_date, a.finish_date)
             : 0;
@@ -130,7 +139,7 @@ export function useKukuDashboard() {
             wbs_full: a.wbs_full,
             mpp_task_id: a.mpp_task_id,
             duration: a.duration,
-            progress: a.progress,
+            progress: effectiveProgress,
             plannedProgress,
             is_critical: a.is_critical,
             is_milestone: a.is_milestone,
@@ -161,14 +170,15 @@ export function useKukuDashboard() {
           const pp = predAct.start_date && predAct.finish_date
             ? calcPlannedProgress(predAct.start_date, predAct.finish_date)
             : 0;
-          const actual = predAct.progress ?? 0;
+          const effectiveProgress = getEffectiveProgress(predAct);
+          const actual = effectiveProgress ?? 0;
 
           predInfos.push({
             id: predAct.id,
             name: predAct.name,
             wbs_full: predAct.wbs_full,
             text1: getText1(predAct),
-            progress: predAct.progress,
+            progress: effectiveProgress,
             plannedProgress: pp,
             gap: actual - pp,
             is_critical: predAct.is_critical,
