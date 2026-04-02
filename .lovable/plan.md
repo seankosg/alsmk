@@ -1,73 +1,60 @@
 
 
-# KUKU Predecessor Watch: 스냅샷 의존성 완전 제거
+# KUKU 대시보드 실시간 갱신 강화
 
-## 근본 원인
+## 현재 문제
 
-`pred_links` 컬럼에 iframe 내부 ID(`A244:0:56,A250:1:0`)가 그대로 저장됨. `useKukuDashboard`는 이 A### ID를 mppTaskId로 변환하기 위해 **여전히 최신 스냅샷을 조회**하고 있음 (lines 80-93). 새 XML 업로드 시 스냅샷이 아직 저장되지 않았거나 이전 버전이면 매핑 실패.
+KUKU 위젯은 `staleTime: 30_000`으로 설정되어 있어, XML 업로드 없이도 변경되는 데이터(자동 진도율, 태스크 매핑/진행률 변경)가 즉시 반영되지 않음.
 
-## 해결: DB 저장 시 mppTaskId로 변환
+## 갱신이 필요한 시나리오
 
-`cpm-calculated` 메시지에는 모든 activity의 `id`(A###)와 `mppTaskId`가 포함되어 있으므로, **CpmScheduler에서 upsert 시점에 pred_links를 mppTaskId 기반으로 변환하여 저장**하면 스냅샷 의존성이 완전히 제거됨.
+| 시나리오 | 현재 | 개선 |
+|---------|------|------|
+| 새 XML 업로드 | ✅ invalidate 호출 | 유지 |
+| CPM 페이지에서 태스크 매핑 변경 | ❌ 30초 대기 | ✅ 즉시 갱신 |
+| 태스크 진행률 변경 | ❌ 30초 대기 | ✅ 즉시 갱신 |
+| 대시보드 진입 시 | △ stale이면 refetch | ✅ 항상 최신 |
 
-## 변경 사항
+## 수정 사항
 
-### 1. `src/pages/CpmScheduler.tsx`
-- upsert 전에 `internalIdToMpp` 맵을 activities 배열에서 구축
-- `pred_links` 저장 시 A### → mppTaskId 변환
+### 1. `src/hooks/useKukuDashboard.ts`
+- `staleTime`을 `0`으로 변경하여 페이지 이동 시 항상 최신 데이터 fetch
+
+### 2. `src/pages/Index.tsx` (대시보드)
+- `cpm_activities` 테이블에 Realtime 구독 추가
+- `tasks` 테이블 변경(진행률 업데이트) 시 `kuku-dashboard` 쿼리 invalidate
+- `cpm_task_mappings` 변경 시에도 invalidate
 
 ```typescript
-// activities 배열에서 내부ID→mppTaskId 맵 구축
-const idToMpp = new Map<string, string>();
-activities.forEach((a: any) => {
-  if (a.id && a.mppTaskId) idToMpp.set(a.id, a.mppTaskId);
-});
-
-// pred_links 변환 함수
-const convertPredLinks = (raw: string | null): string | null => {
-  if (!raw?.trim()) return null;
-  return raw.split(",")
-    .map(s => {
-      const parts = s.trim().split(":");
-      const converted = idToMpp.get(parts[0].trim()) || parts[0].trim();
-      parts[0] = converted;
-      return parts.join(":");
+// 대시보드에 Realtime 구독 추가
+useEffect(() => {
+  const channel = supabase
+    .channel('dashboard-kuku-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cpm_activities' }, () => {
+      queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
     })
-    .join(",");
-};
-
-// upsert rows에서
-pred_links: convertPredLinks((a as any).predLinks || null),
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cpm_task_mappings' }, () => {
+      queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, () => {
+      queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+    })
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}, [queryClient]);
 ```
 
-두 곳 모두 적용 (upsertActivities, upsertActivitiesOnly)
-
-### 2. `src/hooks/useKukuDashboard.ts`
-- 스냅샷 조회 코드 **완전 제거** (lines 79-93)
-- `pred_links`가 이미 mppTaskId 형식이므로 직접 파싱
-
-```typescript
-// 스냅샷 조회 제거, 직접 파싱
-activities.forEach((a) => {
-  const raw = (a as any).pred_links as string | null;
-  if (!raw?.trim() || !a.mpp_task_id) return;
-  const predMppIds = raw.split(",")
-    .map(s => s.trim().split(":")[0].trim())
-    .filter(Boolean);
-  if (predMppIds.length) {
-    predMap.set(a.mpp_task_id, [...new Set(predMppIds)]);
-  }
-});
-```
+### 3. Debounce 처리
+Realtime 이벤트가 빠르게 연속 발생할 수 있으므로, 300ms debounce를 적용하여 불필요한 다중 쿼리 방지
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `src/pages/CpmScheduler.tsx` | upsert 시 pred_links를 mppTaskId로 변환하여 저장 |
-| `src/hooks/useKukuDashboard.ts` | 스냅샷 조회 제거, pred_links 직접 파싱 |
+| `src/hooks/useKukuDashboard.ts` | staleTime → 0 |
+| `src/pages/Index.tsx` | cpm_activities, cpm_task_mappings, tasks 테이블 Realtime 구독 추가 |
 
 ## 결과
-- XML 업로드 → activities upsert(pred_links 이미 mppTaskId) → invalidate → 대시보드 즉시 최신 데이터 표시
-- 스냅샷 저장 타이밍과 완전히 독립
+- XML 업로드 없이도 CPM 데이터 변경 시 대시보드가 자동으로 최신 상태 유지
+- 태스크 매핑/진행률 변경이 즉시 KUKU 위젯에 반영
 
