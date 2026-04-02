@@ -19,6 +19,8 @@ export function AdminSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [backupName, setBackupName] = useState("");
 
   // Auto backup settings
   const [autoEnabled, setAutoEnabled] = useState(false);
@@ -139,11 +141,11 @@ export function AdminSettings() {
 
   // Save backup to DB
   const saveBackupToDb = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (name: string) => {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       const res = await supabase.functions.invoke("backup-export", {
-        body: { save_to_db: true },
+        body: { save_to_db: true, backup_name: name },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (res.error) throw new Error(res.error.message);
@@ -153,6 +155,8 @@ export function AdminSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["data_backups"] });
       toast.success("Backup saved to database");
+      setShowSaveDialog(false);
+      setBackupName("");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -273,9 +277,9 @@ export function AdminSettings() {
               <Download className="h-4 w-4 mr-1" />
               {exportBackup.isPending ? "Exporting…" : "Download Backup (JSON)"}
             </Button>
-            <Button onClick={() => saveBackupToDb.mutate()} disabled={saveBackupToDb.isPending} variant="outline">
+            <Button onClick={() => { setBackupName(`backup_${new Date().toISOString().slice(0, 10)}`); setShowSaveDialog(true); }} variant="outline">
               <Database className="h-4 w-4 mr-1" />
-              {saveBackupToDb.isPending ? "Saving…" : "Save Backup to DB"}
+              Save Backup to DB
             </Button>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
               <Upload className="h-4 w-4 mr-1" />
@@ -379,6 +383,37 @@ export function AdminSettings() {
           )}
         </CardContent>
       </Card>
+
+      {/* Save Backup Name Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Backup</DialogTitle>
+            <DialogDescription>
+              Enter a name for this backup snapshot.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Backup Name</Label>
+            <Input
+              value={backupName}
+              onChange={(e) => setBackupName(e.target.value)}
+              placeholder="e.g. before_migration_v2"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => saveBackupToDb.mutate(backupName.trim() || `backup_${new Date().toISOString().slice(0, 10)}`)}
+              disabled={saveBackupToDb.isPending}
+            >
+              {saveBackupToDb.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm Restore Dialog */}
       <Dialog open={confirmRestore} onOpenChange={setConfirmRestore}>
