@@ -32,6 +32,7 @@ export interface CpmActivity {
   showDetail?: boolean;
   isPassThrough?: boolean;
   predecessors?: Array<{ id: string; mppTaskId: string | null; name: string; wbs: string }>;
+  successors?: Array<{ id: string; mppTaskId: string | null; name: string; wbs: string }>;
   customFields?: Record<string, string>;
 }
 
