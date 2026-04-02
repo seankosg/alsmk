@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ActivityTaskPanel, CpmActivity } from "@/components/cpm/ActivityTaskPanel";
 import { SnapshotManager } from "@/components/cpm/SnapshotManager";
@@ -29,9 +30,27 @@ const CpmScheduler = () => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const resizingRef = useRef(false);
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAdminOrPm, memberName } = useAuthContext();
   const { hydrateIframe, refreshStatus, batchUpdateElapsedProgress } = useCpmViewModel();
   const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
+  const highlightNodeRef = useRef<string | null>(searchParams.get("highlight"));
+
+  // Forward highlight param to iframe once it's ready
+  useEffect(() => {
+    const nodeId = highlightNodeRef.current;
+    if (!nodeId) return;
+    // Clear the param so it doesn't re-trigger
+    highlightNodeRef.current = null;
+    setSearchParams((prev) => { prev.delete("highlight"); return prev; }, { replace: true });
+    // Wait for iframe to be ready, then send focus-node
+    const trySend = () => {
+      iframeRef.current?.contentWindow?.postMessage({ type: "focus-node", nodeId }, "*");
+    };
+    // Retry a few times since iframe may still be loading
+    const timers = [500, 1500, 3000].map((delay) => setTimeout(trySend, delay));
+    return () => timers.forEach(clearTimeout);
+  }, [setSearchParams]);
 
   // Bulk toggle all activities' progress mode
   const bulkToggleProgressMode = useCallback(async (targetMode: "auto" | "manual") => {

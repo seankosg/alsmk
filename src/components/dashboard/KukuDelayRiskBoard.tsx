@@ -3,9 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { useKukuDashboard } from "@/hooks/useKukuDashboard";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
 
 interface DelayItem {
   id: string;
+  mpp_task_id: string | null;
   name: string;
   wbs_full: string | null;
   actual: number;
@@ -17,6 +19,7 @@ interface DelayItem {
 
 export function KukuDelayRiskBoard() {
   const { data, isLoading } = useKukuDashboard();
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -35,7 +38,7 @@ export function KukuDelayRiskBoard() {
       const actual = hasTasks ? (a.taskActualPct ?? 0) : (a.progress ?? 0);
       const planned = hasTasks ? (a.taskPlannedPct ?? a.plannedProgress) : a.plannedProgress;
       const gap = actual - planned;
-      return { id: a.id, name: a.name, wbs_full: a.wbs_full, actual, planned, gap, is_critical: a.is_critical, hasTasks };
+      return { id: a.id, mpp_task_id: a.mpp_task_id, name: a.name, wbs_full: a.wbs_full, actual, planned, gap, is_critical: a.is_critical, hasTasks };
     })
     .filter((item) => item.gap < -5 && item.actual < 100)
     .sort((a, b) => a.gap - b.gap);
@@ -56,7 +59,8 @@ export function KukuDelayRiskBoard() {
           <ScrollArea className="h-[280px]">
             <div className="space-y-1.5">
               {delayItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-red-50 dark:bg-red-950/30">
+                <div key={item.id} className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-red-50 dark:bg-red-950/30 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-all"
+                  onClick={() => navigate(`/cpm?highlight=${encodeURIComponent(item.mpp_task_id || item.id)}`)}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground shrink-0">{item.wbs_full}</span>

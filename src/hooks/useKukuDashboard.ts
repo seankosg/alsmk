@@ -23,6 +23,7 @@ export interface KukuActivity {
 
 export interface PredecessorInfo {
   id: string;
+  mpp_task_id: string | null;
   name: string;
   wbs_full: string | null;
   text1: string;
@@ -235,6 +236,7 @@ export function useKukuDashboard() {
 
           predInfos.push({
             id: predAct.id,
+            mpp_task_id: predAct.mpp_task_id,
             name: predAct.name,
             wbs_full: predAct.wbs_full,
             text1: getText1(predAct),
