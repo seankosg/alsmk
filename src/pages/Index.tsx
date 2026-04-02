@@ -38,28 +38,28 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div data-export-id="category-progress">
+        <div data-export-id="category-progress" className="h-full">
           <CategoryProgressChart />
         </div>
-        <div data-export-id="team-progress">
+        <div data-export-id="team-progress" className="h-full">
           <TeamProgressChart />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div data-export-id="overdue-tasks">
+        <div data-export-id="overdue-tasks" className="h-full">
           <OverdueTasksBoard />
         </div>
-        <div data-export-id="critical-issues">
+        <div data-export-id="critical-issues" className="h-full">
           <CriticalIssueBoard />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div data-export-id="behind-schedule">
+        <div data-export-id="behind-schedule" className="h-full">
           <BehindScheduleBoard />
         </div>
-        <div data-export-id="upcoming-deadlines">
+        <div data-export-id="upcoming-deadlines" className="h-full">
           <UpcomingDeadlines />
         </div>
       </div>
@@ -76,10 +76,10 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div data-export-id="team-heatmap">
+        <div data-export-id="team-heatmap" className="h-full">
           <TeamHeatmap />
         </div>
-        <div data-export-id="part-status">
+        <div data-export-id="part-status" className="h-full">
           <PartStatusBoard />
         </div>
       </div>

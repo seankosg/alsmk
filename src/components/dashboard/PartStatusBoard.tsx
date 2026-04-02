@@ -120,7 +120,7 @@ export function PartStatusBoard() {
 
   return (
     <>
-      <Card>
+      <Card className="h-full flex flex-col">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-muted-foreground" />
@@ -128,7 +128,7 @@ export function PartStatusBoard() {
           </div>
           <p className="text-xs text-muted-foreground">Behind Schedule · Upcoming D-7 · Issues by Part</p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0">
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}

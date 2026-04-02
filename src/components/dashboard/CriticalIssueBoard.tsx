@@ -66,11 +66,11 @@ export function CriticalIssueBoard() {
 
   return (
     <>
-      <Card>
+      <Card className="h-full flex flex-col">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Critical Issues ({issues.length})</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0">
           {lt ? (
             <div className="space-y-3">
               {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}

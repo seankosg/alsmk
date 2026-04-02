@@ -33,14 +33,14 @@ export function KukuCoverageRate() {
     .slice(0, 8);
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <Link2 className="h-4 w-4 text-primary" />
           KUKU Task Coverage
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 min-h-0">
         <div className="flex items-center gap-4">
           <div className="w-24 h-24 relative">
             <ResponsiveContainer width="100%" height="100%">

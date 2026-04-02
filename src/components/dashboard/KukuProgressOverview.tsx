@@ -36,7 +36,7 @@ export function KukuProgressOverview() {
   const gap = avgActual - avgPlanned;
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" />
@@ -44,7 +44,7 @@ export function KukuProgressOverview() {
           <Badge variant="outline" className="ml-auto text-xs">{total} Activities</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 flex-1 min-h-0">
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-2 text-center">
           <div>
