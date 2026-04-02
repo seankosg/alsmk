@@ -240,6 +240,16 @@ export function useKukuDashboard() {
           const effectiveProgress = getEffectiveProgress(predAct);
           const actual = effectiveProgress ?? 0;
 
+          let delayDays: number | null = null;
+          if (predAct.finish_date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const fin = new Date(predAct.finish_date);
+            fin.setHours(0, 0, 0, 0);
+            const diff = Math.floor((today.getTime() - fin.getTime()) / 86400000);
+            if (diff > 0) delayDays = diff;
+          }
+
           predInfos.push({
             id: predAct.id,
             mpp_task_id: predAct.mpp_task_id,
@@ -251,6 +261,8 @@ export function useKukuDashboard() {
             gap: actual - pp,
             is_critical: predAct.is_critical,
             kukuSuccessorName: ka.name,
+            finish_date: predAct.finish_date,
+            delayDays,
           });
         });
       });
