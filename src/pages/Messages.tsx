@@ -7,6 +7,7 @@ import { ChatArea } from "@/components/messages/ChatArea";
 import { NewConversationDialog } from "@/components/messages/NewConversationDialog";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { MessageSquare } from "lucide-react";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 export default function Messages() {
   const [searchParams, setSearchParams] = useSearchParams();
