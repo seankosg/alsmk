@@ -1583,6 +1583,11 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
   const container = document.getElementById('svgContainer');
   container.innerHTML = `
     <svg width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr-crit" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#ff4d4d"/></marker>
+        <marker id="arr-norm" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#3d4f6e"/></marker>
+        <marker id="arr-blink" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#ff4d4d" class="edge-alert-blink"/></marker>
+      </defs>
       ${arrows}
       ${nodes}
     </svg>
