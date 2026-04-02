@@ -17,6 +17,9 @@ import { KukuPredecessorWatch } from "@/components/dashboard/KukuPredecessorWatc
 import { KukuDelayRiskBoard } from "@/components/dashboard/KukuDelayRiskBoard";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { useEffect, useRef, useCallback } from "react";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -117,6 +120,27 @@ const Index = () => {
       </div>
 
       {/* KUKU (건축사업본부) CPM Widgets */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">KUKU CPM 위젯</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const iframe = document.querySelector<HTMLIFrameElement>('iframe[src*="cpm_network"]');
+            if (iframe?.contentWindow) {
+              iframe.contentWindow.postMessage({ type: "request-cpm-data" }, "*");
+              queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+              toast.success("KUKU 위젯을 새로고침합니다.");
+            } else {
+              queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+              toast.info("CPM iframe이 아직 로드되지 않았습니다. DB 데이터로 갱신합니다.");
+            }
+          }}
+        >
+          <RefreshCw className="h-4 w-4 mr-1" />
+          새로고침
+        </Button>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <KukuProgressOverview />
         <KukuCoverageRate />
