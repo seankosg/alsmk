@@ -141,11 +141,11 @@ export function AdminSettings() {
 
   // Save backup to DB
   const saveBackupToDb = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (name: string) => {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       const res = await supabase.functions.invoke("backup-export", {
-        body: { save_to_db: true },
+        body: { save_to_db: true, backup_name: name },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (res.error) throw new Error(res.error.message);
@@ -155,6 +155,8 @@ export function AdminSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["data_backups"] });
       toast.success("Backup saved to database");
+      setShowSaveDialog(false);
+      setBackupName("");
     },
     onError: (e) => toast.error(e.message),
   });
