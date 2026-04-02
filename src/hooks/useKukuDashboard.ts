@@ -38,6 +38,10 @@ export interface KukuDashboardData {
   kukuActivities: KukuActivity[];
   predecessors: PredecessorInfo[];
   allActivitiesCount: number;
+  criticalCount: number;
+  milestoneCount: number;
+  dataSource: "runtime" | "db";
+  lastSyncTime: number | null;
 }
 
 /** Read a custom field by English key with Korean alias fallback */
