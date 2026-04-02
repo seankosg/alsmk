@@ -60,6 +60,9 @@ export function KukuPredecessorWatch() {
                     <div className="font-medium text-red-600">
                       {p.gap >= 0 ? "+" : ""}{p.gap}%p
                     </div>
+                    {p.delayDays != null && p.delayDays > 0 && (
+                      <div className="text-[10px] font-semibold text-red-600">D+{p.delayDays}</div>
+                    )}
                   </div>
                 </div>
               ))}
