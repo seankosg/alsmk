@@ -160,7 +160,7 @@ export function useCpmViewModel() {
     const { data: latestSnapshot } = await supabase
       .from("cpm_snapshots")
       .select("name, created_at")
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
