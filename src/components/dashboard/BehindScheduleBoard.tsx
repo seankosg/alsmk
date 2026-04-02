@@ -81,7 +81,7 @@ export function BehindScheduleBoard() {
 
   return (
     <>
-      <Card>
+      <Card className="h-full flex flex-col">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Behind Schedule ({behindTasks.length})</CardTitle>
           <p className="text-xs text-muted-foreground">Auto-detected: Actual % &lt; Planned %, grouped by team</p>
