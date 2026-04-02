@@ -142,6 +142,7 @@ const Index = () => {
           새로고침
         </Button>
       </div>
+      <CpmSummaryBanner />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <KukuProgressOverview />
         <KukuCoverageRate />
