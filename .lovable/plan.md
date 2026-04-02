@@ -1,56 +1,35 @@
 
 
-# 대시보드 2열 위젯 높이 동기화
+# KUKU 위젯 자동 재계산 현황 및 수정 계획
 
-## 목적
-좌우로 나란히 배치된 위젯 쌍의 높이를 동일하게 맞춤 (우측 기준)
+## 현재 상태
 
-## 수정: `src/pages/Index.tsx`
+**자동 재계산이 되지 않습니다.**
 
-모든 2열 그리드 컨테이너에 CSS Grid의 `items-stretch` (기본값)를 활용하되, 각 자식 위젯의 Card 컴포넌트가 부모 높이를 채우도록 `h-full` 클래스를 적용:
+- `useKukuDashboard` 훅의 queryKey는 `["kuku-dashboard"]`
+- `staleTime: 30_000` (30초) 설정으로, 30초 후에야 자동 refetch 가능
+- XML 업로드 후 `upsertActivities()` 완료 시 `kuku-dashboard` 쿼리를 **invalidate하는 코드가 없음**
+- 따라서 사용자가 대시보드로 돌아와도 30초 이내라면 stale 데이터가 표시됨
 
-1. 각 `grid` 래퍼의 직계 자식 `div`에 `className="h-full"` 추가
-2. 각 위젯 컴포넌트 내부의 최상위 `<Card>`에 `className="h-full flex flex-col"` 적용
-3. `<CardContent>` 에 `flex-1 min-h-0` 추가하여 남은 공간을 채우도록 처리
+## 수정 방안
 
-### 대상 위젯 (6개 그리드 행)
-- CategoryProgressChart / TeamProgressChart
-- OverdueTasksBoard / CriticalIssueBoard
-- BehindScheduleBoard / UpcomingDeadlines
-- KukuProgressOverview / KukuCoverageRate
-- KukuPredecessorWatch / KukuDelayRiskBoard
-- TeamHeatmap / PartStatusBoard
+### `src/pages/CpmScheduler.tsx`
 
-### Index.tsx 변경 예시
-```tsx
-{/* 기존 */}
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  <div data-export-id="category-progress">
-    <CategoryProgressChart />
-  </div>
-  <div data-export-id="team-progress">
-    <TeamProgressChart />
-  </div>
-</div>
+`cpm-calculated` 핸들러에서 upsert 완료 후 `kuku-dashboard` 쿼리를 invalidate:
 
-{/* 변경: 자식에 h-full 추가 (grid items-stretch가 기본이므로 자식이 h-full이면 동일 높이) */}
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  <div data-export-id="category-progress" className="h-full">
-    <CategoryProgressChart />
-  </div>
-  <div data-export-id="team-progress" className="h-full">
-    <TeamProgressChart />
-  </div>
-</div>
+```typescript
+// batchUpdateElapsedProgress 완료 후
+batchUpdateElapsedProgress().then(() => {
+  setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+  queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+});
 ```
 
-### 각 위젯 컴포넌트 수정
-최상위 `<Card>`에 `h-full flex flex-col`, `<CardContent>`에 `flex-1 min-h-0` 추가
+이렇게 하면 XML 업로드 → DB upsert → 진도율 재계산 → KUKU 위젯 쿼리 무효화 순서로 처리되어, 대시보드로 이동 시 최신 데이터가 즉시 표시됩니다.
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `src/pages/Index.tsx` | 그리드 자식 div에 h-full 추가 |
-| 12개 위젯 컴포넌트 | Card에 h-full flex flex-col, CardContent에 flex-1 |
+| `src/pages/CpmScheduler.tsx` | `kuku-dashboard` queryKey invalidation 추가 |
 
