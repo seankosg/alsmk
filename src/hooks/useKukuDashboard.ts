@@ -41,7 +41,7 @@ export interface KukuDashboardData {
 export function useKukuDashboard() {
   return useQuery<KukuDashboardData>({
     queryKey: ["kuku-dashboard"],
-    staleTime: 30_000,
+    staleTime: 0,
     queryFn: async () => {
       // 1. Load all activities
       const { data: activities } = await supabase

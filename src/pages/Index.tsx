@@ -16,9 +16,35 @@ import { KukuCoverageRate } from "@/components/dashboard/KukuCoverageRate";
 import { KukuPredecessorWatch } from "@/components/dashboard/KukuPredecessorWatch";
 import { KukuDelayRiskBoard } from "@/components/dashboard/KukuDelayRiskBoard";
 import { useAuthContext } from "@/components/layout/AppLayout";
+import { useEffect, useRef, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const { isAdmin } = useAuthContext();
+  const queryClient = useQueryClient();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedInvalidate = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+    }, 300);
+  }, [queryClient]);
+
+  useEffect(() => {
+    const channelName = `dashboard-kuku-rt-${Math.random().toString(36).slice(2)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cpm_activities' }, debouncedInvalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cpm_task_mappings' }, debouncedInvalidate)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, debouncedInvalidate)
+      .subscribe();
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [debouncedInvalidate]);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
