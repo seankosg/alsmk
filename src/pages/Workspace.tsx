@@ -22,7 +22,7 @@ const Workspace = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { isAdmin, isPm, isAdminOrPm, memberId } = useAuthContext();
+  const { isAdmin, isPm, isAdminOrPm, readOnly, memberId } = useAuthContext();
   const [filterMode, setFilterMode] = useState<"mine" | "team" | "project">("mine");
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
