@@ -20,7 +20,7 @@ export function KukuPredecessorWatch() {
   const delayed = preds.filter((p) => p.gap < -5);
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <Eye className="h-4 w-4 text-primary" />
