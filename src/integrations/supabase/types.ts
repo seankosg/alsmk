@@ -49,6 +49,8 @@ export type Database = {
           all_day: boolean
           created_at: string
           created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           end_date: string | null
           end_time: string | null
@@ -64,6 +66,8 @@ export type Database = {
           all_day?: boolean
           created_at?: string
           created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           end_date?: string | null
           end_time?: string | null
@@ -79,6 +83,8 @@ export type Database = {
           all_day?: boolean
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           end_date?: string | null
           end_time?: string | null
@@ -292,6 +298,27 @@ export type Database = {
           },
         ]
       }
+      data_backups: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          name?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       direct_messages: {
         Row: {
           conversation_id: string
@@ -379,6 +406,8 @@ export type Database = {
       members: {
         Row: {
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           duty_title: string | null
           email: string | null
           id: string
@@ -390,6 +419,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           duty_title?: string | null
           email?: string | null
           id?: string
@@ -401,6 +432,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           duty_title?: string | null
           email?: string | null
           id?: string
@@ -430,6 +463,8 @@ export type Database = {
       milestones: {
         Row: {
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           name: string
           sort_order: number
@@ -438,6 +473,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name: string
           sort_order?: number
@@ -446,6 +483,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name?: string
           sort_order?: number
@@ -516,6 +555,8 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           name: string
           team_id: string
@@ -523,6 +564,8 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name: string
           team_id: string
@@ -530,6 +573,8 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name?: string
           team_id?: string
@@ -792,6 +837,8 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           name: string
           target_headcount: number
@@ -799,6 +846,8 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name: string
           target_headcount?: number
@@ -806,6 +855,8 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name?: string
           target_headcount?: number
