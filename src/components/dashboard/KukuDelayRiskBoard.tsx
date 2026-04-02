@@ -38,7 +38,7 @@ export function KukuDelayRiskBoard() {
       const actual = hasTasks ? (a.taskActualPct ?? 0) : (a.progress ?? 0);
       const planned = hasTasks ? (a.taskPlannedPct ?? a.plannedProgress) : a.plannedProgress;
       const gap = actual - planned;
-      return { id: a.id, name: a.name, wbs_full: a.wbs_full, actual, planned, gap, is_critical: a.is_critical, hasTasks };
+      return { id: a.id, mpp_task_id: a.mpp_task_id, name: a.name, wbs_full: a.wbs_full, actual, planned, gap, is_critical: a.is_critical, hasTasks };
     })
     .filter((item) => item.gap < -5 && item.actual < 100)
     .sort((a, b) => a.gap - b.gap);
