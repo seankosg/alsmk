@@ -37,7 +37,7 @@ export function AdminMilestones() {
   const { data: milestones = [], isLoading } = useQuery({
     queryKey: ["milestones"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("milestones").select("*").order("sort_order");
+      const { data, error } = await supabase.from("milestones").select("*").is("deleted_at", null).order("sort_order");
       if (error) throw error;
       return data;
     },
