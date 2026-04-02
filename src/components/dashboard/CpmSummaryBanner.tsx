@@ -74,10 +74,10 @@ export function CpmSummaryBanner() {
   // Composite KPI calculations
   const delayedCount = data.kukuActivities.filter(a => {
     const actual = a.progress ?? 0;
-    return actual < a.plannedProgress - 5;
+    return actual < a.plannedProgress - delayThreshold;
   }).length;
 
-  const predAlertCount = data.predecessors.filter(p => p.gap < -5).length;
+  const predAlertCount = data.predecessors.filter(p => p.gap < -predThreshold).length;
 
   let overallGap = 0;
   if (kukuTotal > 0) {
