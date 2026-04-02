@@ -372,7 +372,10 @@ const CpmScheduler = () => {
             upsertActivitiesOnly(e.data.activities);
           }
         }
-        setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+        // Auto-mode: recalculate elapsed progress then refresh
+        batchUpdateElapsedProgress().then(() => {
+          setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+        });
       }
       if (e.data.type === "activity-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
