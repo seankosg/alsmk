@@ -22,6 +22,27 @@ const KpiBox = ({ icon, value, label }: KpiBoxProps) => (
 export function CpmSummaryBanner() {
   const { data, isLoading } = useKukuDashboard();
 
+  const { data: thresholds } = useQuery({
+    queryKey: ["project_settings", "kuku_thresholds"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_settings")
+        .select("key, value")
+        .in("key", ["kuku_delay_threshold", "kuku_pred_threshold"]);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r) => (map[r.key] = r.value));
+      return {
+        delay: Number(map.kuku_delay_threshold) || 5,
+        pred: Number(map.kuku_pred_threshold) || 5,
+      };
+    },
+    staleTime: 60_000,
+  });
+
+  const delayThreshold = thresholds?.delay ?? 5;
+  const predThreshold = thresholds?.pred ?? 5;
+
   if (isLoading) {
     return (
       <Card>
