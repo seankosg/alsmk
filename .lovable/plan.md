@@ -1,45 +1,47 @@
 
 
-# CPM 새로고침 불가 — 근본 원인 및 수정
+# Overdue/Critical 필터: 해당 노드만 표시하도록 수정
 
-## 근본 원인
+## 현재 문제
 
-`public/cpm_network.html` 1979행에 **`SyntaxError: Illegal return statement`** 발생.
+1. **필터 조건 불완전**: `isUnmappedOverdue`만 체크 → 빨간 글로우로 깜박이는 `isSevereDelay`, `isCpDelay` 노드가 누락됨
+2. **비관련 노드 표시**: 선행/후행(predecessor/successor) 컨텍스트 노드까지 포함하여 필터 의미가 희석됨
 
-`toggleOverdueFilter()` 함수를 추가하면서 `applyBldgFilter(bldgValue)` 함수의 선언부(`function applyBldgFilter(bldgValue) {`)가 누락됨. 함수 본문(1979~2002행)이 함수 바깥에 노출되어, `return` 문이 전역 스코프에서 실행 → **전체 JavaScript 파싱이 중단** → iframe의 `window.addEventListener('message', ...)` 리스너가 등록되지 않음 → `cpm-hydrate` 메시지를 수신 불가.
+## 수정: `public/cpm_network.html`
 
-**즉, iframe의 JS가 완전히 깨져있어서 어떤 메시지도 수신할 수 없는 상태입니다.**
+### 1. 필터 조건을 critical 전체로 확장 (line 1136~1163)
 
-## 수정
+```javascript
+// 현재: isUnmappedOverdue만 + 선행/후행 포함
+if (isUnmappedOverdue) overdueIds.add(id);
+// + predecessor/successor context 추가 로직
 
-### `public/cpm_network.html` — 1978행
-
-현재 (함수 선언 누락):
+// 수정: alertLevel === 'critical'인 모든 노드 (깜박이는 노드 전체)
+const _tSeverePre = window._alertThresholds?.severe ?? 10;
+const _tCpPre = window._alertThresholds?.cpDelay ?? 5;
+const gap = ...; // planned - actual
+const isSevereDelayPre = hasMappedStatus && gap >= _tSeverePre;
+const isCpDelayPre = a.isCritical && hasMappedStatus && gap >= _tCpPre;
+if (isUnmappedOverdue || isSevereDelayPre || isCpDelayPre) overdueIds.add(id);
 ```
-}  // ← toggleOverdueFilter 닫힘 (line 1976)
 
+### 2. 컨텍스트 노드 제거
 
-  if (!calculated) { ... return; }  // ← line 1979: 전역 스코프의 return → SyntaxError
+선행/후행 노드를 추가하는 로직(line 1150~1163)을 삭제하여, **깜박이는 노드만** 표시:
+
+```javascript
+// 삭제: contextIds 관련 코드 전체
+// visibleSet = overdueIds; (직접 사용)
+visibleSet = overdueIds;
 ```
 
-수정 — 1978행에 함수 선언부 추가:
-```
-}  // ← toggleOverdueFilter 닫힘 (line 1976)
+### 3. 버튼 라벨 업데이트
 
-function applyBldgFilter(bldgValue) {
-  if (!calculated) { ... return; }
-```
+"⚠ Overdue" → "⚠ Critical"로 변경하여 필터 범위를 정확히 반영
 
 ## 변경 파일
 
 | 파일 | 내용 |
 |------|------|
-| `public/cpm_network.html` | 1978행에 `function applyBldgFilter(bldgValue) {` 선언 복원 |
-
-## 부수 효과
-
-이 수정으로 다음 문제들이 모두 해결됩니다:
-- 새로고침 버튼 클릭 시 데이터 미로딩
-- 페이지 리로드 시 데이터 소실 (iframe ready → hydrate 핸드쉐이크 실패)
-- Overdue 필터 버튼 등 모든 iframe 내 기능 정상화
+| `public/cpm_network.html` | 필터 조건 확장 + 컨텍스트 노드 제거 + 라벨 수정 |
 
