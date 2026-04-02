@@ -189,7 +189,6 @@ const CpmScheduler = () => {
       .upsert(rows, { onConflict: "mpp_uid" });
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-    setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
   }, [queryClient, refreshStatus]);
 
   // Upsert activities to DB when CPM calculates — with auto-migration + orphan resolution
