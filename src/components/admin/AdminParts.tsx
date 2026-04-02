@@ -61,12 +61,12 @@ export function AdminParts() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("parts").delete().eq("id", id);
+      const { error } = await supabase.from("parts").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["parts"] });
-      toast.success("Part deleted");
+      toast.success("Part deleted (can be restored within 48h)");
     },
     onError: (e) => toast.error(e.message),
   });

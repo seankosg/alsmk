@@ -106,12 +106,12 @@ export function AdminMembers() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("members").delete().eq("id", id);
+      const { error } = await supabase.from("members").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
-      toast.success("Member removed");
+      toast.success("Member removed (can be restored within 48h)");
     },
     onError: (e) => toast.error(e.message),
   });
