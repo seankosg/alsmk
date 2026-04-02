@@ -15,8 +15,10 @@ import { KukuProgressOverview } from "@/components/dashboard/KukuProgressOvervie
 import { KukuCoverageRate } from "@/components/dashboard/KukuCoverageRate";
 import { KukuPredecessorWatch } from "@/components/dashboard/KukuPredecessorWatch";
 import { KukuDelayRiskBoard } from "@/components/dashboard/KukuDelayRiskBoard";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 const Index = () => {
+  const { isAdmin } = useAuthContext();
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
