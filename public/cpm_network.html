@@ -763,13 +763,26 @@ function renderSidebar() {
           <div class="field-group" style="flex:2">
             <span class="field-label">선행작업</span>
             <input class="field-input" id="pred_${a.id}" placeholder="-"
-              value="${(a.predecessors||'')}"
+              value="${(() => {
+                const raw = (a.predLinks&&a.predLinks.trim())?a.predLinks:(a.predecessors||'');
+                const mp = {}; activities.forEach(x=>mp[x.id]=x);
+                return raw.split(',').map(s=>s.trim().split(':')[0].trim())
+                  .filter(s=>s&&mp[s])
+                  .map(pid=>{const p=mp[pid]; return (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name;})
+                  .join(', ') || '-';
+              })()}"
               readonly>
           </div>
           <div class="field-group" style="flex:2">
             <span class="field-label">후행작업</span>
             <input class="field-input" id="succ_${a.id}" placeholder="-"
-              value="${(a.successors||[]).join(', ')}"
+              value="${(() => {
+                const mp = {}; activities.forEach(x=>mp[x.id]=x);
+                return activities.filter(o=>o.id!==a.id).filter(o=>{
+                  const ps=(o.predLinks&&o.predLinks.trim())?o.predLinks:(o.predecessors||'');
+                  return ps.split(',').map(s=>s.trim().split(':')[0].trim()).includes(a.id);
+                }).map(o=>(o.mppTaskId?'#'+o.mppTaskId:o.id)+' '+o.name).join(', ') || '-';
+              })()}"
               readonly>
           </div>
           <div class="field-group" style="flex:.8">
@@ -2168,10 +2181,24 @@ function showNodeTooltip(e, actId) {
         return '';
       })()}
     </div>
-    <div class="nt-footer">
-      <span style="color:#5a7a9a;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-        title="${predNames}">선행: ${predNames}</span>
-      ${badge}
+    <div class="nt-footer" style="flex-direction:column;gap:2px;align-items:flex-start">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+        <span style="color:#5a7a9a;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          title="${predNames}">선행: ${predNames}</span>
+        ${badge}
+      </div>
+      <span style="color:#5a7a9a;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+        title="${(() => {
+          return activities.filter(o=>o.id!==a.id).filter(o=>{
+            const ps=(o.predLinks&&o.predLinks.trim())?o.predLinks:(o.predecessors||'');
+            return ps.split(',').map(s=>s.trim().split(':')[0].trim()).includes(a.id);
+          }).map(o=>(o.mppTaskId?'#'+o.mppTaskId:o.id)+' '+o.name).join(', ') || '없음';
+        })()}">후행: ${(() => {
+          return activities.filter(o=>o.id!==a.id).filter(o=>{
+            const ps=(o.predLinks&&o.predLinks.trim())?o.predLinks:(o.predecessors||'');
+            return ps.split(',').map(s=>s.trim().split(':')[0].trim()).includes(a.id);
+          }).map(o=>(o.mppTaskId?'#'+o.mppTaskId:o.id)+' '+o.name).join(', ') || '없음 (종료)';
+        })()}</span>
     </div>
   `;
 
