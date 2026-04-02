@@ -32,6 +32,8 @@ export interface PredecessorInfo {
   gap: number;
   is_critical: boolean;
   kukuSuccessorName: string;
+  finish_date: string | null;
+  delayDays: number | null;
 }
 
 export interface KukuDashboardData {
