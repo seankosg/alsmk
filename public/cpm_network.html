@@ -3573,9 +3573,19 @@ window.addEventListener('message', function(e) {
   if (e.data.type === 'focus-node') {
     // Scroll to and highlight a specific node by internal ID
     var targetId = e.data.nodeId;
-    if (!targetId || !_nodePositions || !_nodePositions[targetId]) return;
+    if (!targetId || !_nodePositions) return;
+    // Try exact match first, then search by mppTaskId
     var np = _nodePositions[targetId];
-    var container = document.getElementById('networkContainer') || document.querySelector('.network-scroll');
+    if (!np && activities.length) {
+      for (var fi = 0; fi < activities.length; fi++) {
+        if (activities[fi].mppTaskId === targetId || activities[fi]._uid === targetId) {
+          np = _nodePositions[activities[fi].id];
+          break;
+        }
+      }
+    }
+    if (!np) return;
+    var container = document.getElementById('svgContainer');
     if (container) {
       container.scrollTo({
         left: Math.max(0, np.x - container.clientWidth / 2 + _NODE_W / 2),
@@ -3584,9 +3594,8 @@ window.addEventListener('message', function(e) {
       });
     }
     // Highlight: add a pulsing ring around the target node
-    var svg = document.querySelector('#networkSvg') || document.querySelector('svg');
+    var svg = container && container.querySelector('svg');
     if (svg) {
-      // Remove any previous highlight
       var prev = svg.querySelector('.focus-highlight');
       if (prev) prev.remove();
       var ring = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
