@@ -246,6 +246,15 @@ export function AdminMembers() {
   const getPartName = (pid: string | null) => pid ? (parts.find(p => p.id === pid)?.name ?? "—") : "—";
   const filteredParts = parts.filter(p => p.team_id === teamId);
   const isMemberAdmin = (m: Member) => m.user_id ? adminUserIds.includes(m.user_id) : false;
+  const isMemberGuest = (m: Member) => m.user_id ? guestUserIds.includes(m.user_id) : false;
+  const isMemberSuperGuest = (m: Member) => m.user_id ? superGuestUserIds.includes(m.user_id) : false;
+
+  const getMemberRoleLabel = (m: Member) => {
+    if (isMemberAdmin(m)) return "Admin";
+    if (isMemberGuest(m)) return "Guest";
+    if (isMemberSuperGuest(m)) return "Super Guest";
+    return null;
+  };
 
   return (
     <Card>
