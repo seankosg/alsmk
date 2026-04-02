@@ -239,12 +239,30 @@ export function AdminSettings() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      const fileName = `${data.name}_${data.created_at.slice(0, 10)}.json`;
       const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: "application/json" });
+
+      if ("showSaveFilePicker" in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: "JSON Files", accept: { "application/json": [".json"] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          toast.success("Backup saved successfully");
+          return;
+        } catch (err: any) {
+          if (err.name === "AbortError") return;
+        }
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${data.name}_${data.created_at.slice(0, 10)}.json`;
+      a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
     },
