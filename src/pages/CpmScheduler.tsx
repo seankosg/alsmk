@@ -347,7 +347,6 @@ const CpmScheduler = () => {
     }
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-    setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
   }, [queryClient, refreshStatus, memberName]);
 
   // Listen for messages from iframe
