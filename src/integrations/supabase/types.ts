@@ -179,6 +179,7 @@ export type Database = {
           mpp_task_id: string | null
           mpp_uid: string | null
           name: string
+          pred_links: string | null
           progress: number | null
           progress_mode: string
           semantic_key: string | null
@@ -202,6 +203,7 @@ export type Database = {
           mpp_task_id?: string | null
           mpp_uid?: string | null
           name: string
+          pred_links?: string | null
           progress?: number | null
           progress_mode?: string
           semantic_key?: string | null
@@ -225,6 +227,7 @@ export type Database = {
           mpp_task_id?: string | null
           mpp_uid?: string | null
           name?: string
+          pred_links?: string | null
           progress?: number | null
           progress_mode?: string
           semantic_key?: string | null

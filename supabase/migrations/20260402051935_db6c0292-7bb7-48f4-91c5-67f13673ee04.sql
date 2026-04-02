@@ -1,0 +1,1 @@
+ALTER TABLE public.cpm_activities ADD COLUMN pred_links TEXT DEFAULT NULL;
