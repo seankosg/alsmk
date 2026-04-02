@@ -23,6 +23,7 @@ export interface KukuActivity {
 
 export interface PredecessorInfo {
   id: string;
+  mpp_task_id: string | null;
   name: string;
   wbs_full: string | null;
   text1: string;
