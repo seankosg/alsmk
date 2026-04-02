@@ -31,7 +31,7 @@ export interface PredecessorInfo {
   plannedProgress: number;
   gap: number;
   is_critical: boolean;
-  kukuSuccessorName: string;
+  kukuSuccessorNames: string[];
   finish_date: string | null;
   delayDays: number | null;
 }
