@@ -10,6 +10,7 @@ import { MessageSquare } from "lucide-react";
 import { useAuthContext } from "@/components/layout/AppLayout";
 
 export default function Messages() {
+  const { readOnly } = useAuthContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedConversation, setSelectedConversation] = useState<string | null>(
     searchParams.get("conv") || null
