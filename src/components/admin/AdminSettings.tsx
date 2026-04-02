@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Download, Upload, Trash2, Database, Clock, History } from "lucide-react";
+import { Save, Download, Upload, Trash2, Database, Clock, History, Activity } from "lucide-react";
 import { format } from "date-fns";
 
 export function AdminSettings() {
@@ -26,6 +26,10 @@ export function AdminSettings() {
   const [autoEnabled, setAutoEnabled] = useState(false);
   const [autoInterval, setAutoInterval] = useState("daily");
   const [autoRetention, setAutoRetention] = useState("30");
+
+  // KUKU KPI thresholds
+  const [kukuDelayThreshold, setKukuDelayThreshold] = useState("5");
+  const [kukuPredThreshold, setKukuPredThreshold] = useState("5");
 
   // PM Name
   const { data: pmData, isLoading: pmLoading } = useQuery({
@@ -47,12 +51,12 @@ export function AdminSettings() {
 
   // Auto backup settings from project_settings
   const { data: backupSettings } = useQuery({
-    queryKey: ["project_settings", "backup"],
+    queryKey: ["project_settings", "backup_and_kuku"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_settings")
         .select("key, value")
-        .in("key", ["auto_backup_enabled", "auto_backup_interval", "auto_backup_retention"]);
+        .in("key", ["auto_backup_enabled", "auto_backup_interval", "auto_backup_retention", "kuku_delay_threshold", "kuku_pred_threshold"]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((r) => (map[r.key] = r.value));
@@ -65,6 +69,8 @@ export function AdminSettings() {
       setAutoEnabled(backupSettings.auto_backup_enabled === "true");
       setAutoInterval(backupSettings.auto_backup_interval || "daily");
       setAutoRetention(backupSettings.auto_backup_retention || "30");
+      setKukuDelayThreshold(backupSettings.kuku_delay_threshold || "5");
+      setKukuPredThreshold(backupSettings.kuku_pred_threshold || "5");
     }
   }, [backupSettings]);
 
@@ -96,6 +102,23 @@ export function AdminSettings() {
     onError: (e) => toast.error(e.message),
   });
 
+  const saveKukuThresholds = useMutation({
+    mutationFn: async () => {
+      const now = new Date().toISOString();
+      const rows = [
+        { key: "kuku_delay_threshold", value: kukuDelayThreshold, updated_at: now },
+        { key: "kuku_pred_threshold", value: kukuPredThreshold, updated_at: now },
+      ];
+      const { error } = await supabase.from("project_settings").upsert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project_settings"] });
+      queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+      toast.success("KUKU threshold settings saved");
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const saveBackupSettings = useMutation({
     mutationFn: async () => {
       const now = new Date().toISOString();
@@ -301,7 +324,50 @@ export function AdminSettings() {
         </CardContent>
       </Card>
 
-      {/* Manual Backup/Restore */}
+      {/* KUKU KPI Thresholds */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            KUKU KPI Thresholds
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            CPM Summary Banner의 복합 KPI 카드에서 사용하는 지연 판별 기준값을 설정합니다.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+            <div className="space-y-2">
+              <Label>Delayed KUKU Threshold (%)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={kukuDelayThreshold}
+                onChange={(e) => setKukuDelayThreshold(e.target.value)}
+                placeholder="5"
+              />
+              <p className="text-[10px] text-muted-foreground">실제 진행률이 계획 대비 이 값(%) 이상 낮으면 지연으로 표시</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Pred Alert Threshold (%)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={kukuPredThreshold}
+                onChange={(e) => setKukuPredThreshold(e.target.value)}
+                placeholder="5"
+              />
+              <p className="text-[10px] text-muted-foreground">선행 Activity와의 Gap이 이 값(%) 이상 음수이면 경고로 표시</p>
+            </div>
+          </div>
+          <Button onClick={() => saveKukuThresholds.mutate()} disabled={saveKukuThresholds.isPending}>
+            <Save className="h-4 w-4 mr-1" />
+            {saveKukuThresholds.isPending ? "Saving…" : "Save Thresholds"}
+          </Button>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">

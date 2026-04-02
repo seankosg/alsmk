@@ -1,4 +1,6 @@
 import { useKukuDashboard } from "@/hooks/useKukuDashboard";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, AlertTriangle, Building2, Target, Link2, TrendingDown, ShieldAlert, Activity } from "lucide-react";
@@ -19,6 +21,27 @@ const KpiBox = ({ icon, value, label }: KpiBoxProps) => (
 
 export function CpmSummaryBanner() {
   const { data, isLoading } = useKukuDashboard();
+
+  const { data: thresholds } = useQuery({
+    queryKey: ["project_settings", "kuku_thresholds"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_settings")
+        .select("key, value")
+        .in("key", ["kuku_delay_threshold", "kuku_pred_threshold"]);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r) => (map[r.key] = r.value));
+      return {
+        delay: Number(map.kuku_delay_threshold) || 5,
+        pred: Number(map.kuku_pred_threshold) || 5,
+      };
+    },
+    staleTime: 60_000,
+  });
+
+  const delayThreshold = thresholds?.delay ?? 5;
+  const predThreshold = thresholds?.pred ?? 5;
 
   if (isLoading) {
     return (
@@ -51,10 +74,10 @@ export function CpmSummaryBanner() {
   // Composite KPI calculations
   const delayedCount = data.kukuActivities.filter(a => {
     const actual = a.progress ?? 0;
-    return actual < a.plannedProgress - 5;
+    return actual < a.plannedProgress - delayThreshold;
   }).length;
 
-  const predAlertCount = data.predecessors.filter(p => p.gap < -5).length;
+  const predAlertCount = data.predecessors.filter(p => p.gap < -predThreshold).length;
 
   let overallGap = 0;
   if (kukuTotal > 0) {
