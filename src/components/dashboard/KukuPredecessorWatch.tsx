@@ -41,7 +41,8 @@ export function KukuPredecessorWatch() {
               {delayed.map((p, i) => (
                 <div
                   key={`${p.id}-${i}`}
-                  className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-red-50 dark:bg-red-950/30"
+                  className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-red-50 dark:bg-red-950/30 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-all"
+                  onClick={() => navigate(`/cpm?highlight=${encodeURIComponent(p.id)}`)}
                 >
                   <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
                   <div className="flex-1 min-w-0">
