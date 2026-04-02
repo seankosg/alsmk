@@ -49,7 +49,7 @@ export function KukuDelayRiskBoard() {
           <Badge variant="destructive" className="ml-auto text-xs">{delayItems.length}</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 min-h-0">
         {delayItems.length === 0 ? (
           <div className="text-xs text-muted-foreground text-center py-4">No delayed KUKU activities 🎉</div>
         ) : (

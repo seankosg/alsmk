@@ -94,7 +94,7 @@ export function OverdueTasksBoard() {
           </div>
           <p className="text-xs text-muted-foreground">Tasks past due date with progress &lt; 100%, grouped by team</p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0">
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}

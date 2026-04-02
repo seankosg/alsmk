@@ -40,7 +40,7 @@ export function KukuCoverageRate() {
           KUKU Task Coverage
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 min-h-0">
         <div className="flex items-center gap-4">
           <div className="w-24 h-24 relative">
             <ResponsiveContainer width="100%" height="100%">

@@ -76,7 +76,7 @@ export function UpcomingDeadlines() {
           </div>
           <p className="text-xs text-muted-foreground">Tasks due within 7 days</p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0">
           {lt ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (

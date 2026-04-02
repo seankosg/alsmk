@@ -207,7 +207,7 @@ export function TeamProgressChart() {
             </ToggleGroup>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0">
           {isLoading ? (
             <Skeleton className="h-[220px] w-full" />
           ) : (() => {
