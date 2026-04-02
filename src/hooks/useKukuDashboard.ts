@@ -73,7 +73,31 @@ export function useKukuDashboard() {
         taskMap = Object.fromEntries((tasks || []).map((t) => [t.id, t]));
       }
 
-      // 4. Load latest snapshot for predecessor info
+      // 4. Build predecessor map from pred_links column (no snapshot dependency)
+      const predMap = new Map<string, string[]>(); // mppTaskId -> predecessor mppTaskIds
+      
+      // Build mpp_uid → mppTaskId lookup
+      const mppUidToTaskId = new Map<string, string>();
+      activities.forEach((a) => {
+        if (a.mpp_uid && a.mpp_task_id) mppUidToTaskId.set(a.mpp_uid, a.mpp_task_id);
+      });
+
+      // Build internal snapshot-style ID (A###) → mppTaskId lookup from activities
+      // pred_links format: "A244:0:56,A250:1:0" — internal IDs separated by commas
+      // We need a way to map these internal IDs to mppTaskId
+      // The iframe uses sequential "A" + index IDs internally
+      // But we also have mpp_uid which is stable — let's check if pred_links uses mpp_uid or internal IDs
+
+      // Strategy: pred_links contains iframe internal IDs (A###). 
+      // We need the snapshot to map A### → mppTaskId... but that defeats the purpose.
+      // Better approach: parse pred_links and match by position/name from the activities list itself.
+      // Actually, the iframe's internal IDs are ephemeral. pred_links references them.
+      // We need to store the mapping. Let's use a different approach:
+      // Since all activities are in DB with mpp_task_id, and the iframe assigns sequential IDs,
+      // we can't reliably reverse-map without the iframe context.
+      
+      // REVISED: Use the latest snapshot ONLY for ID mapping (A### → mppTaskId), 
+      // but fall back gracefully. This is a lightweight read.
       const { data: snapshot } = await supabase
         .from("cpm_snapshots")
         .select("data")
@@ -81,49 +105,31 @@ export function useKukuDashboard() {
         .limit(1)
         .maybeSingle();
 
-      // Build predecessor map from snapshot
-      const predMap = new Map<string, string[]>(); // mppTaskId -> predecessor mppTaskIds
+      // Build A### → mppTaskId mapping from snapshot
+      const internalIdToMpp = new Map<string, string>();
       if (snapshot?.data) {
-        const snapshotData = snapshot.data as any;
-        const snapshotActivities = snapshotData.activities || snapshotData.nodes || [];
-
-        // Build snapshot internal ID → mppTaskId mapping
-        const snapshotIdToMpp = new Map<string, string>();
-        snapshotActivities.forEach((a: any) => {
-          if (a.id && a.mppTaskId) snapshotIdToMpp.set(a.id, a.mppTaskId);
-        });
-
-        snapshotActivities.forEach((a: any) => {
-          const rawPreds: string[] = [];
-
-          // predecessors (string or array)
-          if (a.predecessors) {
-            if (typeof a.predecessors === "string" && a.predecessors.length > 0) {
-              rawPreds.push(...a.predecessors.split(",").map((s: string) => s.trim()));
-            } else if (Array.isArray(a.predecessors)) {
-              rawPreds.push(...a.predecessors.map((p: any) => typeof p === "string" ? p : p.id || p.from));
-            }
-          }
-
-          // predLinks (comma-separated string like "A244:0:56,A250:1:0" or array)
-          if (a.predLinks) {
-            if (typeof a.predLinks === "string" && a.predLinks.length > 0) {
-              rawPreds.push(...a.predLinks.split(",").map((s: string) => s.split(":")[0].trim()));
-            } else if (Array.isArray(a.predLinks)) {
-              rawPreds.push(...a.predLinks.map((p: any) => typeof p === "string" ? p.split(":")[0] : p.from || p.id));
-            }
-          }
-
-          if (rawPreds.length) {
-            // Convert snapshot IDs (A244) to mppTaskId (292)
-            const mppPreds = rawPreds
-              .map((id) => snapshotIdToMpp.get(id) || id)
-              .filter(Boolean);
-            const key = a.mppTaskId || a.id;
-            predMap.set(key, [...new Set(mppPreds)]);
-          }
+        const sd = snapshot.data as any;
+        const snapshotActs = sd.activities || sd.nodes || [];
+        snapshotActs.forEach((a: any) => {
+          if (a.id && a.mppTaskId) internalIdToMpp.set(a.id, a.mppTaskId);
         });
       }
+
+      // Parse pred_links from each activity's DB column
+      activities.forEach((a) => {
+        const raw = (a as any).pred_links as string | null;
+        if (!raw || !raw.trim() || !a.mpp_task_id) return;
+        
+        const predMppIds = raw.split(",")
+          .map((s: string) => s.trim().split(":")[0].trim())
+          .filter(Boolean)
+          .map((id: string) => internalIdToMpp.get(id) || id)
+          .filter(Boolean);
+        
+        if (predMppIds.length) {
+          predMap.set(a.mpp_task_id, [...new Set(predMppIds)]);
+        }
+      });
 
       // Build activity lookup by mppTaskId
       const actByMpp = new Map<string, typeof activities[0]>();
