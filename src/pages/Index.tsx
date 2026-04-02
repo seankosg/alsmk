@@ -34,12 +34,27 @@ const Index = () => {
 
   // On mount: request current CPM data from hidden iframe for runtime cache sync
   useEffect(() => {
-    // The CpmScheduler iframe is kept alive by AppLayout even when not on /cpm
-    // Send request-cpm-data to get latest graph state into runtime cache
-    const iframe = document.querySelector<HTMLIFrameElement>('iframe[src*="cpm_network"]');
-    if (iframe?.contentWindow) {
-      iframe.contentWindow.postMessage({ type: "request-cpm-data" }, "*");
-    }
+    let attempts = 0;
+    const maxAttempts = 8;
+
+    const requestRuntimeData = () => {
+      const iframe = document.querySelector<HTMLIFrameElement>('iframe[src*="cpm_network"]');
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.postMessage({ type: "request-cpm-data" }, "*");
+      }
+
+      attempts += 1;
+      if (attempts >= maxAttempts) {
+        window.clearInterval(intervalId);
+      }
+    };
+
+    requestRuntimeData();
+    const intervalId = window.setInterval(requestRuntimeData, 350);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   // Realtime: watch task mappings and task progress changes (not cpm_activities — that comes from runtime cache)

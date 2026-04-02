@@ -3520,7 +3520,7 @@ window.addEventListener('message', function(e) {
   }
   if (e.data.type === 'request-cpm-data') {
     // Lightweight sync: send current activities without triggering DB upsert
-    if (window.parent === window || !calculated || !activities.length) return;
+    if (window.parent === window || !activities.length) return;
     var runtimeData = activities.map(function(a) {
       return {
         id: a.id,

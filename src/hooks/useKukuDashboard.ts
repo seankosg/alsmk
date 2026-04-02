@@ -54,7 +54,7 @@ function fromRuntime(a: CpmRuntimeActivity) {
     finish_date: a.finishDate,
     custom_fields: a.customFields as Record<string, string> | null,
     pred_links: a.predLinks || null,
-    progress_mode: "auto" as string,
+    progress_mode: "runtime" as string,
   };
 }
 
