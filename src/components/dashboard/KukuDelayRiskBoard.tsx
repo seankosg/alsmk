@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { useKukuDashboard } from "@/hooks/useKukuDashboard";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
 
 interface DelayItem {
   id: string;
