@@ -73,12 +73,13 @@ const Index = () => {
         <KukuDelayRiskBoard />
       </div>
 
-      <div data-export-id="team-heatmap">
-        <TeamHeatmap />
-      </div>
-
-      <div data-export-id="part-status">
-        <PartStatusBoard />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div data-export-id="team-heatmap">
+          <TeamHeatmap />
+        </div>
+        <div data-export-id="part-status">
+          <PartStatusBoard />
+        </div>
       </div>
 
       <ActivityStream />
