@@ -27,6 +27,10 @@ export function AdminSettings() {
   const [autoInterval, setAutoInterval] = useState("daily");
   const [autoRetention, setAutoRetention] = useState("30");
 
+  // KUKU KPI thresholds
+  const [kukuDelayThreshold, setKukuDelayThreshold] = useState("5");
+  const [kukuPredThreshold, setKukuPredThreshold] = useState("5");
+
   // PM Name
   const { data: pmData, isLoading: pmLoading } = useQuery({
     queryKey: ["project_settings", "pm_name"],
