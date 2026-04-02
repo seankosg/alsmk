@@ -384,6 +384,37 @@ export function AdminSettings() {
         </CardContent>
       </Card>
 
+      {/* Save Backup Name Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Backup</DialogTitle>
+            <DialogDescription>
+              Enter a name for this backup snapshot.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Backup Name</Label>
+            <Input
+              value={backupName}
+              onChange={(e) => setBackupName(e.target.value)}
+              placeholder="e.g. before_migration_v2"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => saveBackupToDb.mutate(backupName.trim() || `backup_${new Date().toISOString().slice(0, 10)}`)}
+              disabled={saveBackupToDb.isPending}
+            >
+              {saveBackupToDb.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Confirm Restore Dialog */}
       <Dialog open={confirmRestore} onOpenChange={setConfirmRestore}>
         <DialogContent>

@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
       const { error: insertError } = await adminClient
         .from("data_backups")
         .insert({
-          name: `auto_${new Date().toISOString().slice(0, 10)}`,
+          name: backupName,
           data: exportData,
         });
 
