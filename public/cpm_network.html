@@ -3569,6 +3569,40 @@ window.addEventListener('message', function(e) {
     });
     window.parent.postMessage({ type: 'cpm-runtime-data', activities: runtimeData }, '*');
   }
+  if (e.data.type === 'focus-node') {
+    // Scroll to and highlight a specific node by internal ID
+    var targetId = e.data.nodeId;
+    if (!targetId || !_nodePositions || !_nodePositions[targetId]) return;
+    var np = _nodePositions[targetId];
+    var container = document.getElementById('networkContainer') || document.querySelector('.network-scroll');
+    if (container) {
+      container.scrollTo({
+        left: Math.max(0, np.x - container.clientWidth / 2 + _NODE_W / 2),
+        top: Math.max(0, np.y - container.clientHeight / 2 + _NODE_H / 2),
+        behavior: 'smooth'
+      });
+    }
+    // Highlight: add a pulsing ring around the target node
+    var svg = document.querySelector('#networkSvg') || document.querySelector('svg');
+    if (svg) {
+      // Remove any previous highlight
+      var prev = svg.querySelector('.focus-highlight');
+      if (prev) prev.remove();
+      var ring = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      ring.setAttribute('x', np.x - 4);
+      ring.setAttribute('y', np.y - 4);
+      ring.setAttribute('width', _NODE_W + 8);
+      ring.setAttribute('height', _NODE_H + 8);
+      ring.setAttribute('rx', '10');
+      ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke', '#3b82f6');
+      ring.setAttribute('stroke-width', '4');
+      ring.classList.add('focus-highlight');
+      ring.style.animation = 'focusPulse 1s ease-in-out 3';
+      svg.appendChild(ring);
+      setTimeout(function() { ring.remove(); }, 3200);
+    }
+  }
   if (e.data.type === 'activity-status-update') {
     window._activityStatusMap = {};
     (e.data.statuses || []).forEach(function(s) {
