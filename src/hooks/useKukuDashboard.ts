@@ -73,31 +73,10 @@ export function useKukuDashboard() {
         taskMap = Object.fromEntries((tasks || []).map((t) => [t.id, t]));
       }
 
-      // 4. Build predecessor map from pred_links column (no snapshot dependency)
+      // 4. Build predecessor map from pred_links column on cpm_activities
       const predMap = new Map<string, string[]>(); // mppTaskId -> predecessor mppTaskIds
       
-      // Build mpp_uid → mppTaskId lookup
-      const mppUidToTaskId = new Map<string, string>();
-      activities.forEach((a) => {
-        if (a.mpp_uid && a.mpp_task_id) mppUidToTaskId.set(a.mpp_uid, a.mpp_task_id);
-      });
-
-      // Build internal snapshot-style ID (A###) → mppTaskId lookup from activities
-      // pred_links format: "A244:0:56,A250:1:0" — internal IDs separated by commas
-      // We need a way to map these internal IDs to mppTaskId
-      // The iframe uses sequential "A" + index IDs internally
-      // But we also have mpp_uid which is stable — let's check if pred_links uses mpp_uid or internal IDs
-
-      // Strategy: pred_links contains iframe internal IDs (A###). 
-      // We need the snapshot to map A### → mppTaskId... but that defeats the purpose.
-      // Better approach: parse pred_links and match by position/name from the activities list itself.
-      // Actually, the iframe's internal IDs are ephemeral. pred_links references them.
-      // We need to store the mapping. Let's use a different approach:
-      // Since all activities are in DB with mpp_task_id, and the iframe assigns sequential IDs,
-      // we can't reliably reverse-map without the iframe context.
-      
-      // REVISED: Use the latest snapshot ONLY for ID mapping (A### → mppTaskId), 
-      // but fall back gracefully. This is a lightweight read.
+      // pred_links stores iframe internal IDs (A###). Need snapshot for A### → mppTaskId mapping.
       const { data: snapshot } = await supabase
         .from("cpm_snapshots")
         .select("data")
@@ -105,12 +84,10 @@ export function useKukuDashboard() {
         .limit(1)
         .maybeSingle();
 
-      // Build A### → mppTaskId mapping from snapshot
       const internalIdToMpp = new Map<string, string>();
       if (snapshot?.data) {
         const sd = snapshot.data as any;
-        const snapshotActs = sd.activities || sd.nodes || [];
-        snapshotActs.forEach((a: any) => {
+        (sd.activities || sd.nodes || []).forEach((a: any) => {
           if (a.id && a.mppTaskId) internalIdToMpp.set(a.id, a.mppTaskId);
         });
       }
