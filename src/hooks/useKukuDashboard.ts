@@ -100,7 +100,7 @@ export function useKukuDashboard() {
           .from("cpm_activities")
           .select("id, name, wbs_full, mpp_task_id, mpp_uid, duration, progress, progress_mode, is_critical, is_milestone, start_date, finish_date, custom_fields, pred_links")
           .limit(5000);
-        if (!dbActivities?.length) return { kukuActivities: [], predecessors: [], allActivitiesCount: 0 };
+        if (!dbActivities?.length) return { kukuActivities: [], predecessors: [], allActivitiesCount: 0, criticalCount: 0, milestoneCount: 0, dataSource: "db" as const, lastSyncTime: null };
         activities = dbActivities.map(a => ({
           ...a,
           mpp_uid: a.mpp_uid || null,
