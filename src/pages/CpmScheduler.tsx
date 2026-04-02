@@ -373,6 +373,7 @@ const CpmScheduler = () => {
         // Auto-mode: recalculate elapsed progress then refresh
         batchUpdateElapsedProgress().then(() => {
           setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+          queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
         });
       }
       if (e.data.type === "activity-click") {
