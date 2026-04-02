@@ -277,9 +277,9 @@ export function AdminSettings() {
               <Download className="h-4 w-4 mr-1" />
               {exportBackup.isPending ? "Exporting…" : "Download Backup (JSON)"}
             </Button>
-            <Button onClick={() => saveBackupToDb.mutate()} disabled={saveBackupToDb.isPending} variant="outline">
+            <Button onClick={() => { setBackupName(`backup_${new Date().toISOString().slice(0, 10)}`); setShowSaveDialog(true); }} variant="outline">
               <Database className="h-4 w-4 mr-1" />
-              {saveBackupToDb.isPending ? "Saving…" : "Save Backup to DB"}
+              Save Backup to DB
             </Button>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
               <Upload className="h-4 w-4 mr-1" />
