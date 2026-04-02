@@ -163,9 +163,28 @@ const CpmScheduler = () => {
     iframeRef.current.contentWindow.postMessage({ type: "request-snapshot" }, "*");
   }, []);
 
+  // Convert pred_links internal IDs (A###) to mppTaskId before DB save
+  const convertPredLinks = useCallback((raw: string | null, idToMpp: Map<string, string>): string | null => {
+    if (!raw?.trim()) return null;
+    return raw.split(",")
+      .map(s => {
+        const parts = s.trim().split(":");
+        const converted = idToMpp.get(parts[0].trim()) || parts[0].trim();
+        parts[0] = converted;
+        return parts.join(":");
+      })
+      .join(",");
+  }, []);
+
   // Lightweight upsert: only update activity data, NO orphan detection
   const upsertActivitiesOnly = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
+
+    // Build internal ID → mppTaskId map
+    const idToMpp = new Map<string, string>();
+    activities.forEach((a: any) => {
+      if (a.id && a.mppTaskId) idToMpp.set(a.id, a.mppTaskId);
+    });
     
     const rows = activities.map((a) => ({
       mpp_uid: a.mppUid,
@@ -181,7 +200,7 @@ const CpmScheduler = () => {
       es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
       custom_fields: (a as any).customFields || {},
       semantic_key: getSemanticKey({ name: a.name, wbsFull: a.wbsFull, customFields: (a as any).customFields }),
-      pred_links: (a as any).predLinks || null,
+      pred_links: convertPredLinks((a as any).predLinks || null, idToMpp),
       updated_at: new Date().toISOString(),
     }));
 
@@ -190,12 +209,18 @@ const CpmScheduler = () => {
       .upsert(rows, { onConflict: "mpp_uid" });
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-  }, [queryClient, refreshStatus]);
+  }, [queryClient, refreshStatus, convertPredLinks]);
 
   // Upsert activities to DB when CPM calculates — with auto-migration + orphan resolution
   const upsertActivities = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
     const currentUserName = memberName || "System";
+
+    // Build internal ID → mppTaskId map
+    const idToMpp = new Map<string, string>();
+    activities.forEach((a: any) => {
+      if (a.id && a.mppTaskId) idToMpp.set(a.id, a.mppTaskId);
+    });
     
     const rows = activities.map((a) => ({
       mpp_uid: a.mppUid,
@@ -211,7 +236,7 @@ const CpmScheduler = () => {
       es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
       custom_fields: (a as any).customFields || {},
       semantic_key: getSemanticKey({ name: a.name, wbsFull: a.wbsFull, customFields: (a as any).customFields }),
-      pred_links: (a as any).predLinks || null,
+      pred_links: convertPredLinks((a as any).predLinks || null, idToMpp),
       updated_at: new Date().toISOString(),
     }));
 
@@ -349,7 +374,7 @@ const CpmScheduler = () => {
     }
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-  }, [queryClient, refreshStatus, memberName]);
+  }, [queryClient, refreshStatus, memberName, convertPredLinks]);
 
   // Listen for messages from iframe
   useEffect(() => {

@@ -73,34 +73,15 @@ export function useKukuDashboard() {
         taskMap = Object.fromEntries((tasks || []).map((t) => [t.id, t]));
       }
 
-      // 4. Build predecessor map from pred_links column on cpm_activities
-      const predMap = new Map<string, string[]>(); // mppTaskId -> predecessor mppTaskIds
+      // 4. Build predecessor map from pred_links column (already stored as mppTaskId)
+      const predMap = new Map<string, string[]>();
       
-      // pred_links stores iframe internal IDs (A###). Need snapshot for A### → mppTaskId mapping.
-      const { data: snapshot } = await supabase
-        .from("cpm_snapshots")
-        .select("data")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const internalIdToMpp = new Map<string, string>();
-      if (snapshot?.data) {
-        const sd = snapshot.data as any;
-        (sd.activities || sd.nodes || []).forEach((a: any) => {
-          if (a.id && a.mppTaskId) internalIdToMpp.set(a.id, a.mppTaskId);
-        });
-      }
-
-      // Parse pred_links from each activity's DB column
       activities.forEach((a) => {
         const raw = (a as any).pred_links as string | null;
-        if (!raw || !raw.trim() || !a.mpp_task_id) return;
+        if (!raw?.trim() || !a.mpp_task_id) return;
         
         const predMppIds = raw.split(",")
           .map((s: string) => s.trim().split(":")[0].trim())
-          .filter(Boolean)
-          .map((id: string) => internalIdToMpp.get(id) || id)
           .filter(Boolean);
         
         if (predMppIds.length) {
