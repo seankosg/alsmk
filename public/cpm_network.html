@@ -498,7 +498,11 @@
   <!-- Sidebar -->
   <div class="sidebar">
     <div class="sidebar-header">
-      <span class="sidebar-title">Activity 목록</span>
+      <span class="sidebar-title" style="display:flex;align-items:center;gap:6px">Activity 목록
+        <button onclick="window.parent.postMessage({type:'cpm-refresh-request'},'*')" title="CPM 데이터 새로고침"
+          style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:2px 5px;font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:3px"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">🔄</button>
+      </span>
       <div style="display:flex;align-items:center;gap:6px">
         <span style="font-size:10px;color:var(--text-dim)">착공일</span>
         <input type="date" id="projectStartInput"
