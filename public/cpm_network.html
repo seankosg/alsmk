@@ -2078,8 +2078,9 @@ function showNodeTooltip(e, actId) {
   const isC  = a.isCritical;
   const isPT = !isC && a.tf === 0;
   const accentColor = isPT ? '#c97a10' : isC ? '#ff4d4d' : '#4da6ff';
-  const predNames = (a.predecessors||'').split(',').map(s=>s.trim()).filter(Boolean)
-    .map(pid => { const p = map[pid]; return p ? (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name : pid; })
+  const rawPredStr = (a.predLinks && a.predLinks.trim()) ? a.predLinks : (a.predecessors||'');
+  const predNames = rawPredStr.split(',').map(s=>s.trim().split(':')[0].trim()).filter(s=>s&&map[s])
+    .map(pid => { const p = map[pid]; return (p.mppTaskId?'#'+p.mppTaskId:pid)+' '+p.name; })
     .join(', ') || '없음 (시작)';
 
   const dateRow = a.startDate
