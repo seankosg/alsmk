@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 
 interface DelayItem {
   id: string;
+  mpp_task_id: string | null;
   name: string;
   wbs_full: string | null;
   actual: number;
