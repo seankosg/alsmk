@@ -50,7 +50,6 @@ Deno.serve(async (req) => {
 
       const token = authHeader.replace("Bearer ", "");
 
-      // Validate token using signing-key aware getClaims()
       const authClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
         auth: { autoRefreshToken: false, persistSession: false },
@@ -86,7 +85,6 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Password must be at least 6 characters" }, 400);
       }
 
-      // Check member exists and has no account yet
       const { data: member, error: memberErr } = await adminClient
         .from("members")
         .select("id, user_id")
@@ -100,7 +98,6 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Member already has an account" }, 409);
       }
 
-      // Create auth user
       const { data: newUser, error: createErr } =
         await adminClient.auth.admin.createUser({
           email,
@@ -112,19 +109,16 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: createErr.message }, 400);
       }
 
-      // Link to member
       const { error: updateErr } = await adminClient
         .from("members")
         .update({ user_id: newUser.user.id, email })
         .eq("id", member_id);
 
       if (updateErr) {
-        // Rollback: delete the created auth user
         await adminClient.auth.admin.deleteUser(newUser.user.id);
         return jsonResponse({ error: "Failed to link account: " + updateErr.message }, 500);
       }
 
-      // If first user, auto-assign admin role
       if (isFirstUser) {
         await adminClient.from("user_roles").insert({
           user_id: newUser.user.id,
@@ -157,7 +151,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true });
     }
 
-    // ── ACTION: toggle-admin ──
+    // ── ACTION: toggle-admin (kept for backward compat) ──
     if (action === "toggle-admin") {
       const { user_id, grant } = body;
       if (!user_id) {
@@ -176,6 +170,45 @@ Deno.serve(async (req) => {
           .delete()
           .eq("user_id", user_id)
           .eq("role", "admin");
+        if (error) return jsonResponse({ error: error.message }, 400);
+      }
+
+      return jsonResponse({ success: true });
+    }
+
+    // ── ACTION: toggle-role (generic for any role) ──
+    if (action === "toggle-role") {
+      const { user_id, role, grant } = body;
+      if (!user_id || !role) {
+        return jsonResponse({ error: "user_id, role required" }, 400);
+      }
+      const validRoles = ["admin", "guest", "super_guest"];
+      if (!validRoles.includes(role)) {
+        return jsonResponse({ error: `Invalid role. Must be one of: ${validRoles.join(", ")}` }, 400);
+      }
+
+      if (grant) {
+        // When granting guest/super_guest, remove the other guest type first
+        if (role === "guest" || role === "super_guest") {
+          const otherRole = role === "guest" ? "super_guest" : "guest";
+          await adminClient
+            .from("user_roles")
+            .delete()
+            .eq("user_id", user_id)
+            .eq("role", otherRole);
+        }
+
+        const { error } = await adminClient.from("user_roles").upsert(
+          { user_id, role },
+          { onConflict: "user_id,role" }
+        );
+        if (error) return jsonResponse({ error: error.message }, 400);
+      } else {
+        const { error } = await adminClient
+          .from("user_roles")
+          .delete()
+          .eq("user_id", user_id)
+          .eq("role", role);
         if (error) return jsonResponse({ error: error.message }, 400);
       }
 

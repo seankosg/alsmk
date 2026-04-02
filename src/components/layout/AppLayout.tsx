@@ -17,6 +17,9 @@ interface AuthContextType {
   isAdmin: boolean;
   isPm: boolean;
   isAdminOrPm: boolean;
+  isGuest: boolean;
+  isSuperGuest: boolean;
+  readOnly: boolean;
   memberId: string | null;
   memberName: string | null;
   signOut: () => Promise<void>;
@@ -27,12 +30,21 @@ export const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isPm: false,
   isAdminOrPm: false,
+  isGuest: false,
+  isSuperGuest: false,
+  readOnly: false,
   memberId: null,
   memberName: null,
   signOut: async () => {},
 });
 
 export const useAuthContext = () => useContext(AuthContext);
+
+// Routes accessible to each guest type
+const GUEST_ALLOWED: string[] = ["/", "/change-password"];
+const SUPER_GUEST_ALLOWED: string[] = [
+  "/", "/calendar", "/my", "/workspace", "/cpm", "/messages", "/organization", "/change-password",
+];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
@@ -60,12 +72,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Non-admin trying to access /admin
-  if (!auth.isAdmin && location.pathname === "/admin") {
+  // Non-admin trying to access /admin or /tasks/import
+  if (!auth.isAdmin && (location.pathname === "/admin" || location.pathname === "/tasks/import")) {
     return <Navigate to="/" replace />;
   }
 
-  // Regular member accessing / → redirect to /my (removed: now all users can view Project Dashboard read-only)
+  // Guest route guard
+  if (auth.isGuest && !GUEST_ALLOWED.includes(location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Super Guest route guard
+  if (auth.isSuperGuest && !SUPER_GUEST_ALLOWED.includes(location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <AuthContext.Provider
@@ -74,6 +94,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         isAdmin: auth.isAdmin,
         isPm: auth.isPm,
         isAdminOrPm: auth.isAdminOrPm,
+        isGuest: auth.isGuest,
+        isSuperGuest: auth.isSuperGuest,
+        readOnly: auth.readOnly,
         memberId: auth.memberId,
         memberName: auth.memberName,
         signOut: auth.signOut,
@@ -96,7 +119,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
               <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                 <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">© {new Date().getFullYear()} Sean B. KO. All rights reserved.</span>
-                <NotificationBell />
+                {!auth.readOnly && <NotificationBell />}
               </div>
             </header>
             <main className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 relative flex flex-col">
@@ -111,8 +134,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </main>
           </div>
         </div>
-        <UnreadMessagesDialog />
-        <RealtimeDmToast memberId={auth.memberId} />
+        {!auth.readOnly && <UnreadMessagesDialog />}
+        {!auth.readOnly && <RealtimeDmToast memberId={auth.memberId} />}
       </SidebarProvider>
     </AuthContext.Provider>
   );

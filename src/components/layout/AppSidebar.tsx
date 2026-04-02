@@ -11,39 +11,53 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "./AppLayout";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
+const allNavItems = [
+  { title: "Project Dashboard", url: "/", icon: LayoutDashboard, guestVisible: true, superGuestVisible: true },
+  { title: "Calendar", url: "/calendar", icon: CalendarDays, guestVisible: false, superGuestVisible: true },
+  { title: "My Dashboard", url: "/my", icon: User, guestVisible: false, superGuestVisible: true },
+  { title: "My Workspace", url: "/workspace", icon: Briefcase, guestVisible: false, superGuestVisible: true },
+  { title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
+  { title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
+  { title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
+  { title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
+  { title: "Import", url: "/tasks/import", icon: Upload, adminOnly: true, guestVisible: false, superGuestVisible: false },
+];
+
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAdmin, isAdminOrPm, memberName, signOut } = useAuthContext();
+  const { user, isAdmin, isAdminOrPm, isGuest, isSuperGuest, readOnly, memberName, signOut } = useAuthContext();
   const { unreadCount } = useUnreadMessages();
 
-  const navItems = [
-    { title: "Project Dashboard", url: "/", icon: LayoutDashboard },
-    { title: "Calendar", url: "/calendar", icon: CalendarDays },
-    { title: "My Dashboard", url: "/my", icon: User },
-    { title: "My Workspace", url: "/workspace", icon: Briefcase },
-    { title: "CPM Manager", url: "/cpm", icon: Network },
-    { title: "Messages", url: "/messages", icon: MessageSquare },
-    { title: "Organization", url: "/organization", icon: Building2 },
-    ...(isAdmin ? [
-      { title: "Admin", url: "/admin", icon: Settings },
-      { title: "Import", url: "/tasks/import", icon: Upload },
-    ] : []),
-  ];
+  // Filter nav items based on role
+  const navItems = allNavItems.filter((item) => {
+    if (isGuest) return item.guestVisible;
+    if (isSuperGuest) return item.superGuestVisible;
+    if (item.adminOnly) return isAdmin;
+    return true;
+  });
 
   const handleLogout = async () => {
     await signOut();
     navigate("/login", { replace: true });
   };
 
-  // Close sidebar on mobile after navigation
   const handleNavClick = () => {
     if (isMobile) {
       setOpenMobile(false);
     }
   };
+
+  // Determine role badge
+  const roleBadge = isAdmin
+    ? { label: "Admin", className: "border-primary text-primary" }
+    : isGuest
+    ? { label: "Guest", className: "border-muted-foreground text-muted-foreground" }
+    : isSuperGuest
+    ? { label: "Super Guest", className: "border-accent-foreground text-accent-foreground" }
+    : null;
 
   return (
     <Sidebar collapsible="icon">
@@ -83,7 +97,7 @@ export function AppSidebar() {
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
-                  {item.title === "Messages" && unreadCount > 0 && !collapsed && (
+                  {item.title === "Messages" && unreadCount > 0 && !collapsed && !readOnly && (
                     <SidebarMenuBadge className="right-2 top-1/2 -translate-y-1/2 rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </SidebarMenuBadge>
@@ -100,9 +114,9 @@ export function AppSidebar() {
             <p className="text-xs font-medium text-sidebar-foreground truncate">
               {memberName ?? user.email}
             </p>
-            {isAdmin && (
-              <Badge variant="outline" className="text-[10px] border-primary text-primary">
-                Admin
+            {roleBadge && (
+              <Badge variant="outline" className={`text-[10px] ${roleBadge.className}`}>
+                {roleBadge.label}
               </Badge>
             )}
           </div>
