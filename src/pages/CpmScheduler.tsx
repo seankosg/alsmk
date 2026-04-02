@@ -85,11 +85,31 @@ const CpmScheduler = () => {
 
     const enrichedData = { ...snapshotData, taskMappings };
 
-    await supabase
-      .from("cpm_snapshots")
-      .insert({ name, data: enrichedData, created_by: user?.id || null });
+    if (name === "auto") {
+      // Auto snapshot: keep only one — upsert by checking existing
+      const { data: existing } = await supabase
+        .from("cpm_snapshots")
+        .select("id")
+        .eq("name", "auto")
+        .limit(1);
+      if (existing && existing.length > 0) {
+        await supabase
+          .from("cpm_snapshots")
+          .update({ data: enrichedData, created_by: user?.id || null })
+          .eq("id", existing[0].id);
+      } else {
+        await supabase
+          .from("cpm_snapshots")
+          .insert({ name, data: enrichedData, created_by: user?.id || null });
+      }
+    } else {
+      // Manual snapshot: always insert new version
+      await supabase
+        .from("cpm_snapshots")
+        .insert({ name, data: enrichedData, created_by: user?.id || null });
+    }
     
-    console.log(`[CPM Snapshot] Version saved: "${name}" (${taskMappings.length} mapping groups)`);
+    console.log(`[CPM Snapshot] ${name === "auto" ? "Auto-overwritten" : "Version saved"}: "${name}" (${taskMappings.length} mapping groups)`);
   }, []);
 
   // Restore task mappings from snapshot data
