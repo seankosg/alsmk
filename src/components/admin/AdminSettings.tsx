@@ -102,7 +102,24 @@ export function AdminSettings() {
     onError: (e) => toast.error(e.message),
   });
 
-  const saveBackupSettings = useMutation({
+  const saveKukuThresholds = useMutation({
+    mutationFn: async () => {
+      const now = new Date().toISOString();
+      const rows = [
+        { key: "kuku_delay_threshold", value: kukuDelayThreshold, updated_at: now },
+        { key: "kuku_pred_threshold", value: kukuPredThreshold, updated_at: now },
+      ];
+      const { error } = await supabase.from("project_settings").upsert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project_settings"] });
+      queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+      toast.success("KUKU threshold settings saved");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
     mutationFn: async () => {
       const now = new Date().toISOString();
       const rows = [
