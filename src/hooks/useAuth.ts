@@ -8,6 +8,9 @@ interface AuthState {
   isAdmin: boolean;
   isPm: boolean;
   isAdminOrPm: boolean;
+  isGuest: boolean;
+  isSuperGuest: boolean;
+  readOnly: boolean;
   memberId: string | null;
   memberName: string | null;
   loading: boolean;
@@ -20,6 +23,9 @@ export function useAuth() {
     isAdmin: false,
     isPm: false,
     isAdminOrPm: false,
+    isGuest: false,
+    isSuperGuest: false,
+    readOnly: false,
     memberId: null,
     memberName: null,
     loading: true,
@@ -35,8 +41,10 @@ export function useAuth() {
       fetchingForRef.current = user.id;
 
       try {
-        const [roleResult, memberResult] = await Promise.all([
+        const [adminResult, guestResult, superGuestResult, memberResult] = await Promise.all([
           supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "guest" }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "super_guest" }),
           supabase
             .from("members")
             .select("id, name, is_pm")
@@ -46,20 +54,27 @@ export function useAuth() {
 
         if (!mounted) return;
 
-        if (roleResult.error || memberResult.error) {
-          console.warn("Role fetch error:", roleResult.error, memberResult.error);
+        if (adminResult.error || memberResult.error) {
+          console.warn("Role fetch error:", adminResult.error, memberResult.error);
           setState((prev) => ({ ...prev, user, session, loading: false }));
           return;
         }
 
-        const admin = roleResult.data === true;
+        const admin = adminResult.data === true;
         const pm = memberResult.data?.is_pm === true;
+        const guest = guestResult.data === true;
+        const superGuest = superGuestResult.data === true;
+        const readOnly = guest || superGuest;
+
         setState({
           user,
           session,
           isAdmin: admin,
           isPm: pm,
           isAdminOrPm: admin || pm,
+          isGuest: guest,
+          isSuperGuest: superGuest,
+          readOnly,
           memberId: memberResult.data?.id ?? null,
           memberName: memberResult.data?.name ?? null,
           loading: false,
@@ -84,6 +99,9 @@ export function useAuth() {
             isAdmin: false,
             isPm: false,
             isAdminOrPm: false,
+            isGuest: false,
+            isSuperGuest: false,
+            readOnly: false,
             memberId: null,
             memberName: null,
             loading: false,

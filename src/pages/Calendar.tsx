@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/components/layout/AppLayout";
+
 import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { WeekGrid } from "@/components/calendar/WeekGrid";
 import { EventDialog } from "@/components/calendar/EventDialog";
@@ -27,6 +28,7 @@ interface CalendarEvent {
 }
 
 export default function Calendar() {
+  const { readOnly } = useAuthContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week">("month");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -80,12 +82,14 @@ export default function Calendar() {
   const handleToday = () => setCurrentDate(new Date());
 
   const handleDateClick = (date: Date) => {
+    if (readOnly) return;
     setSelectedDate(format(date, "yyyy-MM-dd"));
     setSelectedEvent(null);
     setDialogOpen(true);
   };
 
   const handleEventClick = (event: CalendarEvent) => {
+    if (readOnly) return;
     setSelectedEvent(event);
     setSelectedDate(event.event_date);
     setDialogOpen(true);
@@ -120,9 +124,11 @@ export default function Calendar() {
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrev}><ChevronLeft className="h-4 w-4" /></Button>
           <span className="text-sm font-semibold min-w-[140px] text-center">{headerLabel}</span>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNext}><ChevronRight className="h-4 w-4" /></Button>
-          <Button size="sm" onClick={() => { setSelectedEvent(null); setSelectedDate(format(new Date(), "yyyy-MM-dd")); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-1" /> 일정 추가
-          </Button>
+          {!readOnly && (
+            <Button size="sm" onClick={() => { setSelectedEvent(null); setSelectedDate(format(new Date(), "yyyy-MM-dd")); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" /> 일정 추가
+            </Button>
+          )}
         </div>
       </div>
 

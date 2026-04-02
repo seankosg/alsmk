@@ -7,8 +7,10 @@ import { ChatArea } from "@/components/messages/ChatArea";
 import { NewConversationDialog } from "@/components/messages/NewConversationDialog";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { MessageSquare } from "lucide-react";
+import { useAuthContext } from "@/components/layout/AppLayout";
 
 export default function Messages() {
+  const { readOnly } = useAuthContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedConversation, setSelectedConversation] = useState<string | null>(
     searchParams.get("conv") || null
@@ -101,7 +103,7 @@ export default function Messages() {
         <ConversationList
           selectedId={selectedConversation}
           onSelect={setSelectedConversation}
-          onNewMessage={() => setNewConvoOpen(true)}
+          onNewMessage={readOnly ? undefined : () => setNewConvoOpen(true)}
           onDelete={(id) => {
             if (selectedConversation === id) setSelectedConversation(null);
           }}

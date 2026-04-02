@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, UserPlus, KeyRound, ShieldCheck, ShieldOff } from "lucide-react";
+import { Plus, Pencil, Trash2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Eye, EyeOff } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Tables } from "@/integrations/supabase/types";
 import { useAuthContext } from "@/components/layout/AppLayout";
 
@@ -64,17 +65,20 @@ export function AdminMembers() {
     },
   });
 
-  const { data: adminUserIds = [] } = useQuery({
-    queryKey: ["admin-roles"],
+  const { data: userRoles = [] } = useQuery({
+    queryKey: ["all-user-roles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_roles")
-        .select("user_id")
-        .eq("role", "admin");
+        .select("user_id, role");
       if (error) throw error;
-      return data.map((r) => r.user_id);
+      return data;
     },
   });
+
+  const adminUserIds = userRoles.filter((r) => r.role === "admin").map((r) => r.user_id);
+  const guestUserIds = userRoles.filter((r) => r.role === "guest").map((r) => r.user_id);
+  const superGuestUserIds = userRoles.filter((r) => r.role === "super_guest").map((r) => r.user_id);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -172,14 +176,32 @@ export function AdminMembers() {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       const res = await supabase.functions.invoke("admin-manage-user", {
-        body: { action: "toggle-admin", user_id: userId, grant },
+        body: { action: "toggle-role", user_id: userId, role: "admin", grant },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (res.error) throw new Error(res.error.message);
       if (res.data?.error) throw new Error(res.data.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+      toast.success("Role updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const toggleGuestRole = useMutation({
+    mutationFn: async ({ userId, role, grant }: { userId: string; role: "guest" | "super_guest"; grant: boolean }) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "toggle-role", user_id: userId, role, grant },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.error) throw new Error(res.error.message);
+      if (res.data?.error) throw new Error(res.data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
       toast.success("Role updated");
     },
     onError: (e) => toast.error(e.message),
@@ -225,6 +247,15 @@ export function AdminMembers() {
   const getPartName = (pid: string | null) => pid ? (parts.find(p => p.id === pid)?.name ?? "—") : "—";
   const filteredParts = parts.filter(p => p.team_id === teamId);
   const isMemberAdmin = (m: Member) => m.user_id ? adminUserIds.includes(m.user_id) : false;
+  const isMemberGuest = (m: Member) => m.user_id ? guestUserIds.includes(m.user_id) : false;
+  const isMemberSuperGuest = (m: Member) => m.user_id ? superGuestUserIds.includes(m.user_id) : false;
+
+  const getMemberRoleLabel = (m: Member) => {
+    if (isMemberAdmin(m)) return "Admin";
+    if (isMemberGuest(m)) return "Guest";
+    if (isMemberSuperGuest(m)) return "Super Guest";
+    return null;
+  };
 
   return (
     <Card>
@@ -251,8 +282,12 @@ export function AdminMembers() {
               <TableRow key={m.id}>
                 <TableCell className="font-medium">
                   {m.name}
-                  {isMemberAdmin(m) && (
-                    <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">Admin</Badge>
+                  {getMemberRoleLabel(m) && (
+                    <Badge variant="outline" className={`ml-2 text-[10px] ${
+                      isMemberAdmin(m) ? "border-primary text-primary" :
+                      isMemberGuest(m) ? "border-muted-foreground text-muted-foreground" :
+                      "border-accent-foreground text-accent-foreground"
+                    }`}>{getMemberRoleLabel(m)}</Badge>
                   )}
                 </TableCell>
                 <TableCell><Badge variant="outline">{getTeamName(m.team_id)}</Badge></TableCell>
@@ -280,18 +315,43 @@ export function AdminMembers() {
                           <KeyRound className="h-3.5 w-3.5" />
                         </Button>
                         {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleAdmin.mutate({ userId: m.user_id!, grant: !isMemberAdmin(m) })}
-                            title={isMemberAdmin(m) ? "Remove Admin" : "Grant Admin"}
-                          >
-                            {isMemberAdmin(m) ? (
-                              <ShieldOff className="h-3.5 w-3.5 text-warning" />
-                            ) : (
-                              <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                            )}
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleAdmin.mutate({ userId: m.user_id!, grant: !isMemberAdmin(m) })}
+                              title={isMemberAdmin(m) ? "Remove Admin" : "Grant Admin"}
+                            >
+                              {isMemberAdmin(m) ? (
+                                <ShieldOff className="h-3.5 w-3.5 text-warning" />
+                              ) : (
+                                <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Guest Role">
+                                  {(isMemberGuest(m) || isMemberSuperGuest(m)) ? (
+                                    <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                  ) : (
+                                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => toggleGuestRole.mutate({ userId: m.user_id!, role: "guest", grant: !isMemberGuest(m) })}
+                                >
+                                  {isMemberGuest(m) ? "✓ " : ""}Guest (Dashboard Only)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => toggleGuestRole.mutate({ userId: m.user_id!, role: "super_guest", grant: !isMemberSuperGuest(m) })}
+                                >
+                                  {isMemberSuperGuest(m) ? "✓ " : ""}Super Guest (Read-Only All)
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </>
                         )}
                       </>
                     )}
