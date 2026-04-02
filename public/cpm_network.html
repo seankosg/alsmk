@@ -1319,15 +1319,36 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       // Predecessor delay propagation: orange edge
       const predAlert = _alertCache[pid];
       const predDelayed = predAlert && predAlert.hasStatus && predAlert.gap >= (window._alertThresholds?.predDelay ?? 10);
-      const color = isCrit ? '#ff4d4d' : predDelayed ? '#ff9800' : '#3d4f6e';
-      const strokeW = isCrit ? 2.5 : predDelayed ? 2 : 1.5;
-      const markerId = isCrit ? 'arr-crit' : 'arr-norm';
+
+      // 지연 선행 → KUKU 후행: 붉은 글로우 점멸
+      const isSuccKuku = kukuIds.has(id);
+      const predIsCriticalAlert = predAlert && (
+        (predAlert.hasStatus && predAlert.gap >= (window._alertThresholds?.severe ?? 20)) ||
+        (map[pid].isCritical && predAlert.hasStatus && predAlert.gap >= (window._alertThresholds?.cpDelay ?? 5)) ||
+        predAlert.unmappedOverdue
+      );
+      const needsEdgeBlink = predIsCriticalAlert && isSuccKuku;
+
+      let color, strokeW, markerId, dashAttr, opacity, cssClass;
+      if (needsEdgeBlink) {
+        color = '#ff4d4d'; strokeW = 3; markerId = 'arr-blink';
+        dashAttr = ''; opacity = 1; cssClass = 'edge-alert-blink';
+      } else if (isCrit) {
+        color = '#ff4d4d'; strokeW = 2.5; markerId = 'arr-crit';
+        dashAttr = ''; opacity = 1; cssClass = '';
+      } else if (predDelayed) {
+        color = '#ff9800'; strokeW = 2; markerId = 'arr-norm';
+        dashAttr = 'stroke-dasharray="5,3"'; opacity = 0.7; cssClass = '';
+      } else {
+        color = '#3d4f6e'; strokeW = 1.5; markerId = 'arr-norm';
+        dashAttr = 'stroke-dasharray="5,3"'; opacity = 0.7; cssClass = '';
+      }
       arrows += `
         <path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}"
           fill="none" stroke="${color}" stroke-width="${strokeW}"
           marker-end="url(#${markerId})"
-          ${isCrit ? 'stroke-dasharray="none"' : 'stroke-dasharray="5,3"'}
-          opacity="${isCrit?1:.7}"/>
+          ${dashAttr} opacity="${opacity}"
+          ${cssClass ? `class="${cssClass}"` : ''}/>
       `;
     });
   });
