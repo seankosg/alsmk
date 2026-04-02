@@ -281,8 +281,12 @@ export function AdminMembers() {
               <TableRow key={m.id}>
                 <TableCell className="font-medium">
                   {m.name}
-                  {isMemberAdmin(m) && (
-                    <Badge variant="outline" className="ml-2 text-[10px] border-primary text-primary">Admin</Badge>
+                  {getMemberRoleLabel(m) && (
+                    <Badge variant="outline" className={`ml-2 text-[10px] ${
+                      isMemberAdmin(m) ? "border-primary text-primary" :
+                      isMemberGuest(m) ? "border-muted-foreground text-muted-foreground" :
+                      "border-accent-foreground text-accent-foreground"
+                    }`}>{getMemberRoleLabel(m)}</Badge>
                   )}
                 </TableCell>
                 <TableCell><Badge variant="outline">{getTeamName(m.team_id)}</Badge></TableCell>
