@@ -1,41 +1,39 @@
 
 
-# highlight 노드 이동 수정 — searchParams 반응형 전환
+# KUKU Predecessor Watch — 완료일 기준 지연일수 표시
 
-## 원인 (1줄 요약)
-`useRef` + `useEffect([])` 조합은 keep-alive 컴포넌트에서 URL 변경을 감지하지 못함
+## 변경 내용
 
-## 변경: `src/pages/CpmScheduler.tsx`
+### 1. `src/hooks/useKukuDashboard.ts`
 
-**삭제** (line 37):
+**PredecessorInfo 인터페이스에 필드 추가** (line 33 근처):
 ```typescript
-const highlightNodeRef = useRef<string | null>(searchParams.get("highlight"));
+finish_date: string | null;
+delayDays: number | null;  // 오늘 - finish_date (양수면 지연)
 ```
 
-**교체** (line 40~51의 useEffect):
-```typescript
-const highlightParam = searchParams.get("highlight");
+**predInfos.push 로직에 값 추가** (line 241~252):
+- `finish_date: predAct.finish_date`
+- `delayDays`: `finish_date`가 있고 오늘보다 과거이면 `Math.floor((today - finishDate) / 86400000)`, 아니면 `null`
 
-useEffect(() => {
-  if (!highlightParam) return;
-  
-  // URL에서 param 제거 (재트리거 방지)
-  setSearchParams((prev) => { prev.delete("highlight"); return prev; }, { replace: true });
-  
-  // iframe에 focus-node 전송 (로딩 타이밍 대비 재시도)
-  const trySend = () => {
-    iframeRef.current?.contentWindow?.postMessage({ type: "focus-node", nodeId: highlightParam }, "*");
-  };
-  const timers = [500, 1500, 3000].map((d) => setTimeout(trySend, d));
-  
-  // ActivityTaskPanel 자동 열기 (기존 DB 조회 로직 그대로)
-  (async () => { /* 기존 mpp_task_id/id 조회 → setSelectedActivity */ })();
-  
-  return () => timers.forEach(clearTimeout);
-}, [highlightParam]);
+### 2. `src/components/dashboard/KukuPredecessorWatch.tsx`
+
+**우측 정보 영역에 지연일수 표시** (line 57~63):
+- 기존 Actual/Plan/Gap 아래에 `delayDays > 0`이면 빨간색으로 `D+{일수}` 표시
+- `delayDays`가 null이거나 0 이하이면 표시하지 않음
+
+```text
+기존:          추가 후:
+Actual 45%     Actual 45%
+Plan 70%       Plan 70%
+-25%p          -25%p
+               D+12
 ```
 
-핵심: `useRef` 기반 1회 실행 → `searchParams.get("highlight")` 값을 의존성으로 감시하여 URL 변경 시마다 재실행.
+## 변경 파일
 
-변경량: ~15줄 수정, 로직 변경 없음 (감시 방식만 전환)
+| 파일 | 내용 |
+|------|------|
+| `src/hooks/useKukuDashboard.ts` | `PredecessorInfo`에 `finish_date`, `delayDays` 추가 |
+| `src/components/dashboard/KukuPredecessorWatch.tsx` | 지연일수 `D+N` 표시 |
 
