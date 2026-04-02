@@ -259,6 +259,10 @@ export function useKukuDashboard() {
         kukuActivities,
         predecessors: predInfos.sort((a, b) => a.gap - b.gap),
         allActivitiesCount: activities.length,
+        criticalCount: activities.filter(a => a.is_critical).length,
+        milestoneCount: activities.filter(a => a.is_milestone).length,
+        dataSource: (isRuntimeSource ? "runtime" : "db") as "runtime" | "db",
+        lastSyncTime: runtimeCache?.lastSyncTime || null,
       };
     },
   });
