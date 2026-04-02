@@ -1,4 +1,6 @@
 import { useKukuDashboard } from "@/hooks/useKukuDashboard";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, AlertTriangle, Building2, Target, Link2, TrendingDown, ShieldAlert, Activity } from "lucide-react";
