@@ -220,8 +220,7 @@ export function useKukuDashboard() {
         });
 
       // 6. Build predecessor watch list (non-KUKU predecessors of KUKU activities)
-      const predecessorSet = new Set<string>();
-      const predInfos: PredecessorInfo[] = [];
+      const predInfoMap = new Map<string, PredecessorInfo>();
 
       kukuActivities.forEach((ka) => {
         if (!ka.mpp_task_id) return;
@@ -230,9 +229,14 @@ export function useKukuDashboard() {
           const predAct = actByMpp.get(predMppId);
           if (!predAct) return;
           if (getText1(predAct) === "KUKU") return;
-          const key = `${predAct.id}::${ka.id}`;
-          if (predecessorSet.has(key)) return;
-          predecessorSet.add(key);
+          const key = predAct.mpp_task_id || predAct.id;
+          const existing = predInfoMap.get(key);
+          if (existing) {
+            if (!existing.kukuSuccessorNames.includes(ka.name)) {
+              existing.kukuSuccessorNames.push(ka.name);
+            }
+            return;
+          }
 
           const pp = predAct.start_date && predAct.finish_date
             ? calcPlannedProgress(predAct.start_date, predAct.finish_date)
@@ -250,7 +254,7 @@ export function useKukuDashboard() {
             if (diff > 0) delayDays = diff;
           }
 
-          predInfos.push({
+          predInfoMap.set(key, {
             id: predAct.id,
             mpp_task_id: predAct.mpp_task_id,
             name: predAct.name,
@@ -260,12 +264,14 @@ export function useKukuDashboard() {
             plannedProgress: pp,
             gap: actual - pp,
             is_critical: predAct.is_critical,
-            kukuSuccessorName: ka.name,
+            kukuSuccessorNames: [ka.name],
             finish_date: predAct.finish_date,
             delayDays,
           });
         });
       });
+
+      const predInfos = Array.from(predInfoMap.values());
 
       console.log(`[KUKU] Result: ${kukuActivities.length} KUKU activities, ${predInfos.length} predecessors (total: ${activities.length})`);
 

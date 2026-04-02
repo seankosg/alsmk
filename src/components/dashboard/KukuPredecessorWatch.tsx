@@ -52,7 +52,7 @@ export function KukuPredecessorWatch() {
                       {p.text1 && <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5">{p.text1}</Badge>}
                     </div>
                     <div className="truncate">{p.name}</div>
-                    <div className="text-[10px] text-muted-foreground">→ {p.kukuSuccessorName}</div>
+                    <div className="text-[10px] text-muted-foreground">→ {p.kukuSuccessorNames.join(", ")}</div>
                   </div>
                   <div className="text-right shrink-0 space-y-0.5">
                     <div className="text-[10px] text-muted-foreground">Actual {p.progress ?? 0}%</div>
