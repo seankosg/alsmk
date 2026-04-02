@@ -46,7 +46,7 @@ export function useKukuDashboard() {
       // 1. Load all activities
       const { data: activities } = await supabase
         .from("cpm_activities")
-        .select("id, name, wbs_full, mpp_task_id, mpp_uid, duration, progress, is_critical, is_milestone, start_date, finish_date, custom_fields")
+        .select("id, name, wbs_full, mpp_task_id, mpp_uid, duration, progress, is_critical, is_milestone, start_date, finish_date, custom_fields, pred_links")
         .limit(5000);
       if (!activities?.length) return { kukuActivities: [], predecessors: [], allActivitiesCount: 0 };
 

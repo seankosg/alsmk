@@ -211,6 +211,7 @@ const CpmScheduler = () => {
       es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
       custom_fields: (a as any).customFields || {},
       semantic_key: getSemanticKey({ name: a.name, wbsFull: a.wbsFull, customFields: (a as any).customFields }),
+      pred_links: (a as any).predLinks || null,
       updated_at: new Date().toISOString(),
     }));
 

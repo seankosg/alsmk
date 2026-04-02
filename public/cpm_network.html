@@ -3385,7 +3385,8 @@ function postCpmCalculated() {
     startDate: a.startDate ? fmtDate(a.startDate) : null,
     finishDate: a.finishDate ? fmtDate(a.finishDate) : null,
     es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
-    customFields: a.customFields || {}
+    customFields: a.customFields || {},
+    predLinks: a.predLinks || a.predecessors || ''
   }));
   window.parent.postMessage({ type: 'cpm-calculated', activities: data, isNewImport: isNewImport }, '*');
 }
