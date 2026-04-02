@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 
 export function KukuPredecessorWatch() {
   const { data, isLoading } = useKukuDashboard();
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (

@@ -18,6 +18,7 @@ interface DelayItem {
 
 export function KukuDelayRiskBoard() {
   const { data, isLoading } = useKukuDashboard();
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
