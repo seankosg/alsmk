@@ -215,6 +215,12 @@ const CpmScheduler = () => {
   const upsertActivities = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
     const currentUserName = memberName || "System";
+
+    // Build internal ID → mppTaskId map
+    const idToMpp = new Map<string, string>();
+    activities.forEach((a: any) => {
+      if (a.id && a.mppTaskId) idToMpp.set(a.id, a.mppTaskId);
+    });
     
     const rows = activities.map((a) => ({
       mpp_uid: a.mppUid,
@@ -230,7 +236,7 @@ const CpmScheduler = () => {
       es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
       custom_fields: (a as any).customFields || {},
       semantic_key: getSemanticKey({ name: a.name, wbsFull: a.wbsFull, customFields: (a as any).customFields }),
-      pred_links: (a as any).predLinks || null,
+      pred_links: convertPredLinks((a as any).predLinks || null, idToMpp),
       updated_at: new Date().toISOString(),
     }));
 
