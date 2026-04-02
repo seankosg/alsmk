@@ -315,18 +315,43 @@ export function AdminMembers() {
                           <KeyRound className="h-3.5 w-3.5" />
                         </Button>
                         {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleAdmin.mutate({ userId: m.user_id!, grant: !isMemberAdmin(m) })}
-                            title={isMemberAdmin(m) ? "Remove Admin" : "Grant Admin"}
-                          >
-                            {isMemberAdmin(m) ? (
-                              <ShieldOff className="h-3.5 w-3.5 text-warning" />
-                            ) : (
-                              <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                            )}
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleAdmin.mutate({ userId: m.user_id!, grant: !isMemberAdmin(m) })}
+                              title={isMemberAdmin(m) ? "Remove Admin" : "Grant Admin"}
+                            >
+                              {isMemberAdmin(m) ? (
+                                <ShieldOff className="h-3.5 w-3.5 text-warning" />
+                              ) : (
+                                <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Guest Role">
+                                  {(isMemberGuest(m) || isMemberSuperGuest(m)) ? (
+                                    <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                  ) : (
+                                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => toggleGuestRole.mutate({ userId: m.user_id!, role: "guest", grant: !isMemberGuest(m) })}
+                                >
+                                  {isMemberGuest(m) ? "✓ " : ""}Guest (Dashboard Only)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => toggleGuestRole.mutate({ userId: m.user_id!, role: "super_guest", grant: !isMemberSuperGuest(m) })}
+                                >
+                                  {isMemberSuperGuest(m) ? "✓ " : ""}Super Guest (Read-Only All)
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </>
                         )}
                       </>
                     )}
