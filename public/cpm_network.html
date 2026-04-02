@@ -1131,9 +1131,10 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
 
   // ── Overdue-only 필터: 활성 시 _alertCache 기반으로 재필터 ──
   if (window._filterOverdueOnly) {
-    // _alertCache가 아직 안 만들어졌으므로 여기서 미리 계산
     const _todayPre = new Date(); _todayPre.setHours(0,0,0,0);
-    const overdueIds = new Set();
+    const _tSeverePre = window._alertThresholds?.severe ?? 10;
+    const _tCpPre = window._alertThresholds?.cpDelay ?? 5;
+    const criticalIds = new Set();
     visibleSet.forEach(id => {
       const a = map[id];
       if (!a) return;
@@ -1141,32 +1142,29 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       const sd = window._activityStatusMap && window._activityStatusMap[statusKey];
       const hasMappedStatus = !!sd && (sd.totalTasks || 0) > 0;
       const effectiveProgress = a.progress ?? 0;
+      // 1) Unmapped + overdue
       const isUnmappedOverdue = !hasMappedStatus
         && a.finishDate
         && new Date(a.finishDate) < _todayPre
         && effectiveProgress < 100;
-      if (isUnmappedOverdue) overdueIds.add(id);
+      // 2) Mapped + severe delay
+      let gap = 0;
+      if (hasMappedStatus) {
+        const planned = sd.plannedProgress ?? 0;
+        const actual = sd.actualProgress ?? 0;
+        gap = planned - actual;
+      }
+      const isSevereDelay = hasMappedStatus && gap >= _tSeverePre;
+      // 3) Critical path + delay
+      const isCpDelay = !!a.isCritical && hasMappedStatus && gap >= _tCpPre;
+      if (isUnmappedOverdue || isSevereDelay || isCpDelay) criticalIds.add(id);
     });
-    // Also include direct predecessors/successors for context
-    const contextIds = new Set(overdueIds);
-    overdueIds.forEach(id => {
-      const a = map[id]; if (!a) return;
-      let preds = a.predLinks ? a.predLinks.map(l => l.fromId) : (a.predecessors || []);
-      preds.forEach(pid => { if (visibleSet.has(pid)) contextIds.add(pid); });
-    });
-    // Successors: check all visible nodes for preds pointing to overdue
-    visibleSet.forEach(id => {
-      const a = map[id]; if (!a) return;
-      let preds = a.predLinks ? a.predLinks.map(l => l.fromId) : (a.predecessors || []);
-      if (preds.some(pid => overdueIds.has(pid))) contextIds.add(id);
-    });
-    visibleSet = contextIds;
-    // Update button with count
+    visibleSet = criticalIds;
     const btn = document.getElementById('overdueFilterBtn');
-    if (btn) btn.textContent = `⚠ ${overdueIds.size}`;
+    if (btn) btn.textContent = `⚠ ${criticalIds.size}`;
   } else {
     const btn = document.getElementById('overdueFilterBtn');
-    if (btn) btn.textContent = '⚠ Overdue';
+    if (btn) btn.textContent = '⚠ Critical';
   }
 
   // filterLabel 업데이트 — 개별 칩으로 표시
