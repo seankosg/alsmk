@@ -25,7 +25,7 @@ export function AdminTeams() {
   const { data: teams = [], isLoading } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("teams").select("*").order("name");
+      const { data, error } = await supabase.from("teams").select("*").is("deleted_at", null).order("name");
       if (error) throw error;
       return data;
     },
@@ -60,12 +60,12 @@ export function AdminTeams() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("teams").delete().eq("id", id);
+      const { error } = await supabase.from("teams").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teams"] });
-      toast.success("Team deleted");
+      toast.success("Team deleted (can be restored within 48h)");
     },
     onError: (e) => toast.error(e.message),
   });

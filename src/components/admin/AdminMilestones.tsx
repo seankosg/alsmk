@@ -37,7 +37,7 @@ export function AdminMilestones() {
   const { data: milestones = [], isLoading } = useQuery({
     queryKey: ["milestones"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("milestones").select("*").order("sort_order");
+      const { data, error } = await supabase.from("milestones").select("*").is("deleted_at", null).order("sort_order");
       if (error) throw error;
       return data;
     },
@@ -69,12 +69,12 @@ export function AdminMilestones() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("milestones").delete().eq("id", id);
+      const { error } = await supabase.from("milestones").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["milestones"] });
-      toast.success("Milestone deleted");
+      toast.success("Milestone deleted (can be restored within 48h)");
     },
     onError: (e) => toast.error(e.message),
   });
