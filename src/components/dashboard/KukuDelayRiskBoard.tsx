@@ -60,7 +60,7 @@ export function KukuDelayRiskBoard() {
             <div className="space-y-1.5">
               {delayItems.map((item) => (
                 <div key={item.id} className="flex items-center gap-2 text-xs px-2 py-1.5 rounded bg-red-50 dark:bg-red-950/30 cursor-pointer hover:ring-1 hover:ring-primary/40 transition-all"
-                  onClick={() => navigate(`/cpm?highlight=${encodeURIComponent(item.id)}`)}>
+                  onClick={() => navigate(`/cpm?highlight=${encodeURIComponent(item.mpp_task_id || item.id)}`)}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
                       <span className="text-muted-foreground shrink-0">{item.wbs_full}</span>

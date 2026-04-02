@@ -70,7 +70,7 @@ export function KukuCoverageRate() {
                 <div
                   key={a.id}
                   className="text-[11px] flex gap-2 cursor-pointer hover:text-primary truncate"
-                  onClick={() => navigate(`/cpm?highlight=${encodeURIComponent(a.id)}`)}
+                  onClick={() => navigate(`/cpm?highlight=${encodeURIComponent(a.mpp_task_id || a.id)}`)}
                 >
                   <span className="text-muted-foreground shrink-0">{a.wbs_full}</span>
                   <span className="truncate">{a.name}</span>
