@@ -84,7 +84,7 @@ const Index = () => {
         </div>
       </div>
 
-      <ActivityStream />
+      {isAdmin && <ActivityStream />}
       <PersonnelTable />
     </div>
   );
