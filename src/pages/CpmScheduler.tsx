@@ -189,7 +189,6 @@ const CpmScheduler = () => {
       .upsert(rows, { onConflict: "mpp_uid" });
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-    setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
   }, [queryClient, refreshStatus]);
 
   // Upsert activities to DB when CPM calculates — with auto-migration + orphan resolution
@@ -348,7 +347,6 @@ const CpmScheduler = () => {
     }
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-    setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
   }, [queryClient, refreshStatus, memberName]);
 
   // Listen for messages from iframe
@@ -372,7 +370,10 @@ const CpmScheduler = () => {
             upsertActivitiesOnly(e.data.activities);
           }
         }
-        setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+        // Auto-mode: recalculate elapsed progress then refresh
+        batchUpdateElapsedProgress().then(() => {
+          setTimeout(() => refreshStatus(iframeRef.current?.contentWindow || null), 500);
+        });
       }
       if (e.data.type === "activity-click") {
         setSelectedActivity({ ...e.data.activity, showDetail: true });
