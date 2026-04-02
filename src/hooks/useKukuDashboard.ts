@@ -39,10 +39,23 @@ export interface KukuDashboardData {
   allActivitiesCount: number;
 }
 
+/** Read a custom field by English key with Korean alias fallback */
+function getCustomField(cf: Record<string, string> | null, englishKey: string, koreanAlias: string): string {
+  if (!cf) return "";
+  return cf[englishKey] || cf[englishKey.toLowerCase()] || cf[koreanAlias] || "";
+}
+
+const getText1 = (a: { custom_fields: Record<string, string> | null }) =>
+  getCustomField(a.custom_fields, "Text1", "텍스트1");
+
+const getText2 = (a: { custom_fields: Record<string, string> | null }) =>
+  getCustomField(a.custom_fields, "Text2", "텍스트2");
+
 /** Normalize a runtime activity to the common shape used for calculations */
 function fromRuntime(a: CpmRuntimeActivity) {
   return {
     id: a.id,
+    mpp_uid: a.mppUid || null,
     name: a.name,
     wbs_full: a.wbsFull || null,
     mpp_task_id: a.mppTaskId,
