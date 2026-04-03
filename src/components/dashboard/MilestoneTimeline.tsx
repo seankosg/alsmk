@@ -6,6 +6,7 @@ import { CheckCircle, Clock, Circle, AlertTriangle, CalendarClock } from "lucide
 import { QueryErrorCard } from "./QueryErrorCard";
 import { differenceInDays, startOfDay } from "date-fns";
 import { parseLocalDate } from "@/lib/utils";
+import { useMemo } from "react";
 
 const statusConfig: Record<string, { icon: typeof CheckCircle; color: string; bg: string }> = {
   completed: { icon: CheckCircle, color: "text-success", bg: "bg-success" },
