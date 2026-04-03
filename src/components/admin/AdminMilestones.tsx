@@ -157,10 +157,6 @@ export function AdminMilestones() {
               <Input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Sort Order</Label>
-              <Input type="number" value={sortOrder} onChange={e => setSortOrder(e.target.value)} />
-            </div>
-            <div className="space-y-2">
               <Label>Status</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as MilestoneStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
