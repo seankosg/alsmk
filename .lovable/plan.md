@@ -1,46 +1,40 @@
 
 
-# KUKU Predecessor Watch 중복 제거
+# KUKU Predecessor Watch — 호버 툴팁 추가
 
-## 원인
-중복 방지 키가 `${predAct.id}::${ka.id}` (선행+후행 쌍)이므로, 동일 선행 Activity가 여러 KUKU Activity의 predecessor이면 각각 별도 행으로 표시됨.
-
-## 수정 방안
-
-### `src/hooks/useKukuDashboard.ts`
-
-1. **PredecessorInfo 인터페이스 변경**:
-   - `kukuSuccessorName: string` → `kukuSuccessorNames: string[]` (복수형)
-
-2. **중복 방지 키를 `predAct.id`만으로 변경**:
-   - 같은 선행 Activity가 이미 추가되었으면, 기존 항목의 `kukuSuccessorNames` 배열에 후행 이름만 추가
-   - 새로운 선행이면 신규 항목 생성
-
-```typescript
-// 기존
-const key = `${predAct.id}::${ka.id}`;
-
-// 변경
-const key = predAct.mpp_task_id || predAct.id;
-const existing = predInfoMap.get(key);
-if (existing) {
-  existing.kukuSuccessorNames.push(ka.name);
-  return;
-}
-```
+## 변경 내용
 
 ### `src/components/dashboard/KukuPredecessorWatch.tsx`
 
-- `p.kukuSuccessorName` → `p.kukuSuccessorNames.join(", ")` 표시
-- 여러 KUKU에 영향을 미치는 경우 "→ KUKU-A, KUKU-B" 형태로 표시
+각 지연 Activity 행을 `HoverCard`로 감싸서, 마우스를 올리면 큰 글씨로 상세 정보를 표시합니다.
 
-### `src/components/dashboard/CpmSummaryBanner.tsx`
-- `kukuSuccessorName` 참조가 있으면 `kukuSuccessorNames`로 변경
+**HoverCard 내용 (큰 글씨):**
+- Activity 이름 (`text-base font-semibold`)
+- WBS 코드 + CP/Text1 뱃지
+- Actual / Plan / Gap (각 `text-sm`)
+- 지연일수 D+N (있을 경우)
+- 후행 KUKU 작업 목록
+- 완료일 (finish_date)
 
-## 변경 파일
+**임포트 추가:**
+```typescript
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
+```
+
+**구조 변경:**
+```text
+기존: <div onClick=...> ... </div>
+변경: <HoverCard>
+        <HoverCardTrigger asChild>
+          <div onClick=...> ... (기존 행 그대로) </div>
+        </HoverCardTrigger>
+        <HoverCardContent side="top" className="w-80">
+          큰 글씨 상세 정보
+        </HoverCardContent>
+      </HoverCard>
+```
 
 | 파일 | 내용 |
 |------|------|
-| `src/hooks/useKukuDashboard.ts` | 중복 키를 선행 ID만으로 변경, `kukuSuccessorNames` 배열화 |
-| `src/components/dashboard/KukuPredecessorWatch.tsx` | 복수 후행 이름 표시 |
+| `src/components/dashboard/KukuPredecessorWatch.tsx` | HoverCard 래핑 + 상세 툴팁 |
 
