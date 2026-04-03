@@ -36,17 +36,31 @@ export function MilestoneTimeline() {
   const finalMs = milestones[milestones.length - 1];
   const dDay = finalMs ? differenceInDays(parseLocalDate(finalMs.target_date), today) : null;
 
-  // Date range helpers
-  const firstDate = milestones.length > 0 ? parseLocalDate(milestones[0].target_date).getTime() : 0;
-  const lastDate = milestones.length > 0 ? parseLocalDate(milestones[milestones.length - 1].target_date).getTime() : 0;
-  const range = lastDate - firstDate;
-
-  const dateToPercent = (d: number) => {
-    if (range <= 0) return 0;
-    return Math.max(0, Math.min(100, ((d - firstDate) / range) * 100));
+  // Equal spacing: milestone i at position i/(N-1)*100
+  const msPosition = (index: number) => {
+    if (milestones.length <= 1) return 50;
+    return (index / (milestones.length - 1)) * 100;
   };
 
-  const elapsedPercent = dateToPercent(today.getTime());
+  // Elapsed percent: interpolated within the segment today falls in
+  const elapsedPercent = useMemo(() => {
+    if (milestones.length === 0) return 0;
+    const dates = milestones.map(ms => parseLocalDate(ms.target_date));
+    if (today <= dates[0]) return 0;
+    if (today >= dates[dates.length - 1]) return 100;
+
+    for (let i = 1; i < dates.length; i++) {
+      if (today <= dates[i]) {
+        const segDays = Math.max(differenceInDays(dates[i], dates[i - 1]), 1);
+        const elapsed = differenceInDays(today, dates[i - 1]);
+        const ratio = elapsed / segDays;
+        const leftPos = msPosition(i - 1);
+        const rightPos = msPosition(i);
+        return leftPos + (rightPos - leftPos) * ratio;
+      }
+    }
+    return 100;
+  }, [milestones, today]);
 
   return (
     <Card>
