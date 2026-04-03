@@ -89,12 +89,12 @@ export function MilestoneTimeline() {
           <p className="text-sm text-muted-foreground">No milestones configured</p>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <div className="relative min-w-[600px] px-4 pt-8 pb-4">
+            <div className="relative min-w-[600px] px-12 pt-8 pb-4">
               {/* Track line — aligned with circle centers */}
-              <div className="absolute left-4 right-4 top-[calc(2rem+18px-1.5px)] h-[3px] bg-border rounded-full" />
+              <div className="absolute left-12 right-12 top-[calc(2rem+18px-1.5px)] h-[3px] bg-border rounded-full" />
 
               {/* Elapsed line */}
-              <div className="absolute left-4 right-4 top-[calc(2rem+18px-1.5px)] h-[3px] pointer-events-none">
+              <div className="absolute left-12 right-12 top-[calc(2rem+18px-1.5px)] h-[3px] pointer-events-none">
                 <div
                   className="h-full bg-destructive rounded-full shadow-[0_0_6px_hsl(var(--destructive)/0.4)]"
                   style={{ width: `${elapsedPercent}%` }}
@@ -111,7 +111,7 @@ export function MilestoneTimeline() {
                     className="absolute pointer-events-none flex flex-col items-center"
                     style={{
                       top: "calc(2rem + 18px - 1.5px)",
-                      left: `calc(16px + (100% - 32px) * ${elapsedPercent / 100})`,
+                      left: `calc(48px + (100% - 96px) * ${elapsedPercent / 100})`,
                       transform: "translate(-50%, -100%)",
                     }}
                   >
@@ -134,14 +134,17 @@ export function MilestoneTimeline() {
                   const dLabel = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
                   const pct = msPosition(index);
 
+                  const isFirst = index === 0;
+                  const isLast = index === milestones.length - 1;
+
                   return (
                     <div
                       key={ms.id}
-                      className="absolute flex flex-col items-center z-10"
+                      className={`absolute flex flex-col z-10 ${isFirst ? "items-start" : isLast ? "items-end" : "items-center"}`}
                       style={{
                         left: `${pct}%`,
                         top: 0,
-                        transform: "translateX(-50%)",
+                        transform: isFirst ? "translateX(0)" : isLast ? "translateX(-100%)" : "translateX(-50%)",
                       }}
                     >
                       <div
