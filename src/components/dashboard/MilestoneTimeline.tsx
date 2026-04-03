@@ -125,14 +125,14 @@ export function MilestoneTimeline() {
 
               {/* Milestones: positioned by date */}
               <div className="relative" style={{ height: 120 }}>
-                {milestones.map((ms) => {
+                {milestones.map((ms, index) => {
                   const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                   const Icon = cfg.icon;
                   const targetDate = parseLocalDate(ms.target_date);
                   const isPast = targetDate < today;
                   const diff = differenceInDays(targetDate, today);
                   const dLabel = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
-                  const pct = dateToPercent(targetDate.getTime());
+                  const pct = msPosition(index);
 
                   return (
                     <div
