@@ -94,7 +94,7 @@ export function MilestoneTimeline() {
               <div className="absolute left-12 right-12 top-[calc(2rem+18px-1.5px)] h-[3px] bg-border rounded-full" />
 
               {/* Elapsed line */}
-              <div className="absolute left-4 right-4 top-[calc(2rem+18px-1.5px)] h-[3px] pointer-events-none">
+              <div className="absolute left-12 right-12 top-[calc(2rem+18px-1.5px)] h-[3px] pointer-events-none">
                 <div
                   className="h-full bg-destructive rounded-full shadow-[0_0_6px_hsl(var(--destructive)/0.4)]"
                   style={{ width: `${elapsedPercent}%` }}
