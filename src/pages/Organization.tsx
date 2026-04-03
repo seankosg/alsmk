@@ -210,6 +210,41 @@ const Organization = () => {
           </div>
         </div>
       )}
+
+      {/* Guest Members Section */}
+      {guestMembers.length > 0 && (
+        <div className="mt-4 border-t border-border pt-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <User className="h-5 w-5 text-muted-foreground" />
+            Guest Members
+            <Badge variant="secondary" className="font-mono text-xs">{guestMembers.length}</Badge>
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {guestMembers.map((m) => {
+              const role = userRoles.find(r => r.user_id === m.user_id && (r.role === "guest" || r.role === "super_guest"));
+              return (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border/50"
+                >
+                  <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <User className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium leading-tight truncate">{m.name}</p>
+                    {m.duty_title && (
+                      <p className="text-[9px] text-muted-foreground leading-tight truncate">{m.duty_title}</p>
+                    )}
+                  </div>
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 ml-1">
+                    {role?.role === "super_guest" ? "Super Guest" : "Guest"}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
