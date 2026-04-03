@@ -91,7 +91,7 @@ export function MilestoneTimeline() {
           <div className="overflow-x-auto scrollbar-thin">
             <div className="relative min-w-[600px] px-12 pt-8 pb-4">
               {/* Track line — aligned with circle centers */}
-              <div className="absolute left-4 right-4 top-[calc(2rem+18px-1.5px)] h-[3px] bg-border rounded-full" />
+              <div className="absolute left-12 right-12 top-[calc(2rem+18px-1.5px)] h-[3px] bg-border rounded-full" />
 
               {/* Elapsed line */}
               <div className="absolute left-4 right-4 top-[calc(2rem+18px-1.5px)] h-[3px] pointer-events-none">
