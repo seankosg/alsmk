@@ -31,13 +31,13 @@ export function AdminMilestones() {
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [name, setName] = useState("");
   const [targetDate, setTargetDate] = useState("");
-  const [sortOrder, setSortOrder] = useState("0");
+  
   const [status, setStatus] = useState<MilestoneStatus>("upcoming");
 
   const { data: milestones = [], isLoading } = useQuery({
     queryKey: ["milestones"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("milestones").select("*").is("deleted_at", null).order("sort_order");
+      const { data, error } = await supabase.from("milestones").select("*").is("deleted_at", null).order("target_date");
       if (error) throw error;
       return data;
     },
@@ -48,7 +48,7 @@ export function AdminMilestones() {
       const payload = {
         name,
         target_date: targetDate,
-        sort_order: parseInt(sortOrder) || 0,
+        sort_order: 0,
         status,
       };
       if (editing) {
@@ -83,7 +83,7 @@ export function AdminMilestones() {
     setEditing(null);
     setName("");
     setTargetDate("");
-    setSortOrder(String((milestones.length + 1)));
+    
     setStatus("upcoming");
     setOpen(true);
   }
@@ -92,7 +92,7 @@ export function AdminMilestones() {
     setEditing(ms);
     setName(ms.name);
     setTargetDate(ms.target_date);
-    setSortOrder(String(ms.sort_order));
+    
     setStatus(ms.status);
     setOpen(true);
   }
@@ -122,9 +122,9 @@ export function AdminMilestones() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
-            ) : milestones.map((ms) => (
+            ) : milestones.map((ms, i) => (
               <TableRow key={ms.id}>
-                <TableCell className="font-mono text-xs text-muted-foreground">{ms.sort_order}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
                 <TableCell className="font-medium">{ms.name}</TableCell>
                 <TableCell className="font-mono text-xs">{ms.target_date}</TableCell>
                 <TableCell>
@@ -155,10 +155,6 @@ export function AdminMilestones() {
             <div className="space-y-2">
               <Label>Target Date</Label>
               <Input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Sort Order</Label>
-              <Input type="number" value={sortOrder} onChange={e => setSortOrder(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
