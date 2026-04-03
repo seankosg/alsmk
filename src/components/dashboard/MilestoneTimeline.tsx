@@ -134,14 +134,17 @@ export function MilestoneTimeline() {
                   const dLabel = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
                   const pct = msPosition(index);
 
+                  const isFirst = index === 0;
+                  const isLast = index === milestones.length - 1;
+
                   return (
                     <div
                       key={ms.id}
-                      className="absolute flex flex-col items-center z-10"
+                      className={`absolute flex flex-col z-10 ${isFirst ? "items-start" : isLast ? "items-end" : "items-center"}`}
                       style={{
                         left: `${pct}%`,
                         top: 0,
-                        transform: "translateX(-50%)",
+                        transform: isFirst ? "translateX(0)" : isLast ? "translateX(-100%)" : "translateX(-50%)",
                       }}
                     >
                       <div
