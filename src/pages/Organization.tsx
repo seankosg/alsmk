@@ -56,15 +56,37 @@ const Organization = () => {
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("*").order("name");
+      const { data, error } = await supabase.from("members").select("*").is("deleted_at", null).order("name");
       if (error) throw error;
       return data;
     },
     staleTime: 30_000,
   });
 
+  const { data: userRoles = [] } = useQuery({
+    queryKey: ["user_roles_all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_roles").select("*");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+
+  // Identify guest user_ids
+  const guestUserIds = useMemo(() => {
+    const ids = new Set<string>();
+    userRoles.forEach(r => {
+      if (r.role === "guest" || r.role === "super_guest") ids.add(r.user_id);
+    });
+    return ids;
+  }, [userRoles]);
+
+  const guestMembers = members.filter(m => m.user_id && guestUserIds.has(m.user_id));
+  const nonGuestMembers = members.filter(m => !m.user_id || !guestUserIds.has(m.user_id));
+
   // Filter out system admin accounts (no team) from org chart
-  const orgMembers = members.filter(m => m.team_id !== null);
+  const orgMembers = nonGuestMembers.filter(m => m.team_id !== null);
   const totalTO = teams.reduce((s, t) => s + t.target_headcount, 0);
   const totalMembers = orgMembers.length;
 
