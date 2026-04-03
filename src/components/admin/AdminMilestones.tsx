@@ -68,6 +68,17 @@ export function AdminMilestones() {
     onError: (e) => toast.error(e.message),
   });
 
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase.from("milestones").update({ is_active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["milestones"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("milestones").update({ deleted_at: new Date().toISOString() }).eq("id", id);
