@@ -26,15 +26,7 @@ export function MilestoneTimeline() {
     staleTime: 30_000,
   });
 
-  if (isError) {
-    return <QueryErrorCard title="Milestone Timeline" onRetry={() => refetch()} />;
-  }
-
   const today = startOfDay(new Date());
-
-  // D-Day calculation: last milestone
-  const finalMs = milestones[milestones.length - 1];
-  const dDay = finalMs ? differenceInDays(parseLocalDate(finalMs.target_date), today) : null;
 
   // Equal spacing: milestone i at position i/(N-1)*100
   const msPosition = (index: number) => {
@@ -61,6 +53,14 @@ export function MilestoneTimeline() {
     }
     return 100;
   }, [milestones, today]);
+
+  if (isError) {
+    return <QueryErrorCard title="Milestone Timeline" onRetry={() => refetch()} />;
+  }
+
+  // D-Day calculation: last milestone
+  const finalMs = milestones[milestones.length - 1];
+  const dDay = finalMs ? differenceInDays(parseLocalDate(finalMs.target_date), today) : null;
 
   return (
     <Card>
