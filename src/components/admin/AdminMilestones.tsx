@@ -83,7 +83,7 @@ export function AdminMilestones() {
     setEditing(null);
     setName("");
     setTargetDate("");
-    setSortOrder(String((milestones.length + 1)));
+    
     setStatus("upcoming");
     setOpen(true);
   }
