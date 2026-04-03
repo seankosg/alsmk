@@ -111,7 +111,7 @@ export function MilestoneTimeline() {
                     className="absolute pointer-events-none flex flex-col items-center"
                     style={{
                       top: "calc(2rem + 18px - 1.5px)",
-                      left: `calc(16px + (100% - 32px) * ${elapsedPercent / 100})`,
+                      left: `calc(48px + (100% - 96px) * ${elapsedPercent / 100})`,
                       transform: "translate(-50%, -100%)",
                     }}
                   >
