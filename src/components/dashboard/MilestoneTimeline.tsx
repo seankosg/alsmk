@@ -152,6 +152,17 @@ export function MilestoneTimeline() {
                             year: "2-digit",
                           })}
                         </span>
+                        {(() => {
+                          const diff = differenceInDays(targetDate, today);
+                          const label = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
+                          return (
+                            <span className={`text-[10px] font-mono font-semibold ${
+                              diff > 0 ? "text-primary" : diff === 0 ? "text-warning" : "text-destructive"
+                            }`}>
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {i < milestones.length - 1 && <div className="flex-1" />}
                     </div>
