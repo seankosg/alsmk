@@ -128,6 +128,7 @@ export function AdminMilestones() {
               <TableHead>Milestone</TableHead>
               <TableHead>Target Date</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-20">Active</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
