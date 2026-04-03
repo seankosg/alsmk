@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
 type Milestone = Tables<"milestones">;
@@ -67,6 +68,17 @@ export function AdminMilestones() {
     onError: (e) => toast.error(e.message),
   });
 
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase.from("milestones").update({ is_active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["milestones"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("milestones").update({ deleted_at: new Date().toISOString() }).eq("id", id);
@@ -116,6 +128,7 @@ export function AdminMilestones() {
               <TableHead>Milestone</TableHead>
               <TableHead>Target Date</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-20">Active</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -123,7 +136,7 @@ export function AdminMilestones() {
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
             ) : milestones.map((ms, i) => (
-              <TableRow key={ms.id}>
+              <TableRow key={ms.id} className={!(ms as any).is_active ? "opacity-50" : ""}>
                 <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
                 <TableCell className="font-medium">{ms.name}</TableCell>
                 <TableCell className="font-mono text-xs">{ms.target_date}</TableCell>
@@ -131,6 +144,12 @@ export function AdminMilestones() {
                   <Badge variant="outline" className={statusColors[ms.status]}>
                     {(ms.status ?? "upcoming").replace("_", " ")}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    checked={(ms as any).is_active !== false}
+                    onCheckedChange={(checked) => toggleActive.mutate({ id: ms.id, is_active: checked })}
+                  />
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">

@@ -469,6 +469,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string
+          is_active: boolean
           name: string
           sort_order: number
           status: Database["public"]["Enums"]["milestone_status"]
@@ -479,6 +480,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          is_active?: boolean
           name: string
           sort_order?: number
           status?: Database["public"]["Enums"]["milestone_status"]
@@ -489,6 +491,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          is_active?: boolean
           name?: string
           sort_order?: number
           status?: Database["public"]["Enums"]["milestone_status"]
