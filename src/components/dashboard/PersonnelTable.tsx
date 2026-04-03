@@ -37,11 +37,13 @@ export function PersonnelTable() {
 
   const isLoading = lt || lm;
 
-  // Exclude admin and guest members
+  // Exclude members named "admin" and guests
   const excludedUserIds = new Set(
-    userRoles.filter(r => r.role === "admin" || r.role === "guest" || r.role === "super_guest").map(r => r.user_id)
+    userRoles.filter(r => r.role === "guest" || r.role === "super_guest").map(r => r.user_id)
   );
-  const visibleMembers = members.filter(m => !(m.user_id && excludedUserIds.has(m.user_id)));
+  const visibleMembers = members.filter(m =>
+    m.name.toLowerCase() !== "admin" && !(m.user_id && excludedUserIds.has(m.user_id))
+  );
 
   const pmMembers = visibleMembers.filter(m => m.is_pm);
   const pmRow = { id: "pm", name: "Project Manager", code: "PM", target: 1, current: pmMembers.length };

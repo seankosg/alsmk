@@ -82,14 +82,6 @@ const Organization = () => {
     return ids;
   }, [userRoles]);
 
-  const adminUserIds = useMemo(() => {
-    const ids = new Set<string>();
-    userRoles.forEach(r => {
-      if (r.role === "admin") ids.add(r.user_id);
-    });
-    return ids;
-  }, [userRoles]);
-
   const guestMembers = members.filter(m => m.user_id && guestUserIds.has(m.user_id));
   const nonGuestMembers = members.filter(m => !m.user_id || !guestUserIds.has(m.user_id));
   // Exclude members named "admin"
