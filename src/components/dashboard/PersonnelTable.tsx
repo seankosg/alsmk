@@ -18,7 +18,7 @@ export function PersonnelTable() {
   const { data: members = [], isLoading: lm } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("id, team_id, is_pm, user_id").is("deleted_at", null);
+      const { data, error } = await supabase.from("members").select("id, team_id, is_pm, user_id, name").is("deleted_at", null);
       if (error) throw error;
       return data;
     },
