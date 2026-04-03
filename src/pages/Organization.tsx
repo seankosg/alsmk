@@ -82,18 +82,10 @@ const Organization = () => {
     return ids;
   }, [userRoles]);
 
-  const adminUserIds = useMemo(() => {
-    const ids = new Set<string>();
-    userRoles.forEach(r => {
-      if (r.role === "admin") ids.add(r.user_id);
-    });
-    return ids;
-  }, [userRoles]);
-
   const guestMembers = members.filter(m => m.user_id && guestUserIds.has(m.user_id));
   const nonGuestMembers = members.filter(m => !m.user_id || !guestUserIds.has(m.user_id));
-  // Exclude admin members from org chart and calculations
-  const visibleMembers = nonGuestMembers.filter(m => !(m.user_id && adminUserIds.has(m.user_id)));
+  // Exclude members named "admin"
+  const visibleMembers = nonGuestMembers.filter(m => m.name.toLowerCase() !== "admin");
   const pmMembers = visibleMembers.filter(m => m.is_pm);
   const orgMembers = visibleMembers.filter(m => m.team_id !== null && !m.is_pm);
   const totalTO = teams.reduce((s, t) => s + t.target_headcount, 0);
