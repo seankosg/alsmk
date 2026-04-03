@@ -88,7 +88,7 @@ const Organization = () => {
   // Filter out system admin accounts (no team) from org chart, but keep PM
   const pmMembers = nonGuestMembers.filter(m => m.is_pm);
   const orgMembers = nonGuestMembers.filter(m => m.team_id !== null && !m.is_pm);
-  const totalTO = teams.reduce((s, t) => s + t.target_headcount, 0) + 1; // +1 for PM
+  const totalTO = teams.reduce((s, t) => s + t.target_headcount, 0);
   const totalMembers = orgMembers.length + pmMembers.length;
 
   return (
