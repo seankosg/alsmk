@@ -18,7 +18,17 @@ export function PersonnelTable() {
   const { data: members = [], isLoading: lm } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("id, team_id, is_pm").is("deleted_at", null);
+      const { data, error } = await supabase.from("members").select("id, team_id, is_pm, user_id").is("deleted_at", null);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+
+  const { data: userRoles = [] } = useQuery({
+    queryKey: ["user_roles_for_personnel"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_roles").select("user_id, role");
       if (error) throw error;
       return data;
     },
@@ -27,11 +37,17 @@ export function PersonnelTable() {
 
   const isLoading = lt || lm;
 
-  const pmMembers = members.filter(m => m.is_pm);
+  // Exclude admin and guest members
+  const excludedUserIds = new Set(
+    userRoles.filter(r => r.role === "admin" || r.role === "guest" || r.role === "super_guest").map(r => r.user_id)
+  );
+  const visibleMembers = members.filter(m => !(m.user_id && excludedUserIds.has(m.user_id)));
+
+  const pmMembers = visibleMembers.filter(m => m.is_pm);
   const pmRow = { id: "pm", name: "Project Manager", code: "PM", target: 1, current: pmMembers.length };
 
   const teamRows = teams.map(team => {
-    const current = members.filter(m => m.team_id === team.id && !m.is_pm).length;
+    const current = visibleMembers.filter(m => m.team_id === team.id && !m.is_pm).length;
     return { id: team.id, name: team.name, code: team.code, target: team.target_headcount, current };
   });
 
