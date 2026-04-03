@@ -1,0 +1,1 @@
+ALTER TABLE public.milestones ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true;
