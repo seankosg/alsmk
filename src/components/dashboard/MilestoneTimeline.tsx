@@ -89,7 +89,7 @@ export function MilestoneTimeline() {
           <p className="text-sm text-muted-foreground">No milestones configured</p>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <div className="relative min-w-[600px] px-4 pt-8 pb-4">
+            <div className="relative min-w-[600px] px-12 pt-8 pb-4">
               {/* Track line — aligned with circle centers */}
               <div className="absolute left-4 right-4 top-[calc(2rem+18px-1.5px)] h-[3px] bg-border rounded-full" />
 
