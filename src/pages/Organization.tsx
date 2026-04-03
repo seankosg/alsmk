@@ -127,7 +127,15 @@ const Organization = () => {
               label="Project Manager"
               name={pmName ?? "TBD"}
               variant="pm"
+              count={`${pmMembers.length}/1`}
             />
+            {/* PM Members */}
+            {pmMembers.length > 0 && (
+              <>
+                <VerticalLine short />
+                <MemberGroup members={pmMembers} />
+              </>
+            )}
 
             {/* Connector: PM → Teams */}
             {teams.length > 0 && (
