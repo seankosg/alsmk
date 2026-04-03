@@ -35,18 +35,17 @@ export function MilestoneTimeline() {
   const finalMs = milestones[milestones.length - 1];
   const dDay = finalMs ? differenceInDays(parseLocalDate(finalMs.target_date), today) : null;
 
-  // Calculate "today" position as percentage along the timeline
-  const getElapsedPercent = () => {
-    if (milestones.length < 2) return 0;
-    const firstDate = parseLocalDate(milestones[0].target_date).getTime();
-    const lastDate = parseLocalDate(milestones[milestones.length - 1].target_date).getTime();
-    const range = lastDate - firstDate;
-    if (range <= 0) return 100;
-    const elapsed = today.getTime() - firstDate;
-    return Math.max(0, Math.min(100, (elapsed / range) * 100));
+  // Date range helpers
+  const firstDate = milestones.length > 0 ? parseLocalDate(milestones[0].target_date).getTime() : 0;
+  const lastDate = milestones.length > 0 ? parseLocalDate(milestones[milestones.length - 1].target_date).getTime() : 0;
+  const range = lastDate - firstDate;
+
+  const dateToPercent = (d: number) => {
+    if (range <= 0) return 0;
+    return Math.max(0, Math.min(100, ((d - firstDate) / range) * 100));
   };
 
-  const elapsedPercent = getElapsedPercent();
+  const elapsedPercent = dateToPercent(today.getTime());
 
   return (
     <Card>
