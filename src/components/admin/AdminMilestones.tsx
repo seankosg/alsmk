@@ -48,7 +48,7 @@ export function AdminMilestones() {
       const payload = {
         name,
         target_date: targetDate,
-        sort_order: parseInt(sortOrder) || 0,
+        sort_order: 0,
         status,
       };
       if (editing) {
