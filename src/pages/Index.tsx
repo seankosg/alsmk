@@ -89,6 +89,39 @@ const Index = () => {
         <MilestoneTimeline />
       </div>
 
+      {/* KUKU (건축사업본부) CPM Widgets */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">KUKU CPM 위젯</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const iframe = document.querySelector<HTMLIFrameElement>('iframe[src*="cpm_network"]');
+            if (iframe?.contentWindow) {
+              iframe.contentWindow.postMessage({ type: "request-cpm-data" }, "*");
+              queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+              toast.success("KUKU 위젯을 새로고침합니다.");
+            } else {
+              queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
+              toast.info("CPM iframe이 아직 로드되지 않았습니다. DB 데이터로 갱신합니다.");
+            }
+          }}
+        >
+          <RefreshCw className="h-4 w-4 mr-1" />
+          새로고침
+        </Button>
+      </div>
+      <CpmSummaryBanner />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <KukuProgressOverview />
+        <KukuCoverageRate />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <KukuPredecessorWatch />
+        <KukuDelayRiskBoard />
+      </div>
+
+      <h2 className="text-lg font-semibold text-foreground">Task Status HUD</h2>
       <div data-export-id="project-hud">
         <ProjectHUD />
       </div>
@@ -118,39 +151,6 @@ const Index = () => {
         <div data-export-id="upcoming-deadlines" className="h-full">
           <UpcomingDeadlines />
         </div>
-      </div>
-
-      {/* KUKU (건축사업본부) CPM Widgets */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">KUKU CPM 위젯</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            const iframe = document.querySelector<HTMLIFrameElement>('iframe[src*="cpm_network"]');
-            if (iframe?.contentWindow) {
-              iframe.contentWindow.postMessage({ type: "request-cpm-data" }, "*");
-              queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
-              toast.success("KUKU 위젯을 새로고침합니다.");
-            } else {
-              queryClient.invalidateQueries({ queryKey: ["kuku-dashboard"] });
-              toast.info("CPM iframe이 아직 로드되지 않았습니다. DB 데이터로 갱신합니다.");
-            }
-          }}
-        >
-          <RefreshCw className="h-4 w-4 mr-1" />
-          새로고침
-        </Button>
-      </div>
-      <CpmSummaryBanner />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <KukuProgressOverview />
-        <KukuCoverageRate />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <KukuPredecessorWatch />
-        <KukuDelayRiskBoard />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
