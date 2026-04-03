@@ -35,42 +35,18 @@ export function MilestoneTimeline() {
   const finalMs = milestones[milestones.length - 1];
   const dDay = finalMs ? differenceInDays(parseLocalDate(finalMs.target_date), today) : null;
 
-  // Date range helpers
-  const firstDate = milestones.length > 0 ? parseLocalDate(milestones[0].target_date).getTime() : 0;
-  const lastDate = milestones.length > 0 ? parseLocalDate(milestones[milestones.length - 1].target_date).getTime() : 0;
-  const range = lastDate - firstDate;
-
-  const dateToPercent = (d: number) => {
-    if (range <= 0) return 0;
-    return Math.max(0, Math.min(100, ((d - firstDate) / range) * 100));
+  // Calculate "today" position as percentage along the timeline
+  const getElapsedPercent = () => {
+    if (milestones.length < 2) return 0;
+    const firstDate = parseLocalDate(milestones[0].target_date).getTime();
+    const lastDate = parseLocalDate(milestones[milestones.length - 1].target_date).getTime();
+    const range = lastDate - firstDate;
+    if (range <= 0) return 100;
+    const elapsed = today.getTime() - firstDate;
+    return Math.max(0, Math.min(100, (elapsed / range) * 100));
   };
 
-  const elapsedPercent = dateToPercent(today.getTime());
-
-  // Spread milestones so labels don't overlap (minimum gap in %)
-  const spreadPositions = (pcts: number[], minGap: number): number[] => {
-    if (pcts.length <= 1) return pcts;
-    const result = [...pcts];
-    // Push apart from left to right
-    for (let i = 1; i < result.length; i++) {
-      if (result[i] - result[i - 1] < minGap) {
-        result[i] = result[i - 1] + minGap;
-      }
-    }
-    // If rightmost exceeds 100, push back from right to left
-    if (result[result.length - 1] > 100) {
-      result[result.length - 1] = 100;
-      for (let i = result.length - 2; i >= 0; i--) {
-        if (result[i + 1] - result[i] < minGap) {
-          result[i] = result[i + 1] - minGap;
-        }
-      }
-    }
-    return result;
-  };
-
-  const rawPcts = milestones.map((ms) => dateToPercent(parseLocalDate(ms.target_date).getTime()));
-  const adjustedPcts = spreadPositions(rawPcts, 10);
+  const elapsedPercent = getElapsedPercent();
 
   return (
     <Card>
@@ -133,8 +109,8 @@ export function MilestoneTimeline() {
                 );
               })()}
 
-              {/* Milestones: positioned by date */}
-              <div className="relative" style={{ height: 120 }}>
+              {/* Milestones: circles on bar, text below */}
+              <div className="relative flex items-start gap-0">
                 {milestones.map((ms, i) => {
                   const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                   const Icon = cfg.icon;
@@ -142,50 +118,46 @@ export function MilestoneTimeline() {
                   const isPast = targetDate < today;
                   const diff = differenceInDays(targetDate, today);
                   const dLabel = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
-                  const pct = adjustedPcts[i];
 
                   return (
-                    <div
-                      key={ms.id}
-                      className="absolute flex flex-col items-center z-10"
-                      style={{
-                        left: `${pct}%`,
-                        top: 0,
-                        transform: "translateX(-50%)",
-                      }}
-                    >
-                      <div
-                        className={`h-9 w-9 rounded-full flex items-center justify-center border-2 transition-all ${
-                          ms.status === "completed"
-                            ? "bg-success/20 border-success"
-                            : ms.status === "in_progress"
-                            ? "bg-primary/20 border-primary ring-2 ring-primary/20"
-                            : ms.status === "delayed"
-                            ? "bg-destructive/20 border-destructive"
-                            : "bg-muted border-border"
-                        }`}
-                      >
-                        <Icon className={`h-4 w-4 ${cfg.color}`} />
+                    <div key={ms.id} className="flex items-start flex-1">
+                      <div className="flex flex-col items-center relative z-10">
+                        {/* Circle on the bar */}
+                        <div
+                          className={`h-9 w-9 rounded-full flex items-center justify-center border-2 transition-all ${
+                            ms.status === "completed"
+                              ? "bg-success/20 border-success"
+                              : ms.status === "in_progress"
+                              ? "bg-primary/20 border-primary ring-2 ring-primary/20"
+                              : ms.status === "delayed"
+                              ? "bg-destructive/20 border-destructive"
+                              : "bg-muted border-border"
+                          }`}
+                        >
+                          <Icon className={`h-4 w-4 ${cfg.color}`} />
+                        </div>
+                        {/* Labels below */}
+                        <span className="mt-2 text-xs font-medium text-center max-w-[100px] leading-tight">
+                          {ms.name}
+                        </span>
+                        <span
+                          className={`text-xs font-mono font-semibold mt-0.5 ${
+                            isPast ? "text-muted-foreground" : "text-foreground"
+                          }`}
+                        >
+                          {targetDate.toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "2-digit",
+                          })}
+                        </span>
+                        <span className={`text-lg font-mono font-bold mt-0.5 ${
+                          diff > 0 ? "text-primary" : diff === 0 ? "text-warning" : "text-destructive"
+                        }`}>
+                          {dLabel}
+                        </span>
                       </div>
-                      <span className="mt-2 text-xs font-medium text-center max-w-[100px] leading-tight whitespace-nowrap">
-                        {ms.name}
-                      </span>
-                      <span
-                        className={`text-xs font-mono font-semibold mt-0.5 ${
-                          isPast ? "text-muted-foreground" : "text-foreground"
-                        }`}
-                      >
-                        {targetDate.toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "2-digit",
-                        })}
-                      </span>
-                      <span className={`text-lg font-mono font-bold mt-0.5 ${
-                        diff > 0 ? "text-primary" : diff === 0 ? "text-warning" : "text-destructive"
-                      }`}>
-                        {dLabel}
-                      </span>
+                      {i < milestones.length - 1 && <div className="flex-1" />}
                     </div>
                   );
                 })}
