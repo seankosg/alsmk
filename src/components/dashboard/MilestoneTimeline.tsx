@@ -108,55 +108,59 @@ export function MilestoneTimeline() {
                 );
               })()}
 
-              {/* Milestones: circles on bar, text below */}
-              <div className="relative flex items-start gap-0">
-                {milestones.map((ms, i) => {
+              {/* Milestones: positioned by date */}
+              <div className="relative" style={{ height: 120 }}>
+                {milestones.map((ms) => {
                   const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                   const Icon = cfg.icon;
                   const targetDate = parseLocalDate(ms.target_date);
                   const isPast = targetDate < today;
                   const diff = differenceInDays(targetDate, today);
                   const dLabel = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
+                  const pct = dateToPercent(targetDate.getTime());
 
                   return (
-                    <div key={ms.id} className="flex items-start flex-1">
-                      <div className="flex flex-col items-center relative z-10">
-                        {/* Circle on the bar */}
-                        <div
-                          className={`h-9 w-9 rounded-full flex items-center justify-center border-2 transition-all ${
-                            ms.status === "completed"
-                              ? "bg-success/20 border-success"
-                              : ms.status === "in_progress"
-                              ? "bg-primary/20 border-primary ring-2 ring-primary/20"
-                              : ms.status === "delayed"
-                              ? "bg-destructive/20 border-destructive"
-                              : "bg-muted border-border"
-                          }`}
-                        >
-                          <Icon className={`h-4 w-4 ${cfg.color}`} />
-                        </div>
-                        {/* Labels below */}
-                        <span className="mt-2 text-xs font-medium text-center max-w-[100px] leading-tight">
-                          {ms.name}
-                        </span>
-                        <span
-                          className={`text-xs font-mono font-semibold mt-0.5 ${
-                            isPast ? "text-muted-foreground" : "text-foreground"
-                          }`}
-                        >
-                          {targetDate.toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "2-digit",
-                          })}
-                        </span>
-                        <span className={`text-lg font-mono font-bold mt-0.5 ${
-                          diff > 0 ? "text-primary" : diff === 0 ? "text-warning" : "text-destructive"
-                        }`}>
-                          {dLabel}
-                        </span>
+                    <div
+                      key={ms.id}
+                      className="absolute flex flex-col items-center z-10"
+                      style={{
+                        left: `${pct}%`,
+                        top: 0,
+                        transform: "translateX(-50%)",
+                      }}
+                    >
+                      <div
+                        className={`h-9 w-9 rounded-full flex items-center justify-center border-2 transition-all ${
+                          ms.status === "completed"
+                            ? "bg-success/20 border-success"
+                            : ms.status === "in_progress"
+                            ? "bg-primary/20 border-primary ring-2 ring-primary/20"
+                            : ms.status === "delayed"
+                            ? "bg-destructive/20 border-destructive"
+                            : "bg-muted border-border"
+                        }`}
+                      >
+                        <Icon className={`h-4 w-4 ${cfg.color}`} />
                       </div>
-                      {i < milestones.length - 1 && <div className="flex-1" />}
+                      <span className="mt-2 text-xs font-medium text-center max-w-[100px] leading-tight whitespace-nowrap">
+                        {ms.name}
+                      </span>
+                      <span
+                        className={`text-xs font-mono font-semibold mt-0.5 ${
+                          isPast ? "text-muted-foreground" : "text-foreground"
+                        }`}
+                      >
+                        {targetDate.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "2-digit",
+                        })}
+                      </span>
+                      <span className={`text-lg font-mono font-bold mt-0.5 ${
+                        diff > 0 ? "text-primary" : diff === 0 ? "text-warning" : "text-destructive"
+                      }`}>
+                        {dLabel}
+                      </span>
                     </div>
                   );
                 })}
