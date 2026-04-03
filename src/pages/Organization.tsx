@@ -301,6 +301,9 @@ function OrgNode({ label, name, sublabel, count, variant, warning }: OrgNodeProp
           <span className="text-xs font-medium text-primary">{label}</span>
         </div>
         <p className="text-base font-bold">{name}</p>
+        {count && (
+          <span className="text-xs font-mono text-muted-foreground mt-1 block">{count}</span>
+        )}
       </div>
     );
   }
