@@ -3593,11 +3593,7 @@ window.addEventListener('message', function(e) {
        scrollToNode(internalId);
        highlightSidebarCard(internalId);
      }, 100);
-      ring.style.animation = 'focusPulse 1s ease-in-out 3';
-      svg.appendChild(ring);
-      setTimeout(function() { ring.remove(); }, 3200);
-    }
-  }
+   }
   if (e.data.type === 'activity-status-update') {
     window._activityStatusMap = {};
     (e.data.statuses || []).forEach(function(s) {
