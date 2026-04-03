@@ -47,6 +47,31 @@ export function MilestoneTimeline() {
 
   const elapsedPercent = dateToPercent(today.getTime());
 
+  // Spread milestones so labels don't overlap (minimum gap in %)
+  const spreadPositions = (pcts: number[], minGap: number): number[] => {
+    if (pcts.length <= 1) return pcts;
+    const result = [...pcts];
+    // Push apart from left to right
+    for (let i = 1; i < result.length; i++) {
+      if (result[i] - result[i - 1] < minGap) {
+        result[i] = result[i - 1] + minGap;
+      }
+    }
+    // If rightmost exceeds 100, push back from right to left
+    if (result[result.length - 1] > 100) {
+      result[result.length - 1] = 100;
+      for (let i = result.length - 2; i >= 0; i--) {
+        if (result[i + 1] - result[i] < minGap) {
+          result[i] = result[i + 1] - minGap;
+        }
+      }
+    }
+    return result;
+  };
+
+  const rawPcts = milestones.map((ms) => dateToPercent(parseLocalDate(ms.target_date).getTime()));
+  const adjustedPcts = spreadPositions(rawPcts, 10);
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -110,14 +135,14 @@ export function MilestoneTimeline() {
 
               {/* Milestones: positioned by date */}
               <div className="relative" style={{ height: 120 }}>
-                {milestones.map((ms) => {
+                {milestones.map((ms, i) => {
                   const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                   const Icon = cfg.icon;
                   const targetDate = parseLocalDate(ms.target_date);
                   const isPast = targetDate < today;
                   const diff = differenceInDays(targetDate, today);
                   const dLabel = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
-                  const pct = dateToPercent(targetDate.getTime());
+                  const pct = adjustedPcts[i];
 
                   return (
                     <div
