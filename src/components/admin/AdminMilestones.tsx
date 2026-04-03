@@ -124,7 +124,7 @@ export function AdminMilestones() {
               <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
             ) : milestones.map((ms) => (
               <TableRow key={ms.id}>
-                <TableCell className="font-mono text-xs text-muted-foreground">{ms.sort_order}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
                 <TableCell className="font-medium">{ms.name}</TableCell>
                 <TableCell className="font-mono text-xs">{ms.target_date}</TableCell>
                 <TableCell>
