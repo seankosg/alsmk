@@ -75,24 +75,19 @@ export function MilestoneTimeline() {
           <p className="text-sm text-muted-foreground">No milestones configured</p>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <div className="relative min-w-[600px] px-4 py-6">
-              {/* Background track line */}
-              <div className="absolute left-4 right-4 top-[calc(50%-12px)] h-[3px] bg-border rounded-full" />
+            <div className="relative min-w-[600px] px-4 pt-8 pb-4">
+              {/* Track line — aligned with circle centers */}
+              <div className="absolute left-4 right-4 top-[calc(2rem+18px-1.5px)] h-[3px] bg-border rounded-full" />
 
-              {/* Elapsed (bold) line */}
-              <div
-                className="absolute left-4 top-[calc(50%-12px)] h-[3px] bg-primary rounded-full transition-all"
-                style={{ width: `calc(${elapsedPercent}% * (100% - 32px) / 100)` }}
-              />
-              {/* Use a wrapper to compute width correctly */}
-              <div className="absolute left-4 right-4 top-[calc(50%-12px)] h-[3px] pointer-events-none">
+              {/* Elapsed line */}
+              <div className="absolute left-4 right-4 top-[calc(2rem+18px-1.5px)] h-[3px] pointer-events-none">
                 <div
                   className="h-full bg-primary rounded-full shadow-[0_0_6px_hsl(var(--primary)/0.4)]"
                   style={{ width: `${elapsedPercent}%` }}
                 />
               </div>
 
-              {/* Today marker with elapsed days */}
+              {/* Today marker */}
               {elapsedPercent > 0 && elapsedPercent < 100 && milestones.length >= 1 && (() => {
                 const firstDate = parseLocalDate(milestones[0].target_date);
                 const elapsed = differenceInDays(today, firstDate);
@@ -101,7 +96,7 @@ export function MilestoneTimeline() {
                   <div
                     className="absolute pointer-events-none flex flex-col items-center"
                     style={{
-                      top: "calc(50% - 12px)",
+                      top: "calc(2rem + 18px - 1.5px)",
                       left: `calc(16px + (100% - 32px) * ${elapsedPercent / 100})`,
                       transform: "translate(-50%, -100%)",
                     }}
@@ -114,17 +109,20 @@ export function MilestoneTimeline() {
                 );
               })()}
 
-              {/* Milestones */}
-              <div className="relative flex items-center gap-0">
+              {/* Milestones: circles on bar, text below */}
+              <div className="relative flex items-start gap-0">
                 {milestones.map((ms, i) => {
                   const cfg = statusConfig[ms.status] ?? statusConfig.upcoming;
                   const Icon = cfg.icon;
                   const targetDate = parseLocalDate(ms.target_date);
                   const isPast = targetDate < today;
+                  const diff = differenceInDays(targetDate, today);
+                  const dLabel = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
 
                   return (
-                    <div key={ms.id} className="flex items-center flex-1">
-                      <div className="flex flex-col items-center gap-1.5 relative z-10">
+                    <div key={ms.id} className="flex items-start flex-1">
+                      <div className="flex flex-col items-center relative z-10">
+                        {/* Circle on the bar */}
                         <div
                           className={`h-9 w-9 rounded-full flex items-center justify-center border-2 transition-all ${
                             ms.status === "completed"
@@ -138,11 +136,12 @@ export function MilestoneTimeline() {
                         >
                           <Icon className={`h-4 w-4 ${cfg.color}`} />
                         </div>
-                        <span className="text-xs font-medium text-center max-w-[100px] leading-tight">
+                        {/* Labels below */}
+                        <span className="mt-2 text-xs font-medium text-center max-w-[100px] leading-tight">
                           {ms.name}
                         </span>
                         <span
-                          className={`text-xs font-mono font-semibold ${
+                          className={`text-xs font-mono font-semibold mt-0.5 ${
                             isPast ? "text-muted-foreground" : "text-foreground"
                           }`}
                         >
@@ -152,17 +151,11 @@ export function MilestoneTimeline() {
                             year: "2-digit",
                           })}
                         </span>
-                        {(() => {
-                          const diff = differenceInDays(targetDate, today);
-                          const label = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
-                          return (
-                            <span className={`text-lg font-mono font-bold ${
-                              diff > 0 ? "text-primary" : diff === 0 ? "text-warning" : "text-destructive"
-                            }`}>
-                              {label}
-                            </span>
-                          );
-                        })()}
+                        <span className={`text-lg font-mono font-bold mt-0.5 ${
+                          diff > 0 ? "text-primary" : diff === 0 ? "text-warning" : "text-destructive"
+                        }`}>
+                          {dLabel}
+                        </span>
                       </div>
                       {i < milestones.length - 1 && <div className="flex-1" />}
                     </div>
