@@ -156,7 +156,7 @@ export function MilestoneTimeline() {
                           const diff = differenceInDays(targetDate, today);
                           const label = diff > 0 ? `D-${diff}` : diff === 0 ? "D-Day" : `D+${Math.abs(diff)}`;
                           return (
-                            <span className={`text-sm font-mono font-bold ${
+                            <span className={`text-lg font-mono font-bold ${
                               diff > 0 ? "text-primary" : diff === 0 ? "text-warning" : "text-destructive"
                             }`}>
                               {label}
