@@ -18,7 +18,7 @@ export function MilestoneTimeline() {
   const { data: milestones = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["milestones"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("milestones").select("*").order("sort_order");
+      const { data, error } = await supabase.from("milestones").select("*").is("deleted_at", null).order("target_date");
       if (error) throw error;
       return data;
     },
