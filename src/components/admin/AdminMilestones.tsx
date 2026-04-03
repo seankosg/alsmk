@@ -92,7 +92,7 @@ export function AdminMilestones() {
     setEditing(ms);
     setName(ms.name);
     setTargetDate(ms.target_date);
-    setSortOrder(String(ms.sort_order));
+    
     setStatus(ms.status);
     setOpen(true);
   }
