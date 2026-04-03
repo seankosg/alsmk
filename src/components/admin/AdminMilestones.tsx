@@ -146,6 +146,12 @@ export function AdminMilestones() {
                   </Badge>
                 </TableCell>
                 <TableCell>
+                  <Switch
+                    checked={(ms as any).is_active !== false}
+                    onCheckedChange={(checked) => toggleActive.mutate({ id: ms.id, is_active: checked })}
+                  />
+                </TableCell>
+                <TableCell>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(ms)}><Pencil className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => remove.mutate(ms.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
