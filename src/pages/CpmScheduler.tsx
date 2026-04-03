@@ -35,33 +35,47 @@ const CpmScheduler = () => {
   const { hydrateIframe, refreshStatus, batchUpdateElapsedProgress } = useCpmViewModel();
   const cpmCacheBuster = useRef(`?v=${Date.now()}`).current;
 
-  // Reactive highlight param — re-runs whenever URL changes (works with keep-alive mount)
+  // Two-stage highlight: capture URL param into state, then clear URL independently
   const highlightParam = searchParams.get("highlight");
+  const [pendingHighlight, setPendingHighlight] = useState<string | null>(null);
 
+  // Stage 1: URL → pendingHighlight state (then clear URL immediately)
   useEffect(() => {
     if (!highlightParam) return;
-    // Clear the param so it doesn't re-trigger on re-render
-    setSearchParams((prev) => { prev.delete("highlight"); return prev; }, { replace: true });
-    // Wait for iframe to be ready, then send focus-node
+    setPendingHighlight(highlightParam);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("highlight");
+      return next;
+    }, { replace: true });
+  }, [highlightParam, setSearchParams]);
+
+  // Stage 2: pendingHighlight drives focus-node + panel open (cleanup won't kill timers)
+  useEffect(() => {
+    if (!pendingHighlight) return;
+    const nodeId = pendingHighlight;
+    setPendingHighlight(null); // consume it
+
+    // Send focus-node with retries
     const trySend = () => {
-      iframeRef.current?.contentWindow?.postMessage({ type: "focus-node", nodeId: highlightParam }, "*");
+      iframeRef.current?.contentWindow?.postMessage({ type: "focus-node", nodeId }, "*");
     };
-    // Retry a few times since iframe may still be loading
+    trySend(); // immediate attempt
     const timers = [500, 1500, 3000].map((delay) => setTimeout(trySend, delay));
 
-    // Also auto-open the ActivityTaskPanel for this node
+    // Auto-open ActivityTaskPanel
     (async () => {
       let { data } = await supabase
         .from("cpm_activities")
         .select("*")
-        .eq("mpp_task_id", highlightParam)
+        .eq("mpp_task_id", nodeId)
         .limit(1)
         .maybeSingle();
       if (!data) {
         const res = await supabase
           .from("cpm_activities")
           .select("*")
-          .eq("id", highlightParam)
+          .eq("id", nodeId)
           .limit(1)
           .maybeSingle();
         data = res.data;
@@ -87,7 +101,7 @@ const CpmScheduler = () => {
     })();
 
     return () => timers.forEach(clearTimeout);
-  }, [highlightParam, setSearchParams]);
+  }, [pendingHighlight]);
 
   // Bulk toggle all activities' progress mode
   const bulkToggleProgressMode = useCallback(async (targetMode: "auto" | "manual") => {

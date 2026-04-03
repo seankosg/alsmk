@@ -3570,49 +3570,30 @@ window.addEventListener('message', function(e) {
     });
     window.parent.postMessage({ type: 'cpm-runtime-data', activities: runtimeData }, '*');
   }
-  if (e.data.type === 'focus-node') {
-    // Scroll to and highlight a specific node by internal ID
-    var targetId = e.data.nodeId;
-    if (!targetId || !_nodePositions) return;
-    // Try exact match first, then search by mppTaskId
-    var np = _nodePositions[targetId];
-    if (!np && activities.length) {
-      for (var fi = 0; fi < activities.length; fi++) {
-        if (activities[fi].mppTaskId === targetId || activities[fi]._uid === targetId) {
-          np = _nodePositions[activities[fi].id];
-          break;
-        }
-      }
-    }
-    if (!np) return;
-    var container = document.getElementById('svgContainer');
-    if (container) {
-      container.scrollTo({
-        left: Math.max(0, np.x - container.clientWidth / 2 + _NODE_W / 2),
-        top: Math.max(0, np.y - container.clientHeight / 2 + _NODE_H / 2),
-        behavior: 'smooth'
-      });
-    }
-    // Highlight: add a pulsing ring around the target node
-    var svg = container && container.querySelector('svg');
-    if (svg) {
-      var prev = svg.querySelector('.focus-highlight');
-      if (prev) prev.remove();
-      var ring = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      ring.setAttribute('x', np.x - 4);
-      ring.setAttribute('y', np.y - 4);
-      ring.setAttribute('width', _NODE_W + 8);
-      ring.setAttribute('height', _NODE_H + 8);
-      ring.setAttribute('rx', '10');
-      ring.setAttribute('fill', 'none');
-      ring.setAttribute('stroke', '#3b82f6');
-      ring.setAttribute('stroke-width', '4');
-      ring.classList.add('focus-highlight');
-      ring.style.animation = 'focusPulse 1s ease-in-out 3';
-      svg.appendChild(ring);
-      setTimeout(function() { ring.remove(); }, 3200);
-    }
-  }
+   if (e.data.type === 'focus-node') {
+     // Resolve nodeId to internal activity id, then use existing scrollToNode
+     var targetId = e.data.nodeId;
+     if (!targetId || !activities.length) return;
+     // Find internal id: try exact match, then mppTaskId, then _uid
+     var internalId = null;
+     if (_nodePositions && _nodePositions[targetId]) {
+       internalId = targetId;
+     } else {
+       for (var fi = 0; fi < activities.length; fi++) {
+         if (activities[fi].mppTaskId === targetId || activities[fi]._uid === targetId || activities[fi].id === targetId) {
+           internalId = activities[fi].id;
+           break;
+         }
+       }
+     }
+     if (!internalId) return;
+     // Use proven navigation helpers (scroll to #networkCanvas, not #svgContainer)
+     switchTab('network');
+     setTimeout(function() {
+       scrollToNode(internalId);
+       highlightSidebarCard(internalId);
+     }, 100);
+   }
   if (e.data.type === 'activity-status-update') {
     window._activityStatusMap = {};
     (e.data.statuses || []).forEach(function(s) {
