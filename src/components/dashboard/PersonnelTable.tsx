@@ -18,7 +18,7 @@ export function PersonnelTable() {
   const { data: members = [], isLoading: lm } = useQuery({
     queryKey: ["members"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("members").select("id, team_id");
+      const { data, error } = await supabase.from("members").select("id, team_id, is_pm").is("deleted_at", null);
       if (error) throw error;
       return data;
     },
@@ -27,11 +27,11 @@ export function PersonnelTable() {
 
   const isLoading = lt || lm;
 
-  // PM row: always plan=1, current=1
-  const pmRow = { id: "pm", name: "Project Manager", code: "PM", target: 1, current: 1 };
+  const pmMembers = members.filter(m => m.is_pm);
+  const pmRow = { id: "pm", name: "Project Manager", code: "PM", target: 1, current: pmMembers.length };
 
   const teamRows = teams.map(team => {
-    const current = members.filter(m => m.team_id === team.id).length;
+    const current = members.filter(m => m.team_id === team.id && !m.is_pm).length;
     return { id: team.id, name: team.name, code: team.code, target: team.target_headcount, current };
   });
 

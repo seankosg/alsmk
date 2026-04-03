@@ -85,10 +85,11 @@ const Organization = () => {
   const guestMembers = members.filter(m => m.user_id && guestUserIds.has(m.user_id));
   const nonGuestMembers = members.filter(m => !m.user_id || !guestUserIds.has(m.user_id));
 
-  // Filter out system admin accounts (no team) from org chart
-  const orgMembers = nonGuestMembers.filter(m => m.team_id !== null);
-  const totalTO = teams.reduce((s, t) => s + t.target_headcount, 0);
-  const totalMembers = orgMembers.length;
+  // Filter out system admin accounts (no team) from org chart, but keep PM
+  const pmMembers = nonGuestMembers.filter(m => m.is_pm);
+  const orgMembers = nonGuestMembers.filter(m => m.team_id !== null && !m.is_pm);
+  const totalTO = teams.reduce((s, t) => s + t.target_headcount, 0) + 1; // +1 for PM
+  const totalMembers = orgMembers.length + pmMembers.length;
 
   return (
     <div className="space-y-6">
@@ -126,7 +127,15 @@ const Organization = () => {
               label="Project Manager"
               name={pmName ?? "TBD"}
               variant="pm"
+              count={`${pmMembers.length}/1`}
             />
+            {/* PM Members */}
+            {pmMembers.length > 0 && (
+              <>
+                <VerticalLine short />
+                <MemberGroup members={pmMembers} />
+              </>
+            )}
 
             {/* Connector: PM → Teams */}
             {teams.length > 0 && (
@@ -292,6 +301,9 @@ function OrgNode({ label, name, sublabel, count, variant, warning }: OrgNodeProp
           <span className="text-xs font-medium text-primary">{label}</span>
         </div>
         <p className="text-base font-bold">{name}</p>
+        {count && (
+          <span className="text-xs font-mono text-muted-foreground mt-1 block">{count}</span>
+        )}
       </div>
     );
   }
