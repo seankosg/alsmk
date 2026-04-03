@@ -31,7 +31,7 @@ export function AdminMilestones() {
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [name, setName] = useState("");
   const [targetDate, setTargetDate] = useState("");
-  const [sortOrder, setSortOrder] = useState("0");
+  
   const [status, setStatus] = useState<MilestoneStatus>("upcoming");
 
   const { data: milestones = [], isLoading } = useQuery({
