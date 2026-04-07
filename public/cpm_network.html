@@ -1301,7 +1301,10 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       && a.finishDate
       && new Date(a.finishDate) < _todayAlert
       && effectiveProgress < 100;
-    _alertCache[id] = { gap, hasStatus: hasMappedStatus, unmappedOverdue: !!isUnmappedOverdue };
+    const unmappedOverdueDays = isUnmappedOverdue
+      ? Math.round((_todayAlert - new Date(a.finishDate)) / 86400000)
+      : 0;
+    _alertCache[id] = { gap, hasStatus: hasMappedStatus, unmappedOverdue: !!isUnmappedOverdue, unmappedOverdueDays };
   });
 
   // Draw arrows first — predLinks 우선, fallback predecessors
@@ -1464,7 +1467,11 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
       alertIcon += `<text x="${cpIconX}" y="${iconY}" font-size="13" fill="#ff4d4d" text-anchor="end">🔥</text>`;
     }
     if (isUnmappedOverdue && !isSevereDelay && !isCpDelay) {
+      const uDays = alertInfo.unmappedOverdueDays || 0;
       alertIcon += `<text x="${iconX}" y="${iconY}" font-size="13" fill="#ff4d4d" text-anchor="end">⚠</text>`;
+      if (uDays > 0) {
+        alertIcon += `<text x="${iconX + 2}" y="${iconY}" font-family="var(--mono)" font-size="9" fill="#ff4d4d" text-anchor="start" font-weight="600">+${uDays}d</text>`;
+      }
       needsBlinkOverlay = true;
     }
     if (hasPredDelay && !isSevereDelay && !isModerateDelay && !isCpDelay && !isUnmappedOverdue) {
@@ -1557,6 +1564,10 @@ function drawNetwork(order, map, projectEnd, filterWbs, filterBldg, filterText1)
           const overdueDays = statusData && statusData.overdueDays;
           if (overdueData && overdueDays > 0) {
             return `<text x="${NODE_W-8}" y="${(hasProg || hasStatus) ? NODE_H - 22 : 88}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="end" font-weight="600">⚠ +${overdueDays}d</text>`;
+          }
+          const uDays = alertInfo && alertInfo.unmappedOverdueDays || 0;
+          if (isUnmappedOverdue && uDays > 0) {
+            return `<text x="${NODE_W-8}" y="${(hasProg || hasStatus) ? NODE_H - 22 : 88}" font-family="'Consolas','D2Coding','Courier New',monospace" font-size="8" fill="#ff4d4d" text-anchor="end" font-weight="600">⚠ +${uDays}d</text>`;
           }
           return '';
         })()}
