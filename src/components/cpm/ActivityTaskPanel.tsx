@@ -579,6 +579,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
         {/* 3-layer progress bar: planned (gray) → actual (blue) → gap (red) */}
         {mappedTasks.length > 0 && (
           <div className="space-y-1 px-1">
+            <p className="text-[11px] font-semibold text-muted-foreground">Task 진행율</p>
             <div className="relative h-3 w-full rounded-full overflow-hidden bg-[#555]">
               <div
                 className="absolute inset-y-0 left-0 bg-primary rounded-full"
