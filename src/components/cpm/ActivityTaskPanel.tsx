@@ -576,6 +576,34 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
           </div>
         )}
 
+        {/* 3-layer progress bar: planned (gray) → actual (blue) → gap (red) */}
+        {mappedTasks.length > 0 && (
+          <div className="space-y-1 px-1">
+            <div className="relative h-3 w-full rounded-full overflow-hidden bg-[#555]">
+              <div
+                className="absolute inset-y-0 left-0 bg-primary rounded-full"
+                style={{ width: `${overallStats.actual}%` }}
+              />
+              {overallStats.gap < 0 && (
+                <div
+                  className="absolute inset-y-0 bg-destructive rounded-r-full"
+                  style={{
+                    left: `${overallStats.actual}%`,
+                    width: `${Math.min(Math.abs(overallStats.gap), overallStats.planned - overallStats.actual)}%`,
+                  }}
+                />
+              )}
+            </div>
+            <div className="flex justify-between text-[10px] font-mono">
+              <span className="text-muted-foreground">계획 {overallStats.planned}%</span>
+              <span className="text-primary">실적 {overallStats.actual}%</span>
+              <span className={overallStats.gap >= 0 ? 'text-success' : 'text-destructive'}>
+                GAP {overallStats.gap > 0 ? '+' : ''}{overallStats.gap}%
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Key metrics */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-muted rounded p-2">
