@@ -1,5 +1,8 @@
 project_id = "dbyefnkrykxpafwkuhin"
 
+[functions.check-overdue-tasks]
+verify_jwt = false
+
 [functions.admin-manage-user]
 verify_jwt = false
 
