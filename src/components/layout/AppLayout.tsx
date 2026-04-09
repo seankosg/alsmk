@@ -75,7 +75,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   // Non-admin trying to access /admin or /tasks/import
-  if (!auth.isAdmin && (location.pathname === "/admin" || location.pathname === "/tasks/import")) {
+  if (!auth.isAdmin && location.pathname === "/admin") {
+    return <Navigate to="/" replace />;
+  }
+
+  if (auth.readOnly && location.pathname === "/tasks/import") {
     return <Navigate to="/" replace />;
   }
 

@@ -148,7 +148,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
 
       const { error } = await supabase
         .from("cpm_activities")
-        .update(updatePayload)
+        .update(updatePayload as any)
         .eq("id", dbActivity.id);
 
       if (error) throw error;
@@ -384,7 +384,7 @@ export function ActivityTaskPanel({ activity, onClose, onStatusChanged, onCustom
                   }
                   const { error } = await supabase
                     .from("cpm_activities")
-                    .update(updatePayload)
+                    .update(updatePayload as any)
                     .eq("id", dbActivity.id);
                   if (error) throw error;
                   setActivityProgressMode(newMode);
