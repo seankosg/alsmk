@@ -601,7 +601,8 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                         <TableCell className={`font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.start }}>{task.start_date}</TableCell>
                         <TableCell className={`font-mono ${completedMuted} ${isSummary ? "text-sm font-semibold" : "text-xs"}`} style={{ width: colWidths.finish }}>{task.end_date}</TableCell>
                         {(() => {
-                          const remaining = task.actual_finish
+                          const isDone = !!task.actual_finish || task.current_progress >= 100;
+                          const remaining = isDone
                             ? 0
                             : differenceInCalendarDays(parseLocalDate(task.end_date), startOfDay(new Date()));
                           return (
@@ -609,7 +610,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                               className={`text-right font-mono font-bold ${isSummary ? "text-sm" : "text-xs"} ${isCompleted ? 'text-muted-foreground/50' : remaining < 0 ? 'text-destructive' : remaining <= 7 ? 'text-warning' : 'text-primary'}`}
                               style={{ width: colWidths.dday }}
                             >
-                              {task.actual_finish ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`}
+                              {isDone ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`}
                             </TableCell>
                           );
                         })()}

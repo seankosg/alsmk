@@ -287,8 +287,9 @@ const Workspace = () => {
             )
           : calcPlannedProgress(t.start_date, t.end_date);
         const gap = t.current_progress - planned;
-        const remaining = t.actual_finish ? 0 : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
-        const dDay = t.actual_finish ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`;
+        const isDone = !!t.actual_finish || t.current_progress >= 100;
+        const remaining = isDone ? 0 : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
+        const dDay = isDone ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`;
 
         // Format comments
         const taskComments = commentsByTask.get(t.id) ?? [];
