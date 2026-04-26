@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
 import { UnreadMessagesDialog } from "./UnreadMessagesDialog";
+import { BuildInfo } from "@/components/BuildInfo";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -124,6 +125,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
               <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <BuildInfo inline />
                 <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">© {new Date().getFullYear()} Sean B. KO. All rights reserved.</span>
                 {!auth.readOnly && <NotificationBell />}
               </div>
