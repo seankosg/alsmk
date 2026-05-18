@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Download, Upload, Trash2, Database, Clock, History, Activity } from "lucide-react";
+import { Save, Download, Upload, Trash2, Database, Clock, History, Activity, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 
 export function AdminSettings() {
@@ -30,6 +30,9 @@ export function AdminSettings() {
   // KUKU KPI thresholds
   const [kukuDelayThreshold, setKukuDelayThreshold] = useState("5");
   const [kukuPredThreshold, setKukuPredThreshold] = useState("5");
+
+  // CPM 검증 모드 잠금
+  const [cpmLocked, setCpmLocked] = useState(false);
 
   // PM Name
   const { data: pmData, isLoading: pmLoading } = useQuery({
