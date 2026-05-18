@@ -904,6 +904,10 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      resequence_subtask_codes: {
+        Args: { _parent_id: string }
+        Returns: undefined
+      }
       upsert_activity_mappings: {
         Args: { _activity_id: string; _task_ids: string[] }
         Returns: undefined
