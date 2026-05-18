@@ -32,12 +32,16 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { user, isAdmin, isAdminOrPm, isGuest, isSuperGuest, readOnly, memberName, signOut } = useAuthContext();
   const { unreadCount } = useUnreadMessages();
+  const { cpmLocked } = useCpmLockStatus();
 
   // Filter nav items based on role
   const navItems = allNavItems.filter((item) => {
     if (isGuest) return item.guestVisible;
-    if (isSuperGuest) return item.superGuestVisible;
+    if (isSuperGuest) return item.superGuestVisible && !((item as any).adminOrPmOnly);
+    if ((item as any).adminOrPmOnly) return isAdminOrPm;
     if (item.adminOnly) return isAdmin;
+    // CPM 검증 모드 잠금: 일반 사용자(Admin/PM 제외)는 CPM Manager 숨김
+    if (item.url === "/cpm" && cpmLocked && !isAdminOrPm) return false;
     return true;
   });
 
