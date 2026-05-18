@@ -350,7 +350,34 @@ export function AdminSettings() {
         </CardContent>
       </Card>
 
-      {/* KUKU KPI Thresholds */}
+      {/* CPM 검증 모드 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-destructive" />
+            CPM 검증 모드 (잠금)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            활성화하면 일반 사용자는 CPM Manager 진입과 Task↔Activity 매핑 변경이 차단됩니다. Admin/PM은 영향을 받지 않습니다.
+          </p>
+          <div className="flex items-center justify-between max-w-md p-3 rounded-md border border-border">
+            <div>
+              <Label className="text-sm">CPM Manager 잠금</Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                상태: <span className={cpmLocked ? "text-destructive font-semibold" : "text-muted-foreground"}>{cpmLocked ? "잠김" : "해제"}</span>
+              </p>
+            </div>
+            <Switch
+              checked={cpmLocked}
+              onCheckedChange={(v) => toggleCpmLock.mutate(v)}
+              disabled={toggleCpmLock.isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
