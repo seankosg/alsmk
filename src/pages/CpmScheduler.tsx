@@ -330,10 +330,68 @@ const CpmScheduler = () => {
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
   }, [queryClient, refreshStatus, convertPredLinks]);
 
+  // Pre-upload 자동 백업: 새 XML upsert 직전 현재 상태를 cpm_snapshots에 저장
+  const savePreUploadBackup = useCallback(async () => {
+    try {
+      const { data: acts } = await supabase
+        .from("cpm_activities")
+        .select("id, mpp_uid, mpp_task_id, name, duration, progress, wbs_full, is_critical, is_milestone, start_date, finish_date, es, ef, ls, lf, tf, custom_fields, semantic_key, pred_links")
+        .limit(5000);
+      const { data: maps } = await supabase
+        .from("cpm_task_mappings")
+        .select("activity_id, task_id")
+        .limit(10000);
+
+      const idToMppUid = new Map<string, string>();
+      (acts || []).forEach((a) => { if (a.mpp_uid) idToMppUid.set(a.id, a.mpp_uid); });
+      const mppUidMap = new Map<string, string[]>();
+      (maps || []).forEach((m) => {
+        const u = idToMppUid.get(m.activity_id);
+        if (!u) return;
+        (mppUidMap.get(u) || mppUidMap.set(u, []).get(u)!).push(m.task_id);
+      });
+      const taskMappings = Array.from(mppUidMap.entries()).map(([mpp_uid, task_ids]) => ({ mpp_uid, task_ids }));
+
+      const ts = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const name = `auto_pre_upload_${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}`;
+
+      const activitiesSnap = (acts || []).map((a) => ({
+        id: a.id,
+        mppUid: a.mpp_uid,
+        mppTaskId: a.mpp_task_id,
+        name: a.name,
+        duration: a.duration,
+        progress: a.progress,
+        wbsFull: a.wbs_full,
+        isCritical: a.is_critical,
+        isMilestone: a.is_milestone,
+        startDate: a.start_date,
+        finishDate: a.finish_date,
+        es: a.es, ef: a.ef, ls: a.ls, lf: a.lf, tf: a.tf,
+        customFields: a.custom_fields,
+        predLinks: a.pred_links,
+      }));
+
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from("cpm_snapshots").insert({
+        name,
+        data: { name, activities: activitiesSnap, actCount: activitiesSnap.length, taskMappings, isPreUploadBackup: true },
+        created_by: user?.id || null,
+      });
+      console.log(`[CPM Pre-Upload Backup] saved "${name}" (${activitiesSnap.length} activities, ${taskMappings.length} mapping groups)`);
+    } catch (e) {
+      console.warn("[CPM Pre-Upload Backup] failed", e);
+    }
+  }, []);
+
   // Upsert activities to DB when CPM calculates — with auto-migration + orphan resolution
   const upsertActivities = useCallback(async (activities: CpmActivity[]) => {
     if (!activities.length) return;
     const currentUserName = memberName || "System";
+
+    // 가장 먼저 사전 백업
+    await savePreUploadBackup();
 
     // Build internal ID → mppTaskId map
     const idToMpp = new Map<string, string>();
