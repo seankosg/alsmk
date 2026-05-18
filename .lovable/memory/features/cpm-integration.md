@@ -79,6 +79,40 @@ Phase 2+3+4+5 CPM-Task integration: cpm_activities + cpm_task_mappings + cpm_sna
 - **Query limit**: `.limit(5000)` on cpm_activities queries to avoid 1000-row truncation.
 - **DB unique constraint**: `cpm_activities(mpp_uid)` UNIQUE — mpp_uid는 XML 재 Export에도 불변이므로 WBS 변경 시에도 동일 행이 업데이트됨. `cpm_task_mappings(activity_id, task_id)` UNIQUE prevents duplicate mapping rows.
 
+## Orphan Center Task-Centered Redesign (Phase 7)
+- `CpmOrphanCenter.tsx` 및 `OrphanResolutionDialog.tsx`는 동일한 Task 중심 UX를 공유: 행 = 1 Task (Activity 단위 아님)
+- 컬럼: [체크박스] · Orphan Activity (BLDG · WBS_L2 · Name · mpp_uid) · 기존 매핑 Task (code/title/assignee/progress/issue) · NewActivityCombobox · 적용 버튼
+- 2개 탭(메인 페이지): "미해결 Task" / "자동 삭제 이력"
+- 일괄 액션: 추천 95점↑ 일괄 적용 / 선택 매핑 해제
+
+### Recommendation Scoring (`OrphanRecommender.ts`)
+- 100점 BLDG+WBS_L2+Name 완전 일치 (자동 적용)
+- 95점 BLDG+Name (WBS 변경)
+- 80점 WBS_L2+Name (BLDG 누락/변경)
+- 60점 Name 일치
+- 50점 BLDG+WBS_L2 일치 + Name 접두/접미 (분할 추정)
+- API: `recommendFor(orphan, candidates)`, `scoreCandidates(orphan, candidates, topK=3)`
+
+### NewActivityCombobox (`src/components/cpm/NewActivityCombobox.tsx`)
+- shadcn Command + Popover 재사용 콤보
+- 구역: ── 추천(점수 배지) ── 전체(fuzzy 검색) ── 기타("매핑 해제")
+- value=null → 매핑 해제, undefined → 추천 1순위 자동 선택
+- Orphan Center 메인 페이지 + OrphanResolutionDialog 양쪽에서 동일하게 사용
+
+### `remapTask(row, targetId)` 처리 흐름
+1. orphan의 해당 task_id 매핑 삭제
+2. targetId 있으면 `upsert_activity_mappings`로 신규 Activity에 add (중복 제거)
+3. `activity_log` INSERT (`action: cpm_task_remapped`, details: from/to/task_code/source)
+4. orphan 매핑 0개 → `cpm_activities` DELETE + 자동 삭제 로그
+
+### Auto-Delete History Navigation
+- "현재 그래프에서 찾기" → `/cpm?highlight={mpp_task_id}` 라우팅
+- CpmScheduler가 `?highlight=` query param을 캡처해 `pendingHighlight` state에 저장 후 URL clear
+
+### SnapshotManager Quick Restore
+- 상단 "직전 업로드 되돌리기 (MM-dd HH:mm)" 버튼
+- 가장 최근 `auto_pre_upload_*` 스냅샷을 그래프+매핑 모드로 1클릭 복원
+
 ## Mapping Atomicity
 - `upsert_activity_mappings(_activity_id, _task_ids[])` RPC: atomic delete+insert for Activity→Task mappings
 - `upsert_task_mappings(_task_id, _activity_ids[])` RPC: atomic delete+insert for Task→Activity mappings
