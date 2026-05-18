@@ -62,6 +62,7 @@ interface TaskDetailDialogProps {
 export function TaskDetailDialog({ task, open, onOpenChange, teams = [], members = [], milestones = [], readOnly = false, isSummary = false, allTasks = [] }: TaskDetailDialogProps) {
   const queryClient = useQueryClient();
   const auth = useAuthContext();
+  const { cpmLocked } = useCpmLockStatus();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sendMsgOpen, setSendMsgOpen] = useState(false);
