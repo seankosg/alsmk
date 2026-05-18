@@ -59,7 +59,7 @@ export function AdminSettings() {
       const { data, error } = await supabase
         .from("project_settings")
         .select("key, value")
-        .in("key", ["auto_backup_enabled", "auto_backup_interval", "auto_backup_retention", "kuku_delay_threshold", "kuku_pred_threshold"]);
+        .in("key", ["auto_backup_enabled", "auto_backup_interval", "auto_backup_retention", "kuku_delay_threshold", "kuku_pred_threshold", "cpm_locked"]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((r) => (map[r.key] = r.value));
@@ -74,8 +74,31 @@ export function AdminSettings() {
       setAutoRetention(backupSettings.auto_backup_retention || "30");
       setKukuDelayThreshold(backupSettings.kuku_delay_threshold || "5");
       setKukuPredThreshold(backupSettings.kuku_pred_threshold || "5");
+      setCpmLocked(backupSettings.cpm_locked === "true");
     }
   }, [backupSettings]);
+
+  const toggleCpmLock = useMutation({
+    mutationFn: async (next: boolean) => {
+      const { error } = await supabase
+        .from("project_settings")
+        .upsert({ key: "cpm_locked", value: String(next), updated_at: new Date().toISOString() });
+      if (error) throw error;
+      // 감사 로그
+      await supabase.from("activity_log").insert({
+        action: "cpm_lock_toggled",
+        entity_type: "project_settings",
+        user_name: "Admin",
+        details: { locked: next },
+      });
+    },
+    onSuccess: (_d, next) => {
+      setCpmLocked(next);
+      queryClient.invalidateQueries({ queryKey: ["project_settings"] });
+      toast.success(`CPM 검증 모드 ${next ? "활성화" : "해제"} 완료`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   // Backup history
   const { data: backups = [], isLoading: backupsLoading } = useQuery({
