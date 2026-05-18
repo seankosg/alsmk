@@ -551,7 +551,7 @@ const CpmScheduler = () => {
     }
 
     queryClient.invalidateQueries({ queryKey: ["cpm_activity_by_mpp"] });
-  }, [queryClient, refreshStatus, memberName, convertPredLinks]);
+  }, [queryClient, refreshStatus, memberName, convertPredLinks, savePreUploadBackup]);
 
   // Listen for messages from iframe
   useEffect(() => {
