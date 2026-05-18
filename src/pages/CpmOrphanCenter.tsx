@@ -546,7 +546,7 @@ export default function CpmOrphanCenter() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleRowApply(row)}
-                            disabled={processing || (effectiveId === undefined as any)}
+                            disabled={processing}
                           >
                             적용
                           </Button>
