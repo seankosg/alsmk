@@ -1,130 +1,128 @@
+## XML Upsert + Orphan 매핑 복구 통합 계획
 
-# 빌드 버전 자동 감지 & 리로드 시스템 추가
+CPM Manager의 XML 업로드/재계산 흐름 전반과 Orphan 매핑 복구 센터를 함께 정비합니다. 핵심 목표는 **(1) 안전한 신규 XML upsert 절차 마련**, **(2) 일반 사용자의 CPM 변경 차단**, **(3) Orphan 관리·복구의 일원화**입니다.
 
-## ⚠️ 사전 확인
-참조하신 `sean-asset-portfolio88` 프로젝트를 검사한 결과 **`src/components/BuildInfo.tsx` 파일과 빌드 버전 감지 로직이 실제로 존재하지 않습니다** (해당 프로젝트는 단순 PWA `autoUpdate`만 설정됨). 따라서 1:1 복제가 불가하여, 사용자의 의도에 맞는 **표준 구현**을 ALSMK에 새로 설계합니다.
+---
 
-## 구현 전략
+### Part A. 신규 XML Upsert 안전 절차
 
-기존 `vite-plugin-pwa` 인프라를 활용하면서, **빌드 시각 기반 폴링 + 헤더 칩 + 새 버전 감지 시 토스트 알림**을 추가합니다.
+#### A-1. 업로드 전 자동 백업 (롤백 보장)
+- 신규 XML 업로드 직전 `cpm_snapshots`에 `auto_pre_upload_{YYYYMMDD_HHmm}` 이름으로 자동 스냅샷 생성
+- `data` JSONB에 현재 활성 네트워크 + 전체 task mappings 저장
+- SnapshotManager에서 "업로드 직전 자동 백업" 배지로 시각 구분
+- 사용자가 "되돌리기" 버튼 한 번으로 직전 상태 복원 (기존 snapshot-restore 흐름 재사용)
 
-| 영역 | 변경 내용 |
-|------|-----------|
-| **빌드 시각 주입** | `vite.config.ts`에 `define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) }` 추가 |
-| **타입 선언** | `src/vite-env.d.ts`에 `declare const __BUILD_TIME__: string` 추가 |
-| **버전 엔드포인트** | `public/version.json`은 빌드 시 갱신이 어려우므로, `index.html`에 `<meta name="build-time">` 주입 후 fetch로 비교 |
-| **신규 컴포넌트** | `src/components/BuildInfo.tsx` 생성 — `inline` prop 지원, 빌드 시각 칩 표시, 5분마다 `index.html` HEAD 재fetch하여 build-time meta 비교, 변경 감지 시 toast + 클릭 시 `location.reload(true)` |
-| **헤더 배치** | `src/components/layout/AppLayout.tsx` 헤더의 NotificationBell 옆에 `<BuildInfo inline />` 삽입 |
-| **PWA 통합** | 기존 `main.tsx`의 `registerSW onNeedRefresh`도 동일 토스트로 통합하여 중복 알림 방지 |
-
-## 동작 방식
-
-1. **빌드 시각 표시**: 헤더 우측에 `🔨 v25.04.26 14:32` 형태의 작은 칩 (monospace, muted 색상)
-2. **자동 감지**: 5분마다 `/index.html?t={now}` fetch → HTML 내 `<meta name="build-time">` 값 추출 → 현재 `__BUILD_TIME__`과 비교
-3. **새 버전 발견 시**: 
-   - 칩에 파란 점(●) 표시
-   - Sonner toast: "새 버전이 배포되었습니다" + [새로고침] 액션 버튼
-4. **수동 새로고침**: 칩 클릭 시 즉시 강제 리로드 (`window.location.reload()`)
-5. **PWA SW 업데이트**: `onNeedRefresh` 콜백도 동일 toast로 통합
-
-## 변경 파일 (5개)
-
-### 1. `vite.config.ts`
-```ts
-export default defineConfig(({ mode }) => ({
-  // ... 기존 ...
-  define: {
-    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
-  },
-  // ... 기존 ...
-}));
+#### A-2. Upsert 단계 (현재 흐름 정리·유지)
+```text
+1) Pre-Backup           → cpm_snapshots 자동 INSERT
+2) Parse XML (iframe)   → cpm-calculated postMessage
+3) upsertActivities     → mpp_uid UNIQUE 기반 INSERT/UPDATE
+4) Auto-Migrate         → semantic_key(BLDG::WBS_L2::Name) 일치 시 매핑 자동 이전
+5) Orphan Detection     → 새 XML에 없는 mpp_uid 추출
+   ├─ 매핑 0개 → auto_deleted_no_mappings 로그 후 즉시 삭제
+   └─ 매핑 ≥1개 → OrphanResolutionDialog 즉시 표시 (기존 유지)
+6) Snapshot Save        → 새 상태로 cpm_snapshots INSERT
 ```
 
-### 2. `src/vite-env.d.ts`
-```ts
-declare const __BUILD_TIME__: string;
+#### A-3. 롤백 UX
+- SnapshotManager 상단에 "직전 업로드 되돌리기" 단일 버튼 추가
+- 클릭 시 가장 최근 `auto_pre_upload_*` 스냅샷을 "그래프 + 매핑 복원" 모드로 적용
+- 확인 다이얼로그: "현재 활성 CPM과 매핑을 직전 업로드 이전 상태로 되돌립니다"
+
+---
+
+### Part B. 일반 사용자 접근 제한 (검증 모드)
+
+#### B-1. 전역 플래그
+- `project_settings`에 `cpm_locked = 'true' | 'false'` 키 추가
+- Admin Settings 페이지에 토글: "CPM 검증 모드 (Admin/PM만 매핑·업로드 가능)"
+
+#### B-2. 잠금 시 동작
+| 대상 | 잠금 동작 |
+|---|---|
+| CPM Manager 라우트 | Admin/PM만 진입, 외 사용자는 "검증 중" 안내 화면 |
+| iframe XML 업로드/계산 | `set-read-only` 메시지로 차단 (기존) |
+| ActivityTaskPanel MapTasksDialog | 버튼 숨김 (기존) |
+| TaskDetailDialog MapActivitiesDialog | 버튼 숨김 (신규 추가) |
+| 사이드바 CPM Manager 메뉴 | Guest/일반 사용자에게 숨김 |
+
+#### B-3. 잠금 해제 시
+- Admin이 토글 OFF → 모든 사용자 정상 사용 가능
+- 변경은 `activity_log`에 `cpm_lock_toggled` 기록
+
+---
+
+### Part C. Orphan 매핑 복구 센터 (`/cpm/orphans`)
+
+#### C-1. 위치 / 접근 제어
+- 별도 라우트 `/cpm/orphans`, 사이드바 "CPM Manager" 아래 "Orphan Center"
+- `isAdminOrPm`만 접근, 외 사용자는 `/`로 리다이렉트
+
+#### C-2. 화면 구성
+```text
+┌─ 요약 카드 ─────────────────────────────────────┐
+│ 미해결 Orphan │ 자동 복구된 매핑 │ 자동 삭제된 행 │
+└─────────────────────────────────────────────────┘
+
+┌─ 탭 1: 미해결 Orphan ───────────────────────────┐
+│ [추천 자동 적용 (100점만)] [선택 삭제]          │
+│ ☐ Orphan명 │ BLDG │ WBS L2 │ 매핑수 │ 추천 대상 │ 점수 │
+└─────────────────────────────────────────────────┘
+
+┌─ 탭 2: 자동 삭제 이력 (최근 50건) ──────────────┐
+│ 이름 │ BLDG │ WBS │ 삭제 시각 │ 처리자 │ [현재 그래프에서 찾기] │
+└─────────────────────────────────────────────────┘
 ```
 
-### 3. `index.html` (head 내)
-```html
-<meta name="build-time" content="%BUILD_TIME%" />
-```
-→ Vite의 HTML 변환 플러그인 추가 또는 빌드 시 자동 치환되는 방식 사용. 더 간단하게는 **빌드 시각 비교를 `/assets/index-{hash}.js` 파일명 변화로 대체**하는 fallback도 함께 구현.
+#### C-3. 추천 점수 (`OrphanRecommender.ts`)
+- 100점: BLDG + WBS L2 + Name 완전 일치 → **일괄 자동 적용 대상**
+- 80점: BLDG + Name 일치
+- 60점: Name 일치
+- 40점: BLDG + Name Levenshtein ≤ 3
+- 0점: 매칭 없음
 
-### 4. `src/components/BuildInfo.tsx` (신규)
-```tsx
-interface BuildInfoProps { inline?: boolean }
+"추천 자동 적용" 버튼은 **100점만** 일괄 처리.
 
-export function BuildInfo({ inline = false }: BuildInfoProps) {
-  const [hasUpdate, setHasUpdate] = useState(false);
-  const buildTime = __BUILD_TIME__;
-  const formatted = format(new Date(buildTime), "yy.MM.dd HH:mm");
+#### C-4. 일괄 복구 로직 (`bulkResolveOrphans`)
+각 Orphan을 순차 처리:
+1. 선택된 추천 대상의 기존 매핑과 merge → `upsert_activity_mappings` RPC
+2. Orphan의 `cpm_task_mappings` 삭제 → `cpm_activities` 삭제
+3. `activity_log`에 `resolution: 'migrated'` 또는 `'deleted'` 기록
 
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const res = await fetch(`/index.html?_=${Date.now()}`, { cache: "no-store" });
-        const html = await res.text();
-        const match = html.match(/<script[^>]*src="([^"]*index-[^"]+\.js)"/);
-        const currentScript = document.querySelector('script[src*="index-"]')?.getAttribute("src");
-        if (match && currentScript && match[1] !== currentScript) {
-          setHasUpdate(true);
-          toast.info("새 버전이 배포되었습니다", {
-            action: { label: "새로고침", onClick: () => window.location.reload() },
-            duration: Infinity,
-          });
-        }
-      } catch {}
-    };
-    const id = setInterval(check, 5 * 60 * 1000);
-    check();
-    return () => clearInterval(id);
-  }, []);
+#### C-5. 자동 삭제 이력 의미
+- Phase 5에서 매핑이 0개인 Orphan은 즉시 삭제 + `auto_deleted_no_mappings` 로그
+- 복원 버튼 없음 (매핑 자체가 없음)
+- **"현재 그래프에서 찾기"** 버튼: semantic_key로 활성 CPM 검색 → 발견 시 `/cpm?highlight={mpp_task_id}`로 이동하여 즉시 매핑 가능
 
-  return (
-    <button
-      onClick={() => hasUpdate && window.location.reload()}
-      className={cn(
-        "font-mono text-[10px] px-2 py-0.5 rounded-full border",
-        hasUpdate
-          ? "border-primary text-primary animate-pulse cursor-pointer"
-          : "border-border text-muted-foreground/60 cursor-default"
-      )}
-      title={`Build: ${buildTime}`}
-    >
-      🔨 {formatted}{hasUpdate && " ●"}
-    </button>
-  );
-}
-```
+#### C-6. 데이터 소스
+- 미해결 Orphan: `cpm_activities` LEFT JOIN `cpm_task_mappings` ─ 현재 활성 mpp_uid set에 없는 행
+- 활성 mpp_uid set: CpmScheduler iframe에 `request-active-mpp-uids` postMessage → 응답으로 수신
+- 자동 삭제 이력: `activity_log` WHERE `action='cpm_activity_deleted'` AND `details.resolution='auto_deleted_no_mappings'` ORDER BY `created_at DESC` LIMIT 50
 
-### 5. `src/components/layout/AppLayout.tsx` (헤더 우측)
-```tsx
-<div className="flex items-center gap-2 sm:gap-3 shrink-0">
-  <BuildInfo inline />
-  <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">© ...</span>
-  {!auth.readOnly && <NotificationBell />}
-</div>
-```
+---
 
-### 6. `src/main.tsx` (기존 onNeedRefresh 통합)
-```tsx
-const updateSW = registerSW({
-  onNeedRefresh() {
-    toast.info("새 버전이 배포되었습니다", {
-      action: { label: "새로고침", onClick: () => updateSW(true) },
-      duration: Infinity,
-    });
-  },
-  onOfflineReady() { console.log("App ready for offline use"); },
-});
-```
+### Part D. 파일 변경 요약
 
-## 모바일 (430px) 대응
-- 헤더 우측 공간이 좁으므로 모바일에서는 칩에서 🔨 아이콘만 표시 (`hidden sm:inline` 으로 시각 텍스트 숨김)
-- 새 버전 감지 시에는 모바일에서도 빨간 점(●)이 보이도록 함
+| 파일 | 변경 |
+|---|---|
+| `src/pages/CpmOrphanCenter.tsx` | 신규 (Orphan 센터 페이지) |
+| `src/components/cpm/OrphanRecommender.ts` | 신규 (추천 점수 순수 함수) |
+| `src/pages/CpmScheduler.tsx` | (1) 업로드 직전 auto pre-backup 추가, (2) `request-active-mpp-uids` 핸들러 추가, (3) `cpm_locked` 체크 |
+| `src/components/cpm/SnapshotManager.tsx` | "직전 업로드 되돌리기" 버튼 + auto_pre_upload 배지 |
+| `src/components/admin/AdminSettings.tsx` | CPM 검증 모드 토글 |
+| `src/components/tasks/TaskDetailDialog.tsx` | MapActivitiesDialog 버튼 `isAdminOrPm && !cpmLocked` 가드 |
+| `src/App.tsx` | `/cpm/orphans` 라우트 추가 |
+| `src/components/layout/AppSidebar.tsx` | Orphan Center 메뉴 + cpm_locked 시 일반 사용자 CPM 메뉴 숨김 |
+| `src/hooks/useCpmLockStatus.ts` | 신규 (project_settings 조회 훅) |
+| `.lovable/memory/features/cpm-integration.md` | XML upsert / Orphan Center / 검증 모드 메모 추가 |
 
-## 영향 범위
-- 기존 PWA 로직 보존 (단순 통합)
-- DB/RLS 변경 없음
-- 모든 사용자(Admin/PM/Member/Guest)에게 헤더 칩 표시
+DB 변경 없음 (project_settings는 기존 테이블, snapshot은 기존 흐름 활용).
+
+---
+
+### Part E. 안전 장치
+- 일괄 작업 전 확정 다이얼로그 ("N건의 매핑을 이전합니다")
+- 처리 중 상태 표시 + 중복 클릭 방지
+- 실패 항목은 토스트로 개별 알림하고 목록에 남김
+- 모든 액션은 `activity_log`에 `user_name`과 함께 기록
+- 검증 모드 ON일 때 일반 사용자가 CPM 직접 URL 접근 시 차단 안내
