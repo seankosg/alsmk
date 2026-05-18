@@ -128,32 +128,12 @@ export function AddSubtaskDialog({ parent, open, onOpenChange, teams = [], membe
       });
       if (insertErr) throw insertErr;
 
-      // 3. Re-order all sibling subtasks by start_date
-      const { data: siblings } = await supabase
-        .from("tasks")
-        .select("id, start_date, task_code, created_at")
-        .eq("parent_id", parent.id)
-        .order("start_date", { ascending: true })
-        .order("created_at", { ascending: true });
-
-      if (siblings && siblings.length > 0) {
-        const { data: parentData } = await supabase
-          .from("tasks")
-          .select("task_code")
-          .eq("id", parent.id)
-          .single();
-        const parentCode = parentData?.task_code;
-        if (parentCode) {
-          for (let i = 0; i < siblings.length; i++) {
-            const newCode = parentCode + "-" + String(i + 1).padStart(2, "0");
-            if (siblings[i].task_code !== newCode) {
-              await supabase.from("tasks")
-                .update({ task_code: newCode } as any)
-                .eq("id", siblings[i].id);
-            }
-          }
-        }
-      }
+      // 3. Re-sequence all sibling task_codes safely (2-pass via RPC to avoid UNIQUE conflicts)
+      const { error: resequenceErr } = await supabase.rpc(
+        "resequence_subtask_codes" as any,
+        { _parent_id: parent.id } as any
+      );
+      if (resequenceErr) throw resequenceErr;
 
       toast.success("Subtask added.");
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
