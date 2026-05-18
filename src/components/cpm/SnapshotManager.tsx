@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Database, Save, Upload, Trash2, Clock, Link2 } from "lucide-react";
+import { Database, Save, Upload, Trash2, Clock, Link2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuthContext } from "@/components/layout/AppLayout";
@@ -154,6 +154,23 @@ export function SnapshotManager({
               CPM 스냅샷 버전 히스토리
             </DialogTitle>
           </DialogHeader>
+
+          {/* Quick action: revert last upload */}
+          {isAdminOrPm && (() => {
+            const lastPre = snapshots.find((s) => s.name.startsWith("auto_pre_upload_"));
+            if (!lastPre) return null;
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full justify-start gap-2 border-destructive/40 text-destructive hover:bg-destructive/10"
+                onClick={() => setConfirmSnap(lastPre)}
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+                직전 업로드 되돌리기 ({format(new Date(lastPre.created_at), "MM-dd HH:mm")})
+              </Button>
+            );
+          })()}
 
           {/* Save new — Admin/PM only */}
           {isAdminOrPm && (

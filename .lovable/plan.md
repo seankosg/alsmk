@@ -1,128 +1,173 @@
-## XML Upsert + Orphan 매핑 복구 통합 계획
+## XML Upsert + Orphan 매핑 복구 통합 계획 (전체 재정리)
 
-CPM Manager의 XML 업로드/재계산 흐름 전반과 Orphan 매핑 복구 센터를 함께 정비합니다. 핵심 목표는 **(1) 안전한 신규 XML upsert 절차 마련**, **(2) 일반 사용자의 CPM 변경 차단**, **(3) Orphan 관리·복구의 일원화**입니다.
+### 진행 현황 한눈에 보기
 
----
-
-### Part A. 신규 XML Upsert 안전 절차
-
-#### A-1. 업로드 전 자동 백업 (롤백 보장)
-- 신규 XML 업로드 직전 `cpm_snapshots`에 `auto_pre_upload_{YYYYMMDD_HHmm}` 이름으로 자동 스냅샷 생성
-- `data` JSONB에 현재 활성 네트워크 + 전체 task mappings 저장
-- SnapshotManager에서 "업로드 직전 자동 백업" 배지로 시각 구분
-- 사용자가 "되돌리기" 버튼 한 번으로 직전 상태 복원 (기존 snapshot-restore 흐름 재사용)
-
-#### A-2. Upsert 단계 (현재 흐름 정리·유지)
-```text
-1) Pre-Backup           → cpm_snapshots 자동 INSERT
-2) Parse XML (iframe)   → cpm-calculated postMessage
-3) upsertActivities     → mpp_uid UNIQUE 기반 INSERT/UPDATE
-4) Auto-Migrate         → semantic_key(BLDG::WBS_L2::Name) 일치 시 매핑 자동 이전
-5) Orphan Detection     → 새 XML에 없는 mpp_uid 추출
-   ├─ 매핑 0개 → auto_deleted_no_mappings 로그 후 즉시 삭제
-   └─ 매핑 ≥1개 → OrphanResolutionDialog 즉시 표시 (기존 유지)
-6) Snapshot Save        → 새 상태로 cpm_snapshots INSERT
-```
-
-#### A-3. 롤백 UX
-- SnapshotManager 상단에 "직전 업로드 되돌리기" 단일 버튼 추가
-- 클릭 시 가장 최근 `auto_pre_upload_*` 스냅샷을 "그래프 + 매핑 복원" 모드로 적용
-- 확인 다이얼로그: "현재 활성 CPM과 매핑을 직전 업로드 이전 상태로 되돌립니다"
-
----
-
-### Part B. 일반 사용자 접근 제한 (검증 모드)
-
-#### B-1. 전역 플래그
-- `project_settings`에 `cpm_locked = 'true' | 'false'` 키 추가
-- Admin Settings 페이지에 토글: "CPM 검증 모드 (Admin/PM만 매핑·업로드 가능)"
-
-#### B-2. 잠금 시 동작
-| 대상 | 잠금 동작 |
+| 영역 | 상태 |
 |---|---|
-| CPM Manager 라우트 | Admin/PM만 진입, 외 사용자는 "검증 중" 안내 화면 |
-| iframe XML 업로드/계산 | `set-read-only` 메시지로 차단 (기존) |
-| ActivityTaskPanel MapTasksDialog | 버튼 숨김 (기존) |
-| TaskDetailDialog MapActivitiesDialog | 버튼 숨김 (신규 추가) |
-| 사이드바 CPM Manager 메뉴 | Guest/일반 사용자에게 숨김 |
-
-#### B-3. 잠금 해제 시
-- Admin이 토글 OFF → 모든 사용자 정상 사용 가능
-- 변경은 `activity_log`에 `cpm_lock_toggled` 기록
+| ✅ Part A. XML 업로드 직전 자동 백업 + SnapshotManager 배지 | 구현 완료 |
+| ✅ Part B. CPM 검증 모드 (Lock 토글, 사이드바/라우트/매핑 버튼 가드) | 구현 완료 |
+| ✅ Part C. Orphan Center 기본 페이지 + 자동 삭제 이력 탭 | 구현 완료 |
+| 🔄 **Part D. Orphan Center를 Task 중심 테이블로 전면 재설계** | **이번에 진행** |
+| 🔄 **Part E. 자동 삭제 이력 "현재 그래프에서 찾기" 동작 강화** | **이번에 진행** |
+| 🔄 **Part F. 직전 업로드 되돌리기 단일 버튼 (SnapshotManager 보강)** | **이번에 진행** |
+| 🔄 **Part G. Activity Combobox 신규 (텍스트 검색 + 추천 + 풀다운)** | **이번에 진행** |
+| 🔄 **Part H. 메모리/문서 업데이트** | **이번에 진행** |
 
 ---
 
-### Part C. Orphan 매핑 복구 센터 (`/cpm/orphans`)
+### Part D. Orphan Center — Task 중심 매핑 복구 (전면 재작성)
 
-#### C-1. 위치 / 접근 제어
-- 별도 라우트 `/cpm/orphans`, 사이드바 "CPM Manager" 아래 "Orphan Center"
-- `isAdminOrPm`만 접근, 외 사용자는 `/`로 리다이렉트
+#### D-1. 관점 전환
+- 기존: "사라진 Orphan Activity 1개"가 행 단위 → 매핑된 Task가 보이지 않아 판단 불가
+- 신규: **"갈 곳을 잃은 Task 1건"이 행 단위**, Orphan Activity는 출처 정보로만 표시
 
-#### C-2. 화면 구성
+#### D-2. 화면 구조
+
 ```text
-┌─ 요약 카드 ─────────────────────────────────────┐
-│ 미해결 Orphan │ 자동 복구된 매핑 │ 자동 삭제된 행 │
-└─────────────────────────────────────────────────┘
+┌─ 상단 카드 ──────────────────────────────────────────────────┐
+│ 갈 곳 잃은 Task 27건 │ 영향 Orphan Activity 8건 │ 자동 삭제 50건 │
+└─────────────────────────────────────────────────────────────┘
 
-┌─ 탭 1: 미해결 Orphan ───────────────────────────┐
-│ [추천 자동 적용 (100점만)] [선택 삭제]          │
-│ ☐ Orphan명 │ BLDG │ WBS L2 │ 매핑수 │ 추천 대상 │ 점수 │
-└─────────────────────────────────────────────────┘
+[탭 1] 미해결 Task        [탭 2] 자동 삭제 이력
 
-┌─ 탭 2: 자동 삭제 이력 (최근 50건) ──────────────┐
-│ 이름 │ BLDG │ WBS │ 삭제 시각 │ 처리자 │ [현재 그래프에서 찾기] │
-└─────────────────────────────────────────────────┘
+┌─ 미해결 Task 테이블 ─────────────────────────────────────────────────────────────┐
+│ ☐ │ Orphan Activity (WBS · 전체이름)  │ 기존 매핑 Task        │ 신규 Activity 선택       │ 적용 │
+├───┼──────────────────────────────────┼──────────────────────┼──────────────────────────┼──────┤
+│ ☐ │ 1.2.3 · A동/지하1층/거푸집        │ HDEC-CIV-2501-0012   │ [B1F 거푸집 설치 ▼]🔍   │ [✓]  │
+│   │ mpp_uid 1234                     │ 거푸집 자재 반입       │ 추천 95점               │      │
+│   │                                  │ 홍길동 · 60%          │                          │      │
+├───┼──────────────────────────────────┼──────────────────────┼──────────────────────────┼──────┤
+│ ☐ │ 1.3.0 · B동/철근배근              │ HDEC-CIV-2501-0021   │ [선택하세요 ▼]🔍       │ [✓]  │
+│   │ mpp_uid 5500 (분할 추정)          │ 철근 검측 요청 🚩     │ 후보: A/B/C동           │      │
+└──────────────────────────────────────────────────────────────────────────────────┘
+
+[선택 일괄 적용] [선택 매핑 해제] [추천 95점 이상 일괄 적용]
 ```
 
-#### C-3. 추천 점수 (`OrphanRecommender.ts`)
-- 100점: BLDG + WBS L2 + Name 완전 일치 → **일괄 자동 적용 대상**
-- 80점: BLDG + Name 일치
-- 60점: Name 일치
-- 40점: BLDG + Name Levenshtein ≤ 3
-- 0점: 매칭 없음
+**컬럼 명세**:
+1. **체크박스** — 다중 선택용
+2. **Orphan Activity** — WBS 전체경로 + BLDG/WBS_L2/Name 조합 + mpp_uid
+3. **기존 매핑 Task** — Task Code · 제목 · 담당자 · 진척 · 이슈 플래그 (클릭 → Workspace 딥링크)
+4. **신규 Activity 선택 (`NewActivityCombobox`)**:
+   - 기본값: 추천 1순위 자동 채움 (점수 배지)
+   - 풀다운: 활성 Activity 전체 목록 (`BLDG · WBS_L2 · Name` 형식)
+   - 🔍 텍스트 검색: 이름/WBS/BLDG fuzzy 필터링
+   - "매핑 해제" 옵션 포함
+5. **적용 버튼** — 행 단위 즉시 처리
 
-"추천 자동 적용" 버튼은 **100점만** 일괄 처리.
+**일괄 액션 푸터**:
+- 선택 일괄 적용 / 선택 매핑 해제 / 추천 95점 이상 자동 처리
 
-#### C-4. 일괄 복구 로직 (`bulkResolveOrphans`)
-각 Orphan을 순차 처리:
-1. 선택된 추천 대상의 기존 매핑과 merge → `upsert_activity_mappings` RPC
-2. Orphan의 `cpm_task_mappings` 삭제 → `cpm_activities` 삭제
-3. `activity_log`에 `resolution: 'migrated'` 또는 `'deleted'` 기록
+#### D-3. 추천 로직 보강 (`OrphanRecommender.ts`)
+```text
+100점: BLDG + WBS_L2 + Name 완전 일치
+ 95점: BLDG + Name 일치 (WBS 변경)
+ 80점: WBS_L2 + Name 일치 (BLDG 누락)
+ 60점: Name 일치
+ 50점: BLDG + WBS_L2 일치 + Name 접두/접미 포함 (분할)
+  0점: 매칭 없음
+```
+`scoreCandidates(orphan, allNewActivities)` → 상위 3개 반환.
 
-#### C-5. 자동 삭제 이력 의미
-- Phase 5에서 매핑이 0개인 Orphan은 즉시 삭제 + `auto_deleted_no_mappings` 로그
-- 복원 버튼 없음 (매핑 자체가 없음)
-- **"현재 그래프에서 찾기"** 버튼: semantic_key로 활성 CPM 검색 → 발견 시 `/cpm?highlight={mpp_task_id}`로 이동하여 즉시 매핑 가능
+#### D-4. 행 단위 처리 (`applyTaskRemap`)
+```text
+1. target_activity_id의 기존 매핑 조회
+2. task_id merge (중복 제거)
+3. upsert_activity_mappings(target_activity_id, merged_task_ids)
+4. orphan_activity의 cpm_task_mappings에서 해당 task_id만 제거
+5. activity_log INSERT (action: cpm_task_remapped, from/to/task_code)
+6. orphan_activity 매핑 0개 → cpm_activities 자동 삭제 + 로그
+```
 
-#### C-6. 데이터 소스
-- 미해결 Orphan: `cpm_activities` LEFT JOIN `cpm_task_mappings` ─ 현재 활성 mpp_uid set에 없는 행
-- 활성 mpp_uid set: CpmScheduler iframe에 `request-active-mpp-uids` postMessage → 응답으로 수신
-- 자동 삭제 이력: `activity_log` WHERE `action='cpm_activity_deleted'` AND `details.resolution='auto_deleted_no_mappings'` ORDER BY `created_at DESC` LIMIT 50
+#### D-5. 데이터 페치 (`useOrphanTasks`)
+- 활성 mpp_uid set: `request-active-mpp-uids` postMessage (CpmScheduler ↔ Orphan Center)
+- Orphan 조인 쿼리: `cpm_activities ⋈ cpm_task_mappings ⋈ tasks ⋈ members` (Task 평탄화)
+- 활성 Activity 목록: 콤보박스용 전체 페치 (`.limit(5000)`)
 
 ---
 
-### Part D. 파일 변경 요약
+### Part E. 자동 삭제 이력 탭 강화
+
+이미 페이지는 존재하지만 다음을 보강:
+- **"현재 그래프에서 찾기"** 버튼: `semantic_key` 또는 `mpp_task_id`로 활성 CPM 검색
+  - 발견 시 → `/cpm?highlight={mpp_task_id}` 라우팅
+  - CpmScheduler가 query param 받아 iframe에 `highlight-node` postMessage 전달
+- 표시 컬럼: 이름 · BLDG · WBS · 삭제 시각 · 처리자 · 액션
+- 정렬: `created_at DESC LIMIT 50`
+
+---
+
+### Part F. SnapshotManager — 직전 업로드 되돌리기
+
+- 상단에 단일 버튼 **"직전 업로드 되돌리기"** 추가
+- 가장 최근 `auto_pre_upload_*` 스냅샷을 "그래프 + 매핑 복원" 모드로 호출
+- 확인 다이얼로그: "현재 활성 CPM과 매핑을 직전 업로드 이전 상태로 되돌립니다. 진행할까요?"
+- 기존 snapshot-restore 흐름 재사용 (신규 코드 최소화)
+
+---
+
+### Part G. NewActivityCombobox (재사용 컴포넌트)
+
+`src/components/cpm/NewActivityCombobox.tsx` 신규:
+- shadcn Command + Popover 조합
+- props: `value`, `onChange`, `candidates`, `recommendations` (상위 3개)
+- 표시 구조:
+  ```
+  ── 추천 ──
+  • B1F 거푸집 설치 (95점)
+  • 지하1층 거푸집 마감 (80점)
+  ── 전체 ──
+  • 검색창 (입력 시 fuzzy 필터)
+  • A동/1.2.3/거푸집 자재 반입
+  • ...
+  ── 기타 ──
+  • 매핑 해제
+  ```
+- Orphan Center 메인 테이블에서 행마다 1개씩 사용
+
+---
+
+### Part H. 메모리/문서 업데이트
+
+- `.lovable/memory/features/cpm-integration.md` — Orphan Center Task 중심 구조, 점수 체계, postMessage 추가 항목 기록
+- `mem://features/cpm/orphan-center` 신규 또는 기존 통합 — index.md 갱신
+
+---
+
+### Part I. 파일 변경 요약 (이번 작업 분량)
 
 | 파일 | 변경 |
 |---|---|
-| `src/pages/CpmOrphanCenter.tsx` | 신규 (Orphan 센터 페이지) |
-| `src/components/cpm/OrphanRecommender.ts` | 신규 (추천 점수 순수 함수) |
-| `src/pages/CpmScheduler.tsx` | (1) 업로드 직전 auto pre-backup 추가, (2) `request-active-mpp-uids` 핸들러 추가, (3) `cpm_locked` 체크 |
-| `src/components/cpm/SnapshotManager.tsx` | "직전 업로드 되돌리기" 버튼 + auto_pre_upload 배지 |
-| `src/components/admin/AdminSettings.tsx` | CPM 검증 모드 토글 |
-| `src/components/tasks/TaskDetailDialog.tsx` | MapActivitiesDialog 버튼 `isAdminOrPm && !cpmLocked` 가드 |
-| `src/App.tsx` | `/cpm/orphans` 라우트 추가 |
-| `src/components/layout/AppSidebar.tsx` | Orphan Center 메뉴 + cpm_locked 시 일반 사용자 CPM 메뉴 숨김 |
-| `src/hooks/useCpmLockStatus.ts` | 신규 (project_settings 조회 훅) |
-| `.lovable/memory/features/cpm-integration.md` | XML upsert / Orphan Center / 검증 모드 메모 추가 |
+| `src/pages/CpmOrphanCenter.tsx` | **전면 재작성** (Task 행 테이블 + 상단 카드 + 일괄 푸터 + 2개 탭) |
+| `src/components/cpm/NewActivityCombobox.tsx` | **신규** (추천+검색+풀다운 콤보) |
+| `src/components/cpm/OrphanRecommender.ts` | 점수 체계 보강, `scoreCandidates()` 추가 |
+| `src/hooks/useOrphanTasks.ts` | **신규** (Task 평탄화 페치 + 활성 mpp_uid 동기화 + remap mutation) |
+| `src/components/cpm/SnapshotManager.tsx` | "직전 업로드 되돌리기" 버튼 |
+| `src/pages/CpmScheduler.tsx` | `request-active-mpp-uids` 응답 핸들러 + `?highlight=` 처리 |
+| `src/components/cpm/OrphanResolutionDialog.tsx` | (업로드 직후) 동일 컬럼 구조로 정리 — UX 일관성 |
+| `.lovable/memory/features/cpm-integration.md` | 변경 사항 기록 |
 
-DB 변경 없음 (project_settings는 기존 테이블, snapshot은 기존 흐름 활용).
+**DB 변경 없음** (기존 테이블·RPC 활용).
 
 ---
 
-### Part E. 안전 장치
-- 일괄 작업 전 확정 다이얼로그 ("N건의 매핑을 이전합니다")
-- 처리 중 상태 표시 + 중복 클릭 방지
-- 실패 항목은 토스트로 개별 알림하고 목록에 남김
-- 모든 액션은 `activity_log`에 `user_name`과 함께 기록
-- 검증 모드 ON일 때 일반 사용자가 CPM 직접 URL 접근 시 차단 안내
+### Part J. 안전 장치
+
+- 일괄 적용 전 확정 다이얼로그 ("Task N건을 'XXX'로 이전합니다")
+- 행 단위 처리는 독립 — 일부 실패해도 나머지 진행, 실패 행은 빨간 표시
+- 모든 액션 `activity_log`에 user_name + from/to + task_code 기록
+- `upsert_activity_mappings` RPC 원자성으로 동시 편집 충돌 방지
+- 검증 모드 ON 상태에서만 안전한 작업 권장 안내 배너
+- 처리 중 행은 disabled + 스피너, 중복 클릭 차단
+
+---
+
+### Part K. 사용 시나리오
+
+1. Admin이 새 XML 업로드 (자동 백업 생성 → 검증 모드 ON 권장)
+2. Orphan Center 진입 → "갈 곳 잃은 Task 27건"
+3. **"추천 95점 이상 일괄 적용"** 클릭 → 20건 자동 처리
+4. 남은 7건: 콤보박스 검색/풀다운으로 신규 Activity 지정 → 행 단위 적용
+5. 모든 매핑 완료 → 빈 Orphan은 자동 삭제
+6. 자동 삭제 이력 탭에서 "현재 그래프에서 찾기"로 누락 점검
+7. 검증 모드 OFF → 일반 사용자 공개
