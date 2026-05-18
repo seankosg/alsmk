@@ -18,6 +18,7 @@ export interface OrphanActivity {
   name: string;
   wbs_full: string | null;
   mpp_task_id: string | null;
+  mpp_uid?: string | null;
   mappedTaskCount: number;
   mappedTaskIds: string[];
   semantic_key?: string | null;
