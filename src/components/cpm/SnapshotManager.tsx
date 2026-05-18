@@ -208,6 +208,11 @@ export function SnapshotManager({
                               자동저장
                             </span>
                           )}
+                          {snap.name.startsWith("auto_pre_upload_") && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/20 text-destructive font-medium">
+                              업로드 직전 백업
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                           <span>{getActivityCount(snap)}개 Activity</span>

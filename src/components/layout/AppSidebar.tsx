@@ -1,4 +1,5 @@
-import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays, Network } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays, Network, ShieldAlert } from "lucide-react";
+import { useCpmLockStatus } from "@/hooks/useCpmLockStatus";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -17,6 +18,7 @@ const allNavItems = [
   { title: "My Dashboard", url: "/my", icon: User, guestVisible: false, superGuestVisible: true },
   { title: "My Workspace", url: "/workspace", icon: Briefcase, guestVisible: false, superGuestVisible: true },
   { title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
+  { title: "Orphan Center", url: "/cpm/orphans", icon: ShieldAlert, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
   { title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
   { title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
   { title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
@@ -30,12 +32,16 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { user, isAdmin, isAdminOrPm, isGuest, isSuperGuest, readOnly, memberName, signOut } = useAuthContext();
   const { unreadCount } = useUnreadMessages();
+  const { cpmLocked } = useCpmLockStatus();
 
   // Filter nav items based on role
   const navItems = allNavItems.filter((item) => {
     if (isGuest) return item.guestVisible;
-    if (isSuperGuest) return item.superGuestVisible;
+    if (isSuperGuest) return item.superGuestVisible && !((item as any).adminOrPmOnly);
+    if ((item as any).adminOrPmOnly) return isAdminOrPm;
     if (item.adminOnly) return isAdmin;
+    // CPM 검증 모드 잠금: 일반 사용자(Admin/PM 제외)는 CPM Manager 숨김
+    if (item.url === "/cpm" && cpmLocked && !isAdminOrPm) return false;
     return true;
   });
 

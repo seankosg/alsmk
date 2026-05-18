@@ -11,6 +11,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useCpmLockStatus } from "@/hooks/useCpmLockStatus";
 
 // Auth context so children can access auth state
 interface AuthContextType {
@@ -50,6 +51,7 @@ const SUPER_GUEST_ALLOWED: string[] = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const location = useLocation();
+  const { cpmLocked } = useCpmLockStatus();
   const [hasVisitedCpm, setHasVisitedCpm] = useState(false);
   const isCpmRoute = location.pathname === "/cpm";
   const isDashboardRoute = location.pathname === "/";
@@ -91,6 +93,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Super Guest route guard
   if (auth.isSuperGuest && !SUPER_GUEST_ALLOWED.includes(location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
+
+  // CPM 검증 모드: Admin/PM 외에는 /cpm, /cpm/orphans 접근 차단
+  if (cpmLocked && !auth.isAdminOrPm && (isCpmRoute || location.pathname === "/cpm/orphans")) {
+    return <Navigate to="/" replace />;
+  }
+  // Orphan Center는 항상 Admin/PM 전용
+  if (location.pathname === "/cpm/orphans" && !auth.isAdminOrPm) {
     return <Navigate to="/" replace />;
   }
 

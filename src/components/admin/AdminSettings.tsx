@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Download, Upload, Trash2, Database, Clock, History, Activity } from "lucide-react";
+import { Save, Download, Upload, Trash2, Database, Clock, History, Activity, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 
 export function AdminSettings() {
@@ -30,6 +30,9 @@ export function AdminSettings() {
   // KUKU KPI thresholds
   const [kukuDelayThreshold, setKukuDelayThreshold] = useState("5");
   const [kukuPredThreshold, setKukuPredThreshold] = useState("5");
+
+  // CPM 검증 모드 잠금
+  const [cpmLocked, setCpmLocked] = useState(false);
 
   // PM Name
   const { data: pmData, isLoading: pmLoading } = useQuery({
@@ -56,7 +59,7 @@ export function AdminSettings() {
       const { data, error } = await supabase
         .from("project_settings")
         .select("key, value")
-        .in("key", ["auto_backup_enabled", "auto_backup_interval", "auto_backup_retention", "kuku_delay_threshold", "kuku_pred_threshold"]);
+        .in("key", ["auto_backup_enabled", "auto_backup_interval", "auto_backup_retention", "kuku_delay_threshold", "kuku_pred_threshold", "cpm_locked"]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((r) => (map[r.key] = r.value));
@@ -71,8 +74,31 @@ export function AdminSettings() {
       setAutoRetention(backupSettings.auto_backup_retention || "30");
       setKukuDelayThreshold(backupSettings.kuku_delay_threshold || "5");
       setKukuPredThreshold(backupSettings.kuku_pred_threshold || "5");
+      setCpmLocked(backupSettings.cpm_locked === "true");
     }
   }, [backupSettings]);
+
+  const toggleCpmLock = useMutation({
+    mutationFn: async (next: boolean) => {
+      const { error } = await supabase
+        .from("project_settings")
+        .upsert({ key: "cpm_locked", value: String(next), updated_at: new Date().toISOString() });
+      if (error) throw error;
+      // 감사 로그
+      await supabase.from("activity_log").insert({
+        action: "cpm_lock_toggled",
+        entity_type: "project_settings",
+        user_name: "Admin",
+        details: { locked: next },
+      });
+    },
+    onSuccess: (_d, next) => {
+      setCpmLocked(next);
+      queryClient.invalidateQueries({ queryKey: ["project_settings"] });
+      toast.success(`CPM 검증 모드 ${next ? "활성화" : "해제"} 완료`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   // Backup history
   const { data: backups = [], isLoading: backupsLoading } = useQuery({
@@ -324,7 +350,34 @@ export function AdminSettings() {
         </CardContent>
       </Card>
 
-      {/* KUKU KPI Thresholds */}
+      {/* CPM 검증 모드 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-destructive" />
+            CPM 검증 모드 (잠금)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            활성화하면 일반 사용자는 CPM Manager 진입과 Task↔Activity 매핑 변경이 차단됩니다. Admin/PM은 영향을 받지 않습니다.
+          </p>
+          <div className="flex items-center justify-between max-w-md p-3 rounded-md border border-border">
+            <div>
+              <Label className="text-sm">CPM Manager 잠금</Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                상태: <span className={cpmLocked ? "text-destructive font-semibold" : "text-muted-foreground"}>{cpmLocked ? "잠김" : "해제"}</span>
+              </p>
+            </div>
+            <Switch
+              checked={cpmLocked}
+              onCheckedChange={(v) => toggleCpmLock.mutate(v)}
+              disabled={toggleCpmLock.isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
