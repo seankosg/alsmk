@@ -156,6 +156,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
         {!auth.readOnly && <UnreadMessagesDialog />}
         {!auth.readOnly && <RealtimeDmToast memberId={auth.memberId} />}
+        <NewBuildDialog />
       </SidebarProvider>
     </AuthContext.Provider>
   );
