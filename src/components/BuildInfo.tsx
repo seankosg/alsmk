@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Hammer } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface BuildInfoProps {
@@ -8,7 +7,6 @@ interface BuildInfoProps {
 }
 
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5분
-const TOAST_ID = "new-build-available";
 
 function formatBuildTime(iso: string): string {
   try {
@@ -59,15 +57,7 @@ export function BuildInfo({ inline = false }: BuildInfoProps) {
 
         if (remoteScript && initialScriptRef.current && remoteScript !== initialScriptRef.current) {
           setHasUpdate(true);
-          toast.info("새 버전이 배포되었습니다", {
-            id: TOAST_ID,
-            description: "최신 기능을 적용하려면 새로고침하세요.",
-            action: {
-              label: "새로고침",
-              onClick: () => window.location.reload(),
-            },
-            duration: Infinity,
-          });
+          window.dispatchEvent(new CustomEvent("new-build-available"));
         }
       } catch {
         // Network/parse errors silently ignored

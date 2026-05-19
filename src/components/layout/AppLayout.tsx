@@ -6,6 +6,7 @@ import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
 import { UnreadMessagesDialog } from "./UnreadMessagesDialog";
 import { BuildInfo } from "@/components/BuildInfo";
+import { NewBuildDialog } from "@/components/NewBuildDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
