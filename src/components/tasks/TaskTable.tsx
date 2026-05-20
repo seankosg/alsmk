@@ -303,6 +303,84 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     );
   }
 
+  // Per-column filter accessor — returns raw filterable value for each column key
+  const getFilterVal = (t: typeof filtered[0], key: string): any => {
+    switch (key) {
+      case "taskCode": return t.task_code ?? "";
+      case "assignee": return t.assignee_id ?? "";
+      case "category": return t.category ?? "";
+      case "subject": return t.title ?? "";
+      case "actionPlan": return t.action_plan ?? "";
+      case "start": return t.start_date ?? "";
+      case "finish": return t.end_date ?? "";
+      case "actualFinish": return t.actual_finish ?? "";
+      case "dday":
+        return t.actual_finish || (t.current_progress ?? 0) >= 100
+          ? "Done"
+          : String(differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date())));
+      case "plan": {
+        const isSum = (t as any).is_summary === true;
+        const p = isSum
+          ? weightedAvg(tasks.filter(c => c.parent_id === t.id && !c.deleted_at), c => calcPlannedProgress(c.start_date, c.end_date))
+          : calcPlannedProgress(t.start_date, t.end_date);
+        return String(Math.round(p));
+      }
+      case "actual": return String(t.current_progress ?? 0);
+      case "gap": {
+        const isSum = (t as any).is_summary === true;
+        const p = isSum
+          ? weightedAvg(tasks.filter(c => c.parent_id === t.id && !c.deleted_at), c => calcPlannedProgress(c.start_date, c.end_date))
+          : calcPlannedProgress(t.start_date, t.end_date);
+        return String((t.current_progress ?? 0) - p);
+      }
+      default: return "";
+    }
+  };
+
+  // Apply column filters — keep parent summaries when any subtask passes
+  const activeFilterKeys = Object.keys(columnFilters).filter(k => isFilterActive(columnFilters[k]));
+  if (activeFilterKeys.length > 0) {
+    const passes = (t: typeof filtered[0]) =>
+      activeFilterKeys.every(k => evalFilter(getFilterVal(t, k), columnFilters[k]));
+    const direct = filtered.filter(passes);
+    const visibleParentIds = new Set(direct.filter(t => t.parent_id).map(t => t.parent_id!));
+    const missingParents = filtered.filter(t => visibleParentIds.has(t.id) && !direct.some(d => d.id === t.id));
+    filtered = [...direct, ...missingParents];
+  }
+
+  // Facets for multi-select columns (computed against rows that pass OTHER column filters)
+  const computeFacets = (key: string): Map<any, number> => {
+    const otherKeys = activeFilterKeys.filter(k => k !== key);
+    const map = new Map<any, number>();
+    for (const t of tasks) {
+      if (t.deleted_at) continue;
+      if (!otherKeys.every(k => evalFilter(getFilterVal(t, k), columnFilters[k]))) continue;
+      const v = getFilterVal(t, key);
+      map.set(v, (map.get(v) ?? 0) + 1);
+    }
+    return map;
+  };
+
+  const assigneeOptions = useMemo(
+    () => members.map(m => ({ value: m.id, label: m.name })),
+    [members],
+  );
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    tasks.forEach(t => { if (t.category) set.add(t.category); });
+    return [...set].sort().map(c => ({ value: c, label: c }));
+  }, [tasks]);
+
+  const setColumnFilter = (key: string, v: ColumnFilterValue) => {
+    setColumnFilters(prev => {
+      const next = { ...prev };
+      if (v === undefined) delete next[key];
+      else next[key] = v;
+      return next;
+    });
+  };
+
+
   // Group-aware sorting: summaries+independents sorted together, subtasks inserted after their parent
   const getVal = useCallback((t: typeof filtered[0], key: string): any => {
     switch (key) {
