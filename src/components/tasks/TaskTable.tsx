@@ -9,12 +9,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { TaskDetailDialog } from "./TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
+import {
+  ColumnFilterDropdown,
+  type ColumnFilterType,
+  type ColumnFilterValue,
+  type ColumnFiltersState,
+  evalFilter,
+  isFilterActive,
+} from "./ColumnFilterDropdowns";
 
 const DEFAULT_COL_WIDTHS: Record<string, number> = {
   taskCode: 140,
@@ -70,9 +78,8 @@ interface TaskTableProps {
 export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTableProps) {
   const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const queryClient = useQueryClient();
-  const [teamFilter, setTeamFilter] = useState<string>("all");
-  const [flagFilter, setFlagFilter] = useState<string>("all");
-  const [memberFilter, setMemberFilter] = useState<string>("all");
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>({});
+  const [statusTab, setStatusTab] = useState<"all" | "ongoing">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
@@ -282,11 +289,10 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     const missingParents = tasks.filter(t => visibleParentIds.has(t.id) && !filtered.some(f => f.id === t.id));
     filtered = [...filtered, ...missingParents];
   }
-  if (filterMine && (isAdmin || isPm) && memberFilter !== "all") {
-    filtered = filtered.filter(t => t.assignee_id === memberFilter);
+  // On Going Only tab: keep tasks with progress < 100 and no actual_finish
+  if (statusTab === "ongoing") {
+    filtered = filtered.filter(t => (t.current_progress ?? 0) < 100 && !t.actual_finish);
   }
-  if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
-  if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
     filtered = filtered.filter(t =>
@@ -296,6 +302,84 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
       (t.category?.toLowerCase().includes(q))
     );
   }
+
+  // Per-column filter accessor — returns raw filterable value for each column key
+  const getFilterVal = (t: typeof filtered[0], key: string): any => {
+    switch (key) {
+      case "taskCode": return t.task_code ?? "";
+      case "assignee": return t.assignee_id ?? "";
+      case "category": return t.category ?? "";
+      case "subject": return t.title ?? "";
+      case "actionPlan": return t.action_plan ?? "";
+      case "start": return t.start_date ?? "";
+      case "finish": return t.end_date ?? "";
+      case "actualFinish": return t.actual_finish ?? "";
+      case "dday":
+        return t.actual_finish || (t.current_progress ?? 0) >= 100
+          ? "Done"
+          : String(differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date())));
+      case "plan": {
+        const isSum = (t as any).is_summary === true;
+        const p = isSum
+          ? weightedAvg(tasks.filter(c => c.parent_id === t.id && !c.deleted_at), c => calcPlannedProgress(c.start_date, c.end_date))
+          : calcPlannedProgress(t.start_date, t.end_date);
+        return String(Math.round(p));
+      }
+      case "actual": return String(t.current_progress ?? 0);
+      case "gap": {
+        const isSum = (t as any).is_summary === true;
+        const p = isSum
+          ? weightedAvg(tasks.filter(c => c.parent_id === t.id && !c.deleted_at), c => calcPlannedProgress(c.start_date, c.end_date))
+          : calcPlannedProgress(t.start_date, t.end_date);
+        return String((t.current_progress ?? 0) - p);
+      }
+      default: return "";
+    }
+  };
+
+  // Apply column filters — keep parent summaries when any subtask passes
+  const activeFilterKeys = Object.keys(columnFilters).filter(k => isFilterActive(columnFilters[k]));
+  if (activeFilterKeys.length > 0) {
+    const passes = (t: typeof filtered[0]) =>
+      activeFilterKeys.every(k => evalFilter(getFilterVal(t, k), columnFilters[k]));
+    const direct = filtered.filter(passes);
+    const visibleParentIds = new Set(direct.filter(t => t.parent_id).map(t => t.parent_id!));
+    const missingParents = filtered.filter(t => visibleParentIds.has(t.id) && !direct.some(d => d.id === t.id));
+    filtered = [...direct, ...missingParents];
+  }
+
+  // Facets for multi-select columns (computed against rows that pass OTHER column filters)
+  const computeFacets = (key: string): Map<any, number> => {
+    const otherKeys = activeFilterKeys.filter(k => k !== key);
+    const map = new Map<any, number>();
+    for (const t of tasks) {
+      if (t.deleted_at) continue;
+      if (!otherKeys.every(k => evalFilter(getFilterVal(t, k), columnFilters[k]))) continue;
+      const v = getFilterVal(t, key);
+      map.set(v, (map.get(v) ?? 0) + 1);
+    }
+    return map;
+  };
+
+  const assigneeOptions = useMemo(
+    () => members.map(m => ({ value: m.id, label: m.name })),
+    [members],
+  );
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    tasks.forEach(t => { if (t.category) set.add(t.category); });
+    return [...set].sort().map(c => ({ value: c, label: c }));
+  }, [tasks]);
+
+  const setColumnFilter = (key: string, v: ColumnFilterValue) => {
+    setColumnFilters(prev => {
+      const next = { ...prev };
+      if (v === undefined) delete next[key];
+      else next[key] = v;
+      return next;
+    });
+  };
+
 
   // Group-aware sorting: summaries+independents sorted together, subtasks inserted after their parent
   const getVal = useCallback((t: typeof filtered[0], key: string): any => {
@@ -401,8 +485,22 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                   <X className="h-3 w-3" /> Clear Sort
                 </button>
               )}
+              {activeFilterKeys.length > 0 && (
+                <button
+                  onClick={() => setColumnFilters({})}
+                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" /> Clear filters ({activeFilterKeys.length})
+                </button>
+              )}
             </CardTitle>
             <div className="flex gap-2 flex-wrap items-center">
+              <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as "all" | "ongoing")}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="all" className="text-xs h-6 px-3">All</TabsTrigger>
+                  <TabsTrigger value="ongoing" className="text-xs h-6 px-3">On Going Only</TabsTrigger>
+                </TabsList>
+              </Tabs>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -412,37 +510,6 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                   className="w-[180px] h-8 text-xs pl-8"
                 />
               </div>
-              {filterMine && (isAdmin || isPm) && (
-                <Select value={memberFilter} onValueChange={setMemberFilter}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs">
-                    <SelectValue placeholder="All Members" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Members</SelectItem>
-                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
-              <Select value={teamFilter} onValueChange={setTeamFilter}>
-                <SelectTrigger className="w-[130px] h-8 text-xs">
-                  <SelectValue placeholder="All Teams" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={flagFilter} onValueChange={setFlagFilter}>
-                <SelectTrigger className="w-[120px] h-8 text-xs">
-                  <SelectValue placeholder="All Flags" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Flags</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="warning">Warning</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardHeader>
@@ -456,20 +523,20 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
               <table className="w-full caption-bottom text-sm table-fixed" style={{ minWidth: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
                 <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow>
-                    {[
-                      { key: "taskCode", label: "Task Code", align: "" },
-                      { key: "assignee", label: "Assignee", align: "" },
-                      { key: "category", label: "Category", align: "" },
-                      { key: "subject", label: "Subject", align: "" },
-                      { key: "actionPlan", label: "Action Plan", align: "" },
-                      { key: "start", label: "Start", align: "" },
-                      { key: "finish", label: "Finish", align: "" },
-                      { key: "dday", label: "D-Day", align: "text-right" },
-                      { key: "plan", label: "Plan %", align: "text-right" },
-                      { key: "actual", label: "Actual %", align: "text-right" },
-                      { key: "gap", label: "차이 %", align: "text-right" },
-                      { key: "actualFinish", label: "Actual Finish", align: "" },
-                    ].map(col => (
+                    {([
+                      { key: "taskCode", label: "Task Code", align: "", filterType: "text" as ColumnFilterType },
+                      { key: "assignee", label: "Assignee", align: "", filterType: "multi" as ColumnFilterType, options: assigneeOptions },
+                      { key: "category", label: "Category", align: "", filterType: "multi" as ColumnFilterType, options: categoryOptions },
+                      { key: "subject", label: "Subject", align: "", filterType: "text" as ColumnFilterType },
+                      { key: "actionPlan", label: "Action Plan", align: "", filterType: "text" as ColumnFilterType },
+                      { key: "start", label: "Start", align: "", filterType: "date" as ColumnFilterType },
+                      { key: "finish", label: "Finish", align: "", filterType: "date" as ColumnFilterType },
+                      { key: "dday", label: "D-Day", align: "text-right", filterType: "text" as ColumnFilterType },
+                      { key: "plan", label: "Plan %", align: "text-right", filterType: "text" as ColumnFilterType },
+                      { key: "actual", label: "Actual %", align: "text-right", filterType: "text" as ColumnFilterType },
+                      { key: "gap", label: "차이 %", align: "text-right", filterType: "text" as ColumnFilterType },
+                      { key: "actualFinish", label: "Actual Finish", align: "", filterType: "date" as ColumnFilterType },
+                    ]).map(col => (
                       <TableHead
                         key={col.key}
                         className={`relative select-none cursor-pointer hover:bg-accent/50 ${col.align}`}
@@ -491,6 +558,13 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                               ) : (
                                 <ArrowUpDown className="h-3 w-3 opacity-30" />
                               )}
+                              <ColumnFilterDropdown
+                                type={col.filterType}
+                                value={columnFilters[col.key]}
+                                onChange={(v) => setColumnFilter(col.key, v)}
+                                options={(col as any).options}
+                                facets={col.filterType === "multi" ? computeFacets(col.key) : undefined}
+                              />
                             </span>
                           );
                         })()}

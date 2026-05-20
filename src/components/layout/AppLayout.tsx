@@ -5,8 +5,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
 import { UnreadMessagesDialog } from "./UnreadMessagesDialog";
-import { BuildInfo } from "@/components/BuildInfo";
-import { NewBuildDialog } from "@/components/NewBuildDialog";
+import { BuildInfoChip } from "@/components/layout/BuildInfoChip";
+import { AppUpdateBanner } from "@/components/layout/AppUpdateBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -122,41 +122,43 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       }}
     >
       <SidebarProvider>
-        <div className="h-screen flex w-full overflow-hidden">
-          <AppSidebar />
-          <div className="flex-1 flex flex-col min-w-0">
-            <header className="h-12 flex items-center justify-between border-b border-border px-3 sm:px-4 bg-card shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <SidebarTrigger className="shrink-0" />
-                <img src={hyundaiLogo} alt="Hyundai E&C" className="h-5 hidden sm:inline-block" />
-                <span className="font-mono text-xs sm:text-sm font-semibold text-muted-foreground truncate hidden sm:inline">
-                  ALSMK Task Management System
-                </span>
-                <span className="font-mono text-xs font-semibold text-muted-foreground sm:hidden">
-                  ALSMK
-                </span>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <BuildInfo inline />
-                <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">© {new Date().getFullYear()} Sean B. KO. All rights reserved.</span>
-                {!auth.readOnly && <NotificationBell />}
-              </div>
-            </header>
-            <main className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 relative flex flex-col">
-              {shouldMountCpm && (
-                <div style={{ display: isCpmRoute ? 'block' : 'none' }} className="absolute inset-0">
-                  <CpmScheduler />
+        <div className="h-screen flex w-full overflow-hidden flex-col">
+          <AppUpdateBanner />
+          <div className="flex-1 flex w-full min-h-0">
+            <AppSidebar />
+            <div className="flex-1 flex flex-col min-w-0">
+              <header className="h-12 flex items-center justify-between border-b border-border px-3 sm:px-4 bg-card shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <SidebarTrigger className="shrink-0" />
+                  <img src={hyundaiLogo} alt="Hyundai E&C" className="h-5 hidden sm:inline-block" />
+                  <span className="font-mono text-xs sm:text-sm font-semibold text-muted-foreground truncate hidden sm:inline">
+                    ALSMK Task Management System
+                  </span>
+                  <span className="font-mono text-xs font-semibold text-muted-foreground sm:hidden">
+                    ALSMK
+                  </span>
                 </div>
-              )}
-              <div style={{ display: isCpmRoute ? 'none' : 'flex' }} className="flex-col flex-1 min-h-0 overflow-auto">
-                {children}
-              </div>
-            </main>
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                  <BuildInfoChip />
+                  <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">© {new Date().getFullYear()} Sean B. KO. All rights reserved.</span>
+                  {!auth.readOnly && <NotificationBell />}
+                </div>
+              </header>
+              <main className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 relative flex flex-col">
+                {shouldMountCpm && (
+                  <div style={{ display: isCpmRoute ? 'block' : 'none' }} className="absolute inset-0">
+                    <CpmScheduler />
+                  </div>
+                )}
+                <div style={{ display: isCpmRoute ? 'none' : 'flex' }} className="flex-col flex-1 min-h-0 overflow-auto">
+                  {children}
+                </div>
+              </main>
+            </div>
           </div>
         </div>
         {!auth.readOnly && <UnreadMessagesDialog />}
         {!auth.readOnly && <RealtimeDmToast memberId={auth.memberId} />}
-        <NewBuildDialog />
       </SidebarProvider>
     </AuthContext.Provider>
   );
