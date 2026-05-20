@@ -74,66 +74,18 @@ export function AddSubtaskDialog({ parent, open, onOpenChange, teams = [], membe
     }
     setSaving(true);
     try {
-      // 1. If parent is not yet summary, convert it and clone original data as first subtask
-      if (!parent.is_summary) {
-        // Convert parent to summary
-        const { error: updateErr } = await supabase.from("tasks").update({
-          is_summary: true,
-          action_plan: null,
-          current_progress: 0,
-          actual_finish: null,
-          issue_flag: "normal" as const,
-          issue_type: null,
-          issue_description: null,
-        }).eq("id", parent.id);
-        if (updateErr) throw updateErr;
-
-        // Clone original parent data as first subtask
-        const { error: cloneErr } = await supabase.from("tasks").insert({
-          parent_id: parent.id,
-          title: parent.title,
-          category: parent.category,
-          team_id: parent.team_id,
-          part_id: parent.part_id,
-          assignee_id: parent.assignee_id,
-          start_date: parent.start_date,
-          end_date: parent.end_date,
-          action_plan: parent.action_plan,
-          current_progress: parent.current_progress,
-          actual_finish: parent.actual_finish,
-          issue_flag: parent.issue_flag,
-          issue_type: parent.issue_type,
-          issue_description: parent.issue_description,
-          milestone_id: parent.milestone_id,
-          created_by: parent.created_by,
-          is_summary: false,
-        });
-        if (cloneErr) throw cloneErr;
-      }
-
-      // 2. Insert new subtask
-      const { error: insertErr } = await supabase.from("tasks").insert({
-        parent_id: parent.id,
-        title: title.trim(),
-        category: category.trim() || null,
-        team_id: teamId,
-        part_id: parent.part_id,
-        assignee_id: assigneeId,
-        start_date: startDate,
-        end_date: endDate,
-        action_plan: actionPlan.trim() || null,
-        milestone_id: parent.milestone_id,
-        created_by: parent.created_by,
-        is_summary: false,
-      });
-      if (insertErr) throw insertErr;
-
-      // 3. Re-sequence all sibling task_codes safely (2-pass via RPC to avoid UNIQUE conflicts)
-      const { error: resequenceErr } = await supabase.rpc(
-        "resequence_subtask_codes" as any,
-        { _parent_id: parent.id } as any
-      );
-      if (resequenceErr) throw resequenceErr;
+      // Atomic: summary 전환 + 원본 복제 + 새 subtask insert + 재정렬을 한 트랜잭션으로 처리
+      const { error } = await supabase.rpc("add_subtask" as any, {
+        _parent_id: parent.id,
+        _title: title.trim(),
+        _category: category.trim() || null,
+        _team_id: teamId,
+        _assignee_id: assigneeId,
+        _start_date: startDate,
+        _end_date: endDate,
+        _action_plan: actionPlan.trim() || null,
+      } as any);
+      if (error) throw error;
 
       toast.success("Subtask added.");
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
