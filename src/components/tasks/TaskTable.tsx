@@ -523,20 +523,20 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
               <table className="w-full caption-bottom text-sm table-fixed" style={{ minWidth: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
                 <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow>
-                    {[
-                      { key: "taskCode", label: "Task Code", align: "" },
-                      { key: "assignee", label: "Assignee", align: "" },
-                      { key: "category", label: "Category", align: "" },
-                      { key: "subject", label: "Subject", align: "" },
-                      { key: "actionPlan", label: "Action Plan", align: "" },
-                      { key: "start", label: "Start", align: "" },
-                      { key: "finish", label: "Finish", align: "" },
-                      { key: "dday", label: "D-Day", align: "text-right" },
-                      { key: "plan", label: "Plan %", align: "text-right" },
-                      { key: "actual", label: "Actual %", align: "text-right" },
-                      { key: "gap", label: "차이 %", align: "text-right" },
-                      { key: "actualFinish", label: "Actual Finish", align: "" },
-                    ].map(col => (
+                    {([
+                      { key: "taskCode", label: "Task Code", align: "", filterType: "text" as ColumnFilterType },
+                      { key: "assignee", label: "Assignee", align: "", filterType: "multi" as ColumnFilterType, options: assigneeOptions },
+                      { key: "category", label: "Category", align: "", filterType: "multi" as ColumnFilterType, options: categoryOptions },
+                      { key: "subject", label: "Subject", align: "", filterType: "text" as ColumnFilterType },
+                      { key: "actionPlan", label: "Action Plan", align: "", filterType: "text" as ColumnFilterType },
+                      { key: "start", label: "Start", align: "", filterType: "date" as ColumnFilterType },
+                      { key: "finish", label: "Finish", align: "", filterType: "date" as ColumnFilterType },
+                      { key: "dday", label: "D-Day", align: "text-right", filterType: "text" as ColumnFilterType },
+                      { key: "plan", label: "Plan %", align: "text-right", filterType: "text" as ColumnFilterType },
+                      { key: "actual", label: "Actual %", align: "text-right", filterType: "text" as ColumnFilterType },
+                      { key: "gap", label: "차이 %", align: "text-right", filterType: "text" as ColumnFilterType },
+                      { key: "actualFinish", label: "Actual Finish", align: "", filterType: "date" as ColumnFilterType },
+                    ]).map(col => (
                       <TableHead
                         key={col.key}
                         className={`relative select-none cursor-pointer hover:bg-accent/50 ${col.align}`}
@@ -558,6 +558,13 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                               ) : (
                                 <ArrowUpDown className="h-3 w-3 opacity-30" />
                               )}
+                              <ColumnFilterDropdown
+                                type={col.filterType}
+                                value={columnFilters[col.key]}
+                                onChange={(v) => setColumnFilter(col.key, v)}
+                                options={(col as any).options}
+                                facets={col.filterType === "multi" ? computeFacets(col.key) : undefined}
+                              />
                             </span>
                           );
                         })()}
