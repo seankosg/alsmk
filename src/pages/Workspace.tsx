@@ -204,15 +204,10 @@ const Workspace = () => {
           } as any).in("id", subtaskIds);
           if (linkError) throw linkError;
 
-          // Update subtask codes to hierarchical format
-          const summaryCode = newSummary.task_code;
-          if (summaryCode) {
-            for (let i = 0; i < subtaskIds.length; i++) {
-              await supabase.from("tasks").update({
-                task_code: summaryCode + "-" + String(i + 1).padStart(2, "0"),
-              } as any).eq("id", subtaskIds[i]);
-            }
-          }
+          // Resequence subtask codes via RPC (TMP suffix 2-pass, UNIQUE 충돌 방지)
+          await supabase.rpc("resequence_subtask_codes" as any, {
+            _parent_id: newSummary.id,
+          } as any);
 
           created++;
         }
