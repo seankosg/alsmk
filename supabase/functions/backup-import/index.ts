@@ -113,13 +113,44 @@ Deno.serve(async (req) => {
     const results: Record<string, { count: number; error?: string }> = {};
 
     for (const table of IMPORT_ORDER) {
-      const rows = tables[table];
+      let rows = tables[table];
       if (!Array.isArray(rows) || rows.length === 0) {
         results[table] = { count: 0 };
         continue;
       }
 
       const pk = PK_MAP[table] ?? "id";
+
+      // tasks: task_code UNIQUE 충돌 가드
+      // - 활성 행에서 이미 사용 중인 task_code 와 충돌하는 import 행(id 다름)은 코드를 null 로 비워
+      //   트리거가 새 코드를 발급하도록 한다.
+      if (table === "tasks") {
+        const codes = Array.from(
+          new Set(
+            rows
+              .map((r: any) => r?.task_code)
+              .filter((c: any) => typeof c === "string" && c.length > 0),
+          ),
+        );
+        if (codes.length > 0) {
+          const { data: existing } = await adminClient
+            .from("tasks")
+            .select("id, task_code")
+            .is("deleted_at", null)
+            .in("task_code", codes as string[]);
+          const conflictMap = new Map<string, string>(); // code -> existing id
+          for (const e of existing ?? []) {
+            if (e?.task_code) conflictMap.set(e.task_code as string, e.id as string);
+          }
+          rows = rows.map((r: any) => {
+            const code = r?.task_code;
+            if (code && conflictMap.has(code) && conflictMap.get(code) !== r.id) {
+              return { ...r, task_code: null };
+            }
+            return r;
+          });
+        }
+      }
 
       // Upsert in batches of 500
       let totalUpserted = 0;
