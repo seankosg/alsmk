@@ -58,25 +58,9 @@ export function DeletedTasksList() {
 
   const handleRestore = async (taskId: string) => {
     try {
-      // Look up parent_id before restoring so we can resequence sibling codes if needed
-      const { data: target } = await supabase
-        .from("tasks")
-        .select("parent_id")
-        .eq("id", taskId)
-        .maybeSingle();
-
-      const { error } = await supabase
-        .from("tasks")
-        .update({ deleted_at: null, deleted_by: null } as any)
-        .eq("id", taskId);
+      // restore_task RPC: task_code UNIQUE 충돌 자동 회피 + 부모 그룹 재정렬을 트랜잭션으로 처리
+      const { error } = await supabase.rpc("restore_task" as any, { _id: taskId } as any);
       if (error) throw error;
-
-      // Subtask 복원 시 형제 코드 충돌 방지를 위해 재정렬
-      if (target?.parent_id) {
-        await supabase.rpc("resequence_subtask_codes" as any, {
-          _parent_id: target.parent_id,
-        } as any);
-      }
 
       toast.success("태스크가 복원되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
