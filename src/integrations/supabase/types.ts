@@ -892,6 +892,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_subtask: {
+        Args: {
+          _action_plan: string
+          _assignee_id: string
+          _category: string
+          _end_date: string
+          _parent_id: string
+          _start_date: string
+          _team_id: string
+          _title: string
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
