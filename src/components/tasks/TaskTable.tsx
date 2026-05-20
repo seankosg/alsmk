@@ -9,12 +9,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { calcPlannedProgress, weightedAvg } from "@/lib/mockData";
 import { TaskDetailDialog } from "./TaskDetailDialog";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
+import {
+  ColumnFilterDropdown,
+  type ColumnFilterType,
+  type ColumnFilterValue,
+  type ColumnFiltersState,
+  evalFilter,
+  isFilterActive,
+} from "./ColumnFilterDropdowns";
 
 const DEFAULT_COL_WIDTHS: Record<string, number> = {
   taskCode: 140,
@@ -70,9 +78,8 @@ interface TaskTableProps {
 export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTableProps) {
   const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const queryClient = useQueryClient();
-  const [teamFilter, setTeamFilter] = useState<string>("all");
-  const [flagFilter, setFlagFilter] = useState<string>("all");
-  const [memberFilter, setMemberFilter] = useState<string>("all");
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>({});
+  const [statusTab, setStatusTab] = useState<"all" | "ongoing">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
