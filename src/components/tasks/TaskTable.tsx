@@ -79,7 +79,7 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
   const { isAdmin, isAdminOrPm, memberId } = useAuthContext();
   const queryClient = useQueryClient();
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>({});
-  const [statusTab, setStatusTab] = useState<"all" | "ongoing">("all");
+  const [statusTab, setStatusTab] = useState<"all" | "ongoing">("ongoing");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
