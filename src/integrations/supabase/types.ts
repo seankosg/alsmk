@@ -921,6 +921,7 @@ export type Database = {
         Args: { _parent_id: string }
         Returns: undefined
       }
+      restore_task: { Args: { _id: string }; Returns: undefined }
       upsert_activity_mappings: {
         Args: { _activity_id: string; _task_ids: string[] }
         Returns: undefined
