@@ -485,8 +485,22 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                   <X className="h-3 w-3" /> Clear Sort
                 </button>
               )}
+              {activeFilterKeys.length > 0 && (
+                <button
+                  onClick={() => setColumnFilters({})}
+                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" /> Clear filters ({activeFilterKeys.length})
+                </button>
+              )}
             </CardTitle>
             <div className="flex gap-2 flex-wrap items-center">
+              <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as "all" | "ongoing")}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="all" className="text-xs h-6 px-3">All</TabsTrigger>
+                  <TabsTrigger value="ongoing" className="text-xs h-6 px-3">On Going Only</TabsTrigger>
+                </TabsList>
+              </Tabs>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -496,37 +510,6 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
                   className="w-[180px] h-8 text-xs pl-8"
                 />
               </div>
-              {filterMine && (isAdmin || isPm) && (
-                <Select value={memberFilter} onValueChange={setMemberFilter}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs">
-                    <SelectValue placeholder="All Members" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Members</SelectItem>
-                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
-              <Select value={teamFilter} onValueChange={setTeamFilter}>
-                <SelectTrigger className="w-[130px] h-8 text-xs">
-                  <SelectValue placeholder="All Teams" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={flagFilter} onValueChange={setFlagFilter}>
-                <SelectTrigger className="w-[120px] h-8 text-xs">
-                  <SelectValue placeholder="All Flags" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Flags</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="warning">Warning</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardHeader>
