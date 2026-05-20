@@ -289,11 +289,10 @@ export function TaskTable({ filterMine, filterMode, allCollapsed }: TaskTablePro
     const missingParents = tasks.filter(t => visibleParentIds.has(t.id) && !filtered.some(f => f.id === t.id));
     filtered = [...filtered, ...missingParents];
   }
-  if (filterMine && (isAdmin || isPm) && memberFilter !== "all") {
-    filtered = filtered.filter(t => t.assignee_id === memberFilter);
+  // On Going Only tab: keep tasks with progress < 100 and no actual_finish
+  if (statusTab === "ongoing") {
+    filtered = filtered.filter(t => (t.current_progress ?? 0) < 100 && !t.actual_finish);
   }
-  if (teamFilter !== "all") filtered = filtered.filter(t => t.team_id === teamFilter);
-  if (flagFilter !== "all") filtered = filtered.filter(t => t.issue_flag === flagFilter);
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
     filtered = filtered.filter(t =>
