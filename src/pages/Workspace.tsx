@@ -456,7 +456,16 @@ const Workspace = () => {
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Action Plan");
-      XLSX.writeFile(wb, `ALSMK_Workspace_Tasks_${timestampForFilename()}.xlsx`);
+      const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ALSMK_Workspace_Tasks_${timestampForFilename()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       toast.success("Excel 파일이 다운로드되었습니다.");
     } catch (err: any) {
       toast.error(err.message || "Export 실패");
