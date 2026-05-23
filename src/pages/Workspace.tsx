@@ -16,7 +16,28 @@ import { parseLocalDate } from "@/lib/utils";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx-js-style";
+import {
+  STYLE_TITLE,
+  STYLE_META_LABEL,
+  STYLE_META_VALUE,
+  STYLE_HEADER,
+  STYLE_DATA,
+  STYLE_DATA_CENTER,
+  STYLE_DATA_RIGHT,
+  STYLE_SUMMARY,
+  STYLE_SUMMARY_CENTER,
+  STYLE_SUMMARY_RIGHT,
+  STYLE_GAP_POS,
+  STYLE_GAP_NEG,
+  PCT_NUMFMT,
+  setCell,
+  setNumberCell,
+  setDateCell,
+  isoToExcelSerial,
+  timestampForFilename,
+  exportedTimestamp,
+} from "@/lib/excelStyles";
 
 const Workspace = () => {
   const navigate = useNavigate();
