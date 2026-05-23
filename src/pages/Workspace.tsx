@@ -252,6 +252,8 @@ const Workspace = () => {
     setExporting(true);
     try {
       const getMemberName = (id: string | null) => !id ? "" : members.find(m => m.id === id)?.name ?? "";
+      const userName = memberId ? (members.find(m => m.id === memberId)?.name ?? "Unknown") : "Unknown";
+      const userType = isAdmin ? "Admin" : isPm ? "PM" : readOnly ? "Guest" : "Member";
 
       // Fetch comments with author info
       const { data: allComments = [] } = await supabase
@@ -259,14 +261,13 @@ const Workspace = () => {
         .select("task_id, message, author_id, created_at")
         .order("created_at", { ascending: true });
 
-      // Group comments by task_id
       const commentsByTask = new Map<string, typeof allComments>();
       for (const c of allComments) {
         if (!commentsByTask.has(c.task_id)) commentsByTask.set(c.task_id, []);
         commentsByTask.get(c.task_id)!.push(c);
       }
 
-      // Build hierarchical order: Summary → its Subtasks, then independent Tasks
+      // Hierarchical order: Summary → Subtasks, then independent Tasks
       const summaries = tasks.filter(t => t.is_summary).sort((a, b) => (a.task_code ?? "").localeCompare(b.task_code ?? ""));
       const subtasksByParent = new Map<string, typeof tasks>();
       const independentTasks: typeof tasks = [];
@@ -302,7 +303,6 @@ const Workspace = () => {
         const remaining = isDone ? 0 : differenceInCalendarDays(parseLocalDate(t.end_date), startOfDay(new Date()));
         const dDay = isDone ? "Done" : remaining === 0 ? "0" : remaining > 0 ? `${remaining}` : `+${Math.abs(remaining)}`;
 
-        // Format comments
         const taskComments = commentsByTask.get(t.id) ?? [];
         const commentsStr = taskComments.map(c => {
           const authorName = getMemberName(c.author_id);
@@ -311,27 +311,152 @@ const Workspace = () => {
         }).join("\n");
 
         return {
-          "Type": t.is_summary ? "Summary" : t.parent_id ? "  └ Subtask" : "Task",
-          "Task Code": t.task_code ?? "",
-          "Assignee": getMemberName(t.assignee_id),
-          "Category": t.category ?? "",
-          "Subject": t.title,
-          "Action Plan": t.action_plan ?? "",
-          "Start": t.start_date,
-          "Finish": t.end_date,
-          "D-Day": dDay,
-          "Plan %": planned,
-          "Actual %": t.current_progress,
-          "차이 %": gap,
-          "Actual Finish": t.actual_finish ?? "",
-          "Comments": commentsStr,
+          type: t.is_summary ? "Summary" : t.parent_id ? "Subtask" : "Task",
+          typeLabel: t.is_summary ? "Summary" : t.parent_id ? "  └ Subtask" : "Task",
+          taskCode: t.task_code ?? "",
+          assignee: getMemberName(t.assignee_id),
+          category: t.category ?? "",
+          subject: t.title,
+          actionPlan: t.action_plan ?? "",
+          start: t.start_date,
+          finish: t.end_date,
+          dDay,
+          planned,
+          actual: t.current_progress,
+          gap,
+          actualFinish: t.actual_finish ?? "",
+          comments: commentsStr,
+          isSummary: !!t.is_summary,
         };
       });
 
-      const ws = XLSX.utils.json_to_sheet(rows);
+      // ── Build styled workbook ──────────────────────────────
+      const HEADERS = [
+        "Type", "Task Code", "Assignee", "Category", "Subject", "Action Plan",
+        "Start", "Finish", "D-Day", "Plan %", "Actual %", "Gap %p", "Actual Finish", "Comments",
+      ];
+      const COL_WIDTHS = [11, 18, 14, 14, 38, 34, 12, 12, 9, 9, 9, 10, 13, 50];
+      const colCount = HEADERS.length;
+
+      const summaryCount = rows.filter(r => r.type === "Summary").length;
+      const subtaskCount = rows.filter(r => r.type === "Subtask").length;
+      const taskCount = rows.filter(r => r.type === "Task").length;
+
+      const META_LINES: string[] = [
+        "ALSMK Project — My Workspace Tasks Export",
+        `Exported: ${exportedTimestamp()}  by  ${userName} (${userType})`,
+        `Source: My Workspace${filterMode === "mine" ? " (Mine)" : filterMode === "team" ? " (Team)" : " (Project)"}`,
+        `Search: (none)`,
+        `Filters: (current view)`,
+        `Totals: ${rows.length} rows  ·  Summary ${summaryCount} / Subtask ${subtaskCount} / Task ${taskCount}`,
+      ];
+
+      // Build empty AOA scaffold so cols/merges/rows/freeze get a valid ref.
+      const HEADER_ROW = 7; // 0-indexed (rows 0..5 meta, 6 blank, 7 header)
+      const DATA_START = 8;
+      const aoa: any[][] = [];
+      for (let i = 0; i < META_LINES.length; i++) aoa.push([META_LINES[i]]);
+      aoa.push([]); // blank row 6
+      aoa.push(HEADERS);
+      for (let i = 0; i < rows.length; i++) aoa.push(new Array(colCount).fill(""));
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Merge meta rows across all columns
+      const merges: XLSX.Range[] = [];
+      for (let r = 0; r < META_LINES.length; r++) {
+        merges.push({ s: { r, c: 0 }, e: { r, c: colCount - 1 } });
+      }
+      ws["!merges"] = merges;
+
+      // Column widths
+      ws["!cols"] = COL_WIDTHS.map(w => ({ wch: w }));
+
+      // Row heights
+      const rowsInfo: XLSX.RowInfo[] = [];
+      rowsInfo[0] = { hpt: 24 };
+      for (let i = 1; i <= 5; i++) rowsInfo[i] = { hpt: 16 };
+      rowsInfo[6] = { hpt: 6 };
+      rowsInfo[HEADER_ROW] = { hpt: 28 };
+      for (let i = 0; i < rows.length; i++) rowsInfo[DATA_START + i] = { hpt: 20 };
+      ws["!rows"] = rowsInfo;
+
+      // Freeze panes: lock title/meta/header + first 3 columns
+      const xSplit = 3;
+      const ySplit = DATA_START;
+      ws["!freeze"] = { xSplit, ySplit };
+      (ws as any)["!views"] = [{
+        state: "frozen",
+        xSplit,
+        ySplit,
+        topLeftCell: XLSX.utils.encode_cell({ r: ySplit, c: xSplit }),
+        activePane: "bottomRight",
+      }];
+
+      // Style: title + meta
+      setCell(ws, 0, 0, META_LINES[0], STYLE_TITLE);
+      for (let r = 1; r <= 5; r++) {
+        setCell(ws, r, 0, META_LINES[r], r === 1 ? STYLE_META_LABEL : STYLE_META_VALUE);
+      }
+      // Header
+      for (let c = 0; c < HEADERS.length; c++) {
+        setCell(ws, HEADER_ROW, c, HEADERS[c], STYLE_HEADER);
+      }
+
+      // Data rows
+      rows.forEach((row, i) => {
+        const r = DATA_START + i;
+        const baseText = row.isSummary ? STYLE_SUMMARY : STYLE_DATA;
+        const baseCenter = row.isSummary ? STYLE_SUMMARY_CENTER : STYLE_DATA_CENTER;
+        const baseRight = row.isSummary ? STYLE_SUMMARY_RIGHT : STYLE_DATA_RIGHT;
+
+        setCell(ws, r, 0, row.typeLabel, baseText);
+        setCell(ws, r, 1, row.taskCode, baseText);
+        setCell(ws, r, 2, row.assignee, baseText);
+        setCell(ws, r, 3, row.category, baseText);
+        setCell(ws, r, 4, row.subject, baseText);
+        setCell(ws, r, 5, row.actionPlan, baseText);
+
+        const sSerial = isoToExcelSerial(row.start);
+        if (sSerial != null) setDateCell(ws, r, 6, sSerial, baseCenter);
+        else setCell(ws, r, 6, row.start, baseCenter);
+
+        const fSerial = isoToExcelSerial(row.finish);
+        if (fSerial != null) setDateCell(ws, r, 7, fSerial, baseCenter);
+        else setCell(ws, r, 7, row.finish, baseCenter);
+
+        setCell(ws, r, 8, row.dDay, baseCenter);
+
+        setNumberCell(ws, r, 9, row.planned, PCT_NUMFMT, baseRight);
+        setNumberCell(ws, r, 10, row.actual, PCT_NUMFMT, baseRight);
+
+        // Gap with color
+        const gapStyle = row.isSummary
+          ? baseRight
+          : row.gap >= 0 ? STYLE_GAP_POS : STYLE_GAP_NEG;
+        setNumberCell(ws, r, 11, row.gap, PCT_NUMFMT, gapStyle);
+
+        if (row.actualFinish) {
+          const afSerial = isoToExcelSerial(row.actualFinish);
+          if (afSerial != null) setDateCell(ws, r, 12, afSerial, baseCenter);
+          else setCell(ws, r, 12, row.actualFinish, baseCenter);
+        } else {
+          setCell(ws, r, 12, "", baseCenter);
+        }
+
+        setCell(ws, r, 13, row.comments, baseText);
+      });
+
+      const lastColLetter = XLSX.utils.encode_col(colCount - 1);
+      const lastRow = DATA_START + rows.length - 1;
+      ws["!ref"] = `A1:${lastColLetter}${Math.max(lastRow + 1, DATA_START)}`;
+
+      // AutoFilter on header row
+      ws["!autofilter"] = { ref: `A${HEADER_ROW + 1}:${lastColLetter}${HEADER_ROW + 1}` };
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Action Plan");
-      XLSX.writeFile(wb, `ALSMK_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      XLSX.writeFile(wb, `ALSMK_Workspace_Tasks_${timestampForFilename()}.xlsx`);
       toast.success("Excel 파일이 다운로드되었습니다.");
     } catch (err: any) {
       toast.error(err.message || "Export 실패");
