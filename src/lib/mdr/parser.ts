@@ -1,0 +1,239 @@
+import * as XLSX from "xlsx";
+import { MDR_REIMPORT_MARKER, detectColumnKey } from "./columnMap";
+
+export type MdrStage = "SD" | "DD" | "CD";
+
+export interface MdrMilestoneDef {
+  stage: MdrStage;
+  pct: number;          // 30, 60, 90, 100
+  incrementPct: number; // 헤더 2행: 증분
+  planDate?: string;    // ISO YYYY-MM-DD
+}
+
+export interface MdrParsedRow {
+  sourceNo: string;             // 원본 A열
+  itemNo: string;               // ${BUILDING}-${sourceNo}
+  building: string;
+  discipline: string;
+  jobNo?: string;
+  areaCode?: string;
+  functionCode?: string;
+  serialNo?: string;
+  activityGroup?: string;
+  drawingTitle?: string;
+  planFinish?: string;          // 마일스톤 중 가장 늦은 plan_date
+  outOfScope: boolean;
+  sourceSheet: string;
+  milestones: MdrMilestoneDef[];
+  progress: { stage: MdrStage; pct: number; isDone: boolean }[];
+}
+
+export interface MdrParsedSheet {
+  sheetName: string;
+  discipline: string;
+  rows: MdrParsedRow[];
+  milestoneOrder: { stage: MdrStage; pct: number }[];
+  skipped?: boolean;
+  skipReason?: string;
+}
+
+export interface MdrParseResult {
+  filename: string;
+  building: string;
+  isSummary: boolean;
+  isReimport: boolean;
+  sheets: MdrParsedSheet[];
+  rawWorkbookBlob: ArrayBuffer;
+}
+
+const SKIP_SHEETS = new Set(["MH&DWG", "Sheet1", "Sheet3", "MH& DWG", "MASTER"]);
+const MILESTONE_RE = /(SD|DD|CD)\s*(\d{1,3})\s*%/i;
+
+/** 파일명에서 건물 코드 추출:  "01_MDR PROGRESS(GEN).xlsx" → "GEN" */
+export function extractBuildingFromFilename(filename: string): string {
+  const base = filename.replace(/\.[^.]+$/, "");
+  const paren = base.match(/\(([^)]+)\)/);
+  if (paren) return paren[1].trim().toUpperCase();
+  const tail = base.split(/[_\-\s]+/).pop() ?? base;
+  return tail.toUpperCase();
+}
+
+export function isSummaryFilename(filename: string): boolean {
+  return /^00[_\s-]|summary/i.test(filename);
+}
+
+function cellStr(ws: XLSX.WorkSheet, r: number, c: number): string {
+  const addr = XLSX.utils.encode_cell({ r, c });
+  const cell = ws[addr];
+  if (!cell) return "";
+  return String(cell.w ?? cell.v ?? "").trim();
+}
+
+function cellRaw(ws: XLSX.WorkSheet, r: number, c: number): XLSX.CellObject | undefined {
+  return ws[XLSX.utils.encode_cell({ r, c })];
+}
+
+/** 헤더 시작 행(`NO.` 셀)을 찾는다. 반환: { headerRow, noCol } */
+function findHeaderAnchor(ws: XLSX.WorkSheet): { headerRow: number; noCol: number } | null {
+  const range = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]) : null;
+  if (!range) return null;
+  for (let r = range.s.r; r <= Math.min(range.s.r + 30, range.e.r); r++) {
+    for (let c = range.s.c; c <= Math.min(range.s.c + 8, range.e.c); c++) {
+      const v = cellStr(ws, r, c).toUpperCase().replace(/\s+/g, "");
+      if (v === "NO." || v === "NO") return { headerRow: r, noCol: c };
+    }
+  }
+  return null;
+}
+
+function parseDate(cell: XLSX.CellObject | undefined): string | undefined {
+  if (!cell) return undefined;
+  if (typeof cell.v === "number") {
+    const d = XLSX.SSF.parse_date_code(cell.v);
+    if (!d) return undefined;
+    const iso = `${d.y.toString().padStart(4, "0")}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+    return iso;
+  }
+  if (typeof cell.v === "string") {
+    const t = cell.v.trim();
+    if (!t) return undefined;
+    const d = new Date(t);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+  return undefined;
+}
+
+function isYes(s: string): boolean {
+  const t = s.trim().toLowerCase();
+  return t === "y" || t === "yes" || t === "o" || t === "✓" || t === "1";
+}
+
+function parseSheet(
+  ws: XLSX.WorkSheet,
+  sheetName: string,
+  building: string,
+): MdrParsedSheet {
+  const discipline = sheetName.toUpperCase().split(/[_\-\s]/)[0];
+  const anchor = findHeaderAnchor(ws);
+  if (!anchor) {
+    return { sheetName, discipline, rows: [], milestoneOrder: [], skipped: true, skipReason: "헤더(NO.) 셀을 찾지 못함" };
+  }
+  const { headerRow, noCol } = anchor;
+  // headerRow      : 식별 컬럼 헤더 + 마일스톤 라벨(SD100%, DD30%, ...)
+  // headerRow + 1  : 증분 (%)
+  // headerRow + 2  : 계획일자
+  const range = XLSX.utils.decode_range(ws["!ref"]!);
+  const maxCol = range.e.c;
+
+  // 1) 식별 컬럼 + 마일스톤 컬럼 위치 매핑
+  const headers: { col: number; key: ReturnType<typeof detectColumnKey> | null; text: string }[] = [];
+  const milestoneCols: { col: number; stage: MdrStage; pct: number; incrementPct: number; planDate?: string }[] = [];
+  for (let c = noCol; c <= maxCol; c++) {
+    const text = cellStr(ws, headerRow, c);
+    if (!text) continue;
+    const m = text.match(MILESTONE_RE);
+    if (m) {
+      const stage = m[1].toUpperCase() as MdrStage;
+      const pct = parseInt(m[2], 10);
+      const incRaw = cellStr(ws, headerRow + 1, c).replace("%", "").trim();
+      const incrementPct = parseFloat(incRaw) || 0;
+      const planDate = parseDate(cellRaw(ws, headerRow + 2, c));
+      milestoneCols.push({ col: c, stage, pct, incrementPct, planDate });
+    } else {
+      headers.push({ col: c, key: detectColumnKey(text), text });
+    }
+  }
+
+  // 2) 데이터 행 파싱 (헤더 + 3행 이후)
+  const rows: MdrParsedRow[] = [];
+  for (let r = headerRow + 3; r <= range.e.r; r++) {
+    const sourceNo = cellStr(ws, r, noCol);
+    if (!sourceNo) continue;
+    // No 가 숫자/문자 혼합 가능. 빈 줄·합계 행은 패스
+    if (/^total|sum|합계/i.test(sourceNo)) continue;
+
+    const findVal = (...candidates: string[]) => {
+      for (const cand of candidates) {
+        const h = headers.find((x) => x.text.toUpperCase().includes(cand.toUpperCase()));
+        if (h) {
+          const v = cellStr(ws, r, h.col);
+          if (v) return v;
+        }
+      }
+      return undefined;
+    };
+
+    const discRaw = findVal("DISCIPLINE") ?? discipline;
+    const title = findVal("Drawing Title", "TITLE", "DRAWING");
+    if (!title && !sourceNo.match(/\d/)) continue;
+
+    const milestones: MdrMilestoneDef[] = milestoneCols.map((m) => ({
+      stage: m.stage,
+      pct: m.pct,
+      incrementPct: m.incrementPct,
+      planDate: m.planDate,
+    }));
+    const progress = milestoneCols.map((m) => {
+      const v = cellStr(ws, r, m.col);
+      return { stage: m.stage, pct: m.pct, isDone: isYes(v) };
+    });
+
+    // plan finish: 마일스톤 중 가장 늦은 plan_date
+    const lastPlan = milestones
+      .map((m) => m.planDate)
+      .filter((x): x is string => Boolean(x))
+      .sort()
+      .pop();
+
+    // out of scope: 모든 마일스톤 increment 0 또는 SD/DD/CD 모두 비활성
+    const allZero = milestones.every((m) => m.incrementPct === 0);
+
+    const itemNo = `${building}-${sourceNo}`;
+    rows.push({
+      sourceNo,
+      itemNo,
+      building,
+      discipline: discRaw,
+      jobNo: findVal("JOB"),
+      areaCode: findVal("Area Code", "AREA"),
+      functionCode: findVal("Function Code", "FUNCTION"),
+      serialNo: findVal("Serial"),
+      activityGroup: findVal("Activity Group", "GROUP"),
+      drawingTitle: title,
+      planFinish: lastPlan,
+      outOfScope: allZero,
+      sourceSheet: sheetName,
+      milestones,
+      progress,
+    });
+  }
+
+  return {
+    sheetName,
+    discipline,
+    rows,
+    milestoneOrder: milestoneCols.map(({ stage, pct }) => ({ stage, pct })),
+  };
+}
+
+export async function parseMdrFile(file: File): Promise<MdrParseResult> {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellDates: false, cellNF: true });
+  const filename = file.name;
+  const isSummary = isSummaryFilename(filename);
+  const building = isSummary ? "_SUMMARY_" : extractBuildingFromFilename(filename);
+  const isReimport = (wb.Workbook?.Names ?? []).some((n) =>
+    n.Name?.includes("ALSMK_MDR_REIMPORT") || n.Ref?.includes(MDR_REIMPORT_MARKER),
+  );
+
+  const sheets: MdrParsedSheet[] = [];
+  for (const name of wb.SheetNames) {
+    if (SKIP_SHEETS.has(name.toUpperCase()) || SKIP_SHEETS.has(name)) continue;
+    if (/sheet\d+/i.test(name)) continue;
+    const ws = wb.Sheets[name];
+    if (!ws) continue;
+    sheets.push(parseSheet(ws, name, building));
+  }
+
+  return { filename, building, isSummary, isReimport, sheets, rawWorkbookBlob: buf };
+}
