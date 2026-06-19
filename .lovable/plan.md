@@ -1,65 +1,109 @@
-## 목표
-현재 My Workspace의 Export는 `xlsx`의 `json_to_sheet`로 단순 데이터만 출력합니다. SHAW PROJECT CMS의 Defect Excel export처럼 **타이틀/메타/헤더/데이터 스타일링, 컬럼 너비, 행 높이, freeze pane, 날짜 셀, 숫자/퍼센트 포맷**을 적용해 전문적인 보고서 형태로 개선합니다.
 
-## 구현 내용
+## 1. 진입·라우팅
+- `/design` 단일 라우트, 사이드바 비표시. 메인 대시보드 카드 라벨 **"Design Management"** (Admin/PM만).
+- 내부 4탭: `Dashboard`(Phase 2) / `Summary`(Export·스냅샷) / `Raw Data` / `Admin`(가중치).
+- Raw Data 탭은 임포트된 건물 수만큼 건물별 sub-탭 자동 생성.
 
-### 1. `xlsx-js-style` 패키지 추가
-스타일링 지원을 위해 `xlsx-js-style`을 의존성으로 추가 (SHAW와 동일).
+## 2. 건물명·식별 컬럼 정책
+- 건물명은 앱이 파일명에서 추출 후 신규 생성.
+- **Item No.** = `${BUILDING}-${원본 A열 No.}` (임시 식별자).
+- **원본 A열의 "No." 컬럼은 그대로 유지** — Building 컬럼 왼쪽 최좌단.
+- 식별 컬럼 순서: `No. → Building → Item No. → DISCIPLINE → JOB No. → Area Code → Function Code → Serial No. → Activity Group → Drawing Title`
+- DB 자연키: `UNIQUE(building_code, item_no)`. 재업로드 시 신규 도면만 INSERT, 기존 Y/실제완료일 보존.
 
-### 2. 공유 스타일 모듈 신규 작성 — `src/lib/excelStyles.ts`
-SHAW의 `excel-export.ts`에서 다음을 그대로 포팅:
-- `FONT_NAME = 'Calibri'`
-- `STYLE_TITLE` (네이비 배경 #1E3A5F, 흰색 굵은 14pt)
-- `STYLE_META_LABEL`, `STYLE_META_VALUE` (연회색 배경 #F3F4F6)
-- `STYLE_HEADER` (다크 슬레이트 #334155, 흰색 굵은 11pt, 가운데 정렬, 테두리)
-- `STYLE_DATA` (11pt, 좌측 정렬, 연한 테두리 #E5E7EB)
-- `setCell(ws, r, c, value, style)`, `setNumberCell`, `setDateCell` 헬퍼
+## 3. DB 정규화 (7테이블)
+`mdr_buildings`, `mdr_drawings`(★`source_no` 원본 A열 보존 + `item_no` 신규), `mdr_milestones`, `mdr_progress`, `mdr_weights`(+`mdr_weights_audit`), `mdr_snapshots`(★`template_blob bytea` 원본 워크북 보관), `mdr_import_logs`. 모두 GRANT + RLS + Admin/PM 전용 정책.
 
-추가로 ALSMK용 변형:
-- `STYLE_SUMMARY_ROW` — Summary 행 강조용 옅은 파랑 배경
-- `STYLE_SUBTASK_INDENT` — 서브태스크 들여쓰기 시각화
-- `STYLE_GAP_POS` (녹색), `STYLE_GAP_NEG` (빨강) — 차이% 색상 분기
+## 4. 파서 (`src/lib/mdr/parser.ts`)
+- **FA·FP 전용 분기 로직 삭제**. 파일명=건물명 일관 처리.
+- 헤더 인식: `NO.` 셀 → 하위 3행(라벨/증분/계획일자).
+- 마일스톤 정규식 `(SD|DD|CD)\s*(\d+)%` — SD는 폐기(상수 100% 처리).
+- 계획일자: `XLSX.SSF.parse_date_code`.
+- 분야: 시트명(ARCH/STR/MECH/ELEC), `MH&DWG/Sheet1/Sheet3` 스킵.
+- 행마다 `source_no` 보존 + `item_no` 생성.
 
-### 3. `src/pages/Workspace.tsx` — `handleExport` 재작성
+## 5. 검증 게이트 (`src/lib/mdr/validator.ts`)
+DD·CD 6행 증분 합 ±1% 검증 → 누계 자동 차분 보정 → 실패 시 모달(자동보정/라벨모드/시트스킵/중단). 결정 로그 `mdr_import_logs.user_decisions`.
 
-#### 레이아웃 (SHAW 패턴 그대로)
+## 6. 진척 엔진 — 일일 보간 ★
+엑셀 계획은 마일스톤별 주간 증분이지만, 진척 엔진은 **임의 기준일에 대해 선형 일일 보간**으로 계획률 계산:
+
+```text
+plannedPct(drawing, stage, asOf) =
+  Σ(완료 마일스톤 증분)
+  + 현재 구간 증분 × clamp((asOf - prevDate) / (curDate - prevDate), 0, 1)
 ```
-Row 0: "ALSMK Project — My Workspace Tasks Export"   (STYLE_TITLE, 모든 컬럼 머지)
-Row 1: Exported: YYYY-MM-DD HH:MM  by  사용자명     (STYLE_META_LABEL)
-Row 2: Source: My Workspace                          (STYLE_META_VALUE)
-Row 3: Filter: {On Going Only | All}                 (STYLE_META_VALUE)
-Row 4: Total Tasks: N (Summary: x, Subtask: y, Task: z) (STYLE_META_VALUE)
-Row 5: (공백)
-Row 6: 컬럼 헤더 (STYLE_HEADER, 높이 28pt)
-Row 7+: 데이터
+
+- `prevDate` = 직전 마일스톤 plan_date(없으면 curDate − 7일).
+- 기준일은 격자 헤더에서 변경 가능(기본 today).
+- 실적률은 마일스톤 step 함수(Y 시점만 반영).
+
+## 7. Raw Data 격자 — 컬럼 구조
+
+| 그룹 | 컬럼 | 비고 |
+|---|---|---|
+| 식별 | `No.` · `Building` · `Item No.` · `DISCIPLINE` · `JOB No.` · `Area Code` · `Function Code` · `Serial No.` · `Activity Group` · `Drawing Title` | `No.` = 원본 A열 그대로 |
+| 대상 | `SD` · `DD` · `CD` | `O/-`. SD 항상 `O` |
+| DD 단계 | `DD30 P/A/Δ` · `DD60 P/A/Δ` · `DD90 P/A/Δ` · `DD100 P/A/Δ` | P=일일보간 계획, A=실적, Δ=P−A |
+| CD 단계 | `CD30 P/A/Δ` · `CD60 P/A/Δ` · `CD100 P/A/Δ` | 동일 |
+| 누계 | `SD%` · `DD%` · `CD%` · `Overall%` | SD=100 상수 |
+| 일자 | `Plan Finish` · `Actual Finish` | |
+| 메타 | `Confirmed By` · `Source Sheet` · `Out of Scope` | |
+
+### 7.1 행/필터 동작
+- Y 토글: Admin/PM만 → `mdr_progress` upsert.
+- 상단 필터: 분야, 단계 대상(`O`만), 검색.
+- **지연 임계는 사용자 입력값** — 격자 헤더 NumberInput(`Δ 임계 %`, 기본 10, 0~100). 임계 이상 `text-destructive`, 0<Δ<임계 `text-yellow-500`, ≤0 녹/회. localStorage(`mdr.deltaThreshold`)에 저장.
+- 기준일(asOfDate) 헤더에서 변경 → 즉시 클라이언트 재계산.
+
+## 8. Export — 엑셀 양식 그대로 (SHAW Defect Raw Data export 패턴 차용) ★
+
+### 8.1 출력 정책
+- **원본 엑셀 레이아웃·서식·테두리·색상·조건부서식 모두 포함**하여 재현.
+- 구현(`src/lib/mdr/exporter.ts`): 업로드 시 `mdr_snapshots.template_blob`에 저장된 **원본 워크북을 템플릿으로 로드** → 셀 객체의 `s`(스타일)는 보존, `v`(값)만 현재 DB 상태로 패치. 신규 워크북을 만들지 않음.
+- SD 컬럼은 양식대로 100% 완료(Y) 출력.
+- **앱 신규 컬럼(`Building`, `Item No.`)도 그대로 유지 출력** — 원본 A열 좌측에 컬럼 삽입(시트는 약간 확장되지만 의미 유지). 헤더 스타일은 인접 헤더 셀의 스타일을 복사.
+
+### 8.2 재임포트 마커 + 컬럼 매핑 사전
+- 시트 `Defined Name`에 `[Format: ALSMK_MDR_REIMPORT_V1]` 마커 삽입(SHAW의 `REIMPORT_MARKER` 패턴 차용).
+- **신규 컬럼 매핑 사전** `src/lib/mdr/columnMap.ts` 단일 출처:
+
+```ts
+export const MDR_COLUMN_MAP = {
+  no:        { header: 'No.',      source: 'original_a' },
+  building:  { header: 'Building', source: 'app_generated', preserveOnReimport: true },
+  itemNo:    { header: 'Item No.', source: 'app_generated', preserveOnReimport: true, key: true },
+  // discipline, job_no, area_code, function_code, serial_no, ...
+} as const;
 ```
 
-#### 셀 타입 분기
-- Start/Finish/Actual Finish → `setDateCell` + `dd-mmm-yy` numFmt (Excel 직렬 날짜)
-- Plan % / Actual % → 숫자 + `0"%"` 포맷
-- 차이 % → 숫자 + 색상 스타일 분기 (양수 녹색, 음수 빨강)
-- D-Day → 문자
-- Summary 행은 `STYLE_SUMMARY_ROW` 적용
-- Subtask "Type" 컬럼은 들여쓰기 유지
+- 임포트 파서는 헤더 텍스트로 신규 컬럼 인식 → `building_code`/`item_no` 자연키 복원. 신규 컬럼이 없는 원본 엑셀도 폴백(파일명에서 건물 추출).
+- 재임포트 시 마커 + Item No. 매칭. 정책상 기존 Y 보존, 신규 도면만 INSERT.
 
-#### Freeze pane & 컬럼 너비
-- `ySplit: 7` (헤더 고정), `xSplit: 3` (Type, Task Code, Assignee 고정)
-- 컬럼별 `wch` 지정: Task Code 14, Subject 36, Action Plan 32, Comments 50, 날짜 12, % 9 등
+### 8.3 파일명
+`{NN}_{건물}_MDR PROGRESS_{YYMMDD}.xlsx`. SUMMARY는 `00_SUMMARY_{YYMMDD}.xlsx`.
 
-#### 파일명
-`ALSMK_Workspace_Tasks_YYYYMMDD_HHMM.xlsx` (SHAW 타임스탬프 컨벤션)
+## 9. Admin — 가중치 표 (엑셀 그대로) ★
+SUMMARY 파일의 가중치 시트(분야×단계, 건물×분야 매트릭스)를 **엑셀 원본과 동일한 표 레이아웃**으로 Admin에 렌더링:
+- 좌측: 건물(행), 상단: 분야×단계(컬럼), 셀: weight value.
+- 셀 클릭 → inline 편집(Admin/PM만), 저장 시 `mdr_weights` upsert + `mdr_weights_audit` 로그.
+- 상단 토글: `참고값 (is_reference_only)` ↔ `활성 가중치`. "참고값 → 활성 적용" 버튼.
+- 기본값은 균등(1.0). SUMMARY 임포트 시 참고값으로 시드.
 
-#### 시트명
-`Action Plan` (기존 유지)
+## 10. 자동 스냅샷
+업로드 성공 시 (건물×분야×단계)별 1행씩 `mdr_snapshots` INSERT, `snapshot_date = 업로드일`. **원본 워크북 바이너리는 `template_blob`에 보관** — Export 템플릿으로 재사용.
 
-### 4. 필터 컨텍스트 반영
-현재 TaskTable의 `statusTab` (All / On Going Only)과 컬럼 필터를 export 메타에 표시하려면 Workspace ↔ TaskTable 간 상태 공유가 필요. 1차 구현에서는 `statusTab` 값을 lift-up하지 않고 메타 행에 `"Filter: (current view)"` 정도로만 표시하고, 추후 필요 시 props로 전달하도록 단순화.
+## 11. 권한
+`/design`, Import, Export, Y 토글, 가중치 편집: Admin/PM 전용. 카드·라우트·버튼 모두 게이트.
 
-## 변경 파일
-- 신규: `src/lib/excelStyles.ts`
-- 수정: `src/pages/Workspace.tsx` (handleExport)
-- 수정: `package.json` (xlsx-js-style 추가)
+## 12. 작업 순서
+1. 마이그레이션 (7테이블 + `template_blob` + `weights_audit` + 균등 시드).
+2. `src/lib/mdr/{parser,validator,progressEngine,exporter,columnMap,weights}.ts`.
+3. `/design` 셸 + Raw Data 격자(7장 컬럼 구조 + 임계 입력 + 기준일).
+4. Import 다이얼로그 + 검증 모달 + 자동 스냅샷(원본 blob 포함).
+5. Summary 탭(Export·스냅샷 목록·재다운로드), Admin 탭(가중치 매트릭스·감사 로그).
+6. 대시보드 진입 카드.
+7. 첨부 7개 파일 임포트 → 원본 양식 그대로 Export → 재임포트 라운드트립 검증.
 
-## 비변경 (의도적으로 건드리지 않음)
-- 대시보드 export (`dashboardExport.ts`) — 사용자가 My Workspace export만 요청
-- TaskTable의 필터 로직, UI
+## Phase 1 범위 밖
+Dashboard 시각화(S-curve, 지연 분포), 토목 제외·소방 별도 합산 UI, 주간 리포트는 Phase 2.

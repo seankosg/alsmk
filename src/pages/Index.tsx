@@ -13,6 +13,7 @@ import { PartStatusBoard } from "@/components/dashboard/PartStatusBoard";
 import { ExportReportDialog } from "@/components/dashboard/ExportReportDialog";
 import { KukuProgressOverview } from "@/components/dashboard/KukuProgressOverview";
 import { CpmSummaryBanner } from "@/components/dashboard/CpmSummaryBanner";
+import { DesignManagementCard } from "@/components/dashboard/DesignManagementCard";
 import { KukuCoverageRate } from "@/components/dashboard/KukuCoverageRate";
 import { KukuPredecessorWatch } from "@/components/dashboard/KukuPredecessorWatch";
 import { KukuDelayRiskBoard } from "@/components/dashboard/KukuDelayRiskBoard";
@@ -84,6 +85,12 @@ const Index = () => {
         </div>
         <ExportReportDialog />
       </div>
+
+      {isAdmin && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <DesignManagementCard />
+        </div>
+      )}
 
       <div data-export-id="milestone-timeline">
         <MilestoneTimeline />
