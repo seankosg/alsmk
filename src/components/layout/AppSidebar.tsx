@@ -1,4 +1,4 @@
-import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays, Network, ShieldAlert, Database } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays, Network, ShieldAlert, Database, History } from "lucide-react";
 import { useCpmLockStatus } from "@/hooks/useCpmLockStatus";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -21,7 +21,9 @@ const allNavItems = [
   { title: "Orphan Center", url: "/cpm/orphans", icon: ShieldAlert, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
   { title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
   { title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
-  { title: "Design Management", url: "/design", icon: Database, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
+  { title: "Design Dashboard", url: "/design/dashboard", icon: LayoutDashboard, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
+  { title: "Design Summary", url: "/design/summary", icon: History, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
+  { title: "Design Raw Data", url: "/design", icon: Database, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
   { title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
   { title: "Import", url: "/tasks/import", icon: Upload, adminOnly: true, guestVisible: false, superGuestVisible: false },
 ];
@@ -95,7 +97,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild className={item.title === "Messages" && unreadCount > 0 ? "pr-8" : undefined}>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/"}
+                      end={item.url === "/" || item.url === "/design"}
                       className="hover:bg-sidebar-accent/50 min-h-[44px] flex items-center"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
                       onClick={handleNavClick}

@@ -10,21 +10,24 @@ interface Props {
   buildingCode: string;
   asOf: string;
   threshold: number;
+  sheetName?: string;
 }
 
 const DD_PCTS = [30, 60, 90, 100];
 const CD_PCTS = [30, 60, 100];
 
-export function MdrRawDataGrid({ buildingCode, asOf, threshold }: Props) {
+export function MdrRawDataGrid({ buildingCode, asOf, threshold, sheetName }: Props) {
   const { data, isLoading } = useQuery({
-    queryKey: ["mdr_drawings", buildingCode],
+    queryKey: ["mdr_drawings", buildingCode, sheetName ?? null],
     queryFn: async () => {
-      const { data: drawings, error } = await supabase
+      let q = supabase
         .from("mdr_drawings" as never)
         .select("*, mdr_milestones(*), mdr_progress(*)")
         .eq("building_code", buildingCode)
         .order("discipline")
         .order("source_no");
+      if (sheetName) q = q.eq("source_sheet", sheetName);
+      const { data: drawings, error } = await q;
       if (error) throw error;
       return (drawings as any[]) ?? [];
     },
