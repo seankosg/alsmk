@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,13 +7,49 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { Upload, Download, History, Settings, LayoutDashboard, Database } from "lucide-react";
+import { Upload, Settings, Database } from "lucide-react";
 import { MdrImportDialog } from "@/components/mdr/MdrImportDialog";
 import { MdrRawDataGrid } from "@/components/mdr/MdrRawDataGrid";
-import { MdrSummaryPanel } from "@/components/mdr/MdrSummaryPanel";
 import { MdrWeightsEditor } from "@/components/mdr/MdrWeightsEditor";
 import { Navigate } from "react-router-dom";
+
+function BuildingSheets({ buildingCode, asOf, threshold }: { buildingCode: string; asOf: string; threshold: number }) {
+  const { data: sheets } = useQuery({
+    queryKey: ["mdr_drawings_sheets", buildingCode],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("mdr_drawings" as never)
+        .select("source_sheet, created_at")
+        .eq("building_code", buildingCode);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      for (const r of (data as any[]) ?? []) {
+        const s = r.source_sheet ?? "Sheet";
+        if (!map.has(s) || (r.created_at && r.created_at < map.get(s)!)) map.set(s, r.created_at);
+      }
+      return [...map.entries()].sort((a, b) => (a[1] ?? "").localeCompare(b[1] ?? "")).map(([s]) => s);
+    },
+  });
+
+  if (!sheets || sheets.length === 0) {
+    return <Card className="p-6 text-muted-foreground">시트 없음</Card>;
+  }
+
+  return (
+    <Tabs defaultValue={sheets[0]}>
+      <TabsList className="flex-wrap h-auto">
+        {sheets.map((s) => (
+          <TabsTrigger key={s} value={s}>{s}</TabsTrigger>
+        ))}
+      </TabsList>
+      {sheets.map((s) => (
+        <TabsContent key={s} value={s}>
+          <MdrRawDataGrid buildingCode={buildingCode} sheetName={s} asOf={asOf} threshold={threshold} />
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}
 
 export default function DesignManagement() {
   const { isAdminOrPm, loading } = useAuth();
@@ -51,7 +87,7 @@ export default function DesignManagement() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Database className="h-6 w-6" />
-            Design Management
+            Design Raw Data
           </h1>
           <p className="text-sm text-muted-foreground">MDR 도면 진척 관리 — 건물·분야별 SD / DD / CD</p>
         </div>
@@ -62,32 +98,15 @@ export default function DesignManagement() {
 
       <Tabs defaultValue="raw" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-1" />Dashboard</TabsTrigger>
-          <TabsTrigger value="summary"><History className="h-4 w-4 mr-1" />Summary</TabsTrigger>
           <TabsTrigger value="raw"><Database className="h-4 w-4 mr-1" />Raw Data</TabsTrigger>
           <TabsTrigger value="admin"><Settings className="h-4 w-4 mr-1" />Admin</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="dashboard">
-          <Card className="p-8 text-center text-muted-foreground">
-            Phase 2 예정: S-curve, 지연 분포, 가중치 롤업 차트
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="summary">
-          <MdrSummaryPanel />
-        </TabsContent>
 
         <TabsContent value="raw" className="space-y-3">
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="text-xs text-muted-foreground">기준일 (asOf)</label>
-              <Input
-                type="date"
-                value={asOf}
-                onChange={(e) => setAsOf(e.target.value)}
-                className="w-44"
-              />
+              <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-44" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Δ 지연 임계 (%)</label>
@@ -100,9 +119,7 @@ export default function DesignManagement() {
                 className="w-24"
               />
             </div>
-            <Badge variant="outline" className="ml-auto">
-              건물 {buildings?.length ?? 0}개
-            </Badge>
+            <Badge variant="outline" className="ml-auto">건물 {buildings?.length ?? 0}개</Badge>
           </div>
 
           {(!buildings || buildings.length === 0) ? (
@@ -117,8 +134,8 @@ export default function DesignManagement() {
                 ))}
               </TabsList>
               {buildings.map((b: any) => (
-                <TabsContent key={b.code} value={b.code}>
-                  <MdrRawDataGrid buildingCode={b.code} asOf={asOf} threshold={threshold} />
+                <TabsContent key={b.code} value={b.code} className="space-y-2">
+                  <BuildingSheets buildingCode={b.code} asOf={asOf} threshold={threshold} />
                 </TabsContent>
               ))}
             </Tabs>
@@ -136,6 +153,7 @@ export default function DesignManagement() {
         onImported={() => {
           qc.invalidateQueries({ queryKey: ["mdr_buildings"] });
           qc.invalidateQueries({ queryKey: ["mdr_drawings"] });
+          qc.invalidateQueries({ queryKey: ["mdr_drawings_sheets"] });
           qc.invalidateQueries({ queryKey: ["mdr_snapshots"] });
         }}
       />
