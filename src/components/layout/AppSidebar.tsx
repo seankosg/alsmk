@@ -97,7 +97,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild className={item.title === "Messages" && unreadCount > 0 ? "pr-8" : undefined}>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/"}
+                      end={item.url === "/" || item.url === "/design"}
                       className="hover:bg-sidebar-accent/50 min-h-[44px] flex items-center"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
                       onClick={handleNavClick}
