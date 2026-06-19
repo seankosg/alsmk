@@ -13,6 +13,7 @@ import TaskImport from "./pages/TaskImport";
 import Messages from "./pages/Messages";
 import Calendar from "./pages/Calendar";
 import CpmOrphanCenter from "./pages/CpmOrphanCenter";
+import DesignManagement from "./pages/DesignManagement";
 
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
@@ -55,6 +56,7 @@ const App = () => (
                   <Route path="/calendar" element={<Calendar />} />
                   <Route path="/cpm" element={<div />} />
                   <Route path="/cpm/orphans" element={<CpmOrphanCenter />} />
+                  <Route path="/design" element={<DesignManagement />} />
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
