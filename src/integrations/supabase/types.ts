@@ -406,6 +406,363 @@ export type Database = {
           },
         ]
       }
+      mdr_buildings: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mdr_drawings: {
+        Row: {
+          activity_group: string | null
+          actual_finish: string | null
+          area_code: string | null
+          building_code: string
+          created_at: string
+          discipline: string
+          drawing_title: string | null
+          function_code: string | null
+          id: string
+          item_no: string
+          job_no: string | null
+          out_of_scope: boolean
+          plan_finish: string | null
+          serial_no: string | null
+          source_no: string
+          source_sheet: string | null
+          updated_at: string
+        }
+        Insert: {
+          activity_group?: string | null
+          actual_finish?: string | null
+          area_code?: string | null
+          building_code: string
+          created_at?: string
+          discipline: string
+          drawing_title?: string | null
+          function_code?: string | null
+          id?: string
+          item_no: string
+          job_no?: string | null
+          out_of_scope?: boolean
+          plan_finish?: string | null
+          serial_no?: string | null
+          source_no: string
+          source_sheet?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activity_group?: string | null
+          actual_finish?: string | null
+          area_code?: string | null
+          building_code?: string
+          created_at?: string
+          discipline?: string
+          drawing_title?: string | null
+          function_code?: string | null
+          id?: string
+          item_no?: string
+          job_no?: string | null
+          out_of_scope?: boolean
+          plan_finish?: string | null
+          serial_no?: string | null
+          source_no?: string
+          source_sheet?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_drawings_building_code_fkey"
+            columns: ["building_code"]
+            isOneToOne: false
+            referencedRelation: "mdr_buildings"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      mdr_import_logs: {
+        Row: {
+          building_code: string | null
+          error_summary: string | null
+          filename: string
+          id: string
+          imported_at: string
+          imported_by: string | null
+          rows_inserted: number
+          rows_skipped: number
+          status: string
+          user_decisions: Json | null
+        }
+        Insert: {
+          building_code?: string | null
+          error_summary?: string | null
+          filename: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          rows_inserted?: number
+          rows_skipped?: number
+          status: string
+          user_decisions?: Json | null
+        }
+        Update: {
+          building_code?: string | null
+          error_summary?: string | null
+          filename?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          rows_inserted?: number
+          rows_skipped?: number
+          status?: string
+          user_decisions?: Json | null
+        }
+        Relationships: []
+      }
+      mdr_milestones: {
+        Row: {
+          created_at: string
+          drawing_id: string
+          id: string
+          increment_pct: number
+          pct: number
+          plan_date: string | null
+          stage: string
+        }
+        Insert: {
+          created_at?: string
+          drawing_id: string
+          id?: string
+          increment_pct?: number
+          pct: number
+          plan_date?: string | null
+          stage: string
+        }
+        Update: {
+          created_at?: string
+          drawing_id?: string
+          id?: string
+          increment_pct?: number
+          pct?: number
+          plan_date?: string | null
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_milestones_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: false
+            referencedRelation: "mdr_drawings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mdr_progress: {
+        Row: {
+          actual_date: string | null
+          confirmed_by: string | null
+          created_at: string
+          drawing_id: string
+          id: string
+          is_done: boolean
+          pct: number
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          actual_date?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          drawing_id: string
+          id?: string
+          is_done?: boolean
+          pct: number
+          stage: string
+          updated_at?: string
+        }
+        Update: {
+          actual_date?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          drawing_id?: string
+          id?: string
+          is_done?: boolean
+          pct?: number
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_progress_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: false
+            referencedRelation: "mdr_drawings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mdr_snapshots: {
+        Row: {
+          actual_pct: number | null
+          building_code: string | null
+          created_at: string
+          discipline: string | null
+          done_count: number | null
+          drawing_count: number | null
+          id: string
+          planned_pct: number | null
+          snapshot_date: string
+          source_filename: string | null
+          stage: string | null
+          template_blob: string | null
+        }
+        Insert: {
+          actual_pct?: number | null
+          building_code?: string | null
+          created_at?: string
+          discipline?: string | null
+          done_count?: number | null
+          drawing_count?: number | null
+          id?: string
+          planned_pct?: number | null
+          snapshot_date: string
+          source_filename?: string | null
+          stage?: string | null
+          template_blob?: string | null
+        }
+        Update: {
+          actual_pct?: number | null
+          building_code?: string | null
+          created_at?: string
+          discipline?: string | null
+          done_count?: number | null
+          drawing_count?: number | null
+          id?: string
+          planned_pct?: number | null
+          snapshot_date?: string
+          source_filename?: string | null
+          stage?: string | null
+          template_blob?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_snapshots_building_code_fkey"
+            columns: ["building_code"]
+            isOneToOne: false
+            referencedRelation: "mdr_buildings"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      mdr_weights: {
+        Row: {
+          building_code: string | null
+          created_at: string
+          discipline: string | null
+          id: string
+          is_reference_only: boolean
+          stage: string | null
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          building_code?: string | null
+          created_at?: string
+          discipline?: string | null
+          id?: string
+          is_reference_only?: boolean
+          stage?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          building_code?: string | null
+          created_at?: string
+          discipline?: string | null
+          id?: string
+          is_reference_only?: boolean
+          stage?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_weights_building_code_fkey"
+            columns: ["building_code"]
+            isOneToOne: false
+            referencedRelation: "mdr_buildings"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      mdr_weights_audit: {
+        Row: {
+          building_code: string | null
+          changed_at: string
+          changed_by: string | null
+          discipline: string | null
+          id: string
+          new_weight: number | null
+          note: string | null
+          old_weight: number | null
+          stage: string | null
+          weight_id: string | null
+        }
+        Insert: {
+          building_code?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          discipline?: string | null
+          id?: string
+          new_weight?: number | null
+          note?: string | null
+          old_weight?: number | null
+          stage?: string | null
+          weight_id?: string | null
+        }
+        Update: {
+          building_code?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          discipline?: string | null
+          id?: string
+          new_weight?: number | null
+          note?: string | null
+          old_weight?: number | null
+          stage?: string | null
+          weight_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_weights_audit_weight_id_fkey"
+            columns: ["weight_id"]
+            isOneToOne: false
+            referencedRelation: "mdr_weights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       members: {
         Row: {
           created_at: string
