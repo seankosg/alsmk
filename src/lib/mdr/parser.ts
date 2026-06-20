@@ -224,7 +224,7 @@ function parseSheet(
     // out of scope: 모든 마일스톤 increment 0 또는 SD/DD/CD 모두 비활성
     const allZero = milestones.every((m) => m.incrementPct === 0);
 
-    const itemNo = `${building}-${sourceNo}`;
+    const itemNo = `${building}-${discipline}-${sourceNo}`;
     rows.push({
       sourceNo,
       itemNo,
