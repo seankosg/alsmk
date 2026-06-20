@@ -1,36 +1,91 @@
 ## 문제
 
-Raw Data 그리드의 행 순서가 문자열 사전식으로 정렬되어 있어 No.가 `1 → 10 → 100 → 101 → 102 → … → 2` 같은 부자연스러운 순서로 나옵니다 (스크린샷 확인).
+`MdrAdvancedGrid` 의 표가 헤더 폭과 본문 셀 폭이 서로 어긋남.
 
 원인:
+1. `<table style={{ width: totalWidth, minWidth: "100%" }}>` — `table-layout`이 auto 라 브라우저가 헤더 셀 폭을 콘텐츠에 맞춰 재분배.
+2. 본문 `<tr>`은 `display:flex` + `<td style={{ width: getSize() }}>` 로 정확한 폭 강제. → 헤더(테이블 레이아웃)와 본문(flex) 두 레이아웃 시스템이 충돌해 어긋남.
+3. `minWidth: "100%"` 때문에 totalWidth < 컨테이너일 때 표가 늘어나면서 헤더만 더 벌어짐.
 
-- `MdrAdvancedGrid.tsx`의 Supabase 쿼리가 `.order("discipline").order("source_no")`로 텍스트 컬럼을 ASCII 정렬
-- `source_no`, `item_no`는 `"1"`, `"10"`, `"100"`처럼 숫자 문자열 또는 `"SMP&CCM-ARCH-1"`, `"SMP&CCM-ARCH-100"` 같은 혼합 문자열 → 자연 정렬 필요
-- TanStack table의 기본 정렬도 문자열이라, 헤더 클릭으로 정렬해도 동일하게 사전식
+## 참고
 
-## 변경
+SHAW PROJECT CMS `DefectRawDataPage.tsx` (1715–1798) 패턴을 그대로 적용:
+- 헤더/본문을 **하나의 `<table style={{ tableLayout: 'fixed', width: totalWidth }}>`** 안에 둠
+- 가로/세로 스크롤은 **하나의 컨테이너** (`overflow:auto`)가 모두 소유
+- 헤더 `<th>`는 `position: sticky; top: 0` 로 세로 스크롤 시 고정
+- 가상화는 `display:flex` 가 아니라 **상/하단 padding `<tr>` spacer + 일반 `<tr>`** 로 처리 → 테이블 레이아웃을 깨지 않음
 
-### 1. `src/components/mdr/grid/MdrAdvancedGrid.tsx`
+## 변경 파일
 
-- Supabase `.order("source_no")` 제거 (DB 정렬 의존 X)
-- `rows` 생성 후 클라이언트에서 자연 정렬:
-  - 1차: `discipline` (A, C, E, I, M, P, S 알파벳)
-  - 2차: `source_no`를 `localeCompare(b, undefined, { numeric: true, sensitivity: "base" })`로 비교
-- 헤더 클릭 시 사용자 정렬은 그대로 유지(이미 `sorting` 상태 존재)
+**`src/components/mdr/grid/MdrAdvancedGrid.tsx`** 한 파일만.
 
-### 2. `src/components/mdr/grid/columns.tsx`
+### 1. 본문 가상화 방식 교체
 
-숫자/혼합 문자열 컬럼에 자연 정렬 sortingFn 적용:
+기존:
+```tsx
+<tbody style={{ height: totalSize, position: relative, display: block }}>
+  {virtualItems.map(v => (
+    <tr className="absolute flex" style={{ transform: translateY(...) }}>
+      {cells.map(c => <td style={{ width: getSize() }}>...)}
+    </tr>
+  ))}
+</tbody>
+```
 
-- 공용 함수 `naturalSort(a, b)` 정의: `String(a).localeCompare(String(b), undefined, { numeric: true })`
-- 적용 컬럼:
-  - `source_no` (No.)
-  - `item_no` (Item No., 예: `SMP&CCM-ARCH-1` ~ `ARCH-100`)
-  - `building_code` — 영문 그대로지만 일관성 위해 동일 적용
-- 각 ColumnDef에 `sortingFn: naturalSort` 추가
-- 마일스톤 P/A/Δ 컬럼은 숫자값이므로 기본 sortingFn(alphanumeric)에서 동작하지만, `accessorFn`이 `null`을 반환할 수 있어 `sortUndefined: "last"` 옵션 추가 → 빈 셀이 항상 아래로
+신규(SHAW 패턴):
+```tsx
+<tbody>
+  {paddingTop > 0 && (
+    <tr aria-hidden style={{ height: paddingTop }}>
+      <td colSpan={visibleLeafColumns.length} style={{ padding:0, border:0 }} />
+    </tr>
+  )}
+  {virtualItems.map(v => {
+    const row = tableRows[v.index];
+    return (
+      <tr key={row.id} style={{ height: 32 }} className="border-t hover:bg-muted/30 ...">
+        {row.getVisibleCells().map(cell => (
+          <td
+            key={cell.id}
+            style={{
+              width: cell.column.getSize(),
+              minWidth: cell.column.getSize(),
+              maxWidth: cell.column.getSize(),
+              overflow: 'hidden',
+            }}
+            className="border-r px-2 py-1 truncate whitespace-nowrap"
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </td>
+        ))}
+      </tr>
+    );
+  })}
+  {paddingBottom > 0 && (
+    <tr aria-hidden style={{ height: paddingBottom }}>
+      <td colSpan={visibleLeafColumns.length} style={{ padding:0, border:0 }} />
+    </tr>
+  )}
+</tbody>
+```
 
-## 비범위
+`paddingTop = virtualItems[0]?.start ?? 0`, `paddingBottom = totalSize - (virtualItems.at(-1)?.end ?? 0)` 로 계산.
 
-- DB 스키마, source_no 정규화 등은 변경하지 않음
-- 컬럼 순서/표시(이전 작업)는 유지
+### 2. 테이블 레이아웃 고정
+
+- `<table>` 에 `style={{ width: totalWidth, tableLayout: 'fixed' }}` — `minWidth:"100%"` 제거 (totalWidth가 곧 본문 폭이며, 컨테이너가 작으면 가로 스크롤이 생김).
+- 각 `<th>` 도 `style={{ width, minWidth: width, maxWidth: width }}` 로 3종 모두 지정.
+
+### 3. 헤더 sticky 유지
+
+기존 `<thead className="sticky top-0 z-10 bg-muted">` 는 그대로 두되, SHAW와 동일하게 `<th>` 자체에 `position: sticky; top: 0; z-index: 2; background: hsl(var(--muted))` 를 적용해도 됨. 둘 중 안정적인 `<th>` 단위 sticky 사용.
+
+### 4. 스크롤 컨테이너
+
+`<div ref={tableRef} className="relative max-h-[70vh] overflow-auto">` 그대로 — 이미 SHAW와 동일하게 하나의 컨테이너가 가로/세로 스크롤을 소유. `TopHorizontalScrollbar` 는 기존대로 위쪽에 미러링.
+
+## 범위 외
+
+- `columns.tsx`, `TopHorizontalScrollbar.tsx`, 다른 파일 변경 없음
+- 정렬/필터/리사이즈/영속화 로직 변경 없음 (지난 턴 결과 유지)
+- frozen 컬럼(좌측 sticky) 도입은 별도 요청 시 진행

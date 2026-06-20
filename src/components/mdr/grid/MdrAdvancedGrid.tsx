@@ -342,70 +342,106 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
 
       <TopHorizontalScrollbar targetRef={tableRef} width={totalWidth} />
 
-      {/* 본문 */}
+      {/* 본문 — 헤더/본문이 동일 <table> 안에서 같은 가로 스크롤 좌표계를 공유 */}
       <div ref={tableRef} className="relative max-h-[70vh] overflow-auto">
-        <table className="text-xs" style={{ width: totalWidth, minWidth: "100%" }}>
-          <thead className="sticky top-0 z-10 bg-muted">
-            {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id}>
-                {hg.headers.map((header) => {
-                  const canSort = header.column.getCanSort();
-                  const sorted = header.column.getIsSorted();
-                  const canFilter = header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
-                  return (
-                    <th
-                      key={header.id}
-                      style={{ width: header.getSize(), position: "relative" }}
-                      className="border-r px-2 py-1.5 text-left font-medium"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span className={cn("flex-1 truncate", canSort && "cursor-pointer select-none")} onClick={canSort ? header.column.getToggleSortingHandler() : undefined}>
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {canSort && (
-                            sorted === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" />
-                            : sorted === "desc" ? <ArrowDown className="ml-1 inline h-3 w-3" />
-                            : <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
+        {(() => {
+          const virtualItems = rowVirtualizer.getVirtualItems();
+          const totalSize = rowVirtualizer.getTotalSize();
+          const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+          const paddingBottom = virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0;
+          const leafCount = visibleLeafColumns.length;
+          return (
+            <table className="text-xs" style={{ width: totalWidth, tableLayout: "fixed" }}>
+              <colgroup>
+                {visibleLeafColumns.map((col) => (
+                  <col key={col.id} style={{ width: col.getSize() }} />
+                ))}
+              </colgroup>
+              <thead>
+                {table.getHeaderGroups().map((hg) => (
+                  <tr key={hg.id}>
+                    {hg.headers.map((header) => {
+                      const canSort = header.column.getCanSort();
+                      const sorted = header.column.getIsSorted();
+                      const canFilter = header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
+                      const w = header.getSize();
+                      return (
+                        <th
+                          key={header.id}
+                          style={{
+                            width: w,
+                            minWidth: w,
+                            maxWidth: w,
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 2,
+                            background: "hsl(var(--muted))",
+                          }}
+                          className="border-r border-b px-2 py-1.5 text-left font-medium"
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className={cn("flex-1 truncate", canSort && "cursor-pointer select-none")} onClick={canSort ? header.column.getToggleSortingHandler() : undefined}>
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              {canSort && (
+                                sorted === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" />
+                                : sorted === "desc" ? <ArrowDown className="ml-1 inline h-3 w-3" />
+                                : <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
+                              )}
+                            </span>
+                            {canFilter && <ColumnFilterDropdown column={header.column} />}
+                          </div>
+                          {header.column.getCanResize() && (
+                            <div
+                              onMouseDown={header.getResizeHandler()}
+                              onTouchStart={header.getResizeHandler()}
+                              className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-transparent hover:bg-primary/30"
+                            />
                           )}
-                        </span>
-                        {canFilter && <ColumnFilterDropdown column={header.column} />}
-                      </div>
-                      {header.column.getCanResize() && (
-                        <div
-                          onMouseDown={header.getResizeHandler()}
-                          onTouchStart={header.getResizeHandler()}
-                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-transparent hover:bg-primary/30"
-                        />
-                      )}
-                    </th>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {paddingTop > 0 && (
+                  <tr aria-hidden style={{ height: paddingTop }}>
+                    <td colSpan={leafCount} style={{ padding: 0, border: 0 }} />
+                  </tr>
+                )}
+                {virtualItems.map((vrow) => {
+                  const row = tableRows[vrow.index];
+                  return (
+                    <tr
+                      key={row.id}
+                      data-index={vrow.index}
+                      className={cn("border-t hover:bg-muted/30", row.getIsSelected() && "bg-primary/10")}
+                      style={{ height: vrow.size }}
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const w = cell.column.getSize();
+                        return (
+                          <td
+                            key={cell.id}
+                            style={{ width: w, minWidth: w, maxWidth: w, overflow: "hidden" }}
+                            className="border-r px-2 py-1 truncate whitespace-nowrap"
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        );
+                      })}
+                    </tr>
                   );
                 })}
-              </tr>
-            ))}
-          </thead>
-          <tbody style={{ height: rowVirtualizer.getTotalSize(), position: "relative", display: "block" }}>
-            {rowVirtualizer.getVirtualItems().map((vrow) => {
-              const row = tableRows[vrow.index];
-              return (
-                <tr
-                  key={row.id}
-                  data-index={vrow.index}
-                  className={cn("absolute left-0 flex w-full border-t hover:bg-muted/30", row.getIsSelected() && "bg-primary/10")}
-                  style={{ transform: `translateY(${vrow.start}px)`, height: vrow.size }}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td
-                      key={cell.id}
-                      style={{ width: cell.column.getSize() }}
-                      className="border-r px-2 py-1"
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                {paddingBottom > 0 && (
+                  <tr aria-hidden style={{ height: paddingBottom }}>
+                    <td colSpan={leafCount} style={{ padding: 0, border: 0 }} />
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          );
+        })()}
       </div>
     </Card>
   );
