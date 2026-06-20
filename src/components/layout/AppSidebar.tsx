@@ -101,66 +101,70 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className={item.title === "Messages" && unreadCount > 0 ? "pr-8" : undefined}>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className="hover:bg-sidebar-accent/50 min-h-[44px] flex items-center"
-                      activeClassName="bg-sidebar-accent text-primary font-medium"
-                      onClick={handleNavClick}
-                    >
-                      <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                  {item.title === "Messages" && unreadCount > 0 && !collapsed && !readOnly && (
-                    <SidebarMenuBadge className="right-2 top-1/2 -translate-y-1/2 rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </SidebarMenuBadge>
-                  )}
-                </SidebarMenuItem>
-              ))}
-              {isAdminOrPm && (
-                <Collapsible defaultOpen={location.pathname.startsWith("/design")} className="group/collapsible">
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="hover:bg-sidebar-accent/50 min-h-[44px]">
-                        <FolderKanban className="mr-2 h-4 w-4 shrink-0" />
+              {navItems.map((item) => {
+                if (item.kind === "design-group") {
+                  return (
+                    <Collapsible key="design-group" defaultOpen={location.pathname.startsWith("/design")} className="group/collapsible">
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton className="hover:bg-sidebar-accent/50 min-h-[44px]">
+                            <FolderKanban className="mr-2 h-4 w-4 shrink-0" />
+                            {!collapsed && (
+                              <>
+                                <span>Design Management</span>
+                                <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                              </>
+                            )}
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
                         {!collapsed && (
-                          <>
-                            <span>Design Management</span>
-                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                          </>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {designSubItems.map((sub) => (
+                                <SidebarMenuSubItem key={sub.title}>
+                                  <SidebarMenuSubButton asChild>
+                                    <NavLink
+                                      to={sub.url}
+                                      end={sub.end}
+                                      className="hover:bg-sidebar-accent/50"
+                                      activeClassName="bg-sidebar-accent text-primary font-medium"
+                                      onClick={handleNavClick}
+                                    >
+                                      <sub.icon className="mr-2 h-4 w-4 shrink-0" />
+                                      <span>{sub.title}</span>
+                                    </NavLink>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
                         )}
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    {!collapsed && (
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {designSubItems.map((sub) => (
-                            <SidebarMenuSubItem key={sub.title}>
-                              <SidebarMenuSubButton asChild>
-                                <NavLink
-                                  to={sub.url}
-                                  end={sub.end}
-                                  className="hover:bg-sidebar-accent/50"
-                                  activeClassName="bg-sidebar-accent text-primary font-medium"
-                                  onClick={handleNavClick}
-                                >
-                                  <sub.icon className="mr-2 h-4 w-4 shrink-0" />
-                                  <span>{sub.title}</span>
-                                </NavLink>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild className={item.title === "Messages" && unreadCount > 0 ? "pr-8" : undefined}>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === "/"}
+                        className="hover:bg-sidebar-accent/50 min-h-[44px] flex items-center"
+                        activeClassName="bg-sidebar-accent text-primary font-medium"
+                        onClick={handleNavClick}
+                      >
+                        <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                    {item.title === "Messages" && unreadCount > 0 && !collapsed && !readOnly && (
+                      <SidebarMenuBadge className="right-2 top-1/2 -translate-y-1/2 rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </SidebarMenuBadge>
                     )}
                   </SidebarMenuItem>
-                </Collapsible>
-              )}
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
