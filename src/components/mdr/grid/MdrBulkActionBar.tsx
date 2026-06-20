@@ -89,6 +89,28 @@ export function MdrBulkActionBar({ selectedRows, onClearSelection, visibleColumn
     }
   };
 
+  const handleDelete = async () => {
+    setBusy(true);
+    try {
+      const res = await applyMdrBulkDelete({ ids, userName });
+      await queryClient.invalidateQueries({ queryKey: ["mdr_drawings"] });
+      if (res.failed === 0) {
+        toast({ title: "삭제 완료", description: `${res.ok}행 영구 제거` });
+      } else {
+        toast({
+          title: "일부 실패",
+          description: `성공 ${res.ok} / 실패 ${res.failed}${res.errors[0] ? ` — ${res.errors[0]}` : ""}`,
+          variant: "destructive",
+        });
+      }
+      setDeleteOpen(false);
+      setDeleteConfirmText("");
+      onClearSelection();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
