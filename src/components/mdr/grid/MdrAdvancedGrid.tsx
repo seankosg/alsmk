@@ -52,8 +52,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         .from("mdr_drawings" as never)
         .select("*, mdr_milestones(*), mdr_progress(*)")
         .eq("building_code", buildingCode)
-        .order("discipline")
-        .order("source_no");
+        .order("discipline");
       if (sheetName) q = q.eq("source_sheet", sheetName);
       const { data: drawings, error } = await q;
       if (error) throw error;
