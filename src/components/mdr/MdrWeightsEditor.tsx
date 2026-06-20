@@ -3,101 +3,191 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  DEFAULT_BUILDING_WF,
+  DEFAULT_DISCIPLINE_WF,
+  DEFAULT_STAGE_WF,
+  loadMdrWeights,
+  type StageCode,
+} from "@/lib/mdr/weights";
+import { RotateCcw, Save } from "lucide-react";
 
-const STAGES = ["SD", "DD", "CD"] as const;
+type Scope = "stage" | "discipline" | "building";
+
+interface DraftRow {
+  scope: Scope;
+  key: string;        // 'SD' | 'ARCH' | 'SMP&CCM'
+  value: number;
+}
 
 export function MdrWeightsEditor() {
   const qc = useQueryClient();
-  const { data: buildings } = useQuery({
-    queryKey: ["mdr_buildings"],
-    queryFn: async () => {
-      const { data } = await supabase.from("mdr_buildings" as never).select("*").order("sort_order");
-      return (data as any[]) ?? [];
-    },
-  });
-  const { data: weights } = useQuery({
-    queryKey: ["mdr_weights"],
-    queryFn: async () => {
-      const { data } = await supabase.from("mdr_weights" as never).select("*").eq("is_reference_only", false);
-      return (data as any[]) ?? [];
-    },
+  const [draft, setDraft] = useState<DraftRow[]>([]);
+
+  const { data: wf, isLoading } = useQuery({
+    queryKey: ["mdr_wf_bundle"],
+    queryFn: loadMdrWeights,
   });
 
-  const upsert = useMutation({
-    mutationFn: async (payload: { building: string; stage: string; weight: number }) => {
-      const { error } = await supabase.from("mdr_weights" as never).upsert(
-        {
-          building_code: payload.building,
-          discipline: null,
-          stage: payload.stage,
-          weight: payload.weight,
-          is_reference_only: false,
-        } as any,
-        { onConflict: "building_code,discipline,stage,is_reference_only" },
-      );
+  // wf 로드되면 draft 초기화
+  useEffect(() => {
+    if (!wf) return;
+    const rows: DraftRow[] = [];
+    for (const s of ["SD", "DD", "CD"] as StageCode[]) {
+      rows.push({ scope: "stage", key: s, value: wf.stage[s] });
+    }
+    const discKeys = new Set([...Object.keys(DEFAULT_DISCIPLINE_WF), ...Object.keys(wf.discipline)]);
+    for (const d of discKeys) {
+      rows.push({ scope: "discipline", key: d, value: wf.discipline[d] ?? 0 });
+    }
+    const bldKeys = new Set([...Object.keys(DEFAULT_BUILDING_WF), ...Object.keys(wf.building)]);
+    for (const b of bldKeys) {
+      rows.push({ scope: "building", key: b, value: wf.building[b] ?? 0 });
+    }
+    setDraft(rows);
+  }, [wf]);
+
+  const save = useMutation({
+    mutationFn: async (rows: DraftRow[]) => {
+      // 기존 non-reference WF 모두 삭제 후 재삽입 (NULL unique 회피)
+      await (supabase.from("mdr_weights" as never) as any)
+        .delete()
+        .eq("is_reference_only", false);
+
+      const payload = rows
+        .filter((r) => isFinite(r.value))
+        .map((r) => {
+          if (r.scope === "stage") {
+            return { building_code: null, discipline: null, stage: r.key, weight: r.value, is_reference_only: false };
+          }
+          if (r.scope === "discipline") {
+            return { building_code: null, discipline: r.key, stage: null, weight: r.value, is_reference_only: false };
+          }
+          return { building_code: r.key, discipline: null, stage: null, weight: r.value, is_reference_only: false };
+        });
+      if (payload.length === 0) return;
+      const { error } = await supabase.from("mdr_weights" as never).insert(payload as any);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["mdr_weights"] });
-      toast.success("저장됨");
+      toast.success("가중치 저장됨");
+      qc.invalidateQueries({ queryKey: ["mdr_wf_bundle"] });
+      qc.invalidateQueries({ queryKey: ["mdr_summary_engine"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message ?? "저장 실패"),
   });
 
-  const getWeight = (building: string, stage: string) => {
-    const w = weights?.find((x: any) => x.building_code === building && x.stage === stage);
-    return w?.weight ?? 1;
+  const updateValue = (scope: Scope, key: string, v: number) => {
+    setDraft((d) => d.map((r) => (r.scope === scope && r.key === key ? { ...r, value: v } : r)));
   };
 
+  const resetDefaults = () => {
+    const rows: DraftRow[] = [];
+    for (const s of ["SD", "DD", "CD"] as StageCode[]) rows.push({ scope: "stage", key: s, value: DEFAULT_STAGE_WF[s] });
+    for (const [d, v] of Object.entries(DEFAULT_DISCIPLINE_WF)) rows.push({ scope: "discipline", key: d, value: v });
+    for (const [b, v] of Object.entries(DEFAULT_BUILDING_WF)) rows.push({ scope: "building", key: b, value: v });
+    setDraft(rows);
+    toast.info("기본값으로 되돌렸습니다. 저장 버튼을 눌러 반영하세요.");
+  };
+
+  if (isLoading) return <Card className="p-6 text-muted-foreground">로딩 중...</Card>;
+
+  const stageRows = draft.filter((r) => r.scope === "stage");
+  const discRows = draft.filter((r) => r.scope === "discipline");
+  const bldRows = draft.filter((r) => r.scope === "building");
+
+  const sum = (rows: DraftRow[]) => rows.reduce((a, r) => a + (isFinite(r.value) ? r.value : 0), 0);
+  const stageSum = sum(stageRows);
+  const discSum = sum(discRows);
+  const bldSum = sum(bldRows);
+
   return (
-    <Card className="p-4 overflow-auto">
-      <h3 className="font-semibold mb-3">가중치 매트릭스 (Building × Stage)</h3>
-      <p className="text-xs text-muted-foreground mb-3">기본값 1.0 (균등). 셀을 수정하면 즉시 저장됩니다.</p>
-      <table className="text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="px-3 py-2 text-left">Building</th>
-            {STAGES.map((s) => <th key={s} className="px-3 py-2">{s}</th>)}
-          </tr>
-        </thead>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">SUMMARY 가중치 (WF) 편집</h3>
+          <p className="text-xs text-muted-foreground">합계가 1.0이 되도록 조정하세요. 변경은 SUMMARY 진척률에 즉시 반영됩니다.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={resetDefaults}>
+            <RotateCcw className="h-3.5 w-3.5 mr-1" />기본값
+          </Button>
+          <Button size="sm" onClick={() => save.mutate(draft)} disabled={save.isPending}>
+            <Save className="h-3.5 w-3.5 mr-1" />저장
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <WfCard
+          title="Stage WF"
+          sumLabel={stageSum}
+          rows={stageRows}
+          onChange={(k, v) => updateValue("stage", k, v)}
+        />
+        <WfCard
+          title="Discipline WF"
+          sumLabel={discSum}
+          rows={discRows}
+          onChange={(k, v) => updateValue("discipline", k, v)}
+        />
+        <WfCard
+          title="Building WF (공사비)"
+          sumLabel={bldSum}
+          rows={bldRows}
+          onChange={(k, v) => updateValue("building", k, v)}
+          note="WF=0인 건물은 Overall 합산에서 제외됩니다 (예: GEN 플랜트 업역)"
+        />
+      </div>
+    </div>
+  );
+}
+
+function WfCard({
+  title, sumLabel, rows, onChange, note,
+}: {
+  title: string;
+  sumLabel: number;
+  rows: DraftRow[];
+  onChange: (key: string, v: number) => void;
+  note?: string;
+}) {
+  const ok = Math.abs(sumLabel - 1) < 0.001;
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-medium text-sm">{title}</h4>
+        <Badge variant={ok ? "default" : "destructive"} className="text-[10px]">
+          Σ = {(sumLabel * 100).toFixed(1)}%
+        </Badge>
+      </div>
+      {note && <p className="text-[10px] text-muted-foreground mb-2">{note}</p>}
+      <table className="w-full text-sm">
         <tbody>
-          {(buildings ?? []).map((b: any) => (
-            <tr key={b.code} className="border-b">
-              <td className="px-3 py-1 font-medium">{b.code}</td>
-              {STAGES.map((s) => (
-                <td key={s} className="px-1 py-1">
-                  <WeightInput
-                    value={getWeight(b.code, s)}
-                    onSave={(v) => upsert.mutate({ building: b.code, stage: s, weight: v })}
-                  />
-                </td>
-              ))}
+          {rows.map((r) => (
+            <tr key={r.key} className="border-b">
+              <td className="py-1 font-medium">{r.key}</td>
+              <td className="py-1">
+                <Input
+                  type="number"
+                  step={0.01}
+                  min={0}
+                  max={1}
+                  value={r.value}
+                  onChange={(e) => onChange(r.key, parseFloat(e.target.value) || 0)}
+                  className="h-8 w-24 ml-auto text-right tabular-nums"
+                />
+              </td>
             </tr>
           ))}
-          {(buildings ?? []).length === 0 && (
-            <tr><td colSpan={STAGES.length + 1} className="text-center text-muted-foreground py-6">건물 없음</td></tr>
+          {rows.length === 0 && (
+            <tr><td className="text-muted-foreground text-xs py-2">없음</td></tr>
           )}
         </tbody>
       </table>
     </Card>
-  );
-}
-
-function WeightInput({ value, onSave }: { value: number; onSave: (v: number) => void }) {
-  const [v, setV] = useState(String(value));
-  return (
-    <Input
-      type="number"
-      step={0.1}
-      value={v}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        const n = parseFloat(v);
-        if (!isNaN(n) && n !== value) onSave(n);
-      }}
-      className="w-20 h-8 text-center"
-    />
   );
 }
