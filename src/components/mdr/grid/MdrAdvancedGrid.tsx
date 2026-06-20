@@ -25,7 +25,7 @@ import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { drawingStagePct } from "@/lib/mdr/progressEngine";
+import { drawingStagePct, drawingMilestonePlannedPct } from "@/lib/mdr/progressEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
@@ -71,13 +71,26 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       const cd = drawingStagePct(ms, pg, "CD", asOf);
       const overall = (sd.actual + dd.actual + cd.actual) / 3;
 
+      const msRows = ms.map((x: any) => ({
+        stage: x.stage,
+        pct: Number(x.pct),
+        incrementPct: Number(x.increment_pct),
+        planDate: x.plan_date ?? null,
+      }));
+
       const buildCell = (stage: MdrStage, pct: number) => {
         const m = ms.find((x: any) => x.stage === stage && x.pct === pct);
         const p = pg.find((x: any) => x.stage === stage && x.pct === pct);
         if (!m) return null;
         const aShow = p?.is_done ? Number(m.increment_pct) : 0;
-        const pShow = Number(m.increment_pct);
-        return { p: pShow, a: aShow, delta: pShow - aShow };
+        const pShow = drawingMilestonePlannedPct(msRows, stage, pct, asOf);
+        return {
+          p: pShow,
+          a: aShow,
+          delta: pShow - aShow,
+          planDate: m.plan_date ?? null,
+          actualDate: p?.is_done ? (p?.actual_date ?? null) : null,
+        };
       };
 
       const sdCells: MdrDrawingRow["sdCells"] = {};
@@ -159,7 +172,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
     columns.forEach((c: any) => {
       const id = c.id;
-      if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d)$/.test(id) && !(id in cleaned)) {
+      if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/.test(id) && !(id in cleaned)) {
         defaults[id] = false;
       }
     });
@@ -241,10 +254,14 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           progress_icon: "Progress",
         };
         if (base[id]) return base[id];
-        // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d → "SD50 P" 등
-        const m = id.match(/^(sd|dd|cd)_(\d+)_(p|a|d)$/);
+        // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d / dd_60_pd / dd_60_ad → "SD50 P" / "DD60 계획일" 등
+        const m = id.match(/^(sd|dd|cd)_(\d+)_(pd|ad|p|a|d)$/);
         if (m) {
-          const suffix = m[3] === "d" ? "Δ" : m[3].toUpperCase();
+          const sfx = m[3];
+          const suffix =
+            sfx === "pd" ? "계획일" :
+            sfx === "ad" ? "실적일" :
+            sfx === "d" ? "Δ" : sfx.toUpperCase();
           return `${m[1].toUpperCase()}${m[2]} ${suffix}`;
         }
         return fallback;
@@ -276,6 +293,11 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         if (id === "updated_at") {
           const v = value as string | null;
           return v ? v.slice(0, 16).replace("T", " ") : "-";
+        }
+        // 마일스톤 날짜 컬럼
+        if (/^(sd|dd|cd)_\d+_(pd|ad)$/.test(id)) {
+          const v = value as string | null;
+          return v ? v.slice(0, 10) : "-";
         }
         // 마일스톤 분리 컬럼: null이면 "-", 숫자면 반올림
         if (/^(sd|dd|cd)_\d+_(p|a|d)$/.test(id)) {
