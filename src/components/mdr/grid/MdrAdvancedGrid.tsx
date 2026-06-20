@@ -126,12 +126,21 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     return "text-destructive font-semibold";
   };
 
-  const columns = useMemo(() => buildMdrColumns(deltaCls), [threshold]);
-  const validColumnIds = useMemo(() => new Set(columns.map((c: any) => c.id ?? c.accessorKey).filter(Boolean)), [columns]);
-
-  // 영속화 (rowSelection 제외)
+  // 영속화 (rowSelection 제외) — 컬럼 빌드 전에 먼저 읽어 groupCollapsed 초기화에 사용
   const persistKey = user ? `mdr-raw-grid-state:${user.id}:${buildingCode}:${sheetName ?? "all"}` : null;
   const [persisted, setPersisted] = useGridStatePersistence(persistKey);
+
+  const [groupCollapsed, setGroupCollapsed] = useState<{ dd: boolean; cd: boolean }>(
+    () => persisted.groupCollapsed ?? { dd: false, cd: false },
+  );
+  const onToggleGroup = (g: ProgressGroup) =>
+    setGroupCollapsed((s) => ({ ...s, [g]: !s[g] }));
+
+  const columns = useMemo(
+    () => buildMdrColumns(deltaCls, { collapsed: groupCollapsed, onToggleGroup, asOf }),
+    [threshold, groupCollapsed, asOf],
+  );
+  const validColumnIds = useMemo(() => new Set(columns.map((c: any) => c.id ?? c.accessorKey).filter(Boolean)), [columns]);
 
   // 옛 컬럼 ID 정리 (예: dd_30, cd_60 등 → 신규 dd_30_p/a/d 로 대체됨)
   const pruneById = <T extends { id: string }>(arr: T[]) => arr.filter((x) => validColumnIds.has(x.id));
@@ -143,11 +152,17 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => pruneRecord(persisted.columnSizing));
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
     const cleaned = pruneRecord(persisted.columnVisibility);
-    // 최초 1회: 영속 상태에 mark 컬럼이 없으면 기본 숨김 적용
+    // 최초 1회 기본값: mark 컬럼 + SD/DD/CD 세부 P/A/Δ 컬럼은 숨김 (Progress 아이콘으로 대체)
     const defaults: VisibilityState = {};
     if (!("sd_mark" in cleaned)) defaults.sd_mark = false;
     if (!("dd_mark" in cleaned)) defaults.dd_mark = false;
     if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
+    columns.forEach((c: any) => {
+      const id = c.id;
+      if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d)$/.test(id) && !(id in cleaned)) {
+        defaults[id] = false;
+      }
+    });
     return { ...defaults, ...cleaned };
   });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -160,8 +175,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   }, [globalFilter]);
 
   useEffect(() => {
-    setPersisted({ sorting, columnFilters, columnSizing, columnVisibility });
-  }, [sorting, columnFilters, columnSizing, columnVisibility, setPersisted]);
+    setPersisted({ sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed });
+  }, [sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed, setPersisted]);
 
   const table = useReactTable({
     data: sortedRows,
