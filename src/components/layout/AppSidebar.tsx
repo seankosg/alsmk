@@ -14,13 +14,17 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "./AppLayout";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
-const allNavItems = [
+type NavItem =
+  | { type?: undefined; title: string; url: string; icon: any; adminOnly?: boolean; adminOrPmOnly?: boolean; guestVisible: boolean; superGuestVisible: boolean }
+  | { type: "design-group" };
+
+const allNavItems: NavItem[] = [
   { title: "Project Dashboard", url: "/", icon: LayoutDashboard, guestVisible: true, superGuestVisible: true },
-  { title: "Calendar", url: "/calendar", icon: CalendarDays, guestVisible: false, superGuestVisible: true },
+  { type: "design-group" },
+  { title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
   { title: "My Dashboard", url: "/my", icon: User, guestVisible: false, superGuestVisible: true },
   { title: "My Workspace", url: "/workspace", icon: Briefcase, guestVisible: false, superGuestVisible: true },
-  { title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
-  
+  { title: "Calendar", url: "/calendar", icon: CalendarDays, guestVisible: false, superGuestVisible: true },
   { title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
   { title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
   { title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
