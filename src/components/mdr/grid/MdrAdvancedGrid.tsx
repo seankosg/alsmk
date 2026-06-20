@@ -238,6 +238,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           sd_mark: "SD", dd_mark: "DD", cd_mark: "CD",
           dd_pct: "DD%", cd_pct: "CD%", overall_pct: "Overall%",
           plan_finish: "Plan Finish", updated_at: "Updated",
+          progress_icon: "Progress",
         };
         if (base[id]) return base[id];
         // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d → "SD50 P" 등
