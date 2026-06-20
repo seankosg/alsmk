@@ -87,6 +87,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       const cdCells: MdrDrawingRow["cdCells"] = {};
       CD_PCTS.forEach((p) => { cdCells[p] = buildCell("CD", p); });
 
+      const progressIconCells = buildMdrProgressIconCells(ms, pg, asOf);
+
       return {
         id: d.id,
         source_no: d.source_no,
@@ -105,6 +107,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         sdCells,
         ddCells,
         cdCells,
+        progressIconCells,
         _raw: d,
       };
     });
