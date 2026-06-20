@@ -159,7 +159,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   }, [sorting, columnFilters, columnSizing, columnVisibility, setPersisted]);
 
   const table = useReactTable({
-    data: rows,
+    data: sortedRows,
     columns,
     state: { sorting, columnFilters, columnSizing, columnVisibility, rowSelection, globalFilter: debouncedGlobal },
     onSortingChange: setSorting,
