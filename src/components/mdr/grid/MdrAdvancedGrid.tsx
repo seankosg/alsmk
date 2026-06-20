@@ -25,7 +25,7 @@ import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { drawingStagePct } from "@/lib/mdr/progressEngine";
+import { drawingStagePct, drawingMilestonePlannedPct } from "@/lib/mdr/progressEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
@@ -71,13 +71,26 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       const cd = drawingStagePct(ms, pg, "CD", asOf);
       const overall = (sd.actual + dd.actual + cd.actual) / 3;
 
+      const msRows = ms.map((x: any) => ({
+        stage: x.stage,
+        pct: Number(x.pct),
+        incrementPct: Number(x.increment_pct),
+        planDate: x.plan_date ?? null,
+      }));
+
       const buildCell = (stage: MdrStage, pct: number) => {
         const m = ms.find((x: any) => x.stage === stage && x.pct === pct);
         const p = pg.find((x: any) => x.stage === stage && x.pct === pct);
         if (!m) return null;
         const aShow = p?.is_done ? Number(m.increment_pct) : 0;
-        const pShow = Number(m.increment_pct);
-        return { p: pShow, a: aShow, delta: pShow - aShow };
+        const pShow = drawingMilestonePlannedPct(msRows, stage, pct, asOf);
+        return {
+          p: pShow,
+          a: aShow,
+          delta: pShow - aShow,
+          planDate: m.plan_date ?? null,
+          actualDate: p?.is_done ? (p?.actual_date ?? null) : null,
+        };
       };
 
       const sdCells: MdrDrawingRow["sdCells"] = {};
