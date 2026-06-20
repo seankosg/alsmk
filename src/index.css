@@ -97,6 +97,16 @@
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
     height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
 }
 
 /* Light scope: 특정 페이지(Raw Data, My Workspace)만 라이트 테마로 강제.
@@ -122,14 +132,6 @@
   --input: 218 22% 90%;
   --ring: 215 90% 55%;
   color-scheme: light;
-}
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full;
-  }
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
-  }
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
