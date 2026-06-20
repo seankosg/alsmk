@@ -14,21 +14,21 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "./AppLayout";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
-type NavItem =
-  | { type?: undefined; title: string; url: string; icon: any; adminOnly?: boolean; adminOrPmOnly?: boolean; guestVisible: boolean; superGuestVisible: boolean }
-  | { type: "design-group" };
+type FlatNavItem = { kind: "link"; title: string; url: string; icon: any; adminOnly?: boolean; adminOrPmOnly?: boolean; guestVisible: boolean; superGuestVisible: boolean };
+type DesignGroupItem = { kind: "design-group" };
+type NavItem = FlatNavItem | DesignGroupItem;
 
 const allNavItems: NavItem[] = [
-  { title: "Project Dashboard", url: "/", icon: LayoutDashboard, guestVisible: true, superGuestVisible: true },
-  { type: "design-group" },
-  { title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
-  { title: "My Dashboard", url: "/my", icon: User, guestVisible: false, superGuestVisible: true },
-  { title: "My Workspace", url: "/workspace", icon: Briefcase, guestVisible: false, superGuestVisible: true },
-  { title: "Calendar", url: "/calendar", icon: CalendarDays, guestVisible: false, superGuestVisible: true },
-  { title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
-  { title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
-  { title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
-  { title: "Import", url: "/tasks/import", icon: Upload, adminOnly: true, guestVisible: false, superGuestVisible: false },
+  { kind: "link", title: "Project Dashboard", url: "/", icon: LayoutDashboard, guestVisible: true, superGuestVisible: true },
+  { kind: "design-group" },
+  { kind: "link", title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "My Dashboard", url: "/my", icon: User, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "My Workspace", url: "/workspace", icon: Briefcase, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "Calendar", url: "/calendar", icon: CalendarDays, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
+  { kind: "link", title: "Import", url: "/tasks/import", icon: Upload, adminOnly: true, guestVisible: false, superGuestVisible: false },
 ];
 
 const designSubItems = [
