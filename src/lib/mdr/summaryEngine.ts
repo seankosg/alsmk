@@ -221,7 +221,7 @@ async function fetchSummary(): Promise<MdrSummary> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("mdr_drawings" as never)
-      .select("id, building_code, discipline, out_of_scope, mdr_milestones(stage,pct,plan_date), mdr_progress(stage,pct,is_done)")
+      .select("id, building_code, discipline, out_of_scope, mdr_milestones(stage,pct,plan_date), mdr_progress(stage,pct,is_done,actual_date)")
       .eq("out_of_scope", false)
       .range(from, from + PAGE - 1);
     if (error) throw error;
@@ -230,6 +230,7 @@ async function fetchSummary(): Promise<MdrSummary> {
     if (chunk.length < PAGE) break;
   }
 
+  const dataDate = new Date().toISOString().slice(0, 10);
 
   const byBuilding = new Map<string, RawDrawing[]>();
   for (const d of rows) {
@@ -241,10 +242,9 @@ async function fetchSummary(): Promise<MdrSummary> {
 
   const blocks: BlockSummary[] = [];
   for (const [building, list] of byBuilding.entries()) {
-    blocks.push(computeBlock(building, list, wf));
+    blocks.push(computeBlock(building, list, wf, dataDate));
   }
 
-  // Building 순서: WF 큰 순 → 이름순
   blocks.sort((a, b) => (b.buildingWf - a.buildingWf) || a.building.localeCompare(b.building));
 
   let overallProgress = 0;
@@ -254,13 +254,12 @@ async function fetchSummary(): Promise<MdrSummary> {
     if (b.contributesToOverall) {
       overallProgress += b.blockProgress * b.buildingWf;
       overallDwg += b.drawingCount;
-      // 도면 단위 actual: 모든 plan된 stage에서 100% 도달
-      // 단순화: CD가 100%인 도면 수만 카운트 (CD가 최종 단계)
-      overallActual += b.totals.cd.actual;
+      // CD actual %를 도면 수로 환산
+      overallActual += Math.round(b.totals.cd.actual * b.totals.cd.drawingCount);
     }
   }
 
-  return { blocks, overallProgress, overallDrawingCount: overallDwg, overallActualCount: overallActual, wf };
+  return { blocks, overallProgress, overallDrawingCount: overallDwg, overallActualCount: overallActual, wf, dataDate };
 }
 
 export function useMdrSummary() {
