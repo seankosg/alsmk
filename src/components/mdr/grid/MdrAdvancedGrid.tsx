@@ -52,8 +52,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         .from("mdr_drawings" as never)
         .select("*, mdr_milestones(*), mdr_progress(*)")
         .eq("building_code", buildingCode)
-        .order("discipline")
-        .order("source_no");
+        .order("discipline");
       if (sheetName) q = q.eq("source_sheet", sheetName);
       const { data: drawings, error } = await q;
       if (error) throw error;
@@ -109,6 +108,13 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     });
   }, [data, asOf]);
 
+  // 자연 정렬 기본 순서: discipline → source_no (numeric)
+  const sortedRows = useMemo(() => {
+    const cmp = (a: string | null, b: string | null) =>
+      String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
+    return [...rows].sort((a, b) => cmp(a.discipline, b.discipline) || cmp(a.source_no, b.source_no));
+  }, [rows]);
+
   const deltaCls = (delta: number) => {
     if (delta <= 0) return "text-green-600";
     if (delta < threshold) return "text-yellow-500";
@@ -153,7 +159,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   }, [sorting, columnFilters, columnSizing, columnVisibility, setPersisted]);
 
   const table = useReactTable({
-    data: rows,
+    data: sortedRows,
     columns,
     state: { sorting, columnFilters, columnSizing, columnVisibility, rowSelection, globalFilter: debouncedGlobal },
     onSortingChange: setSorting,

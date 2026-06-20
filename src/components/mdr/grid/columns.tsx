@@ -31,6 +31,12 @@ export const CD_PCTS = [30, 60, 100];
 const DISCIPLINE_OPTIONS = ["A", "S", "M", "E", "P", "C", "I"].map((v) => ({ value: v, label: v }));
 const MARK_OPTIONS = [{ value: "O", label: "O" }, { value: "-", label: "-" }];
 
+const naturalSort = (rowA: any, rowB: any, columnId: string) => {
+  const a = rowA.getValue(columnId);
+  const b = rowB.getValue(columnId);
+  return String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
+};
+
 type Stage = "sd" | "dd" | "cd";
 
 function buildMilestoneCols(
@@ -41,6 +47,14 @@ function buildMilestoneCols(
 ): ColumnDef<MdrDrawingRow>[] {
   const cols: ColumnDef<MdrDrawingRow>[] = [];
   const upper = stage.toUpperCase();
+  const numericSort = (a: any, b: any, id: string) => {
+    const va = a.getValue(id);
+    const vb = b.getValue(id);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return Number(va) - Number(vb);
+  };
   for (const p of pcts) {
     const base = `${stage}_${p}`;
     // Plan
@@ -51,6 +65,8 @@ function buildMilestoneCols(
       size: 64,
       enableSorting: true,
       enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
       filterFn: progressFilterFn,
       meta: { filterType: "text" },
       cell: ({ getValue }) => {
@@ -67,6 +83,8 @@ function buildMilestoneCols(
       size: 64,
       enableSorting: true,
       enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
       filterFn: progressFilterFn,
       meta: { filterType: "text" },
       cell: ({ getValue }) => {
@@ -83,6 +101,8 @@ function buildMilestoneCols(
       size: 64,
       enableSorting: true,
       enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
       filterFn: progressFilterFn,
       meta: { filterType: "text" },
       cell: ({ getValue }) => {
@@ -126,16 +146,19 @@ export function buildMdrColumns(deltaCls: (delta: number) => string): ColumnDef<
     },
     {
       accessorKey: "source_no", header: "No.", size: 80,
+      sortingFn: naturalSort,
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: [] as { value: string; label: string }[] },
     },
     {
       accessorKey: "building_code", header: "Building", size: 90,
+      sortingFn: naturalSort,
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: [] },
     },
     {
       accessorKey: "item_no", header: "Item No.", size: 130,
+      sortingFn: naturalSort,
       cell: ({ getValue }) => <span className="font-mono">{(getValue() as string) ?? ""}</span>,
       filterFn: textFilterFn,
       meta: { filterType: "text" },
