@@ -29,7 +29,7 @@ import { drawingStagePct } from "@/lib/mdr/progressEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
-import { buildMdrColumns, ColumnFilterDropdown, DD_PCTS, CD_PCTS, type MdrDrawingRow } from "./columns";
+import { buildMdrColumns, ColumnFilterDropdown, SD_PCTS, DD_PCTS, CD_PCTS, type MdrDrawingRow } from "./columns";
 import { TopHorizontalScrollbar } from "./TopHorizontalScrollbar";
 import { useGridStatePersistence } from "./useGridStatePersistence";
 import { MdrBulkActionBar } from "./MdrBulkActionBar";
@@ -79,6 +79,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         return { p: pShow, a: aShow, delta: pShow - aShow };
       };
 
+      const sdCells: MdrDrawingRow["sdCells"] = {};
+      SD_PCTS.forEach((p) => { sdCells[p] = buildCell("SD", p); });
       const ddCells: MdrDrawingRow["ddCells"] = {};
       DD_PCTS.forEach((p) => { ddCells[p] = buildCell("DD", p); });
       const cdCells: MdrDrawingRow["cdCells"] = {};
@@ -99,6 +101,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         dd_pct: dd.actual,
         cd_pct: cd.actual,
         overall_pct: overall,
+        sdCells,
         ddCells,
         cdCells,
         _raw: d,
