@@ -110,7 +110,6 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
 
 async function persistParsed(parsed: MdrParseResult, userId: string | null, push: (s: string) => void) {
   if (parsed.isSummary) {
-    // SUMMARY 파일 — 가중치 참고값 시드 (단순 처리: 모든 building·discipline·stage = 1.0)
     push(`  ✓ SUMMARY 임포트는 Phase 1 기본 시드만 적용`);
     await logImport(parsed.filename, null, "success", 0, 0, userId, null);
     return;
@@ -123,81 +122,102 @@ async function persistParsed(parsed: MdrParseResult, userId: string | null, push
   );
   if (bErr) throw bErr;
 
-  let inserted = 0;
-  let skipped = 0;
+  // 모든 후보 행 수집
+  const allRows = parsed.sheets.flatMap((s) => (s.skipped ? [] : s.rows));
+  const allItemNos = Array.from(new Set(allRows.map((r) => r.itemNo)));
 
-  for (const sheet of parsed.sheets) {
-    if (sheet.skipped) continue;
-    for (const row of sheet.rows) {
-      // 기존 도면이 있으면 INSERT 스킵 (앱이 마스터 — 신규만 추가, 기존 Y 보존)
-      const { data: existing } = await supabase
-        .from("mdr_drawings" as never)
-        .select("id")
-        .eq("building_code", parsed.building)
-        .eq("item_no", row.itemNo)
-        .maybeSingle();
-      if (existing) { skipped++; continue; }
+  // 2) 기존 item_no 일괄 조회 (chunk in())
+  const existing = new Set<string>();
+  for (let i = 0; i < allItemNos.length; i += 500) {
+    const chunk = allItemNos.slice(i, i + 500);
+    const { data, error } = await supabase
+      .from("mdr_drawings" as never)
+      .select("item_no")
+      .eq("building_code", parsed.building)
+      .in("item_no", chunk);
+    if (error) throw error;
+    (data as any[] ?? []).forEach((d) => existing.add(d.item_no));
+  }
+  push(`  · 기존 도면 ${existing.size}건 — 보존`);
 
-      const { data: drawing, error: dErr } = await supabase
-        .from("mdr_drawings" as never)
-        .insert({
-          building_code: parsed.building,
-          source_no: row.sourceNo,
-          item_no: row.itemNo,
-          discipline: row.discipline,
-          job_no: row.jobNo ?? null,
-          area_code: row.areaCode ?? null,
-          function_code: row.functionCode ?? null,
-          serial_no: row.serialNo ?? null,
-          activity_group: row.activityGroup ?? null,
-          drawing_title: row.drawingTitle ?? null,
-          plan_finish: row.planFinish ?? null,
-          out_of_scope: row.outOfScope,
-          source_sheet: row.sourceSheet,
-        } as any)
-        .select("id")
-        .single();
-      if (dErr) throw dErr;
-      const drawingId = (drawing as any).id;
+  // 3) 신규 행만 추출 (itemNo 중복 제거)
+  const seen = new Set<string>();
+  const newRows = allRows.filter((r) => {
+    if (existing.has(r.itemNo) || seen.has(r.itemNo)) return false;
+    seen.add(r.itemNo);
+    return true;
+  });
+  const skipped = allRows.length - newRows.length;
 
-      // 마일스톤·진척 INSERT (중복 무시)
-      const ms = row.milestones.map((m) => ({
-        drawing_id: drawingId,
-        stage: m.stage,
-        pct: m.pct,
-        increment_pct: m.incrementPct,
-        plan_date: m.planDate ?? null,
-      }));
-      if (ms.length) {
-        const { error: mErr } = await supabase.from("mdr_milestones" as never).insert(ms as any);
-        if (mErr && !mErr.message.includes("duplicate")) throw mErr;
-      }
-      const pg = row.progress.map((p) => ({
-        drawing_id: drawingId,
-        stage: p.stage,
-        pct: p.pct,
-        is_done: p.stage === "SD" ? true : p.isDone,
-      }));
-      if (pg.length) {
-        const { error: pErr } = await supabase.from("mdr_progress" as never).insert(pg as any);
-        if (pErr && !pErr.message.includes("duplicate")) throw pErr;
-      }
-      inserted++;
-    }
+  // 4) drawings bulk insert (chunk 200) — returning id, item_no
+  const itemToId = new Map<string, string>();
+  for (let i = 0; i < newRows.length; i += 200) {
+    const chunk = newRows.slice(i, i + 200);
+    const payload = chunk.map((row) => ({
+      building_code: parsed.building,
+      source_no: row.sourceNo,
+      item_no: row.itemNo,
+      discipline: row.discipline,
+      job_no: row.jobNo ?? null,
+      area_code: row.areaCode ?? null,
+      function_code: row.functionCode ?? null,
+      serial_no: row.serialNo ?? null,
+      activity_group: row.activityGroup ?? null,
+      drawing_title: row.drawingTitle ?? null,
+      plan_finish: row.planFinish ?? null,
+      out_of_scope: row.outOfScope,
+      source_sheet: row.sourceSheet,
+    }));
+    const { data, error } = await supabase
+      .from("mdr_drawings" as never)
+      .insert(payload as any)
+      .select("id, item_no");
+    if (error) throw error;
+    (data as any[] ?? []).forEach((d) => itemToId.set(d.item_no, d.id));
+    push(`  · drawings ${Math.min(i + 200, newRows.length)}/${newRows.length} 삽입`);
   }
 
-  push(`  ✓ 신규 ${inserted}건 추가, 기존 ${skipped}건 보존`);
+  // 5) milestones / progress bulk insert
+  const milestonePayloads: any[] = [];
+  const progressPayloads: any[] = [];
+  for (const row of newRows) {
+    const id = itemToId.get(row.itemNo);
+    if (!id) continue;
+    for (const m of row.milestones) {
+      milestonePayloads.push({
+        drawing_id: id, stage: m.stage, pct: m.pct,
+        increment_pct: m.incrementPct, plan_date: m.planDate ?? null,
+      });
+    }
+    for (const p of row.progress) {
+      progressPayloads.push({
+        drawing_id: id, stage: p.stage, pct: p.pct,
+        is_done: p.stage === "SD" ? true : p.isDone,
+      });
+    }
+  }
+  for (let i = 0; i < milestonePayloads.length; i += 1000) {
+    const chunk = milestonePayloads.slice(i, i + 1000);
+    const { error } = await supabase.from("mdr_milestones" as never).insert(chunk as any);
+    if (error && !error.message.includes("duplicate")) throw error;
+  }
+  for (let i = 0; i < progressPayloads.length; i += 1000) {
+    const chunk = progressPayloads.slice(i, i + 1000);
+    const { error } = await supabase.from("mdr_progress" as never).insert(chunk as any);
+    if (error && !error.message.includes("duplicate")) throw error;
+  }
 
-  // 스냅샷 (template_blob은 base64로 저장하기엔 큼 — 단순 메타만 저장)
+  push(`  ✓ 신규 ${newRows.length}건 추가, 기존/중복 ${skipped}건 보존`);
+
   await supabase.from("mdr_snapshots" as never).insert({
     snapshot_date: new Date().toISOString().slice(0, 10),
     building_code: parsed.building,
     source_filename: parsed.filename,
-    drawing_count: inserted + skipped,
+    drawing_count: newRows.length + skipped,
     done_count: 0,
   } as any);
 
-  await logImport(parsed.filename, parsed.building, "success", inserted, skipped, userId, null);
+  await logImport(parsed.filename, parsed.building, "success", newRows.length, skipped, userId, null);
 }
 
 async function logImport(
