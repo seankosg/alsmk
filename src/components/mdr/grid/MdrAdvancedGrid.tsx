@@ -252,6 +252,18 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
 
       // 그리드 셀 렌더와 동일한 표시 문자열로 변환
       const formatCell = (id: string, value: any): any => {
+        if (id === "progress_icon") {
+          // value = state[] of 8 pips (SD + DD4 + CD3) → 그룹 압축 표기
+          const arr = Array.isArray(value) ? value : [];
+          if (arr.length < 8) return "";
+          const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+          const summ = (slice: string[]) => {
+            const order = ["delay", "wip", "planned", "done", "empty"];
+            const found = order.find((o) => slice.includes(o)) ?? "empty";
+            return cap(found);
+          };
+          return `SD:${cap(arr[0])}|DD:${summ(arr.slice(1, 5))}|CD:${summ(arr.slice(5, 8))}`;
+        }
         if (id === "dd_pct" || id === "cd_pct" || id === "overall_pct") {
           return formatPct(value);
         }
