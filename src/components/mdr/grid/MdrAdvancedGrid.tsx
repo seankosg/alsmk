@@ -30,6 +30,8 @@ import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
 import { buildMdrColumns, ColumnFilterDropdown, SD_PCTS, DD_PCTS, CD_PCTS, type MdrDrawingRow } from "./columns";
+import { buildMdrProgressIconCells } from "@/lib/mdr/progressIcon";
+import { MdrProgressIconLegend, type ProgressGroup } from "./MdrProgressIconCell";
 import { TopHorizontalScrollbar } from "./TopHorizontalScrollbar";
 import { useGridStatePersistence } from "./useGridStatePersistence";
 import { MdrBulkActionBar } from "./MdrBulkActionBar";
