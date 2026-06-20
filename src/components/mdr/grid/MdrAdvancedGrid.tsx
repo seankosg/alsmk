@@ -15,7 +15,8 @@ import {
   type RowSelectionState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ interface Props {
 
 export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Props) {
   const { user, isAdminOrPm, memberName } = useAuthContext();
+  const { toast } = useToast();
 
   const { data, isLoading } = useQuery({
     queryKey: ["mdr_drawings", buildingCode, sheetName ?? null],
@@ -174,6 +176,41 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const selectedRows = table.getSelectedRowModel().rows.map((r) => r.original);
   const activeFilters = columnFilters;
 
+  const exportFilteredXlsx = async () => {
+    try {
+      const XLSX: any = await import(/* @vite-ignore */ "xlsx").catch(() => null);
+      if (!XLSX) {
+        toast({ title: "xlsx 라이브러리 누락", variant: "destructive" });
+        return;
+      }
+      const cols = visibleLeafColumns.filter((c) => c.id !== "__select__");
+      const header = cols.map((c) => (typeof c.columnDef.header === "string" ? (c.columnDef.header as string) : c.id));
+      const aoa: any[][] = [header];
+      for (const r of tableRows) {
+        const row: any[] = [];
+        for (const c of cols) {
+          const v = r.getValue(c.id) as any;
+          // ddCells/cdCells는 객체이므로 P/A/Δ 문자열로 평탄화
+          if (v && typeof v === "object" && "p" in v && "a" in v && "delta" in v) {
+            row.push(`${v.p}/${v.a}/${v.delta}`);
+          } else {
+            row.push(v ?? "");
+          }
+        }
+        aoa.push(row);
+      }
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "MDR");
+      const fname = `mdr_${buildingCode}${sheetName ? `_${sheetName}` : ""}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fname);
+      toast({ title: "Export 완료", description: `${tableRows.length}행 / ${cols.length}열` });
+    } catch (e: any) {
+      toast({ title: "Export 실패", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  };
+
+
   if (isLoading) return <Card className="p-6 text-muted-foreground">로딩 중...</Card>;
   if (!rows.length) return <Card className="p-6 text-muted-foreground">데이터 없음</Card>;
 
@@ -214,6 +251,10 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         )}
 
         <div className="ml-auto" />
+
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={exportFilteredXlsx} title="현재 필터/정렬 상태의 표시 컬럼을 .xlsx로 내보냅니다">
+          <Download className="mr-1 h-3.5 w-3.5" />Export view
+        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
