@@ -51,6 +51,50 @@ export function plannedPctAsOf(
   return clamp(acc, 0, 100);
 }
 
+/**
+ * 도면 단위 — 특정 마일스톤(stage,pct)까지의 누적 계획%.
+ * - 시작일 = 직전 마일스톤 plan_date + 1일 (없으면 현재 plan_date − 7일)
+ * - 종료일 = 현재 마일스톤 plan_date
+ * - asOf ≥ 종료일 → 해당 마일스톤 increment까지 모두 누적
+ * - asOf < 시작일 → 직전까지의 누적만
+ * - 그 사이 → 직전까지 누적 + increment × (경과/구간)
+ * - SD는 항상 100
+ */
+export function drawingMilestonePlannedPct(
+  milestones: MilestoneRow[],
+  stage: MdrStage,
+  pct: number,
+  asOf: string,
+): number {
+  if (stage === "SD") return 100;
+  const list = milestones
+    .filter((m) => m.stage === stage && m.planDate)
+    .sort((a, b) => a.pct - b.pct);
+  if (!list.length) return 0;
+
+  let acc = 0;
+  let prevDate: string | null = null;
+  for (const m of list) {
+    if (!m.planDate) continue;
+    const endDate = m.planDate;
+    const startDate = prevDate
+      ? new Date(new Date(prevDate).getTime() + DAY_MS).toISOString().slice(0, 10)
+      : new Date(new Date(endDate).getTime() - 7 * DAY_MS).toISOString().slice(0, 10);
+    if (m.pct === pct) {
+      if (dDay(asOf, endDate) >= 0) return clamp(acc + m.incrementPct, 0, 100);
+      if (dDay(asOf, startDate) <= 0) return clamp(acc, 0, 100);
+      const span = dDay(endDate, startDate);
+      const elapsed = dDay(asOf, startDate);
+      const ratio = clamp(span > 0 ? elapsed / span : 0, 0, 1);
+      return clamp(acc + m.incrementPct * ratio, 0, 100);
+    }
+    // 직전 마일스톤 전체 누적
+    acc += m.incrementPct;
+    prevDate = endDate;
+  }
+  return clamp(acc, 0, 100);
+}
+
 /** 실적률 — step 함수 (완료된 마일스톤 증분의 합) */
 export function actualPct(
   milestones: MilestoneRow[],

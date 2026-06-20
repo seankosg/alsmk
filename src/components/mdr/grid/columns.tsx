@@ -10,6 +10,14 @@ import {
 } from "./MdrProgressIconCell";
 import { flattenCells, MDR_STATE_LABEL, type MdrMilestoneState, type MdrProgressIconCells } from "@/lib/mdr/progressIcon";
 
+export interface MdrMilestoneCell {
+  p: number;
+  a: number;
+  delta: number;
+  planDate: string | null;
+  actualDate: string | null;
+}
+
 export interface MdrDrawingRow {
   id: string;
   source_no: string | null;
@@ -25,9 +33,9 @@ export interface MdrDrawingRow {
   dd_pct: number;
   cd_pct: number;
   overall_pct: number;
-  sdCells: Record<number, { p: number; a: number; delta: number } | null>;
-  ddCells: Record<number, { p: number; a: number; delta: number } | null>;
-  cdCells: Record<number, { p: number; a: number; delta: number } | null>;
+  sdCells: Record<number, MdrMilestoneCell | null>;
+  ddCells: Record<number, MdrMilestoneCell | null>;
+  cdCells: Record<number, MdrMilestoneCell | null>;
   progressIconCells: MdrProgressIconCells;
   _raw: any;
 }
