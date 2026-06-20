@@ -132,16 +132,19 @@ export function buildMdrColumns(deltaCls: (delta: number) => string): ColumnDef<
     },
     {
       accessorKey: "source_no", header: "No.", size: 80,
+      sortingFn: naturalSort,
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: [] as { value: string; label: string }[] },
     },
     {
       accessorKey: "building_code", header: "Building", size: 90,
+      sortingFn: naturalSort,
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: [] },
     },
     {
       accessorKey: "item_no", header: "Item No.", size: 130,
+      sortingFn: naturalSort,
       cell: ({ getValue }) => <span className="font-mono">{(getValue() as string) ?? ""}</span>,
       filterFn: textFilterFn,
       meta: { filterType: "text" },
