@@ -183,23 +183,53 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         toast({ title: "xlsx 라이브러리 누락", variant: "destructive" });
         return;
       }
+      const { formatPct } = await import("./filterFns");
       const cols = visibleLeafColumns.filter((c) => c.id !== "__select__");
-      const header = cols.map((c) => (typeof c.columnDef.header === "string" ? (c.columnDef.header as string) : c.id));
+
+      // 그리드의 헤더 라벨과 동일하게 매핑
+      const headerLabel = (id: string, fallback: string): string => {
+        const map: Record<string, string> = {
+          source_no: "No.", building_code: "Building", item_no: "Item No.",
+          discipline: "Disc.", drawing_title: "Title",
+          sd_mark: "SD", dd_mark: "DD", cd_mark: "CD",
+          dd_pct: "DD%", cd_pct: "CD%", overall_pct: "Overall%",
+          plan_finish: "Plan Finish", updated_at: "Updated",
+        };
+        return map[id] ?? fallback;
+      };
+
+      // 그리드 셀 렌더와 동일한 표시 문자열로 변환
+      const formatCell = (id: string, value: any): any => {
+        if (value && typeof value === "object" && "p" in value && "a" in value && "delta" in value) {
+          return `${Math.round(value.p)}/${Math.round(value.a)}/${Math.round(value.delta)}`;
+        }
+        if (id === "dd_pct" || id === "cd_pct" || id === "overall_pct") {
+          return formatPct(value);
+        }
+        if (id === "sd_mark" || id === "dd_mark" || id === "cd_mark") {
+          return (value as string) || "-";
+        }
+        if (id === "plan_finish") {
+          return (value as string) ?? "-";
+        }
+        if (id === "updated_at") {
+          const v = value as string | null;
+          return v ? v.slice(0, 16).replace("T", " ") : "-";
+        }
+        return value ?? "";
+      };
+
+      const header = cols.map((c) =>
+        headerLabel(c.id, typeof c.columnDef.header === "string" ? (c.columnDef.header as string) : c.id),
+      );
       const aoa: any[][] = [header];
       for (const r of tableRows) {
-        const row: any[] = [];
-        for (const c of cols) {
-          const v = r.getValue(c.id) as any;
-          // ddCells/cdCells는 객체이므로 P/A/Δ 문자열로 평탄화
-          if (v && typeof v === "object" && "p" in v && "a" in v && "delta" in v) {
-            row.push(`${v.p}/${v.a}/${v.delta}`);
-          } else {
-            row.push(v ?? "");
-          }
-        }
-        aoa.push(row);
+        aoa.push(cols.map((c) => formatCell(c.id, r.getValue(c.id))));
       }
+
       const ws = XLSX.utils.aoa_to_sheet(aoa);
+      // 그리드의 컬럼 폭(px → Excel 문자단위 ≈ /7)을 근사 반영
+      ws["!cols"] = cols.map((c) => ({ wch: Math.max(8, Math.round(c.getSize() / 7)) }));
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "MDR");
       const fname = `mdr_${buildingCode}${sheetName ? `_${sheetName}` : ""}_${new Date().toISOString().slice(0, 10)}.xlsx`;
