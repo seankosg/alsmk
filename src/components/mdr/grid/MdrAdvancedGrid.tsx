@@ -254,10 +254,14 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           progress_icon: "Progress",
         };
         if (base[id]) return base[id];
-        // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d → "SD50 P" 등
-        const m = id.match(/^(sd|dd|cd)_(\d+)_(p|a|d)$/);
+        // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d / dd_60_pd / dd_60_ad → "SD50 P" / "DD60 계획일" 등
+        const m = id.match(/^(sd|dd|cd)_(\d+)_(pd|ad|p|a|d)$/);
         if (m) {
-          const suffix = m[3] === "d" ? "Δ" : m[3].toUpperCase();
+          const sfx = m[3];
+          const suffix =
+            sfx === "pd" ? "계획일" :
+            sfx === "ad" ? "실적일" :
+            sfx === "d" ? "Δ" : sfx.toUpperCase();
           return `${m[1].toUpperCase()}${m[2]} ${suffix}`;
         }
         return fallback;
@@ -289,6 +293,11 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         if (id === "updated_at") {
           const v = value as string | null;
           return v ? v.slice(0, 16).replace("T", " ") : "-";
+        }
+        // 마일스톤 날짜 컬럼
+        if (/^(sd|dd|cd)_\d+_(pd|ad)$/.test(id)) {
+          const v = value as string | null;
+          return v ? v.slice(0, 10) : "-";
         }
         // 마일스톤 분리 컬럼: null이면 "-", 숫자면 반올림
         if (/^(sd|dd|cd)_\d+_(p|a|d)$/.test(id)) {
