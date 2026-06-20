@@ -16,12 +16,22 @@ function pct(n: number): string {
 }
 
 function StageCells({ cell }: { cell: StageCell }) {
+  const has = cell.drawingCount > 0;
+  const gap = cell.actual - cell.plan;
   return (
     <>
-      <td className="text-center px-2 py-0.5 border-l tabular-nums">{cell.plan || "-"}</td>
-      <td className="text-center px-2 py-0.5 tabular-nums">{cell.actual || "-"}</td>
-      <td className="text-center px-2 py-0.5 tabular-nums text-primary">
-        {cell.plan > 0 ? pct(cell.progress) : "-"}
+      <td className="text-center px-2 py-0.5 border-l tabular-nums">
+        {has ? pct(cell.plan) : "-"}
+      </td>
+      <td className="text-center px-2 py-0.5 tabular-nums">
+        {has ? pct(cell.actual) : "-"}
+      </td>
+      <td
+        className={`text-center px-2 py-0.5 tabular-nums ${
+          !has ? "" : gap >= 0 ? "text-emerald-500" : "text-destructive"
+        }`}
+      >
+        {has ? `${gap >= 0 ? "+" : ""}${(gap * 100).toFixed(1)}%` : "-"}
       </td>
     </>
   );
