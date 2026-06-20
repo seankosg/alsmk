@@ -209,6 +209,53 @@ export function MdrBulkActionBar({ selectedRows, onClearSelection, visibleColumn
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!busy) { setDeleteOpen(o); if (!o) setDeleteConfirmText(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">선택한 도면 영구 삭제</DialogTitle>
+            <DialogDescription>
+              <span className="font-semibold">{selectedRows.length}행</span> 영구 삭제 — <strong>복구 불가</strong>.
+              연관 마일스톤/진행률도 함께 제거됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-48 overflow-auto rounded border text-xs">
+            <table className="w-full">
+              <thead className="bg-muted">
+                <tr><th className="px-2 py-1 text-left">item_no</th><th className="px-2 py-1 text-left">Title</th></tr>
+              </thead>
+              <tbody>
+                {selectedRows.slice(0, 5).map((r) => (
+                  <tr key={r.id} className="border-t">
+                    <td className="px-2 py-1 font-mono">{r.item_no}</td>
+                    <td className="px-2 py-1 truncate max-w-[320px]" title={r.drawing_title ?? ""}>{r.drawing_title ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {selectedRows.length > 5 && (
+              <p className="px-2 py-1 text-muted-foreground">…외 {selectedRows.length - 5}행</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">계속하려면 <code className="rounded bg-muted px-1 font-mono">DELETE</code> 를 입력하세요</label>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              className="h-8 text-xs"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={busy}>취소</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={busy || deleteConfirmText !== "DELETE"}>
+              {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+              영구 삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
