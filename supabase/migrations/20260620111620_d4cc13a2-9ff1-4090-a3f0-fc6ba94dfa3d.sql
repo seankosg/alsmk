@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS public.mdr_summary_matrix CASCADE;
