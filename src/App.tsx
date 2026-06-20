@@ -20,6 +20,7 @@ import DesignSummary from "./pages/DesignSummary";
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
 import NotFound from "./pages/NotFound";
+import { RouteThemeController } from "@/components/theme/RouteThemeController";
 
 const queryClient = new QueryClient({
   defaultOptions: {
