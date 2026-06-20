@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { X, Download, Copy, Loader2 } from "lucide-react";
+import { X, Download, Copy, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { MDR_BULK_FIELDS, applyMdrBulkUpdate, type MdrBulkField } from "@/lib/mdr/bulkEdit";
+import { MDR_BULK_FIELDS, applyMdrBulkUpdate, applyMdrBulkDelete, type MdrBulkField } from "@/lib/mdr/bulkEdit";
 import type { MdrDrawingRow } from "./columns";
 
 interface Props {
@@ -26,6 +26,8 @@ export function MdrBulkActionBar({ selectedRows, onClearSelection, visibleColumn
   const [value, setValue] = useState<string>("");
   const [blank, setBlank] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!canEdit || selectedRows.length === 0) return null;
@@ -87,6 +89,28 @@ export function MdrBulkActionBar({ selectedRows, onClearSelection, visibleColumn
     }
   };
 
+  const handleDelete = async () => {
+    setBusy(true);
+    try {
+      const res = await applyMdrBulkDelete({ ids, userName });
+      await queryClient.invalidateQueries({ queryKey: ["mdr_drawings"] });
+      if (res.failed === 0) {
+        toast({ title: "삭제 완료", description: `${res.ok}행 영구 제거` });
+      } else {
+        toast({
+          title: "일부 실패",
+          description: `성공 ${res.ok} / 실패 ${res.failed}${res.errors[0] ? ` — ${res.errors[0]}` : ""}`,
+          variant: "destructive",
+        });
+      }
+      setDeleteOpen(false);
+      setDeleteConfirmText("");
+      onClearSelection();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
@@ -139,6 +163,9 @@ export function MdrBulkActionBar({ selectedRows, onClearSelection, visibleColumn
         <Button size="sm" variant="outline" className="h-8" onClick={copyTsv}>
           <Copy className="mr-1 h-3.5 w-3.5" /> TSV
         </Button>
+        <Button size="sm" variant="destructive" className="h-8" onClick={() => { setDeleteConfirmText(""); setDeleteOpen(true); }}>
+          <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+        </Button>
         <Button size="sm" variant="ghost" className="ml-auto h-8" onClick={onClearSelection}>
           <X className="mr-1 h-3.5 w-3.5" /> Clear
         </Button>
@@ -178,6 +205,53 @@ export function MdrBulkActionBar({ selectedRows, onClearSelection, visibleColumn
             <Button onClick={handleApply} disabled={busy}>
               {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
               실행
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!busy) { setDeleteOpen(o); if (!o) setDeleteConfirmText(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">선택한 도면 영구 삭제</DialogTitle>
+            <DialogDescription>
+              <span className="font-semibold">{selectedRows.length}행</span> 영구 삭제 — <strong>복구 불가</strong>.
+              연관 마일스톤/진행률도 함께 제거됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-48 overflow-auto rounded border text-xs">
+            <table className="w-full">
+              <thead className="bg-muted">
+                <tr><th className="px-2 py-1 text-left">item_no</th><th className="px-2 py-1 text-left">Title</th></tr>
+              </thead>
+              <tbody>
+                {selectedRows.slice(0, 5).map((r) => (
+                  <tr key={r.id} className="border-t">
+                    <td className="px-2 py-1 font-mono">{r.item_no}</td>
+                    <td className="px-2 py-1 truncate max-w-[320px]" title={r.drawing_title ?? ""}>{r.drawing_title ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {selectedRows.length > 5 && (
+              <p className="px-2 py-1 text-muted-foreground">…외 {selectedRows.length - 5}행</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">계속하려면 <code className="rounded bg-muted px-1 font-mono">DELETE</code> 를 입력하세요</label>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              className="h-8 text-xs"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={busy}>취소</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={busy || deleteConfirmText !== "DELETE"}>
+              {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+              영구 삭제
             </Button>
           </DialogFooter>
         </DialogContent>
