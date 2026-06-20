@@ -130,10 +130,25 @@ function buildMilestoneCols(
   return cols;
 }
 
-export function buildMdrColumns(deltaCls: (delta: number) => string): ColumnDef<MdrDrawingRow>[] {
+export interface BuildMdrColumnsOptions {
+  collapsed: CollapsedGroups;
+  onToggleGroup: (g: ProgressGroup) => void;
+  asOf: string;
+}
+
+export function buildMdrColumns(
+  deltaCls: (delta: number) => string,
+  opts: BuildMdrColumnsOptions,
+): ColumnDef<MdrDrawingRow>[] {
   const sdCols = buildMilestoneCols("sd", SD_PCTS, "sdCells", deltaCls);
   const ddCols = buildMilestoneCols("dd", DD_PCTS, "ddCells", deltaCls);
   const cdCols = buildMilestoneCols("cd", CD_PCTS, "cdCells", deltaCls);
+
+  const { collapsed, onToggleGroup, asOf } = opts;
+  // 접힘 상태에 따라 너비 동적 보정: 펼침=230, dd접힘 -40, cd접힘 -40, 모두접힘 ≈110
+  const progressIconSize =
+    230 - (collapsed.dd ? 70 : 0) - (collapsed.cd ? 50 : 0);
+
 
   return [
     {
