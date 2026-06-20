@@ -475,7 +475,7 @@ const Workspace = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden gap-4">
+    <div className="light-scope flex flex-col h-full overflow-hidden gap-4 -m-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Workspace</h1>
