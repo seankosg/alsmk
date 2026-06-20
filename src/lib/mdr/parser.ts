@@ -141,34 +141,48 @@ function parseSheet(
     return { sheetName, discipline, rows: [], milestoneOrder: [], skipped: true, skipReason: "헤더(NO.) 셀을 찾지 못함" };
   }
   const { headerRow, noCol } = anchor;
-  // headerRow      : 식별 컬럼 헤더 + 마일스톤 라벨(SD100%, DD30%, ...)
-  // headerRow + 1  : 증분 (%)
-  // headerRow + 2  : 계획일자
   const range = XLSX.utils.decode_range(ws["!ref"]!);
   const maxCol = range.e.c;
+
+  // 마일스톤 라벨 행 자동 탐지: headerRow ~ headerRow+2 중 (SD|DD|CD)\d+% 매칭이 가장 많은 행
+  let milestoneLabelRow = headerRow;
+  let bestHits = -1;
+  for (let r = headerRow; r <= headerRow + 2; r++) {
+    let hits = 0;
+    for (let c = noCol; c <= maxCol; c++) {
+      if (MILESTONE_RE.test(cellStr(ws, r, c))) hits++;
+    }
+    if (hits > bestHits) { bestHits = hits; milestoneLabelRow = r; }
+  }
+  const incrementRow = milestoneLabelRow + 1;
+  const planDateRow = milestoneLabelRow + 2;
 
   // 1) 식별 컬럼 + 마일스톤 컬럼 위치 매핑
   const headers: { col: number; key: ReturnType<typeof detectColumnKey> | null; text: string }[] = [];
   const milestoneCols: { col: number; stage: MdrStage; pct: number; incrementPct: number; planDate?: string }[] = [];
   for (let c = noCol; c <= maxCol; c++) {
-    const text = cellStr(ws, headerRow, c);
-    if (!text) continue;
-    const m = text.match(MILESTONE_RE);
+    const labelText = cellStr(ws, milestoneLabelRow, c);
+    const m = labelText.match(MILESTONE_RE);
     if (m) {
       const stage = m[1].toUpperCase() as MdrStage;
       const pct = parseInt(m[2], 10);
-      const incRaw = cellStr(ws, headerRow + 1, c).replace("%", "").trim();
+      const incRaw = cellStr(ws, incrementRow, c).replace("%", "").trim();
       const incrementPct = parseFloat(incRaw) || 0;
-      const planDate = parseDate(cellRaw(ws, headerRow + 2, c));
+      const planDate = parseDate(cellRaw(ws, planDateRow, c));
       milestoneCols.push({ col: c, stage, pct, incrementPct, planDate });
     } else {
-      headers.push({ col: c, key: detectColumnKey(text), text });
+      const headerText = cellStr(ws, headerRow, c);
+      if (headerText) headers.push({ col: c, key: detectColumnKey(headerText), text: headerText });
     }
   }
 
-  // 2) 데이터 행 파싱 (헤더 + 3행 이후)
+  // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
+  const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
+  const dataStartRow = hasPlanDates ? planDateRow + 1 : incrementRow + 1;
+
+  // 2) 데이터 행 파싱
   const rows: MdrParsedRow[] = [];
-  for (let r = headerRow + 3; r <= range.e.r; r++) {
+  for (let r = dataStartRow; r <= range.e.r; r++) {
     const sourceNo = cellStr(ws, r, noCol);
     if (!sourceNo) continue;
     // No 가 숫자/문자 혼합 가능. 빈 줄·합계 행은 패스
