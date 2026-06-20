@@ -1,52 +1,34 @@
-## 목표
-Design Dashboard와 Design Summary의 역할을 명확히 분리합니다.
+## 진단 결과
+Raw Data 건물: **SMP&CCM(914), HSM(585), CRM(1934), MAIN_OFFICE(139), FAFP(84)** — 총 5개.
+Summary 패널 코드는 5개 블록을 모두 `summary.blocks.map`으로 렌더링하고 있습니다. **누락이 아니라 페이지 스크롤 아래에 가려진 상태**입니다. (AppLayout main이 `overflow-auto`)
 
-- **Design Dashboard**: 전사/건물/분야 단위 요약 + 계획 대비 실적 + 주요 문제점 (한눈에 보기)
-- **Design Summary**: 건물 × 분야 × Stage 상세 매트릭스 (깊게 보기) + WF 참조
+요구사항: **세로 스크롤 없이 Block × Discipline × Stage 매트릭스를 한 화면에 표시**.
 
 ## 변경 사항
 
-### 1. `MdrSummaryPanel.tsx` (Design Summary)
-**제거**:
-- Overall Progress KPI 카드 (→ Dashboard로 이동)
-- 최근 임포트 로그 (→ Dashboard로 이동)
+### 1. 매트릭스 압축 (`MdrSummaryPanel.tsx`)
+현재 5블록 × 평균 5분야 + Sub-total = 약 30행 → 한 화면에 맞추려면 행 높이 압축이 필요.
 
-**유지/축소**:
-- Block × Discipline × Stage 매트릭스 (메인)
-- WF 패널은 **참조용으로 축소 유지**: 3열 카드 → 한 줄 컴팩트 표기(접이식 Collapsible 또는 작은 footer 형태, 글자 크기 축소, Admin 링크는 작은 아이콘 버튼)
+- **행 높이 축소**: `py-1` → `py-0.5`, 폰트 `text-xs` → `text-[11px]`
+- **Sub-total 행 제거**: Block 셀(rowSpan)에 Block Progress·총 DWG를 묶어 표기. 별도 합계행 없앰
+- **DWG·SD·DD·CD 묶음**: SD/DD/CD 각각 Plan/Actual/% 3열 → `Actual/Plan (%)` 단일 셀로 통합 (예: `225/225 (4.3%)`). 헤더 두 번째 줄 제거 → 헤더 1행
+- **GEN/FAFP처럼 합산 제외 블록**: 마지막에 정렬, 옅게(`opacity-50`) 유지
 
-**추가** (상세 보기 강화):
-- 건물/분야 필터, Stage(SD/DD/CD) 토글
-- 셀에 **남은 도면 수, 지연 도면 수**(plan_date 경과 & 미완) 표시
-- 행 클릭 시 해당 Block+Disc 도면 목록 드릴다운
+결과 예상: 헤더 1행 + 약 25 disc 행 ≈ 26행 × ~24px = ~620px → 995×771 뷰포트 안에 맞음.
 
-### 2. `DesignDashboard.tsx` (현재 placeholder)
-새로 구성:
-1. **Overall Progress KPI** (Summary에서 이동: Overall % + 건물별 카드)
-2. **건물별 현황 바차트** (blockProgress 가로 막대 + WF)
-3. **분야별 현황 바차트** (ARCH/STR/MECH/ELEC/FAFP/CIVIL 가중 평균)
-4. **계획 대비 실적 카드** (Stage별 Plan/Actual/달성률/지연)
-5. **주요 문제점 보드** (plan_date 경과 & 미완 Top N, 마일스톤 누락)
-6. **최근 임포트 로그** (Summary에서 이동)
+### 2. 컨테이너 높이 고정
+- Card 안 table 래퍼: `overflow-auto` 제거, 자연 높이 사용
+- 페이지 컨테이너에 `min-h-0` 보장 (필요 시)
+- WF Collapsible 카드는 기본 접힘 유지 (현재 그대로)
 
-WF는 Dashboard에 두지 않음 (Summary에 컴팩트 유지).
-
-### 3. 데이터 계층
-`src/lib/mdr/summaryEngine.ts` Dashboard·Summary 공통 사용.
-보조 셀렉터 추가:
-- `selectDisciplineRollup(summary)` — 분야별 가중 평균
-- `selectStageRollup(summary)` — Stage별 Plan/Actual/지연
-- `selectOverdueDrawings()` — plan_date < today & pct<100
-
-### 4. 사이드바
-`AppSidebar.tsx`의 Design Dashboard / Design Summary 라벨/툴팁 가볍게 보강 ("요약 KPI" vs "상세 매트릭스"). 라우트는 그대로.
-
-## 구현 순서
-1. `MdrSummaryPanel` 정리 — Overall/로그 카드 제거, WF 컴팩트화, 매트릭스에 필터·드릴다운·지연 컬럼 추가
-2. `DesignDashboard` 본문 구현 — Overall/건물/분야/Stage/문제점/로그 카드
-3. 보조 셀렉터·overdue 쿼리 hook 추가
-4. 사이드바 라벨 보강
+### 3. 가로 스크롤만 유지
+가로는 컬럼이 많아 좁은 뷰포트에서 필요. `overflow-x-auto`만 명시.
 
 ## 범위 외
-- S-curve, 추세 차트 (Phase 2 유지)
-- WF 편집 UI는 기존 Admin 그대로
+- 페이지 자체의 `overflow-auto`(AppLayout)는 건드리지 않음 — 다른 페이지 영향 없게 유지
+- 매트릭스 외 영역(헤더, WF 패널)은 변경 없음
+
+## 기술 노트
+- `MdrSummaryPanel.tsx`만 수정
+- 셀 표기: `{actual}/{plan} ({pct}%)`, plan=0이면 `-`
+- Block 셀에 `rowSpan={cells.length}` (Sub-total 행 제거에 맞춰)

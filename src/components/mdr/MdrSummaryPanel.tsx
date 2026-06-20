@@ -15,19 +15,12 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
-function StageCells({ cell }: { cell: StageCell }) {
-  return (
-    <>
-      <td className="text-center px-2 py-1 border-l tabular-nums">{cell.plan || "-"}</td>
-      <td className="text-center px-2 py-1 tabular-nums">{cell.actual || "-"}</td>
-      <td className="text-center px-2 py-1 tabular-nums text-primary">
-        {cell.plan > 0 ? pct(cell.progress) : "-"}
-      </td>
-    </>
-  );
+function fmtCell(cell: StageCell): string {
+  if (cell.plan === 0) return "-";
+  return `${cell.actual}/${cell.plan} (${(cell.progress * 100).toFixed(1)}%)`;
 }
 
-function BlockRow({ block }: { block: BlockSummary }) {
+function BlockRows({ block }: { block: BlockSummary }) {
   const dim = !block.contributesToOverall;
   return (
     <>
@@ -38,38 +31,37 @@ function BlockRow({ block }: { block: BlockSummary }) {
         >
           {idx === 0 && (
             <td
-              rowSpan={block.cells.length + 1}
-              className="px-2 py-1 sticky left-0 bg-background font-semibold align-top border-r"
+              rowSpan={block.cells.length}
+              className="px-2 py-0.5 sticky left-0 bg-background font-semibold align-top border-r"
             >
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 <span>{block.building}</span>
-                {dim && <Badge variant="outline" className="text-[10px] w-fit">합산 제외</Badge>}
-                {!dim && (
-                  <span className="text-[10px] text-muted-foreground">WF {pct(block.buildingWf)}</span>
+                {dim ? (
+                  <Badge variant="outline" className="text-[10px] w-fit">합산 제외</Badge>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">
+                    WF {pct(block.buildingWf)}
+                  </span>
                 )}
+                <span className="text-[10px] text-muted-foreground">
+                  DWG {block.drawingCount}
+                </span>
+                <span className="text-[11px] font-bold text-primary tabular-nums">
+                  {pct(block.blockProgress)}
+                </span>
               </div>
             </td>
           )}
-          <td className="px-2 py-1">{c.discipline}</td>
-          <td className="text-center px-2 py-1 tabular-nums">{c.drawingCount}</td>
-          <StageCells cell={c.sd} />
-          <StageCells cell={c.dd} />
-          <StageCells cell={c.cd} />
-          <td className="text-center px-2 py-1 border-l font-medium tabular-nums">
+          <td className="px-2 py-0.5">{c.discipline}</td>
+          <td className="text-center px-2 py-0.5 tabular-nums">{c.drawingCount}</td>
+          <td className="text-center px-2 py-0.5 border-l tabular-nums">{fmtCell(c.sd)}</td>
+          <td className="text-center px-2 py-0.5 border-l tabular-nums">{fmtCell(c.dd)}</td>
+          <td className="text-center px-2 py-0.5 border-l tabular-nums">{fmtCell(c.cd)}</td>
+          <td className="text-center px-2 py-0.5 border-l font-medium tabular-nums text-primary">
             {pct(c.discProgress)}
           </td>
         </tr>
       ))}
-      <tr className={`border-b-2 bg-muted/40 ${dim ? "opacity-50" : ""}`}>
-        <td className="px-2 py-1 text-xs font-semibold">Sub-total</td>
-        <td className="text-center px-2 py-1 tabular-nums">{block.drawingCount}</td>
-        <StageCells cell={block.totals.sd} />
-        <StageCells cell={block.totals.dd} />
-        <StageCells cell={block.totals.cd} />
-        <td className="text-center px-2 py-1 border-l font-bold tabular-nums text-primary">
-          {pct(block.blockProgress)}
-        </td>
-      </tr>
     </>
   );
 }
@@ -87,38 +79,32 @@ export function MdrSummaryPanel() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Block × Discipline × Stage 매트릭스 */}
-      <Card className="p-4">
-        <h3 className="font-semibold mb-3">Block × Discipline × Stage 매트릭스</h3>
-        <div className="overflow-auto">
-          <table className="w-full text-xs border-collapse">
+      <Card className="p-3">
+        <h3 className="font-semibold mb-2 text-sm">Block × Discipline × Stage 매트릭스</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px] border-collapse">
             <thead>
-              <tr className="border-b">
-                <th rowSpan={2} className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
-                <th rowSpan={2} className="text-left px-2 py-1">Disc.</th>
-                <th rowSpan={2} className="text-center px-2 py-1">DWG</th>
-                <th colSpan={3} className="text-center px-2 py-1 border-l">SD</th>
-                <th colSpan={3} className="text-center px-2 py-1 border-l">DD</th>
-                <th colSpan={3} className="text-center px-2 py-1 border-l">CD</th>
-                <th rowSpan={2} className="text-center px-2 py-1 border-l">Disc. Progress</th>
-              </tr>
               <tr className="border-b text-muted-foreground">
-                {["SD", "DD", "CD"].flatMap((s) => [
-                  <th key={`${s}-p`} className="text-center px-2 py-1 border-l font-normal">Plan</th>,
-                  <th key={`${s}-a`} className="text-center px-2 py-1 font-normal">Actual</th>,
-                  <th key={`${s}-pct`} className="text-center px-2 py-1 font-normal">%</th>,
-                ])}
+                <th className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
+                <th className="text-left px-2 py-1">Disc.</th>
+                <th className="text-center px-2 py-1">DWG</th>
+                <th className="text-center px-2 py-1 border-l">SD (Actual/Plan %)</th>
+                <th className="text-center px-2 py-1 border-l">DD (Actual/Plan %)</th>
+                <th className="text-center px-2 py-1 border-l">CD (Actual/Plan %)</th>
+                <th className="text-center px-2 py-1 border-l">Disc. Progress</th>
               </tr>
             </thead>
             <tbody>
               {summary.blocks.map((b) => (
-                <BlockRow key={b.building} block={b} />
+                <BlockRows key={b.building} block={b} />
               ))}
             </tbody>
           </table>
         </div>
       </Card>
+
 
       {/* WF 참조 — 컴팩트 (접이식) */}
       <Collapsible>
