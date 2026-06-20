@@ -1,12 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useMdrSummary } from "@/lib/mdr/summaryEngine";
 import type { BlockSummary, StageCell } from "@/lib/mdr/summaryEngine";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Settings2 } from "lucide-react";
+import { Settings2, ChevronDown } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
@@ -17,7 +20,9 @@ function StageCells({ cell }: { cell: StageCell }) {
     <>
       <td className="text-center px-2 py-1 border-l tabular-nums">{cell.plan || "-"}</td>
       <td className="text-center px-2 py-1 tabular-nums">{cell.actual || "-"}</td>
-      <td className="text-center px-2 py-1 tabular-nums text-primary">{cell.plan > 0 ? pct(cell.progress) : "-"}</td>
+      <td className="text-center px-2 py-1 tabular-nums text-primary">
+        {cell.plan > 0 ? pct(cell.progress) : "-"}
+      </td>
     </>
   );
 }
@@ -27,9 +32,15 @@ function BlockRow({ block }: { block: BlockSummary }) {
   return (
     <>
       {block.cells.map((c, idx) => (
-        <tr key={`${block.building}-${c.discipline}`} className={`border-b hover:bg-muted/30 ${dim ? "opacity-50" : ""}`}>
+        <tr
+          key={`${block.building}-${c.discipline}`}
+          className={`border-b hover:bg-muted/30 ${dim ? "opacity-50" : ""}`}
+        >
           {idx === 0 && (
-            <td rowSpan={block.cells.length + 1} className="px-2 py-1 sticky left-0 bg-background font-semibold align-top border-r">
+            <td
+              rowSpan={block.cells.length + 1}
+              className="px-2 py-1 sticky left-0 bg-background font-semibold align-top border-r"
+            >
               <div className="flex flex-col gap-1">
                 <span>{block.building}</span>
                 {dim && <Badge variant="outline" className="text-[10px] w-fit">합산 제외</Badge>}
@@ -44,7 +55,9 @@ function BlockRow({ block }: { block: BlockSummary }) {
           <StageCells cell={c.sd} />
           <StageCells cell={c.dd} />
           <StageCells cell={c.cd} />
-          <td className="text-center px-2 py-1 border-l font-medium tabular-nums">{pct(c.discProgress)}</td>
+          <td className="text-center px-2 py-1 border-l font-medium tabular-nums">
+            {pct(c.discProgress)}
+          </td>
         </tr>
       ))}
       <tr className={`border-b-2 bg-muted/40 ${dim ? "opacity-50" : ""}`}>
@@ -53,7 +66,9 @@ function BlockRow({ block }: { block: BlockSummary }) {
         <StageCells cell={block.totals.sd} />
         <StageCells cell={block.totals.dd} />
         <StageCells cell={block.totals.cd} />
-        <td className="text-center px-2 py-1 border-l font-bold tabular-nums text-primary">{pct(block.blockProgress)}</td>
+        <td className="text-center px-2 py-1 border-l font-bold tabular-nums text-primary">
+          {pct(block.blockProgress)}
+        </td>
       </tr>
     </>
   );
@@ -61,16 +76,6 @@ function BlockRow({ block }: { block: BlockSummary }) {
 
 export function MdrSummaryPanel() {
   const { data: summary, isLoading } = useMdrSummary();
-  const { data: logs } = useQuery({
-    queryKey: ["mdr_import_logs"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("mdr_import_logs" as never)
-        .select("*").order("imported_at", { ascending: false }).limit(20);
-      if (error) throw error;
-      return (data as any[]) ?? [];
-    },
-  });
 
   if (isLoading) return <div className="text-muted-foreground p-6">SUMMARY 계산 중...</div>;
   if (!summary || summary.blocks.length === 0) {
@@ -81,35 +86,8 @@ export function MdrSummaryPanel() {
     );
   }
 
-  const contributingBlocks = summary.blocks.filter((b) => b.contributesToOverall);
-
   return (
     <div className="space-y-4">
-      {/* KPI */}
-      <Card className="p-4">
-        <div className="flex items-baseline justify-between mb-3">
-          <h3 className="font-semibold">Overall Progress</h3>
-          <span className="text-xs text-muted-foreground">
-            도면 {summary.overallDrawingCount} · 완료(CD 100%) {summary.overallActualCount} · 가중 평균
-          </span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="rounded border-2 border-primary/50 bg-primary/5 p-3 col-span-2 md:col-span-1">
-            <div className="text-xs text-muted-foreground">Overall</div>
-            <div className="text-3xl font-bold text-primary tabular-nums">{pct(summary.overallProgress)}</div>
-          </div>
-          {contributingBlocks.map((b) => (
-            <div key={b.building} className="rounded border p-3">
-              <div className="text-xs text-muted-foreground truncate">{b.building}</div>
-              <div className="text-xl font-semibold tabular-nums">{pct(b.blockProgress)}</div>
-              <div className="text-[10px] text-muted-foreground">
-                WF {pct(b.buildingWf)} · 도면 {b.drawingCount}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
       {/* Block × Discipline × Stage 매트릭스 */}
       <Card className="p-4">
         <h3 className="font-semibold mb-3">Block × Discipline × Stage 매트릭스</h3>
@@ -142,69 +120,54 @@ export function MdrSummaryPanel() {
         </div>
       </Card>
 
-      {/* WF 패널 */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">Weight Factor (WF)</h3>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/admin"><Settings2 className="h-3.5 w-3.5 mr-1" />Admin에서 수정</Link>
-          </Button>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <div className="text-xs font-medium text-muted-foreground mb-2">Stage WF</div>
-            <div className="space-y-1">
-              {(["SD", "DD", "CD"] as const).map((s) => (
-                <div key={s} className="flex justify-between text-sm border-b py-1">
-                  <span>{s}</span>
-                  <span className="tabular-nums">{pct(summary.wf.stage[s])}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-muted-foreground mb-2">Discipline WF</div>
-            <div className="space-y-1">
-              {Object.entries(summary.wf.discipline).map(([d, w]) => (
-                <div key={d} className="flex justify-between text-sm border-b py-1">
-                  <span>{d}</span>
-                  <span className="tabular-nums">{pct(w)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-muted-foreground mb-2">Building WF (공사비)</div>
-            <div className="space-y-1">
-              {Object.entries(summary.wf.building).map(([b, w]) => (
-                <div key={b} className="flex justify-between text-sm border-b py-1">
-                  <span>{b}</span>
-                  <span className="tabular-nums">{pct(w)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* 임포트 로그 */}
-      <Card className="p-4">
-        <h3 className="font-semibold mb-3">최근 임포트 로그</h3>
-        <div className="space-y-1 max-h-48 overflow-auto">
-          {(logs ?? []).map((l: any) => (
-            <div key={l.id} className="text-sm border-b py-1 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Badge variant={l.status === "success" ? "default" : "destructive"}>{l.status}</Badge>
-                <span className="truncate">{l.filename}</span>
-              </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                +{l.rows_inserted} · {new Date(l.imported_at).toLocaleString()}
+      {/* WF 참조 — 컴팩트 (접이식) */}
+      <Collapsible>
+        <Card className="px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronDown className="h-3 w-3 transition-transform data-[state=open]:rotate-180" />
+              <span>Weight Factor 참조</span>
+              <span className="hidden sm:inline tabular-nums">
+                · Stage SD/DD/CD {pct(summary.wf.stage.SD)}/{pct(summary.wf.stage.DD)}/{pct(summary.wf.stage.CD)}
               </span>
+            </CollapsibleTrigger>
+            <Button variant="ghost" size="sm" asChild className="h-7 text-xs">
+              <Link to="/admin"><Settings2 className="h-3 w-3 mr-1" />수정</Link>
+            </Button>
+          </div>
+          <CollapsibleContent>
+            <div className="grid gap-3 md:grid-cols-3 mt-3 text-xs">
+              <div>
+                <div className="font-medium text-muted-foreground mb-1">Stage WF</div>
+                {(["SD", "DD", "CD"] as const).map((s) => (
+                  <div key={s} className="flex justify-between border-b py-0.5">
+                    <span>{s}</span>
+                    <span className="tabular-nums">{pct(summary.wf.stage[s])}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="font-medium text-muted-foreground mb-1">Discipline WF</div>
+                {Object.entries(summary.wf.discipline).map(([d, w]) => (
+                  <div key={d} className="flex justify-between border-b py-0.5">
+                    <span>{d}</span>
+                    <span className="tabular-nums">{pct(w)}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="font-medium text-muted-foreground mb-1">Building WF</div>
+                {Object.entries(summary.wf.building).map(([b, w]) => (
+                  <div key={b} className="flex justify-between border-b py-0.5">
+                    <span>{b}</span>
+                    <span className="tabular-nums">{pct(w)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-          {(logs ?? []).length === 0 && <div className="text-muted-foreground text-sm">없음</div>}
-        </div>
-      </Card>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 }
