@@ -172,7 +172,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
     columns.forEach((c: any) => {
       const id = c.id;
-      if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d)$/.test(id) && !(id in cleaned)) {
+      if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/.test(id) && !(id in cleaned)) {
         defaults[id] = false;
       }
     });
