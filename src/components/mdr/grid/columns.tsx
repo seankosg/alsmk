@@ -80,7 +80,41 @@ function buildMilestoneCols(
   };
   for (const p of pcts) {
     const base = `${stage}_${p}`;
-    // Plan
+    const msLabel = `${upper}${p}`;
+    // Plan Date
+    cols.push({
+      id: `${base}_pd`,
+      accessorFn: (r) => r[cellsKey][p]?.planDate ?? null,
+      header: `${msLabel} 계획일`,
+      size: 110,
+      enableSorting: true,
+      enableColumnFilter: true,
+      sortUndefined: "last",
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        if (!v) return <span className="text-muted-foreground text-center block">-</span>;
+        return <span className="text-center block tabular-nums">{v.slice(0, 10)}</span>;
+      },
+    });
+    // Actual Date
+    cols.push({
+      id: `${base}_ad`,
+      accessorFn: (r) => r[cellsKey][p]?.actualDate ?? null,
+      header: `${msLabel} 실적일`,
+      size: 110,
+      enableSorting: true,
+      enableColumnFilter: true,
+      sortUndefined: "last",
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        if (!v) return <span className="text-muted-foreground text-center block">-</span>;
+        return <span className="text-center block tabular-nums">{v.slice(0, 10)}</span>;
+      },
+    });
     cols.push({
       id: `${base}_p`,
       accessorFn: (r) => r[cellsKey][p]?.p ?? null,
