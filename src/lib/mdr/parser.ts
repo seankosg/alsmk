@@ -67,14 +67,14 @@ export function extractBuildingFromFilename(filename: string): string {
     const captured = m[1].trim();
     if (captured) return toBuildingCode(captured);
   }
-  // 2) 두 번째 `_` 토큰
+  // 2) 두 번째 `_` 토큰 (다단어 보존)
   const parts = base.split(/_+/);
   if (parts.length >= 2 && parts[1].trim()) {
-    return parts[1].trim().split(/\s+/)[0].toUpperCase();
+    return toBuildingCode(parts[1]);
   }
   // 3) 괄호 안
   const paren = base.match(/\(([^)]+)\)/);
-  if (paren) return paren[1].trim().toUpperCase();
+  if (paren) return toBuildingCode(paren[1]);
   // 4) 마지막 토큰
   const tail = base.split(/[_\-\s]+/).pop() ?? base;
   return tail.toUpperCase();
