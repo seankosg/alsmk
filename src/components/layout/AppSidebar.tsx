@@ -48,6 +48,7 @@ export function AppSidebar() {
 
   // Filter nav items based on role
   const navItems = allNavItems.filter((item) => {
+    if (item.type === "design-group") return isAdminOrPm;
     if (isGuest) return item.guestVisible;
     if (isSuperGuest) return item.superGuestVisible && !((item as any).adminOrPmOnly);
     if ((item as any).adminOrPmOnly) return isAdminOrPm;
