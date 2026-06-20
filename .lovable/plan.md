@@ -1,57 +1,72 @@
 ## 목표
-Stage 셀의 **Plan / Actual**을 단순 개수가 아니라 **조회일(또는 Data Date) 기준 가중 평균 진도율(%)**로 재정의합니다. EV(Earned Value) 방식.
 
-## 데이터 모델 활용
-- `mdr_milestones(drawing_id, stage, pct, plan_date)` — 도면·스테이지별 다중 체크포인트(예: SD 50% by 5/8, SD 100% by 5/8). 누적 계획 곡선.
-- `mdr_progress(drawing_id, stage, pct, is_done, actual_date)` — 동일 구조의 실적 체크포인트.
+Raw Data 그리드의 마일스톤 컬럼을 더 평탄(flat)하게 만들어, 정렬·필터·엑셀 export가 마일스톤 지표별로 가능하도록 합니다.
 
-## 계산 정의
+- 현재: `DD30 P/A/Δ` 한 셀에 세 값(`30 / 12 / 18`) 묶음 표시
+- 변경: 마일스톤마다 `Plan`, `Actual`, `Δ` 컬럼 3개로 분리
+- SD도 50%, 100% 마일스톤 컬럼 추가 (DD/CD와 동일 구조)
 
-### 도면 단위 — 조회일 D 기준
-- **계획 진도율** `P(drawing, stage, D)` = max(milestone.pct where plan_date ≤ D), 없으면 0.
-- **실적 진도율** `A(drawing, stage, D)` = max(progress.pct where is_done=true AND (actual_date IS NULL OR actual_date ≤ D)), 없으면 0.
-- 둘 다 0~100 정수.
+## 컬럼 구조 (변경 후)
 
-### 셀 단위 (Block × Discipline × Stage)
-- **Plan %** = 해당 셀에 속한 도면들의 P 평균
-- **Actual %** = 해당 셀에 속한 도면들의 A 평균
-- **DWG** = 도면 수(현행 유지) — "이 셀이 몇 장 도면을 다루는가" 컨텍스트
-- 분모는 "해당 stage에 마일스톤이 하나라도 있는 도면 수" (계획이 없는 도면은 제외해 왜곡 방지)
+스테이지별 마일스톤 (DB 실 데이터 기반):
 
-### 롤업
-- **Disc Progress** = 기존 가중 평균 유지 (SD/DD/CD WF × 셀 Actual%)
-- **Block Progress / Overall** = 기존 그대로 (Actual% 기반)
-- (다음 단계 질문에서 % 컬럼 의미 확정 시 추가 조정)
+- SD: 50, 100 → 6 컬럼
+- DD: 30, 60, 90, 100 → 12 컬럼
+- CD: 30, 60, 100 → 9 컬럼
 
-## UI 변경 (`MdrSummaryPanel.tsx`)
-- Stage 헤더: `Plan / Actual / %` 3열 유지 (원 디자인 유지)
-- Plan 셀 표시: `45.8%` 같은 평균 % (현재 정수 도면 수에서 변경)
-- Actual 셀 표시: `12.3%` 같은 평균 %
-- % 컬럼: 다음 단계에서 정의 (현재는 평균 진척률 그대로 두고 후속 작업에서 확정)
-- 0% 이거나 계획 없음(분모 0)이면 `-`
-- 헤더 툴팁: "조회일 기준 계획/실적 진도율 (가중 평균)"
+총 27개 마일스톤 컬럼이 생깁니다.
 
-## 데이터 레이어 (`src/lib/mdr/summaryEngine.ts`)
-- `RawDrawing` 타입에 mdr_milestones·mdr_progress 행 그대로 사용 (이미 select 중)
-- `StageCell` 인터페이스 의미 재정의:
-  - `plan: number` → 0~1 (평균 계획 진도율)
-  - `actual: number` → 0~1 (평균 실적 진도율)
-  - `progress: number` → 0~1 (현행 평균 진척률, %컬럼용 — 후속 단계에서 재정의)
-  - `drawingCount: number` 추가 (해당 stage 마일스톤 보유 도면 수)
-- 계산 함수:
-  - `planAtDate(milestones, stage, today): number` — 0~100 정수
-  - `actualAtDate(progress, stage, today): number` — 0~100 정수
-- 도면 단위 계산 → 셀별 평균
-- "Data Date" 입력은 현재는 `today = new Date()` 고정 (Phase 2에서 사용자 선택 UI 추가 가능)
+```text
+... | SD50 P | SD50 A | SD50 Δ | SD100 P | SD100 A | SD100 Δ |
+    | DD30 P | DD30 A | DD30 Δ | DD60 P | DD60 A | DD60 Δ | ... |
+    | CD30 P | CD30 A | CD30 Δ | ...                              |
+```
 
-## 보조 셀렉터 영향
-- `selectStageRollup`(Dashboard용): plan/actual 합 → 평균(%)로 자연 변경, `rate = actual/plan` 의미 유지
-- `useMdrOverdueDrawings`: 변경 없음 (plan_date < today & pct<100 기준 동일)
+헤더 라벨은 공간 절약을 위해 `P` / `A` / `Δ` 단축 표기(툴팁으로 Plan/Actual/Delta 안내).
 
-## 마이그레이션 영향
-- DB 스키마 변경 없음. 순수 클라이언트 계산 로직 변경.
+## 동작 규칙
 
-## 범위 외 / 다음 단계
-- **% 컬럼 의미 확정** — 사용자 후속 답변 후 별도 plan
-- Data Date 사용자 선택 UI
-- 주간 누계 곡선(S-curve)
+- 값 계산 로직(`buildCell`)은 그대로 유지: `Plan = increment_pct`, `Actual = is_done이면 increment_pct, 아니면 0`, `Δ = Plan − Actual`.
+- 해당 마일스톤이 도면에 존재하지 않으면 세 컬럼 모두 `-` 표시.
+- `Δ` 컬럼은 기존 `deltaCls` 색상 규칙(녹/노/적) 그대로 적용.
+- 각 분리 컬럼은 정렬 가능(`enableSorting: true`), 숫자 범위 필터(`progressFilterFn` 재사용) 활성화.
+- 컬럼 토글 메뉴(Columns)에서 개별 표시/숨김 가능 → 사용자가 필요한 마일스톤만 보이게 할 수 있음.
+- 기본 표시 상태: SD/DD/CD 마일스톤 모두 표시. 사용자가 숨겨두면 `useGridStatePersistence`로 유저별 영속화 유지.
+
+## SD 마크 컬럼 처리
+
+기존 단일 컬럼 `SD` (`O`/`-` 마크)는 의미가 SD 마일스톤 존재 여부였습니다. SD가 마일스톤 컬럼으로 세분화되므로 `SD/DD/CD` mark 컬럼 3개는 그대로 유지하되 기본 숨김(default hidden) 처리해 헤더 가독성을 확보합니다. 사용자가 필요시 Columns 메뉴에서 다시 표시 가능.
+
+## Export
+
+`exportFilteredXlsx`도 신규 컬럼 ID에 맞춰 헤더 라벨 매핑을 갱신:
+
+- `sd_50_p`, `sd_50_a`, `sd_50_d`, … `cd_100_d` 등 ID 패턴
+- 헤더는 `SD50 P`, `SD50 A`, `SD50 Δ` 형태로 출력
+- 합쳐 표시하던 `formatCell`의 객체 분기는 제거(이제 각 셀이 숫자)
+
+## 기술 변경 (개발자용)
+
+수정 파일:
+
+1. `src/components/mdr/grid/columns.tsx`
+   - `MdrDrawingRow`에 `sdCells: Record<number, {p,a,delta}|null>` 추가, `ddCells`/`cdCells` 유지
+   - 상수에 `SD_PCTS = [50, 100]` 추가
+   - 기존 `ddStageCols`/`cdStageCols` 빌더를 폐기하고 `buildMilestoneColumns(stage, pcts)` 헬퍼로 일반화하여 마일스톤당 3개 `ColumnDef`(p/a/d) 생성
+   - 컬럼 ID 규칙: `{stage}_{pct}_p|a|d` (예: `dd_30_p`)
+   - 각 ColumnDef: `accessorFn`으로 해당 값 반환, `cell`에서 `-`/숫자 분기 렌더, `meta.filterType: "text"` + `progressFilterFn`
+
+2. `src/components/mdr/grid/MdrAdvancedGrid.tsx`
+   - `rows` 생성 시 `sdCells` 채우기 (SD_PCTS 사용)
+   - `exportFilteredXlsx` `headerLabel` 맵을 신규 ID 27종에 맞게 확장(루프로 생성)
+   - `formatCell`에서 `{p,a,delta}` 객체 분기 제거 (분리 후 모두 숫자/`-`)
+   - `sd_mark`/`dd_mark`/`cd_mark` 초기 `columnVisibility`에 `false` 추가 (영속화된 상태가 없을 때만 적용)
+
+3. 영속화 충돌 방지
+   - 기존 사용자에 `dd_30`, `cd_60` 등 옛 ID의 visibility/sorting 상태가 남아있을 수 있음 → `useGridStatePersistence`에 storage 버전 키 bump (예: `mdr-raw-grid-state` → `mdr-raw-grid-state:v2`) 또는 로딩 시 유효하지 않은 컬럼 ID를 자동 필터링하는 정리 단계 추가. 후자(필터링) 채택: 깨끗하면서 기존 사용자가 설정한 size/filter는 유효한 컬럼만 보존됨.
+
+## 비범위 (이번 단계 제외)
+
+- Summary 패널의 마일스톤 분리는 별건 — Summary는 스테이지 단위 집계 유지.
+- DB 스키마 변경 없음.
+- Data Date 선택 UI는 별도 단계.

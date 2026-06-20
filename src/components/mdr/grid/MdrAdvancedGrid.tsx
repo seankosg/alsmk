@@ -29,7 +29,7 @@ import { drawingStagePct } from "@/lib/mdr/progressEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
-import { buildMdrColumns, ColumnFilterDropdown, DD_PCTS, CD_PCTS, type MdrDrawingRow } from "./columns";
+import { buildMdrColumns, ColumnFilterDropdown, SD_PCTS, DD_PCTS, CD_PCTS, type MdrDrawingRow } from "./columns";
 import { TopHorizontalScrollbar } from "./TopHorizontalScrollbar";
 import { useGridStatePersistence } from "./useGridStatePersistence";
 import { MdrBulkActionBar } from "./MdrBulkActionBar";
@@ -79,6 +79,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         return { p: pShow, a: aShow, delta: pShow - aShow };
       };
 
+      const sdCells: MdrDrawingRow["sdCells"] = {};
+      SD_PCTS.forEach((p) => { sdCells[p] = buildCell("SD", p); });
       const ddCells: MdrDrawingRow["ddCells"] = {};
       DD_PCTS.forEach((p) => { ddCells[p] = buildCell("DD", p); });
       const cdCells: MdrDrawingRow["cdCells"] = {};
@@ -99,6 +101,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         dd_pct: dd.actual,
         cd_pct: cd.actual,
         overall_pct: overall,
+        sdCells,
         ddCells,
         cdCells,
         _raw: d,
@@ -113,14 +116,29 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   };
 
   const columns = useMemo(() => buildMdrColumns(deltaCls), [threshold]);
+  const validColumnIds = useMemo(() => new Set(columns.map((c: any) => c.id ?? c.accessorKey).filter(Boolean)), [columns]);
 
   // 영속화 (rowSelection 제외)
   const persistKey = user ? `mdr-raw-grid-state:${user.id}:${buildingCode}:${sheetName ?? "all"}` : null;
   const [persisted, setPersisted] = useGridStatePersistence(persistKey);
-  const [sorting, setSorting] = useState<SortingState>(persisted.sorting);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(persisted.columnFilters);
-  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(persisted.columnSizing);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(persisted.columnVisibility);
+
+  // 옛 컬럼 ID 정리 (예: dd_30, cd_60 등 → 신규 dd_30_p/a/d 로 대체됨)
+  const pruneById = <T extends { id: string }>(arr: T[]) => arr.filter((x) => validColumnIds.has(x.id));
+  const pruneRecord = <T,>(rec: Record<string, T>) =>
+    Object.fromEntries(Object.entries(rec).filter(([k]) => validColumnIds.has(k))) as Record<string, T>;
+
+  const [sorting, setSorting] = useState<SortingState>(() => pruneById(persisted.sorting));
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => pruneById(persisted.columnFilters));
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => pruneRecord(persisted.columnSizing));
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    const cleaned = pruneRecord(persisted.columnVisibility);
+    // 최초 1회: 영속 상태에 mark 컬럼이 없으면 기본 숨김 적용
+    const defaults: VisibilityState = {};
+    if (!("sd_mark" in cleaned)) defaults.sd_mark = false;
+    if (!("dd_mark" in cleaned)) defaults.dd_mark = false;
+    if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
+    return { ...defaults, ...cleaned };
+  });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [globalFilter, setGlobalFilter] = useState("");
   const [debouncedGlobal, setDebouncedGlobal] = useState("");
@@ -186,23 +204,27 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       const { formatPct } = await import("./filterFns");
       const cols = visibleLeafColumns.filter((c) => c.id !== "__select__");
 
-      // 그리드의 헤더 라벨과 동일하게 매핑
+      // 그리드의 헤더 라벨과 동일하게 매핑 (마일스톤 컬럼 포함)
       const headerLabel = (id: string, fallback: string): string => {
-        const map: Record<string, string> = {
+        const base: Record<string, string> = {
           source_no: "No.", building_code: "Building", item_no: "Item No.",
           discipline: "Disc.", drawing_title: "Title",
           sd_mark: "SD", dd_mark: "DD", cd_mark: "CD",
           dd_pct: "DD%", cd_pct: "CD%", overall_pct: "Overall%",
           plan_finish: "Plan Finish", updated_at: "Updated",
         };
-        return map[id] ?? fallback;
+        if (base[id]) return base[id];
+        // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d → "SD50 P" 등
+        const m = id.match(/^(sd|dd|cd)_(\d+)_(p|a|d)$/);
+        if (m) {
+          const suffix = m[3] === "d" ? "Δ" : m[3].toUpperCase();
+          return `${m[1].toUpperCase()}${m[2]} ${suffix}`;
+        }
+        return fallback;
       };
 
       // 그리드 셀 렌더와 동일한 표시 문자열로 변환
       const formatCell = (id: string, value: any): any => {
-        if (value && typeof value === "object" && "p" in value && "a" in value && "delta" in value) {
-          return `${Math.round(value.p)}/${Math.round(value.a)}/${Math.round(value.delta)}`;
-        }
         if (id === "dd_pct" || id === "cd_pct" || id === "overall_pct") {
           return formatPct(value);
         }
@@ -215,6 +237,11 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         if (id === "updated_at") {
           const v = value as string | null;
           return v ? v.slice(0, 16).replace("T", " ") : "-";
+        }
+        // 마일스톤 분리 컬럼: null이면 "-", 숫자면 반올림
+        if (/^(sd|dd|cd)_\d+_(p|a|d)$/.test(id)) {
+          if (value == null) return "-";
+          return Math.round(Number(value));
         }
         return value ?? "";
       };
