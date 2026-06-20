@@ -217,3 +217,123 @@ export function useMdrSummary() {
     staleTime: 30_000,
   });
 }
+
+// ===================== 보조 셀렉터 =====================
+
+export interface DisciplineRollup {
+  discipline: string;
+  drawingCount: number;
+  weightedProgress: number;
+  disciplineWf: number;
+}
+
+/** 분야별 진척률 — 합산 대상 블록만, building WF로 가중 평균. */
+export function selectDisciplineRollup(summary: MdrSummary): DisciplineRollup[] {
+  const map = new Map<string, { num: number; den: number; dwg: number }>();
+  for (const b of summary.blocks) {
+    if (!b.contributesToOverall) continue;
+    for (const c of b.cells) {
+      const cur = map.get(c.discipline) ?? { num: 0, den: 0, dwg: 0 };
+      cur.num += c.discProgress * b.buildingWf;
+      cur.den += b.buildingWf;
+      cur.dwg += c.drawingCount;
+      map.set(c.discipline, cur);
+    }
+  }
+  const ORDER = ["ARCH", "STR", "MECH", "ELEC", "FAFP", "CIVIL"];
+  return Array.from(map.entries())
+    .map(([discipline, v]) => ({
+      discipline,
+      drawingCount: v.dwg,
+      weightedProgress: v.den > 0 ? v.num / v.den : 0,
+      disciplineWf: summary.wf.discipline[discipline] ?? 0,
+    }))
+    .sort((a, b) => {
+      const ai = ORDER.indexOf(a.discipline);
+      const bi = ORDER.indexOf(b.discipline);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+}
+
+export interface StageRollup {
+  stage: StageCode;
+  plan: number;
+  actual: number;
+  rate: number;
+}
+
+/** Stage별 Plan/Actual 합계 — 합산 대상 블록만. */
+export function selectStageRollup(summary: MdrSummary): StageRollup[] {
+  const acc: Record<StageCode, { plan: number; actual: number }> = {
+    SD: { plan: 0, actual: 0 },
+    DD: { plan: 0, actual: 0 },
+    CD: { plan: 0, actual: 0 },
+  };
+  for (const b of summary.blocks) {
+    if (!b.contributesToOverall) continue;
+    for (const st of STAGES) {
+      acc[st].plan += b.totals[stKey(st)].plan;
+      acc[st].actual += b.totals[stKey(st)].actual;
+    }
+  }
+  return STAGES.map((s) => ({
+    stage: s,
+    plan: acc[s].plan,
+    actual: acc[s].actual,
+    rate: acc[s].plan > 0 ? acc[s].actual / acc[s].plan : 0,
+  }));
+}
+
+export interface OverdueDrawing {
+  id: string;
+  drawing_no: string | null;
+  title: string | null;
+  building_code: string | null;
+  discipline: string | null;
+  stage: StageCode;
+  plan_date: string;
+  pct: number;
+  daysLate: number;
+}
+
+/** plan_date 경과 & 미완(pct<100) 마일스톤 목록. */
+export function useMdrOverdueDrawings(limit = 50) {
+  return useQuery({
+    queryKey: ["mdr_overdue_drawings", limit],
+    queryFn: async (): Promise<OverdueDrawing[]> => {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from("mdr_drawings" as never)
+        .select("id, drawing_no, title, building_code, discipline, out_of_scope, mdr_milestones(stage,pct,plan_date)")
+        .eq("out_of_scope", false);
+      if (error) throw error;
+      const rows = ((data as unknown) as (RawDrawing & { drawing_no: string | null; title: string | null })[]) ?? [];
+      const out: OverdueDrawing[] = [];
+      for (const r of rows) {
+        for (const m of r.mdr_milestones ?? []) {
+          if (!m.plan_date) continue;
+          if (m.plan_date >= today) continue;
+          if ((m.pct ?? 0) >= 100) continue;
+          const days = Math.floor(
+            (new Date(today).getTime() - new Date(m.plan_date).getTime()) / 86400000
+          );
+          out.push({
+            id: r.id,
+            drawing_no: r.drawing_no,
+            title: r.title,
+            building_code: r.building_code,
+            discipline: r.discipline,
+            stage: m.stage,
+            plan_date: m.plan_date,
+            pct: m.pct ?? 0,
+            daysLate: days,
+          });
+        }
+      }
+      out.sort((a, b) => b.daysLate - a.daysLate);
+      return out.slice(0, limit);
+    },
+    staleTime: 30_000,
+  });
+}
+
