@@ -14,17 +14,21 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "./AppLayout";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
-const allNavItems = [
-  { title: "Project Dashboard", url: "/", icon: LayoutDashboard, guestVisible: true, superGuestVisible: true },
-  { title: "Calendar", url: "/calendar", icon: CalendarDays, guestVisible: false, superGuestVisible: true },
-  { title: "My Dashboard", url: "/my", icon: User, guestVisible: false, superGuestVisible: true },
-  { title: "My Workspace", url: "/workspace", icon: Briefcase, guestVisible: false, superGuestVisible: true },
-  { title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
-  
-  { title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
-  { title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
-  { title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
-  { title: "Import", url: "/tasks/import", icon: Upload, adminOnly: true, guestVisible: false, superGuestVisible: false },
+type FlatNavItem = { kind: "link"; title: string; url: string; icon: any; adminOnly?: boolean; adminOrPmOnly?: boolean; guestVisible: boolean; superGuestVisible: boolean };
+type DesignGroupItem = { kind: "design-group" };
+type NavItem = FlatNavItem | DesignGroupItem;
+
+const allNavItems: NavItem[] = [
+  { kind: "link", title: "Project Dashboard", url: "/", icon: LayoutDashboard, guestVisible: true, superGuestVisible: true },
+  { kind: "design-group" },
+  { kind: "link", title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "My Dashboard", url: "/my", icon: User, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "My Workspace", url: "/workspace", icon: Briefcase, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "Calendar", url: "/calendar", icon: CalendarDays, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
+  { kind: "link", title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
+  { kind: "link", title: "Import", url: "/tasks/import", icon: Upload, adminOnly: true, guestVisible: false, superGuestVisible: false },
 ];
 
 const designSubItems = [
@@ -43,12 +47,12 @@ export function AppSidebar() {
   const { cpmLocked } = useCpmLockStatus();
 
   // Filter nav items based on role
-  const navItems = allNavItems.filter((item) => {
+  const navItems = allNavItems.filter((item): boolean => {
+    if (item.kind === "design-group") return isAdminOrPm;
     if (isGuest) return item.guestVisible;
-    if (isSuperGuest) return item.superGuestVisible && !((item as any).adminOrPmOnly);
-    if ((item as any).adminOrPmOnly) return isAdminOrPm;
+    if (isSuperGuest) return item.superGuestVisible && !item.adminOrPmOnly;
+    if (item.adminOrPmOnly) return isAdminOrPm;
     if (item.adminOnly) return isAdmin;
-    // CPM 검증 모드 잠금: 일반 사용자(Admin/PM 제외)는 CPM Manager 숨김
     if (item.url === "/cpm" && cpmLocked && !isAdminOrPm) return false;
     return true;
   });
@@ -97,66 +101,70 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className={item.title === "Messages" && unreadCount > 0 ? "pr-8" : undefined}>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className="hover:bg-sidebar-accent/50 min-h-[44px] flex items-center"
-                      activeClassName="bg-sidebar-accent text-primary font-medium"
-                      onClick={handleNavClick}
-                    >
-                      <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                  {item.title === "Messages" && unreadCount > 0 && !collapsed && !readOnly && (
-                    <SidebarMenuBadge className="right-2 top-1/2 -translate-y-1/2 rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </SidebarMenuBadge>
-                  )}
-                </SidebarMenuItem>
-              ))}
-              {isAdminOrPm && (
-                <Collapsible defaultOpen={location.pathname.startsWith("/design")} className="group/collapsible">
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="hover:bg-sidebar-accent/50 min-h-[44px]">
-                        <FolderKanban className="mr-2 h-4 w-4 shrink-0" />
+              {navItems.map((item) => {
+                if (item.kind === "design-group") {
+                  return (
+                    <Collapsible key="design-group" defaultOpen={location.pathname.startsWith("/design")} className="group/collapsible">
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton className="hover:bg-sidebar-accent/50 min-h-[44px]">
+                            <FolderKanban className="mr-2 h-4 w-4 shrink-0" />
+                            {!collapsed && (
+                              <>
+                                <span>Design Management</span>
+                                <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                              </>
+                            )}
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
                         {!collapsed && (
-                          <>
-                            <span>Design Management</span>
-                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                          </>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {designSubItems.map((sub) => (
+                                <SidebarMenuSubItem key={sub.title}>
+                                  <SidebarMenuSubButton asChild>
+                                    <NavLink
+                                      to={sub.url}
+                                      end={sub.end}
+                                      className="hover:bg-sidebar-accent/50"
+                                      activeClassName="bg-sidebar-accent text-primary font-medium"
+                                      onClick={handleNavClick}
+                                    >
+                                      <sub.icon className="mr-2 h-4 w-4 shrink-0" />
+                                      <span>{sub.title}</span>
+                                    </NavLink>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
                         )}
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    {!collapsed && (
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {designSubItems.map((sub) => (
-                            <SidebarMenuSubItem key={sub.title}>
-                              <SidebarMenuSubButton asChild>
-                                <NavLink
-                                  to={sub.url}
-                                  end={sub.end}
-                                  className="hover:bg-sidebar-accent/50"
-                                  activeClassName="bg-sidebar-accent text-primary font-medium"
-                                  onClick={handleNavClick}
-                                >
-                                  <sub.icon className="mr-2 h-4 w-4 shrink-0" />
-                                  <span>{sub.title}</span>
-                                </NavLink>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild className={item.title === "Messages" && unreadCount > 0 ? "pr-8" : undefined}>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === "/"}
+                        className="hover:bg-sidebar-accent/50 min-h-[44px] flex items-center"
+                        activeClassName="bg-sidebar-accent text-primary font-medium"
+                        onClick={handleNavClick}
+                      >
+                        <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                    {item.title === "Messages" && unreadCount > 0 && !collapsed && !readOnly && (
+                      <SidebarMenuBadge className="right-2 top-1/2 -translate-y-1/2 rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </SidebarMenuBadge>
                     )}
                   </SidebarMenuItem>
-                </Collapsible>
-              )}
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
