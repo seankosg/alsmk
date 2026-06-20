@@ -26,6 +26,8 @@ export function MdrBulkActionBar({ selectedRows, onClearSelection, visibleColumn
   const [value, setValue] = useState<string>("");
   const [blank, setBlank] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!canEdit || selectedRows.length === 0) return null;
