@@ -117,8 +117,13 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
 
 async function persistSummary(sum: SummaryParseResult, push: (s: string) => void) {
   // 1) mdr_weights — 참고용(전사) 가중치. building_code/stage = null, is_reference_only = true.
-  //    weight 컬럼에 % 값(0~1) 저장.
+  //    weight 컬럼에 % 값(0~1) 저장. NULL unique 매칭 회피를 위해 사전 삭제 후 insert.
   if (sum.weights.length) {
+    await (supabase.from("mdr_weights" as never) as any)
+      .delete()
+      .is("building_code", null)
+      .is("stage", null)
+      .eq("is_reference_only", true);
     const payload = sum.weights.map((w) => ({
       building_code: null as string | null,
       discipline: w.discipline,
@@ -126,9 +131,7 @@ async function persistSummary(sum: SummaryParseResult, push: (s: string) => void
       weight: Number(w.pct.toFixed(4)),
       is_reference_only: true,
     }));
-    const { error } = await supabase
-      .from("mdr_weights" as never)
-      .upsert(payload as any, { onConflict: "building_code,discipline,stage,is_reference_only" });
+    const { error } = await supabase.from("mdr_weights" as never).insert(payload as any);
     if (error) throw error;
     push(`  ✓ 가중치 ${payload.length}건 시드`);
   }
