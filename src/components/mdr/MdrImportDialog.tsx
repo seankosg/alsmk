@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { parseMdrFile, type MdrParseResult } from "@/lib/mdr/parser";
+import { parseMdrFile, type MdrParseResult, isSummaryFilename } from "@/lib/mdr/parser";
+import { parseSummaryFile, type SummaryParseResult } from "@/lib/mdr/summaryParser";
 import { validateSheet, applyAutoFix } from "@/lib/mdr/validator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,16 +38,23 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         push(`📂 ${file.name} 파싱 중...`);
+
+        if (isSummaryFilename(file.name)) {
+          const sum = await parseSummaryFile(file);
+          push(`  SUMMARY: 가중치 ${sum.weights.length}건, 매트릭스 ${sum.matrix.length}건`);
+          await persistSummary(sum, push);
+          setProgress(((i + 1) / files.length) * 100);
+          continue;
+        }
+
         const parsed = await parseMdrFile(file);
-        push(`  건물: ${parsed.building} (시트 ${parsed.sheets.length}개${parsed.isSummary ? ", SUMMARY" : ""})`);
+        push(`  건물: ${parsed.building} (시트 ${parsed.sheets.length}개)`);
 
         // 검증
-        let allOk = true;
         for (const sh of parsed.sheets) {
           if (sh.skipped) { push(`  ⊘ ${sh.sheetName}: ${sh.skipReason}`); continue; }
           const rep = validateSheet(sh);
           if (!rep.ok) {
-            allOk = false;
             for (const iss of rep.issues) {
               if (iss.canAutoFix) {
                 push(`  ⚙ ${sh.sheetName}/${iss.stage}: 합계 ${iss.actualSum}% — 누계로 판단, 자동 차분 적용`);
@@ -58,7 +66,6 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
           }
         }
 
-        // 저장
         await persistParsed(parsed, user?.id ?? null, push);
         setProgress(((i + 1) / files.length) * 100);
       }
@@ -108,10 +115,52 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
   );
 }
 
+async function persistSummary(sum: SummaryParseResult, push: (s: string) => void) {
+  // 1) mdr_weights — 참고용(전사) 가중치. building_code/stage = null, is_reference_only = true.
+  //    weight 컬럼에 % 값(0~1) 저장. NULL unique 매칭 회피를 위해 사전 삭제 후 insert.
+  if (sum.weights.length) {
+    await (supabase.from("mdr_weights" as never) as any)
+      .delete()
+      .is("building_code", null)
+      .is("stage", null)
+      .eq("is_reference_only", true);
+    const payload = sum.weights.map((w) => ({
+      building_code: null as string | null,
+      discipline: w.discipline,
+      stage: null as string | null,
+      weight: Number(w.pct.toFixed(4)),
+      is_reference_only: true,
+    }));
+    const { error } = await supabase.from("mdr_weights" as never).insert(payload as any);
+    if (error) throw error;
+    push(`  ✓ 가중치 ${payload.length}건 시드`);
+  }
+
+  // 2) mdr_summary_matrix — Block × Discipline 매트릭스. 오늘 날짜 스냅샷.
+  if (sum.matrix.length) {
+    const today = new Date().toISOString().slice(0, 10);
+    const payload = sum.matrix.map((m) => ({
+      snapshot_date: today,
+      source_filename: sum.filename,
+      block_code: m.blockCode,
+      discipline: m.discipline,
+      sd_plan: m.sdPlan, sd_actual: m.sdActual,
+      dd_plan: m.ddPlan, dd_actual: m.ddActual,
+      cd_plan: m.cdPlan, cd_actual: m.cdActual,
+    }));
+    const { error } = await supabase
+      .from("mdr_summary_matrix" as never)
+      .upsert(payload as any, { onConflict: "snapshot_date,block_code,discipline" });
+    if (error) throw error;
+    push(`  ✓ 주간 매트릭스 ${payload.length}건 저장`);
+  }
+
+  await logImport(sum.filename, null, "success", sum.weights.length + sum.matrix.length, 0, null, null);
+}
+
 async function persistParsed(parsed: MdrParseResult, userId: string | null, push: (s: string) => void) {
   if (parsed.isSummary) {
-    push(`  ✓ SUMMARY 임포트는 Phase 1 기본 시드만 적용`);
-    await logImport(parsed.filename, null, "success", 0, 0, userId, null);
+    // 안전망: handleImport에서 분기 처리되지만 직접 호출 시 SUMMARY 파서로 위임
     return;
   }
 
