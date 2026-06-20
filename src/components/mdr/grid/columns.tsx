@@ -18,48 +18,87 @@ export interface MdrDrawingRow {
   dd_pct: number;
   cd_pct: number;
   overall_pct: number;
+  sdCells: Record<number, { p: number; a: number; delta: number } | null>;
   ddCells: Record<number, { p: number; a: number; delta: number } | null>;
   cdCells: Record<number, { p: number; a: number; delta: number } | null>;
   _raw: any;
 }
 
+export const SD_PCTS = [50, 100];
 export const DD_PCTS = [30, 60, 90, 100];
 export const CD_PCTS = [30, 60, 100];
 
 const DISCIPLINE_OPTIONS = ["A", "S", "M", "E", "P", "C", "I"].map((v) => ({ value: v, label: v }));
 const MARK_OPTIONS = [{ value: "O", label: "O" }, { value: "-", label: "-" }];
 
+type Stage = "sd" | "dd" | "cd";
+
+function buildMilestoneCols(
+  stage: Stage,
+  pcts: number[],
+  cellsKey: "sdCells" | "ddCells" | "cdCells",
+  deltaCls: (delta: number) => string,
+): ColumnDef<MdrDrawingRow>[] {
+  const cols: ColumnDef<MdrDrawingRow>[] = [];
+  const upper = stage.toUpperCase();
+  for (const p of pcts) {
+    const base = `${stage}_${p}`;
+    // Plan
+    cols.push({
+      id: `${base}_p`,
+      accessorFn: (r) => r[cellsKey][p]?.p ?? null,
+      header: `${upper}${p} P`,
+      size: 64,
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: progressFilterFn,
+      meta: { filterType: "text" },
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        if (v == null) return <span className="text-muted-foreground text-center block">-</span>;
+        return <span className="text-right block tabular-nums text-muted-foreground">{Math.round(v)}</span>;
+      },
+    });
+    // Actual
+    cols.push({
+      id: `${base}_a`,
+      accessorFn: (r) => r[cellsKey][p]?.a ?? null,
+      header: `${upper}${p} A`,
+      size: 64,
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: progressFilterFn,
+      meta: { filterType: "text" },
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        if (v == null) return <span className="text-muted-foreground text-center block">-</span>;
+        return <span className="text-right block tabular-nums">{Math.round(v)}</span>;
+      },
+    });
+    // Delta
+    cols.push({
+      id: `${base}_d`,
+      accessorFn: (r) => r[cellsKey][p]?.delta ?? null,
+      header: `${upper}${p} Δ`,
+      size: 64,
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: progressFilterFn,
+      meta: { filterType: "text" },
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        if (v == null) return <span className="text-muted-foreground text-center block">-</span>;
+        return <span className={`text-right block tabular-nums ${deltaCls(v)}`}>{Math.round(v)}</span>;
+      },
+    });
+  }
+  return cols;
+}
+
 export function buildMdrColumns(deltaCls: (delta: number) => string): ColumnDef<MdrDrawingRow>[] {
-  const stageCellRender = (cell: { p: number; a: number; delta: number } | null | undefined) => {
-    if (!cell) return <span className="text-muted-foreground">-</span>;
-    return (
-      <span className="tabular-nums">
-        <span className="text-muted-foreground">{cell.p.toFixed(0)}</span>
-        /<span>{cell.a.toFixed(0)}</span>
-        /<span className={deltaCls(cell.delta)}>{cell.delta.toFixed(0)}</span>
-      </span>
-    );
-  };
-
-  const ddStageCols: ColumnDef<MdrDrawingRow>[] = DD_PCTS.map((p) => ({
-    id: `dd_${p}`,
-    accessorFn: (r) => r.ddCells[p]?.delta ?? null,
-    header: `DD${p} P/A/Δ`,
-    size: 110,
-    enableSorting: false,
-    enableColumnFilter: false,
-    cell: ({ row }) => stageCellRender(row.original.ddCells[p]),
-  }));
-
-  const cdStageCols: ColumnDef<MdrDrawingRow>[] = CD_PCTS.map((p) => ({
-    id: `cd_${p}`,
-    accessorFn: (r) => r.cdCells[p]?.delta ?? null,
-    header: `CD${p} P/A/Δ`,
-    size: 110,
-    enableSorting: false,
-    enableColumnFilter: false,
-    cell: ({ row }) => stageCellRender(row.original.cdCells[p]),
-  }));
+  const sdCols = buildMilestoneCols("sd", SD_PCTS, "sdCells", deltaCls);
+  const ddCols = buildMilestoneCols("dd", DD_PCTS, "ddCells", deltaCls);
+  const cdCols = buildMilestoneCols("cd", CD_PCTS, "cdCells", deltaCls);
 
   return [
     {
@@ -134,8 +173,9 @@ export function buildMdrColumns(deltaCls: (delta: number) => string): ColumnDef<
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: MARK_OPTIONS },
     },
-    ...ddStageCols,
-    ...cdStageCols,
+    ...sdCols,
+    ...ddCols,
+    ...cdCols,
     {
       accessorKey: "dd_pct", header: "DD%", size: 80,
       cell: ({ getValue }) => <span className="text-right block tabular-nums">{formatPct(getValue())}</span>,
