@@ -333,7 +333,9 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           </>
         )}
 
-        <div className="ml-auto" />
+        <div className="ml-auto flex items-center gap-2">
+          <MdrProgressIconLegend />
+        </div>
 
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={exportFilteredXlsx} title="현재 필터/정렬 상태의 표시 컬럼을 .xlsx로 내보냅니다">
           <Download className="mr-1 h-3.5 w-3.5" />Export view
