@@ -1,6 +1,19 @@
 <!doctype html>
 <html lang="en" class="dark">
   <head>
+    <script>
+      // 첫 페인트 깜빡임 방지 — 번들 로드 전 라우트 기반 테마 결정
+      // ⚠️ src/lib/theme/routeTheme.ts 와 동기화 필요
+      (function () {
+        try {
+          var p = window.location.pathname;
+          var light = p.indexOf('/design') === 0 || p.indexOf('/workspace') === 0;
+          var html = document.documentElement;
+          html.classList.remove('dark', 'light');
+          html.classList.add(light ? 'light' : 'dark');
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ALSMK — Project Management</title>
