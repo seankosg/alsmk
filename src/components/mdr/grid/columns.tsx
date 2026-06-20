@@ -31,6 +31,12 @@ export const CD_PCTS = [30, 60, 100];
 const DISCIPLINE_OPTIONS = ["A", "S", "M", "E", "P", "C", "I"].map((v) => ({ value: v, label: v }));
 const MARK_OPTIONS = [{ value: "O", label: "O" }, { value: "-", label: "-" }];
 
+const naturalSort = (rowA: any, rowB: any, columnId: string) => {
+  const a = rowA.getValue(columnId);
+  const b = rowB.getValue(columnId);
+  return String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
+};
+
 type Stage = "sd" | "dd" | "cd";
 
 function buildMilestoneCols(
