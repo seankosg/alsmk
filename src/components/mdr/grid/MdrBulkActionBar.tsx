@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { X, Download, Copy, Loader2 } from "lucide-react";
+import { X, Download, Copy, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { MDR_BULK_FIELDS, applyMdrBulkUpdate, type MdrBulkField } from "@/lib/mdr/bulkEdit";
+import { MDR_BULK_FIELDS, applyMdrBulkUpdate, applyMdrBulkDelete, type MdrBulkField } from "@/lib/mdr/bulkEdit";
 import type { MdrDrawingRow } from "./columns";
 
 interface Props {
