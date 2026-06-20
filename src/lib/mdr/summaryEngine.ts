@@ -168,15 +168,23 @@ function stKey(s: StageCode): "sd" | "dd" | "cd" {
 }
 
 async function fetchSummary(): Promise<MdrSummary> {
-  const [wf, { data, error }] = await Promise.all([
-    loadMdrWeights(),
-    supabase
+  const wf = await loadMdrWeights();
+
+  // PostgREST 기본 1000행 제한 회피: 1000행 단위 페이지네이션으로 전체 로드
+  const PAGE = 1000;
+  const rows: RawDrawing[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
       .from("mdr_drawings" as never)
       .select("id, building_code, discipline, out_of_scope, mdr_milestones(stage,pct,plan_date), mdr_progress(stage,pct,is_done)")
-      .eq("out_of_scope", false),
-  ]);
-  if (error) throw error;
-  const rows = ((data as unknown) as RawDrawing[]) ?? [];
+      .eq("out_of_scope", false)
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    const chunk = ((data as unknown) as RawDrawing[]) ?? [];
+    rows.push(...chunk);
+    if (chunk.length < PAGE) break;
+  }
+
 
   const byBuilding = new Map<string, RawDrawing[]>();
   for (const d of rows) {
