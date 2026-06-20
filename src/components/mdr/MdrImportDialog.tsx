@@ -38,16 +38,23 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         push(`📂 ${file.name} 파싱 중...`);
+
+        if (isSummaryFilename(file.name)) {
+          const sum = await parseSummaryFile(file);
+          push(`  SUMMARY: 가중치 ${sum.weights.length}건, 매트릭스 ${sum.matrix.length}건`);
+          await persistSummary(sum, push);
+          setProgress(((i + 1) / files.length) * 100);
+          continue;
+        }
+
         const parsed = await parseMdrFile(file);
-        push(`  건물: ${parsed.building} (시트 ${parsed.sheets.length}개${parsed.isSummary ? ", SUMMARY" : ""})`);
+        push(`  건물: ${parsed.building} (시트 ${parsed.sheets.length}개)`);
 
         // 검증
-        let allOk = true;
         for (const sh of parsed.sheets) {
           if (sh.skipped) { push(`  ⊘ ${sh.sheetName}: ${sh.skipReason}`); continue; }
           const rep = validateSheet(sh);
           if (!rep.ok) {
-            allOk = false;
             for (const iss of rep.issues) {
               if (iss.canAutoFix) {
                 push(`  ⚙ ${sh.sheetName}/${iss.stage}: 합계 ${iss.actualSum}% — 누계로 판단, 자동 차분 적용`);
@@ -59,7 +66,6 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
           }
         }
 
-        // 저장
         await persistParsed(parsed, user?.id ?? null, push);
         setProgress(((i + 1) / files.length) * 100);
       }
