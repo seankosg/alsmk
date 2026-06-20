@@ -50,31 +50,31 @@ const SKIP_SHEETS = new Set(["MH&DWG", "Sheet1", "Sheet3", "MH& DWG", "MASTER"])
 const MILESTONE_RE = /(SD|DD|CD)\s*(\d{1,3})\s*%/i;
 
 /**
- * 파일명에서 건물 코드 추출.
- * 규약: `{NN}_{BUILDING}_MDR PROGRESS...`
+ * 파일명에서 건물 코드 추출. 다단어 건물명은 공백을 `_`로 치환해 보존.
  *   - "01_GEN_MDR progress"            → "GEN"
  *   - "02_SMP&CCM_MDR PROGRESS"        → "SMP&CCM"
- *   - "03_HSM_MDR progress"            → "HSM"
- *   - "04_CRM_MDR PROGRESS"            → "CRM"
- *   - "05_MAIN OFFICE_MDR PROGRESS"    → "MAIN" (첫 단어만)
- * 폴백: 두 번째 `_` 토큰. 그래도 없으면 괄호 안 / 마지막 토큰.
+ *   - "05_MAIN OFFICE_MDR PROGRESS"    → "MAIN_OFFICE"
+ * 폴백: 두 번째 `_` 토큰 → 괄호 안 → 마지막 토큰.
  */
+const toBuildingCode = (s: string): string =>
+  s.trim().replace(/\s+/g, "_").toUpperCase();
+
 export function extractBuildingFromFilename(filename: string): string {
   const base = filename.replace(/\.[^.]+$/, "");
-  // 1) {NN}_..._MDR 패턴
+  // 1) {NN}_..._MDR 패턴 (다단어 건물명 보존)
   const m = base.match(/^\d+[_\s\-]+(.+?)[_\s\-]+MDR\b/i);
   if (m) {
-    const firstWord = m[1].trim().split(/\s+/)[0];
-    if (firstWord) return firstWord.toUpperCase();
+    const captured = m[1].trim();
+    if (captured) return toBuildingCode(captured);
   }
-  // 2) 두 번째 `_` 토큰
+  // 2) 두 번째 `_` 토큰 (다단어 보존)
   const parts = base.split(/_+/);
   if (parts.length >= 2 && parts[1].trim()) {
-    return parts[1].trim().split(/\s+/)[0].toUpperCase();
+    return toBuildingCode(parts[1]);
   }
   // 3) 괄호 안
   const paren = base.match(/\(([^)]+)\)/);
-  if (paren) return paren[1].trim().toUpperCase();
+  if (paren) return toBuildingCode(paren[1]);
   // 4) 마지막 토큰
   const tail = base.split(/[_\-\s]+/).pop() ?? base;
   return tail.toUpperCase();
@@ -141,34 +141,48 @@ function parseSheet(
     return { sheetName, discipline, rows: [], milestoneOrder: [], skipped: true, skipReason: "헤더(NO.) 셀을 찾지 못함" };
   }
   const { headerRow, noCol } = anchor;
-  // headerRow      : 식별 컬럼 헤더 + 마일스톤 라벨(SD100%, DD30%, ...)
-  // headerRow + 1  : 증분 (%)
-  // headerRow + 2  : 계획일자
   const range = XLSX.utils.decode_range(ws["!ref"]!);
   const maxCol = range.e.c;
+
+  // 마일스톤 라벨 행 자동 탐지: headerRow ~ headerRow+2 중 (SD|DD|CD)\d+% 매칭이 가장 많은 행
+  let milestoneLabelRow = headerRow;
+  let bestHits = -1;
+  for (let r = headerRow; r <= headerRow + 2; r++) {
+    let hits = 0;
+    for (let c = noCol; c <= maxCol; c++) {
+      if (MILESTONE_RE.test(cellStr(ws, r, c))) hits++;
+    }
+    if (hits > bestHits) { bestHits = hits; milestoneLabelRow = r; }
+  }
+  const incrementRow = milestoneLabelRow + 1;
+  const planDateRow = milestoneLabelRow + 2;
 
   // 1) 식별 컬럼 + 마일스톤 컬럼 위치 매핑
   const headers: { col: number; key: ReturnType<typeof detectColumnKey> | null; text: string }[] = [];
   const milestoneCols: { col: number; stage: MdrStage; pct: number; incrementPct: number; planDate?: string }[] = [];
   for (let c = noCol; c <= maxCol; c++) {
-    const text = cellStr(ws, headerRow, c);
-    if (!text) continue;
-    const m = text.match(MILESTONE_RE);
+    const labelText = cellStr(ws, milestoneLabelRow, c);
+    const m = labelText.match(MILESTONE_RE);
     if (m) {
       const stage = m[1].toUpperCase() as MdrStage;
       const pct = parseInt(m[2], 10);
-      const incRaw = cellStr(ws, headerRow + 1, c).replace("%", "").trim();
+      const incRaw = cellStr(ws, incrementRow, c).replace("%", "").trim();
       const incrementPct = parseFloat(incRaw) || 0;
-      const planDate = parseDate(cellRaw(ws, headerRow + 2, c));
+      const planDate = parseDate(cellRaw(ws, planDateRow, c));
       milestoneCols.push({ col: c, stage, pct, incrementPct, planDate });
     } else {
-      headers.push({ col: c, key: detectColumnKey(text), text });
+      const headerText = cellStr(ws, headerRow, c);
+      if (headerText) headers.push({ col: c, key: detectColumnKey(headerText), text: headerText });
     }
   }
 
-  // 2) 데이터 행 파싱 (헤더 + 3행 이후)
+  // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
+  const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
+  const dataStartRow = hasPlanDates ? planDateRow + 1 : incrementRow + 1;
+
+  // 2) 데이터 행 파싱
   const rows: MdrParsedRow[] = [];
-  for (let r = headerRow + 3; r <= range.e.r; r++) {
+  for (let r = dataStartRow; r <= range.e.r; r++) {
     const sourceNo = cellStr(ws, r, noCol);
     if (!sourceNo) continue;
     // No 가 숫자/문자 혼합 가능. 빈 줄·합계 행은 패스
@@ -210,7 +224,7 @@ function parseSheet(
     // out of scope: 모든 마일스톤 increment 0 또는 SD/DD/CD 모두 비활성
     const allZero = milestones.every((m) => m.incrementPct === 0);
 
-    const itemNo = `${building}-${sourceNo}`;
+    const itemNo = `${building}-${discipline}-${sourceNo}`;
     rows.push({
       sourceNo,
       itemNo,
