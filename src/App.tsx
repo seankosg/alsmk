@@ -39,7 +39,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-      <BrowserRouter>
         <RouteThemeController />
         <Routes>
           {/* Public route – outside AppLayout */}
