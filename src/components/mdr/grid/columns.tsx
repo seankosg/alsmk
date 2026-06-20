@@ -194,6 +194,29 @@ export function buildMdrColumns(
       meta: { filterType: "text" },
     },
     {
+      id: "progress_icon",
+      header: () => <MdrProgressIconHeader collapsed={collapsed} onToggleGroup={onToggleGroup} />,
+      size: progressIconSize,
+      enableSorting: false,
+      enableColumnFilter: true,
+      accessorFn: (r) => flattenCells(r.progressIconCells).map((c) => c.state),
+      filterFn: (row, _id, value) => {
+        if (!value || (Array.isArray(value) && value.length === 0)) return true;
+        const states: MdrMilestoneState[] = flattenCells(row.original.progressIconCells).map((c) => c.state);
+        const want = Array.isArray(value) ? value : [value];
+        return want.some((v: MdrMilestoneState) => states.includes(v));
+      },
+      meta: { filterType: "multi-select", filterOptions: STATE_FILTER_OPTIONS },
+      cell: ({ row }) => (
+        <MdrProgressIconCell
+          cells={row.original.progressIconCells}
+          asOf={asOf}
+          collapsed={collapsed}
+          onToggleGroup={onToggleGroup}
+        />
+      ),
+    },
+    {
       accessorKey: "discipline", header: "Disc.", size: 70,
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: DISCIPLINE_OPTIONS },
