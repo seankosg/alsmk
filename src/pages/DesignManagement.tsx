@@ -82,7 +82,7 @@ export default function DesignManagement() {
   if (!isAdminOrPm) return <Navigate to="/" replace />;
 
   return (
-    <div className="space-y-6">
+    <div className="light-scope space-y-6 -m-6 p-6 min-h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
