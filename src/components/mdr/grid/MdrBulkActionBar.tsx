@@ -163,6 +163,9 @@ export function MdrBulkActionBar({ selectedRows, onClearSelection, visibleColumn
         <Button size="sm" variant="outline" className="h-8" onClick={copyTsv}>
           <Copy className="mr-1 h-3.5 w-3.5" /> TSV
         </Button>
+        <Button size="sm" variant="destructive" className="h-8" onClick={() => { setDeleteConfirmText(""); setDeleteOpen(true); }}>
+          <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+        </Button>
         <Button size="sm" variant="ghost" className="ml-auto h-8" onClick={onClearSelection}>
           <X className="mr-1 h-3.5 w-3.5" /> Clear
         </Button>
