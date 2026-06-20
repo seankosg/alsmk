@@ -47,6 +47,14 @@ function buildMilestoneCols(
 ): ColumnDef<MdrDrawingRow>[] {
   const cols: ColumnDef<MdrDrawingRow>[] = [];
   const upper = stage.toUpperCase();
+  const numericSort = (a: any, b: any, id: string) => {
+    const va = a.getValue(id);
+    const vb = b.getValue(id);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return Number(va) - Number(vb);
+  };
   for (const p of pcts) {
     const base = `${stage}_${p}`;
     // Plan
@@ -57,6 +65,8 @@ function buildMilestoneCols(
       size: 64,
       enableSorting: true,
       enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
       filterFn: progressFilterFn,
       meta: { filterType: "text" },
       cell: ({ getValue }) => {
@@ -73,6 +83,8 @@ function buildMilestoneCols(
       size: 64,
       enableSorting: true,
       enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
       filterFn: progressFilterFn,
       meta: { filterType: "text" },
       cell: ({ getValue }) => {
@@ -89,6 +101,8 @@ function buildMilestoneCols(
       size: 64,
       enableSorting: true,
       enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
       filterFn: progressFilterFn,
       meta: { filterType: "text" },
       cell: ({ getValue }) => {
