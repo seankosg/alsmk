@@ -1,91 +1,91 @@
-## 문제
+## 목표
+다음 두 화면만 시인성 높은 라이트 테마(Cloud White)로 전환. 그 외 모든 화면(대시보드·사이드바·CPM·Messages 등)은 다크 유지.
+- `/design` Raw Data
+- `/workspace` My Workspace
 
-`MdrAdvancedGrid` 의 표가 헤더 폭과 본문 셀 폭이 서로 어긋남.
+선택안: v3 High-density Pro Grid
+- 배경 `#fafbfc`, 카드 `#ffffff`, 경계선 `#e8ecf1`, 보조 텍스트 `#94a3b8`, 액센트 `#3b82f6`
+- 헤더 `JetBrains Mono`, 본문 `Work Sans` (기존 Inter 유지 가능)
+- 마일스톤/그룹 헤더 색조 구분(blue/indigo/emerald-50/30) + 좌측 구분선
+- Δ 음수=emerald, 양수=red, 0/빈=slate-400
+- 헤더 sticky, hover 행 하이라이트, 약한 zebra
 
-원인:
-1. `<table style={{ width: totalWidth, minWidth: "100%" }}>` — `table-layout`이 auto 라 브라우저가 헤더 셀 폭을 콘텐츠에 맞춰 재분배.
-2. 본문 `<tr>`은 `display:flex` + `<td style={{ width: getSize() }}>` 로 정확한 폭 강제. → 헤더(테이블 레이아웃)와 본문(flex) 두 레이아웃 시스템이 충돌해 어긋남.
-3. `minWidth: "100%"` 때문에 totalWidth < 컨테이너일 때 표가 늘어나면서 헤더만 더 벌어짐.
+## 변경 범위 (frontend 전용, 비즈니스 로직 0)
 
-## 참고
+### 1. 라이트 스코프 클래스 도입 — `src/index.css`
+전역 다크는 그대로 두고, 스코프 클래스 내부에서만 semantic token을 라이트로 재정의.
 
-SHAW PROJECT CMS `DefectRawDataPage.tsx` (1715–1798) 패턴을 그대로 적용:
-- 헤더/본문을 **하나의 `<table style={{ tableLayout: 'fixed', width: totalWidth }}>`** 안에 둠
-- 가로/세로 스크롤은 **하나의 컨테이너** (`overflow:auto`)가 모두 소유
-- 헤더 `<th>`는 `position: sticky; top: 0` 로 세로 스크롤 시 고정
-- 가상화는 `display:flex` 가 아니라 **상/하단 padding `<tr>` spacer + 일반 `<tr>`** 로 처리 → 테이블 레이아웃을 깨지 않음
+```css
+.light-scope {
+  --background: 220 20% 98%;
+  --foreground: 222 30% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 30% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 30% 15%;
+  --muted: 220 15% 95%;
+  --muted-foreground: 215 15% 50%;
+  --accent: 220 15% 95%;
+  --accent-foreground: 222 30% 15%;
+  --border: 218 22% 92%;
+  --input: 218 22% 92%;
+  --primary: 215 90% 55%;
+  --primary-foreground: 0 0% 100%;
+  color-scheme: light;
 
-## 변경 파일
-
-**`src/components/mdr/grid/MdrAdvancedGrid.tsx`** 한 파일만.
-
-### 1. 본문 가상화 방식 교체
-
-기존:
-```tsx
-<tbody style={{ height: totalSize, position: relative, display: block }}>
-  {virtualItems.map(v => (
-    <tr className="absolute flex" style={{ transform: translateY(...) }}>
-      {cells.map(c => <td style={{ width: getSize() }}>...)}
-    </tr>
-  ))}
-</tbody>
+  /* Raw Data 보조 토큰 */
+  --rd-header: 220 25% 96%;
+  --rd-subheader: 220 25% 98%;
+  --rd-group-sd: 215 90% 96%;
+  --rd-group-dd: 235 80% 96%;
+  --rd-group-cd: 160 60% 94%;
+  --rd-delta-pos: 0 72% 51%;
+  --rd-delta-neg: 160 65% 38%;
+}
 ```
 
-신규(SHAW 패턴):
-```tsx
-<tbody>
-  {paddingTop > 0 && (
-    <tr aria-hidden style={{ height: paddingTop }}>
-      <td colSpan={visibleLeafColumns.length} style={{ padding:0, border:0 }} />
-    </tr>
-  )}
-  {virtualItems.map(v => {
-    const row = tableRows[v.index];
-    return (
-      <tr key={row.id} style={{ height: 32 }} className="border-t hover:bg-muted/30 ...">
-        {row.getVisibleCells().map(cell => (
-          <td
-            key={cell.id}
-            style={{
-              width: cell.column.getSize(),
-              minWidth: cell.column.getSize(),
-              maxWidth: cell.column.getSize(),
-              overflow: 'hidden',
-            }}
-            className="border-r px-2 py-1 truncate whitespace-nowrap"
-          >
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </td>
-        ))}
-      </tr>
-    );
-  })}
-  {paddingBottom > 0 && (
-    <tr aria-hidden style={{ height: paddingBottom }}>
-      <td colSpan={visibleLeafColumns.length} style={{ padding:0, border:0 }} />
-    </tr>
-  )}
-</tbody>
-```
+### 2. 페이지 래퍼에 스코프 부여
+- `src/pages/DesignManagement.tsx` 최상위 컨테이너에 `light-scope bg-background text-foreground` 추가 (기존 `space-y-6` 유지).
+- `src/pages/Workspace.tsx` 최상위 컨테이너에 동일하게 적용.
 
-`paddingTop = virtualItems[0]?.start ?? 0`, `paddingBottom = totalSize - (virtualItems.at(-1)?.end ?? 0)` 로 계산.
+사이드바·글로벌 헤더는 `AppLayout` 바깥이라 영향 없음(확인 필요 시 `AppLayout`만 view).
 
-### 2. 테이블 레이아웃 고정
+### 3. Raw Data 그리드 시각 갱신
+`src/components/mdr/grid/MdrAdvancedGrid.tsx`:
+- 컨테이너: `bg-card border border-border rounded-lg`
+- 헤더: `bg-[hsl(var(--rd-header))] text-muted-foreground uppercase tracking-wider text-[10px] font-semibold font-mono`
+- 서브헤더(P/A/Δ): `bg-[hsl(var(--rd-subheader))] text-[9px]`
+- 행: `divide-y divide-border`, hover `hover:bg-muted/60`, even `bg-muted/30`
+- 셀: `text-xs text-foreground`, 보조 `text-muted-foreground`
 
-- `<table>` 에 `style={{ width: totalWidth, tableLayout: 'fixed' }}` — `minWidth:"100%"` 제거 (totalWidth가 곧 본문 폭이며, 컨테이너가 작으면 가로 스크롤이 생김).
-- 각 `<th>` 도 `style={{ width, minWidth: width, maxWidth: width }}` 로 3종 모두 지정.
+`src/components/mdr/grid/columns.tsx`:
+- 마일스톤 그룹 헤더에 `bg-[hsl(var(--rd-group-sd|dd|cd))] border-l border-border`
+- Δ 셀: 부호별 `text-[hsl(var(--rd-delta-pos|neg))] bg-red-50/40` 또는 `bg-emerald-50/40`, 0/빈 `text-muted-foreground italic`
+- Discipline pill: `bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] uppercase`
 
-### 3. 헤더 sticky 유지
+### 4. Workspace 시각 갱신 (라이트 톤 적용 + 최소 정돈)
+`src/pages/Workspace.tsx` 및 `src/components/tasks/TaskTable.tsx`(있는 컬럼 헤더/카드들):
+- 모든 hardcoded 색상 클래스(`bg-slate-800`, `text-white` 등) 검색·제거 → semantic token으로 치환
+- 카드/패널 `bg-card border border-border`
+- TaskTable 헤더: `bg-muted text-muted-foreground uppercase text-[10px] font-semibold`
+- 행 hover: `hover:bg-muted/60`
+- 상태 뱃지: 기존 Badge variant 유지(토큰 따라 자동 라이트 전환)
 
-기존 `<thead className="sticky top-0 z-10 bg-muted">` 는 그대로 두되, SHAW와 동일하게 `<th>` 자체에 `position: sticky; top: 0; z-index: 2; background: hsl(var(--muted))` 를 적용해도 됨. 둘 중 안정적인 `<th>` 단위 sticky 사용.
+조사 단계에서 `Workspace.tsx`와 `TaskTable.tsx`를 view하여 하드코딩된 다크 색상 위치를 식별 후 일괄 정리.
 
-### 4. 스크롤 컨테이너
+### 5. 폰트
+프로젝트는 이미 `JetBrains Mono`(헤더) + `Inter`(본문) 사용 중. Work Sans는 도입하지 않고 기존 Inter 유지(타이포 변동 최소화). 필요 시 본문 weight만 미세 조정.
 
-`<div ref={tableRef} className="relative max-h-[70vh] overflow-auto">` 그대로 — 이미 SHAW와 동일하게 하나의 컨테이너가 가로/세로 스크롤을 소유. `TopHorizontalScrollbar` 는 기존대로 위쪽에 미러링.
+## 비변경 영역
+- AppSidebar, AppLayout 헤더, Dashboard, MyDashboard, CPM, Messages, Calendar, Admin, Organization 등 라우트는 다크 유지
+- 데이터 fetch/정렬/필터/가상화 로직, 컬럼 구조, 권한 모두 그대로
+- Toast/Dialog 등 portal 컴포넌트는 전역 토큰 사용 → 다른 화면에서 열어도 다크 톤 유지
 
-## 범위 외
+## 검증
+1. Playwright로 로그인 → `/design` 진입: 라이트 톤, 헤더 sticky, Δ 색, 정렬 동작 회귀 없음 스크린샷
+2. `/workspace` 진입: 라이트 톤, TaskTable 가독성, hover/필터 동작 스크린샷
+3. `/` 대시보드: 다크 그대로 유지 스크린샷
+4. 다이얼로그 1개(Task 상세) 열어 portal 컴포넌트 톤 확인
 
-- `columns.tsx`, `TopHorizontalScrollbar.tsx`, 다른 파일 변경 없음
-- 정렬/필터/리사이즈/영속화 로직 변경 없음 (지난 턴 결과 유지)
-- frozen 컬럼(좌측 sticky) 도입은 별도 요청 시 진행
+## 산출물
+- 수정: `src/index.css`, `src/pages/DesignManagement.tsx`, `src/pages/Workspace.tsx`, `src/components/mdr/grid/MdrAdvancedGrid.tsx`, `src/components/mdr/grid/columns.tsx`, (필요 시) `src/components/tasks/TaskTable.tsx` 외 하드코딩 다크 색상 제거 대상 파일
