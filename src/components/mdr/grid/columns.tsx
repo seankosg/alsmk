@@ -2,6 +2,13 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnFilterDropdown } from "./ColumnFilterDropdown";
 import { multiSelectFilterFn, textFilterFn, dateRangeFilterFn, progressFilterFn, formatPct } from "./filterFns";
+import {
+  MdrProgressIconCell,
+  MdrProgressIconHeader,
+  type CollapsedGroups,
+  type ProgressGroup,
+} from "./MdrProgressIconCell";
+import { flattenCells, MDR_STATE_LABEL, type MdrMilestoneState, type MdrProgressIconCells } from "@/lib/mdr/progressIcon";
 
 export interface MdrDrawingRow {
   id: string;
@@ -21,12 +28,20 @@ export interface MdrDrawingRow {
   sdCells: Record<number, { p: number; a: number; delta: number } | null>;
   ddCells: Record<number, { p: number; a: number; delta: number } | null>;
   cdCells: Record<number, { p: number; a: number; delta: number } | null>;
+  progressIconCells: MdrProgressIconCells;
   _raw: any;
 }
 
-export const SD_PCTS = [50, 100];
+export const SD_PCTS = [100];
 export const DD_PCTS = [30, 60, 90, 100];
 export const CD_PCTS = [30, 60, 100];
+
+const STATE_FILTER_OPTIONS: { value: MdrMilestoneState; label: string }[] = [
+  { value: "done", label: MDR_STATE_LABEL.done },
+  { value: "wip", label: MDR_STATE_LABEL.wip },
+  { value: "planned", label: MDR_STATE_LABEL.planned },
+  { value: "delay", label: MDR_STATE_LABEL.delay },
+];
 
 const DISCIPLINE_OPTIONS = ["A", "S", "M", "E", "P", "C", "I"].map((v) => ({ value: v, label: v }));
 const MARK_OPTIONS = [{ value: "O", label: "O" }, { value: "-", label: "-" }];
