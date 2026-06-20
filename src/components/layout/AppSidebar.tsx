@@ -102,7 +102,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild className={item.title === "Messages" && unreadCount > 0 ? "pr-8" : undefined}>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/" || item.url === "/design"}
+                      end={item.url === "/"}
                       className="hover:bg-sidebar-accent/50 min-h-[44px] flex items-center"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
                       onClick={handleNavClick}
@@ -118,6 +118,45 @@ export function AppSidebar() {
                   )}
                 </SidebarMenuItem>
               ))}
+              {isAdminOrPm && (
+                <Collapsible defaultOpen={location.pathname.startsWith("/design")} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className="hover:bg-sidebar-accent/50 min-h-[44px]">
+                        <FolderKanban className="mr-2 h-4 w-4 shrink-0" />
+                        {!collapsed && (
+                          <>
+                            <span>Design Management</span>
+                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                          </>
+                        )}
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    {!collapsed && (
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {designSubItems.map((sub) => (
+                            <SidebarMenuSubItem key={sub.title}>
+                              <SidebarMenuSubButton asChild>
+                                <NavLink
+                                  to={sub.url}
+                                  end={sub.end}
+                                  className="hover:bg-sidebar-accent/50"
+                                  activeClassName="bg-sidebar-accent text-primary font-medium"
+                                  onClick={handleNavClick}
+                                >
+                                  <sub.icon className="mr-2 h-4 w-4 shrink-0" />
+                                  <span>{sub.title}</span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    )}
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
