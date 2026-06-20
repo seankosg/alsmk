@@ -116,14 +116,29 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   };
 
   const columns = useMemo(() => buildMdrColumns(deltaCls), [threshold]);
+  const validColumnIds = useMemo(() => new Set(columns.map((c: any) => c.id ?? c.accessorKey).filter(Boolean)), [columns]);
 
   // 영속화 (rowSelection 제외)
   const persistKey = user ? `mdr-raw-grid-state:${user.id}:${buildingCode}:${sheetName ?? "all"}` : null;
   const [persisted, setPersisted] = useGridStatePersistence(persistKey);
-  const [sorting, setSorting] = useState<SortingState>(persisted.sorting);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(persisted.columnFilters);
-  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(persisted.columnSizing);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(persisted.columnVisibility);
+
+  // 옛 컬럼 ID 정리 (예: dd_30, cd_60 등 → 신규 dd_30_p/a/d 로 대체됨)
+  const pruneById = <T extends { id: string }>(arr: T[]) => arr.filter((x) => validColumnIds.has(x.id));
+  const pruneRecord = <T,>(rec: Record<string, T>) =>
+    Object.fromEntries(Object.entries(rec).filter(([k]) => validColumnIds.has(k))) as Record<string, T>;
+
+  const [sorting, setSorting] = useState<SortingState>(() => pruneById(persisted.sorting));
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => pruneById(persisted.columnFilters));
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => pruneRecord(persisted.columnSizing));
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    const cleaned = pruneRecord(persisted.columnVisibility);
+    // 최초 1회: 영속 상태에 mark 컬럼이 없으면 기본 숨김 적용
+    const defaults: VisibilityState = {};
+    if (!("sd_mark" in cleaned)) defaults.sd_mark = false;
+    if (!("dd_mark" in cleaned)) defaults.dd_mark = false;
+    if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
+    return { ...defaults, ...cleaned };
+  });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [globalFilter, setGlobalFilter] = useState("");
   const [debouncedGlobal, setDebouncedGlobal] = useState("");
