@@ -41,8 +41,8 @@ export async function applyMdrBulkUpdate({ ids, field, value, userName }: ApplyB
   for (let i = 0; i < ids.length; i += BULK_CHUNK_ROWS) {
     const chunk = ids.slice(i, i + BULK_CHUNK_ROWS);
     const payload: Record<string, any> = { [field]: value };
-    const { data, error } = await supabase
-      .from("mdr_drawings" as never)
+    const { data, error } = await (supabase
+      .from("mdr_drawings" as never) as any)
       .update(payload)
       .in("id", chunk)
       .select("id");
