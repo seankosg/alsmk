@@ -6,7 +6,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { parseMdrFile, type MdrParseResult, isSummaryFilename } from "@/lib/mdr/parser";
-import { parseSummaryFile, type SummaryParseResult } from "@/lib/mdr/summaryParser";
 import { validateSheet, applyAutoFix } from "@/lib/mdr/validator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,9 +39,7 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
         push(`📂 ${file.name} 파싱 중...`);
 
         if (isSummaryFilename(file.name)) {
-          const sum = await parseSummaryFile(file);
-          push(`  SUMMARY: 가중치 ${sum.weights.length}건, 매트릭스 ${sum.matrix.length}건`);
-          await persistSummary(sum, push);
+          push(`  ⊘ SUMMARY는 Raw Data에서 자동 계산됩니다 — 임포트 건너뜀`);
           setProgress(((i + 1) / files.length) * 100);
           continue;
         }
@@ -115,48 +112,7 @@ export function MdrImportDialog({ open, onOpenChange, onImported }: Props) {
   );
 }
 
-async function persistSummary(sum: SummaryParseResult, push: (s: string) => void) {
-  // 1) mdr_weights — 참고용(전사) 가중치. building_code/stage = null, is_reference_only = true.
-  //    weight 컬럼에 % 값(0~1) 저장. NULL unique 매칭 회피를 위해 사전 삭제 후 insert.
-  if (sum.weights.length) {
-    await (supabase.from("mdr_weights" as never) as any)
-      .delete()
-      .is("building_code", null)
-      .is("stage", null)
-      .eq("is_reference_only", true);
-    const payload = sum.weights.map((w) => ({
-      building_code: null as string | null,
-      discipline: w.discipline,
-      stage: null as string | null,
-      weight: Number(w.pct.toFixed(4)),
-      is_reference_only: true,
-    }));
-    const { error } = await supabase.from("mdr_weights" as never).insert(payload as any);
-    if (error) throw error;
-    push(`  ✓ 가중치 ${payload.length}건 시드`);
-  }
 
-  // 2) mdr_summary_matrix — Block × Discipline 매트릭스. 오늘 날짜 스냅샷.
-  if (sum.matrix.length) {
-    const today = new Date().toISOString().slice(0, 10);
-    const payload = sum.matrix.map((m) => ({
-      snapshot_date: today,
-      source_filename: sum.filename,
-      block_code: m.blockCode,
-      discipline: m.discipline,
-      sd_plan: m.sdPlan, sd_actual: m.sdActual,
-      dd_plan: m.ddPlan, dd_actual: m.ddActual,
-      cd_plan: m.cdPlan, cd_actual: m.cdActual,
-    }));
-    const { error } = await supabase
-      .from("mdr_summary_matrix" as never)
-      .upsert(payload as any, { onConflict: "snapshot_date,block_code,discipline" });
-    if (error) throw error;
-    push(`  ✓ 주간 매트릭스 ${payload.length}건 저장`);
-  }
-
-  await logImport(sum.filename, null, "success", sum.weights.length + sum.matrix.length, 0, null, null);
-}
 
 async function persistParsed(parsed: MdrParseResult, userId: string | null, push: (s: string) => void) {
   if (parsed.isSummary) {

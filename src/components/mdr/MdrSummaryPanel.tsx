@@ -1,250 +1,210 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download } from "lucide-react";
-import { toast } from "sonner";
-import { useMemo } from "react";
+import { useMdrSummary } from "@/lib/mdr/summaryEngine";
+import type { BlockSummary, StageCell } from "@/lib/mdr/summaryEngine";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Settings2 } from "lucide-react";
 
-const STAGES = ["SD", "DD", "CD"] as const;
-
-interface MatrixRow {
-  snapshot_date: string;
-  block_code: string;
-  discipline: string;
-  sd_plan: number; sd_actual: number;
-  dd_plan: number; dd_actual: number;
-  cd_plan: number; cd_actual: number;
+function pct(n: number): string {
+  return `${(n * 100).toFixed(1)}%`;
 }
 
-interface WeightRow {
-  discipline: string;
-  weight: number;
+function StageCells({ cell }: { cell: StageCell }) {
+  return (
+    <>
+      <td className="text-center px-2 py-1 border-l tabular-nums">{cell.plan || "-"}</td>
+      <td className="text-center px-2 py-1 tabular-nums">{cell.actual || "-"}</td>
+      <td className="text-center px-2 py-1 tabular-nums text-primary">{cell.plan > 0 ? pct(cell.progress) : "-"}</td>
+    </>
+  );
+}
+
+function BlockRow({ block }: { block: BlockSummary }) {
+  const dim = !block.contributesToOverall;
+  return (
+    <>
+      {block.cells.map((c, idx) => (
+        <tr key={`${block.building}-${c.discipline}`} className={`border-b hover:bg-muted/30 ${dim ? "opacity-50" : ""}`}>
+          {idx === 0 && (
+            <td rowSpan={block.cells.length + 1} className="px-2 py-1 sticky left-0 bg-background font-semibold align-top border-r">
+              <div className="flex flex-col gap-1">
+                <span>{block.building}</span>
+                {dim && <Badge variant="outline" className="text-[10px] w-fit">합산 제외</Badge>}
+                {!dim && (
+                  <span className="text-[10px] text-muted-foreground">WF {pct(block.buildingWf)}</span>
+                )}
+              </div>
+            </td>
+          )}
+          <td className="px-2 py-1">{c.discipline}</td>
+          <td className="text-center px-2 py-1 tabular-nums">{c.drawingCount}</td>
+          <StageCells cell={c.sd} />
+          <StageCells cell={c.dd} />
+          <StageCells cell={c.cd} />
+          <td className="text-center px-2 py-1 border-l font-medium tabular-nums">{pct(c.discProgress)}</td>
+        </tr>
+      ))}
+      <tr className={`border-b-2 bg-muted/40 ${dim ? "opacity-50" : ""}`}>
+        <td className="px-2 py-1 text-xs font-semibold">Sub-total</td>
+        <td className="text-center px-2 py-1 tabular-nums">{block.drawingCount}</td>
+        <StageCells cell={block.totals.sd} />
+        <StageCells cell={block.totals.dd} />
+        <StageCells cell={block.totals.cd} />
+        <td className="text-center px-2 py-1 border-l font-bold tabular-nums text-primary">{pct(block.blockProgress)}</td>
+      </tr>
+    </>
+  );
 }
 
 export function MdrSummaryPanel() {
-  const { data: snapshots } = useQuery({
-    queryKey: ["mdr_snapshots"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("mdr_snapshots" as never)
-        .select("*").order("snapshot_date", { ascending: false }).limit(50);
-      if (error) throw error;
-      return (data as any[]) ?? [];
-    },
-  });
-
+  const { data: summary, isLoading } = useMdrSummary();
   const { data: logs } = useQuery({
     queryKey: ["mdr_import_logs"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("mdr_import_logs" as never)
-        .select("*").order("imported_at", { ascending: false }).limit(30);
+        .select("*").order("imported_at", { ascending: false }).limit(20);
       if (error) throw error;
       return (data as any[]) ?? [];
     },
   });
 
-  const { data: weights } = useQuery({
-    queryKey: ["mdr_weights_reference"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("mdr_weights" as never)
-        .select("discipline, weight")
-        .is("building_code", null)
-        .is("stage", null)
-        .eq("is_reference_only", true);
-      if (error) throw error;
-      return ((data as any[]) ?? []) as WeightRow[];
-    },
-  });
+  if (isLoading) return <div className="text-muted-foreground p-6">SUMMARY 계산 중...</div>;
+  if (!summary || summary.blocks.length === 0) {
+    return (
+      <Card className="p-8 text-center text-muted-foreground">
+        Raw Data가 없습니다. 먼저 MDR 엑셀을 임포트하세요.
+      </Card>
+    );
+  }
 
-  const { data: matrix } = useQuery({
-    queryKey: ["mdr_summary_matrix_latest"],
-    queryFn: async () => {
-      const { data: dateRow } = await supabase
-        .from("mdr_summary_matrix" as never)
-        .select("snapshot_date")
-        .order("snapshot_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const latestDate = (dateRow as any)?.snapshot_date;
-      if (!latestDate) return [] as MatrixRow[];
-      const { data, error } = await supabase
-        .from("mdr_summary_matrix" as never)
-        .select("*")
-        .eq("snapshot_date", latestDate)
-        .order("block_code");
-      if (error) throw error;
-      return ((data as any[]) ?? []) as MatrixRow[];
-    },
-  });
-
-  // KPI: Block별 가중 평균 진척률 (단순: Actual/Plan 평균 * 100)
-  const kpi = useMemo(() => {
-    if (!matrix?.length) return null;
-    let totalPlan = 0, totalActual = 0;
-    const byBlock = new Map<string, { plan: number; actual: number }>();
-    for (const r of matrix) {
-      const plan = r.sd_plan + r.dd_plan + r.cd_plan;
-      const actual = r.sd_actual + r.dd_actual + r.cd_actual;
-      totalPlan += plan; totalActual += actual;
-      const b = byBlock.get(r.block_code) ?? { plan: 0, actual: 0 };
-      b.plan += plan; b.actual += actual;
-      byBlock.set(r.block_code, b);
-    }
-    return {
-      overall: totalPlan ? (totalActual / totalPlan) * 100 : 0,
-      totalPlan, totalActual,
-      blocks: Array.from(byBlock.entries()).map(([code, v]) => ({
-        code, plan: v.plan, actual: v.actual,
-        pct: v.plan ? (v.actual / v.plan) * 100 : 0,
-      })),
-    };
-  }, [matrix]);
-
-  // 매트릭스 피벗: row=Block, col=Discipline, value=(Plan/Actual) per stage
-  const pivot = useMemo(() => {
-    if (!matrix?.length) return null;
-    const blocks = Array.from(new Set(matrix.map((r) => r.block_code)));
-    const disciplines = Array.from(new Set(matrix.map((r) => r.discipline)));
-    const get = (b: string, d: string) => matrix.find((r) => r.block_code === b && r.discipline === d);
-    return { blocks, disciplines, get };
-  }, [matrix]);
+  const contributingBlocks = summary.blocks.filter((b) => b.contributesToOverall);
 
   return (
     <div className="space-y-4">
       {/* KPI */}
-      {kpi && (
-        <Card className="p-4">
-          <div className="flex items-baseline justify-between mb-3">
-            <h3 className="font-semibold">전체 진척률 (SUMMARY 기준)</h3>
-            <span className="text-xs text-muted-foreground">
-              스냅샷: {matrix?.[0]?.snapshot_date} · Plan {kpi.totalPlan} / Actual {kpi.totalActual}
-            </span>
+      <Card className="p-4">
+        <div className="flex items-baseline justify-between mb-3">
+          <h3 className="font-semibold">Overall Progress</h3>
+          <span className="text-xs text-muted-foreground">
+            도면 {summary.overallDrawingCount} · 완료(CD 100%) {summary.overallActualCount} · 가중 평균
+          </span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="rounded border-2 border-primary/50 bg-primary/5 p-3 col-span-2 md:col-span-1">
+            <div className="text-xs text-muted-foreground">Overall</div>
+            <div className="text-3xl font-bold text-primary tabular-nums">{pct(summary.overallProgress)}</div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="rounded border bg-muted/30 p-3 col-span-2 md:col-span-1">
-              <div className="text-xs text-muted-foreground">Overall</div>
-              <div className="text-2xl font-bold text-primary">{kpi.overall.toFixed(1)}%</div>
-            </div>
-            {kpi.blocks.map((b) => (
-              <div key={b.code} className="rounded border p-3">
-                <div className="text-xs text-muted-foreground truncate">{b.code}</div>
-                <div className="text-lg font-semibold">{b.pct.toFixed(1)}%</div>
-                <div className="text-[10px] text-muted-foreground">{b.actual}/{b.plan}</div>
+          {contributingBlocks.map((b) => (
+            <div key={b.building} className="rounded border p-3">
+              <div className="text-xs text-muted-foreground truncate">{b.building}</div>
+              <div className="text-xl font-semibold tabular-nums">{pct(b.blockProgress)}</div>
+              <div className="text-[10px] text-muted-foreground">
+                WF {pct(b.buildingWf)} · 도면 {b.drawingCount}
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* Block × Discipline × Stage 매트릭스 */}
-      {pivot && (
-        <Card className="p-4">
-          <h3 className="font-semibold mb-3">Weekly Progress 매트릭스 (Plan / Actual)</h3>
-          <div className="overflow-auto">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left px-2 py-1 sticky left-0 bg-background">Block</th>
-                  <th className="text-left px-2 py-1">Disc.</th>
-                  {STAGES.map((s) => (
-                    <th key={s} className="text-center px-2 py-1 border-l" colSpan={2}>{s}</th>
-                  ))}
-                </tr>
-                <tr className="border-b text-muted-foreground">
-                  <th></th><th></th>
-                  {STAGES.flatMap((s) => [
-                    <th key={`${s}-p`} className="text-center px-2 py-1 border-l">Plan</th>,
-                    <th key={`${s}-a`} className="text-center px-2 py-1">Actual</th>,
-                  ])}
-                </tr>
-              </thead>
-              <tbody>
-                {pivot.blocks.flatMap((b) =>
-                  pivot.disciplines.map((d) => {
-                    const r = pivot.get(b, d);
-                    if (!r) return null;
-                    return (
-                      <tr key={`${b}-${d}`} className="border-b hover:bg-muted/30">
-                        <td className="px-2 py-1 sticky left-0 bg-background font-medium">{b}</td>
-                        <td className="px-2 py-1">{d}</td>
-                        <td className="text-center px-2 py-1 border-l">{r.sd_plan || "-"}</td>
-                        <td className="text-center px-2 py-1">{r.sd_actual || "-"}</td>
-                        <td className="text-center px-2 py-1 border-l">{r.dd_plan || "-"}</td>
-                        <td className="text-center px-2 py-1">{r.dd_actual || "-"}</td>
-                        <td className="text-center px-2 py-1 border-l">{r.cd_plan || "-"}</td>
-                        <td className="text-center px-2 py-1">{r.cd_actual || "-"}</td>
-                      </tr>
-                    );
-                  }),
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      <Card className="p-4">
+        <h3 className="font-semibold mb-3">Block × Discipline × Stage 매트릭스</h3>
+        <div className="overflow-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b">
+                <th rowSpan={2} className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
+                <th rowSpan={2} className="text-left px-2 py-1">Disc.</th>
+                <th rowSpan={2} className="text-center px-2 py-1">DWG</th>
+                <th colSpan={3} className="text-center px-2 py-1 border-l">SD</th>
+                <th colSpan={3} className="text-center px-2 py-1 border-l">DD</th>
+                <th colSpan={3} className="text-center px-2 py-1 border-l">CD</th>
+                <th rowSpan={2} className="text-center px-2 py-1 border-l">Disc. Progress</th>
+              </tr>
+              <tr className="border-b text-muted-foreground">
+                {["SD", "DD", "CD"].flatMap((s) => [
+                  <th key={`${s}-p`} className="text-center px-2 py-1 border-l font-normal">Plan</th>,
+                  <th key={`${s}-a`} className="text-center px-2 py-1 font-normal">Actual</th>,
+                  <th key={`${s}-pct`} className="text-center px-2 py-1 font-normal">%</th>,
+                ])}
+              </tr>
+            </thead>
+            <tbody>
+              {summary.blocks.map((b) => (
+                <BlockRow key={b.building} block={b} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
-      {/* Discipline 가중치 */}
-      {weights && weights.length > 0 && (
-        <Card className="p-4">
-          <h3 className="font-semibold mb-3">Discipline 가중치 (전사 참고값)</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-            {weights
-              .slice()
-              .sort((a, b) => b.weight - a.weight)
-              .map((w) => (
-                <div key={w.discipline} className="rounded border px-2 py-1.5 flex items-baseline justify-between">
-                  <span className="text-xs font-medium">{w.discipline}</span>
-                  <span className="text-sm tabular-nums">{(w.weight * 100).toFixed(1)}%</span>
+      {/* WF 패널 */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold">Weight Factor (WF)</h3>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin"><Settings2 className="h-3.5 w-3.5 mr-1" />Admin에서 수정</Link>
+          </Button>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <div className="text-xs font-medium text-muted-foreground mb-2">Stage WF</div>
+            <div className="space-y-1">
+              {(["SD", "DD", "CD"] as const).map((s) => (
+                <div key={s} className="flex justify-between text-sm border-b py-1">
+                  <span>{s}</span>
+                  <span className="tabular-nums">{pct(summary.wf.stage[s])}</span>
                 </div>
               ))}
+            </div>
           </div>
-        </Card>
-      )}
+          <div>
+            <div className="text-xs font-medium text-muted-foreground mb-2">Discipline WF</div>
+            <div className="space-y-1">
+              {Object.entries(summary.wf.discipline).map(([d, w]) => (
+                <div key={d} className="flex justify-between text-sm border-b py-1">
+                  <span>{d}</span>
+                  <span className="tabular-nums">{pct(w)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-muted-foreground mb-2">Building WF (공사비)</div>
+            <div className="space-y-1">
+              {Object.entries(summary.wf.building).map(([b, w]) => (
+                <div key={b} className="flex justify-between text-sm border-b py-1">
+                  <span>{b}</span>
+                  <span className="tabular-nums">{pct(w)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
 
-      {/* 스냅샷 & 로그 */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">스냅샷 이력</h3>
-            <Button variant="outline" size="sm" onClick={() => toast.info("Export는 원본 템플릿 보관 후 활성화됩니다")}>
-              <Download className="h-4 w-4 mr-1" />Export
-            </Button>
-          </div>
-          <div className="space-y-1 max-h-64 overflow-auto">
-            {(snapshots ?? []).map((s: any) => (
-              <div key={s.id} className="flex items-center justify-between text-sm border-b py-1">
-                <div className="truncate">
-                  <Badge variant="outline" className="mr-2">{s.building_code ?? "-"}</Badge>
-                  {s.source_filename}
-                </div>
-                <span className="text-xs text-muted-foreground">{s.snapshot_date}</span>
+      {/* 임포트 로그 */}
+      <Card className="p-4">
+        <h3 className="font-semibold mb-3">최근 임포트 로그</h3>
+        <div className="space-y-1 max-h-48 overflow-auto">
+          {(logs ?? []).map((l: any) => (
+            <div key={l.id} className="text-sm border-b py-1 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Badge variant={l.status === "success" ? "default" : "destructive"}>{l.status}</Badge>
+                <span className="truncate">{l.filename}</span>
               </div>
-            ))}
-            {(snapshots ?? []).length === 0 && <div className="text-muted-foreground text-sm">없음</div>}
-          </div>
-        </Card>
-        <Card className="p-4">
-          <h3 className="font-semibold mb-3">임포트 로그</h3>
-          <div className="space-y-1 max-h-64 overflow-auto">
-            {(logs ?? []).map((l: any) => (
-              <div key={l.id} className="text-sm border-b py-1">
-                <div className="flex items-center gap-2">
-                  <Badge variant={l.status === "success" ? "default" : "destructive"}>{l.status}</Badge>
-                  <span className="truncate">{l.filename}</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  +{l.rows_inserted} / 보존 {l.rows_skipped} · {new Date(l.imported_at).toLocaleString()}
-                </div>
-              </div>
-            ))}
-            {(logs ?? []).length === 0 && <div className="text-muted-foreground text-sm">없음</div>}
-          </div>
-        </Card>
-      </div>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                +{l.rows_inserted} · {new Date(l.imported_at).toLocaleString()}
+              </span>
+            </div>
+          ))}
+          {(logs ?? []).length === 0 && <div className="text-muted-foreground text-sm">없음</div>}
+        </div>
+      </Card>
     </div>
   );
 }

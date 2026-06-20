@@ -675,54 +675,6 @@ export type Database = {
           },
         ]
       }
-      mdr_summary_matrix: {
-        Row: {
-          block_code: string
-          cd_actual: number | null
-          cd_plan: number | null
-          created_at: string
-          dd_actual: number | null
-          dd_plan: number | null
-          discipline: string
-          id: string
-          sd_actual: number | null
-          sd_plan: number | null
-          snapshot_date: string
-          source_filename: string | null
-          updated_at: string
-        }
-        Insert: {
-          block_code: string
-          cd_actual?: number | null
-          cd_plan?: number | null
-          created_at?: string
-          dd_actual?: number | null
-          dd_plan?: number | null
-          discipline: string
-          id?: string
-          sd_actual?: number | null
-          sd_plan?: number | null
-          snapshot_date?: string
-          source_filename?: string | null
-          updated_at?: string
-        }
-        Update: {
-          block_code?: string
-          cd_actual?: number | null
-          cd_plan?: number | null
-          created_at?: string
-          dd_actual?: number | null
-          dd_plan?: number | null
-          discipline?: string
-          id?: string
-          sd_actual?: number | null
-          sd_plan?: number | null
-          snapshot_date?: string
-          source_filename?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       mdr_weights: {
         Row: {
           building_code: string | null
