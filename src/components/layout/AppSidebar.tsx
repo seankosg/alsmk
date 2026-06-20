@@ -20,7 +20,7 @@ const allNavItems = [
   { title: "My Dashboard", url: "/my", icon: User, guestVisible: false, superGuestVisible: true },
   { title: "My Workspace", url: "/workspace", icon: Briefcase, guestVisible: false, superGuestVisible: true },
   { title: "CPM Manager", url: "/cpm", icon: Network, guestVisible: false, superGuestVisible: true },
-  { title: "Orphan Center", url: "/cpm/orphans", icon: ShieldAlert, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
+  
   { title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
   { title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
   { title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
