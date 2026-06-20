@@ -6,6 +6,7 @@ export interface PersistedGridState {
   columnFilters: ColumnFiltersState;
   columnSizing: ColumnSizingState;
   columnVisibility: VisibilityState;
+  groupCollapsed?: { dd: boolean; cd: boolean };
 }
 
 const DEFAULT_STATE: PersistedGridState = {
@@ -13,6 +14,7 @@ const DEFAULT_STATE: PersistedGridState = {
   columnFilters: [],
   columnSizing: {},
   columnVisibility: {},
+  groupCollapsed: { dd: false, cd: false },
 };
 
 export function useGridStatePersistence(key: string | null) {

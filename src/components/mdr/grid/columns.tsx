@@ -2,6 +2,13 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnFilterDropdown } from "./ColumnFilterDropdown";
 import { multiSelectFilterFn, textFilterFn, dateRangeFilterFn, progressFilterFn, formatPct } from "./filterFns";
+import {
+  MdrProgressIconCell,
+  MdrProgressIconHeader,
+  type CollapsedGroups,
+  type ProgressGroup,
+} from "./MdrProgressIconCell";
+import { flattenCells, MDR_STATE_LABEL, type MdrMilestoneState, type MdrProgressIconCells } from "@/lib/mdr/progressIcon";
 
 export interface MdrDrawingRow {
   id: string;
@@ -21,12 +28,20 @@ export interface MdrDrawingRow {
   sdCells: Record<number, { p: number; a: number; delta: number } | null>;
   ddCells: Record<number, { p: number; a: number; delta: number } | null>;
   cdCells: Record<number, { p: number; a: number; delta: number } | null>;
+  progressIconCells: MdrProgressIconCells;
   _raw: any;
 }
 
-export const SD_PCTS = [50, 100];
+export const SD_PCTS = [100];
 export const DD_PCTS = [30, 60, 90, 100];
 export const CD_PCTS = [30, 60, 100];
+
+const STATE_FILTER_OPTIONS: { value: MdrMilestoneState; label: string }[] = [
+  { value: "done", label: MDR_STATE_LABEL.done },
+  { value: "wip", label: MDR_STATE_LABEL.wip },
+  { value: "planned", label: MDR_STATE_LABEL.planned },
+  { value: "delay", label: MDR_STATE_LABEL.delay },
+];
 
 const DISCIPLINE_OPTIONS = ["A", "S", "M", "E", "P", "C", "I"].map((v) => ({ value: v, label: v }));
 const MARK_OPTIONS = [{ value: "O", label: "O" }, { value: "-", label: "-" }];
@@ -115,10 +130,25 @@ function buildMilestoneCols(
   return cols;
 }
 
-export function buildMdrColumns(deltaCls: (delta: number) => string): ColumnDef<MdrDrawingRow>[] {
+export interface BuildMdrColumnsOptions {
+  collapsed: CollapsedGroups;
+  onToggleGroup: (g: ProgressGroup) => void;
+  asOf: string;
+}
+
+export function buildMdrColumns(
+  deltaCls: (delta: number) => string,
+  opts: BuildMdrColumnsOptions,
+): ColumnDef<MdrDrawingRow>[] {
   const sdCols = buildMilestoneCols("sd", SD_PCTS, "sdCells", deltaCls);
   const ddCols = buildMilestoneCols("dd", DD_PCTS, "ddCells", deltaCls);
   const cdCols = buildMilestoneCols("cd", CD_PCTS, "cdCells", deltaCls);
+
+  const { collapsed, onToggleGroup, asOf } = opts;
+  // 접힘 상태에 따라 너비 동적 보정: 펼침=230, dd접힘 -40, cd접힘 -40, 모두접힘 ≈110
+  const progressIconSize =
+    230 - (collapsed.dd ? 70 : 0) - (collapsed.cd ? 50 : 0);
+
 
   return [
     {
@@ -162,6 +192,29 @@ export function buildMdrColumns(deltaCls: (delta: number) => string): ColumnDef<
       cell: ({ getValue }) => <span className="font-mono">{(getValue() as string) ?? ""}</span>,
       filterFn: textFilterFn,
       meta: { filterType: "text" },
+    },
+    {
+      id: "progress_icon",
+      header: () => <MdrProgressIconHeader collapsed={collapsed} onToggleGroup={onToggleGroup} />,
+      size: progressIconSize,
+      enableSorting: false,
+      enableColumnFilter: true,
+      accessorFn: (r) => flattenCells(r.progressIconCells).map((c) => c.state),
+      filterFn: (row, _id, value) => {
+        if (!value || (Array.isArray(value) && value.length === 0)) return true;
+        const states: MdrMilestoneState[] = flattenCells(row.original.progressIconCells).map((c) => c.state);
+        const want = Array.isArray(value) ? value : [value];
+        return want.some((v: MdrMilestoneState) => states.includes(v));
+      },
+      meta: { filterType: "multi-select", filterOptions: STATE_FILTER_OPTIONS },
+      cell: ({ row }) => (
+        <MdrProgressIconCell
+          cells={row.original.progressIconCells}
+          asOf={asOf}
+          collapsed={collapsed}
+          onToggleGroup={onToggleGroup}
+        />
+      ),
     },
     {
       accessorKey: "discipline", header: "Disc.", size: 70,

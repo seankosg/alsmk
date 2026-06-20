@@ -30,6 +30,8 @@ import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
 import { buildMdrColumns, ColumnFilterDropdown, SD_PCTS, DD_PCTS, CD_PCTS, type MdrDrawingRow } from "./columns";
+import { buildMdrProgressIconCells } from "@/lib/mdr/progressIcon";
+import { MdrProgressIconLegend, type ProgressGroup } from "./MdrProgressIconCell";
 import { TopHorizontalScrollbar } from "./TopHorizontalScrollbar";
 import { useGridStatePersistence } from "./useGridStatePersistence";
 import { MdrBulkActionBar } from "./MdrBulkActionBar";
@@ -85,6 +87,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       const cdCells: MdrDrawingRow["cdCells"] = {};
       CD_PCTS.forEach((p) => { cdCells[p] = buildCell("CD", p); });
 
+      const progressIconCells = buildMdrProgressIconCells(ms, pg, asOf);
+
       return {
         id: d.id,
         source_no: d.source_no,
@@ -103,6 +107,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         sdCells,
         ddCells,
         cdCells,
+        progressIconCells,
         _raw: d,
       };
     });
@@ -121,12 +126,21 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     return "text-destructive font-semibold";
   };
 
-  const columns = useMemo(() => buildMdrColumns(deltaCls), [threshold]);
-  const validColumnIds = useMemo(() => new Set(columns.map((c: any) => c.id ?? c.accessorKey).filter(Boolean)), [columns]);
-
-  // 영속화 (rowSelection 제외)
+  // 영속화 (rowSelection 제외) — 컬럼 빌드 전에 먼저 읽어 groupCollapsed 초기화에 사용
   const persistKey = user ? `mdr-raw-grid-state:${user.id}:${buildingCode}:${sheetName ?? "all"}` : null;
   const [persisted, setPersisted] = useGridStatePersistence(persistKey);
+
+  const [groupCollapsed, setGroupCollapsed] = useState<{ dd: boolean; cd: boolean }>(
+    () => persisted.groupCollapsed ?? { dd: false, cd: false },
+  );
+  const onToggleGroup = (g: ProgressGroup) =>
+    setGroupCollapsed((s) => ({ ...s, [g]: !s[g] }));
+
+  const columns = useMemo(
+    () => buildMdrColumns(deltaCls, { collapsed: groupCollapsed, onToggleGroup, asOf }),
+    [threshold, groupCollapsed, asOf],
+  );
+  const validColumnIds = useMemo(() => new Set(columns.map((c: any) => c.id ?? c.accessorKey).filter(Boolean)), [columns]);
 
   // 옛 컬럼 ID 정리 (예: dd_30, cd_60 등 → 신규 dd_30_p/a/d 로 대체됨)
   const pruneById = <T extends { id: string }>(arr: T[]) => arr.filter((x) => validColumnIds.has(x.id));
@@ -138,11 +152,17 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => pruneRecord(persisted.columnSizing));
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
     const cleaned = pruneRecord(persisted.columnVisibility);
-    // 최초 1회: 영속 상태에 mark 컬럼이 없으면 기본 숨김 적용
+    // 최초 1회 기본값: mark 컬럼 + SD/DD/CD 세부 P/A/Δ 컬럼은 숨김 (Progress 아이콘으로 대체)
     const defaults: VisibilityState = {};
     if (!("sd_mark" in cleaned)) defaults.sd_mark = false;
     if (!("dd_mark" in cleaned)) defaults.dd_mark = false;
     if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
+    columns.forEach((c: any) => {
+      const id = c.id;
+      if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d)$/.test(id) && !(id in cleaned)) {
+        defaults[id] = false;
+      }
+    });
     return { ...defaults, ...cleaned };
   });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -155,8 +175,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   }, [globalFilter]);
 
   useEffect(() => {
-    setPersisted({ sorting, columnFilters, columnSizing, columnVisibility });
-  }, [sorting, columnFilters, columnSizing, columnVisibility, setPersisted]);
+    setPersisted({ sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed });
+  }, [sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed, setPersisted]);
 
   const table = useReactTable({
     data: sortedRows,
@@ -218,6 +238,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           sd_mark: "SD", dd_mark: "DD", cd_mark: "CD",
           dd_pct: "DD%", cd_pct: "CD%", overall_pct: "Overall%",
           plan_finish: "Plan Finish", updated_at: "Updated",
+          progress_icon: "Progress",
         };
         if (base[id]) return base[id];
         // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d → "SD50 P" 등
@@ -231,6 +252,18 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
 
       // 그리드 셀 렌더와 동일한 표시 문자열로 변환
       const formatCell = (id: string, value: any): any => {
+        if (id === "progress_icon") {
+          // value = state[] of 8 pips (SD + DD4 + CD3) → 그룹 압축 표기
+          const arr = Array.isArray(value) ? value : [];
+          if (arr.length < 8) return "";
+          const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+          const summ = (slice: string[]) => {
+            const order = ["delay", "wip", "planned", "done", "empty"];
+            const found = order.find((o) => slice.includes(o)) ?? "empty";
+            return cap(found);
+          };
+          return `SD:${cap(arr[0])}|DD:${summ(arr.slice(1, 5))}|CD:${summ(arr.slice(5, 8))}`;
+        }
         if (id === "dd_pct" || id === "cd_pct" || id === "overall_pct") {
           return formatPct(value);
         }
@@ -313,7 +346,9 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           </>
         )}
 
-        <div className="ml-auto" />
+        <div className="ml-auto flex items-center gap-2">
+          <MdrProgressIconLegend />
+        </div>
 
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={exportFilteredXlsx} title="현재 필터/정렬 상태의 표시 컬럼을 .xlsx로 내보냅니다">
           <Download className="mr-1 h-3.5 w-3.5" />Export view
