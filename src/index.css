@@ -108,3 +108,30 @@
     @apply bg-muted-foreground/40;
   }
 }
+
+/* Light scope: 특정 페이지(Raw Data, My Workspace)만 라이트 테마로 강제.
+   전역 다크는 그대로 유지. 자손에 한해 semantic token 재정의. */
+.light-scope {
+  --background: 220 20% 98%;
+  --foreground: 222 30% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 30% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 30% 15%;
+  --primary: 215 90% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 15% 95%;
+  --secondary-foreground: 222 30% 15%;
+  --muted: 220 25% 96%;
+  --muted-foreground: 215 15% 45%;
+  --accent: 220 15% 94%;
+  --accent-foreground: 222 30% 15%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 218 22% 90%;
+  --input: 218 22% 90%;
+  --ring: 215 90% 55%;
+  color-scheme: light;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
