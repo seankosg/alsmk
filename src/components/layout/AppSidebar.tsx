@@ -1,12 +1,14 @@
-import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays, Network, ShieldAlert, Database, History } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, Upload, HardHat, Building2, LogOut, KeyRound, User, MessageSquare, CalendarDays, Network, ShieldAlert, Database, History, ChevronDown, FolderKanban } from "lucide-react";
 import { useCpmLockStatus } from "@/hooks/useCpmLockStatus";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem,
+  SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem,
   SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "./AppLayout";
@@ -21,11 +23,14 @@ const allNavItems = [
   { title: "Orphan Center", url: "/cpm/orphans", icon: ShieldAlert, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
   { title: "Messages", url: "/messages", icon: MessageSquare, guestVisible: false, superGuestVisible: true },
   { title: "Organization", url: "/organization", icon: Building2, guestVisible: false, superGuestVisible: true },
-  { title: "Design Dashboard", url: "/design/dashboard", icon: LayoutDashboard, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
-  { title: "Design Summary", url: "/design/summary", icon: History, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
-  { title: "Design Raw Data", url: "/design", icon: Database, adminOrPmOnly: true, guestVisible: false, superGuestVisible: false },
   { title: "Admin", url: "/admin", icon: Settings, adminOnly: true, guestVisible: false, superGuestVisible: false },
   { title: "Import", url: "/tasks/import", icon: Upload, adminOnly: true, guestVisible: false, superGuestVisible: false },
+];
+
+const designSubItems = [
+  { title: "Dashboard", url: "/design/dashboard", icon: LayoutDashboard, end: false },
+  { title: "Summary", url: "/design/summary", icon: History, end: false },
+  { title: "Raw Data", url: "/design", icon: Database, end: true },
 ];
 
 export function AppSidebar() {
