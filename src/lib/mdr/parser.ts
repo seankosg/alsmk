@@ -50,22 +50,22 @@ const SKIP_SHEETS = new Set(["MH&DWG", "Sheet1", "Sheet3", "MH& DWG", "MASTER"])
 const MILESTONE_RE = /(SD|DD|CD)\s*(\d{1,3})\s*%/i;
 
 /**
- * 파일명에서 건물 코드 추출.
- * 규약: `{NN}_{BUILDING}_MDR PROGRESS...`
+ * 파일명에서 건물 코드 추출. 다단어 건물명은 공백을 `_`로 치환해 보존.
  *   - "01_GEN_MDR progress"            → "GEN"
  *   - "02_SMP&CCM_MDR PROGRESS"        → "SMP&CCM"
- *   - "03_HSM_MDR progress"            → "HSM"
- *   - "04_CRM_MDR PROGRESS"            → "CRM"
- *   - "05_MAIN OFFICE_MDR PROGRESS"    → "MAIN" (첫 단어만)
- * 폴백: 두 번째 `_` 토큰. 그래도 없으면 괄호 안 / 마지막 토큰.
+ *   - "05_MAIN OFFICE_MDR PROGRESS"    → "MAIN_OFFICE"
+ * 폴백: 두 번째 `_` 토큰 → 괄호 안 → 마지막 토큰.
  */
+const toBuildingCode = (s: string): string =>
+  s.trim().replace(/\s+/g, "_").toUpperCase();
+
 export function extractBuildingFromFilename(filename: string): string {
   const base = filename.replace(/\.[^.]+$/, "");
-  // 1) {NN}_..._MDR 패턴
+  // 1) {NN}_..._MDR 패턴 (다단어 건물명 보존)
   const m = base.match(/^\d+[_\s\-]+(.+?)[_\s\-]+MDR\b/i);
   if (m) {
-    const firstWord = m[1].trim().split(/\s+/)[0];
-    if (firstWord) return firstWord.toUpperCase();
+    const captured = m[1].trim();
+    if (captured) return toBuildingCode(captured);
   }
   // 2) 두 번째 `_` 토큰
   const parts = base.split(/_+/);
