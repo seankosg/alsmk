@@ -1,111 +1,78 @@
-
 ## 목표
-Design Management → Raw Data 그리드의 각 행에 **마일스톤별 Progress Icon(Pip 배지)** 컬럼을 추가한다. SHAW PROJECT CMS의 `StageProgress` 디자인(`●◐○⊘` + 색상 + 연결선 + 툴팁)을 차용하며, **SD는 단일 배지(100, 항상 완료 가정)** 로 표기하고, **SD/DD/CD 그룹별 접고 펼치기 토글**을 제공한다.
+라우트별로 전체 화면(사이드바·헤더·본문·Portal 컴포넌트 포함)의 테마가 자동 전환되도록 한다. 사용자 토글은 없고 다크가 기본, 일부 라우트만 라이트로 강제한다.
 
-## 시각 디자인
+## 라우트 → 테마 매핑 (단일 출처)
 
-기본(펼침) 상태 — 총 8개 Pip:
-```text
-SD ─ │ DD30 ─ DD60 ─ DD90 ─ DD100 │ ─ CD30 ─ CD60 ─ CD100
-●        ●      ◐       ○      ○        ⊘      ○      ○
+신규 파일 `src/lib/theme/routeTheme.ts`:
+```ts
+export type AppTheme = "dark" | "light";
+// 우선순위 순서대로 매칭(상위가 먼저)
+export const ROUTE_THEME_MAP: { test: (p: string) => boolean; theme: AppTheme }[] = [
+  { test: (p) => p.startsWith("/design"),    theme: "light" },
+  { test: (p) => p.startsWith("/workspace"), theme: "light" },
+  // 추후 추가 라우트는 여기에만 등록
+];
+export const DEFAULT_THEME: AppTheme = "dark";
+export function resolveThemeForPath(pathname: string): AppTheme {
+  return ROUTE_THEME_MAP.find((m) => m.test(pathname))?.theme ?? DEFAULT_THEME;
+}
 ```
 
-접기 상태 — 그룹당 1개 요약 Pip(가장 약한 state로 집계, 클릭하면 펼침):
-```text
-SD ─ DD ▸ ─ CD ▸
- ●    ◐      ⊘
+## 전환 메커니즘 — `<html>` 클래스 토글
+
+1. **첫 페인트 깜빡임 제거 (index.html inline 스크립트)**
+   - `<head>`에 인라인 스크립트 추가: `location.pathname`을 읽어 매핑과 동일 규칙으로 `dark`/`light` 클래스를 `<html>`에 즉시 부여.
+   - 매핑 규칙은 inline에 직접 하드코딩(번들 로드 전 실행 필요). 추가 라우트 변경 시 두 곳을 함께 수정해야 하므로 주석으로 명시.
+
+2. **런타임 라우트 변경 처리**
+   - 신규 컴포넌트 `src/components/theme/RouteThemeController.tsx`: `useLocation` 구독 → `resolveThemeForPath(pathname)` → `document.documentElement.classList`에 `dark`/`light` 토글.
+   - `AppLayout`(또는 `App.tsx`의 Router 내부) 최상단에 마운트.
+   - 라우트 변경 직후 동일 프레임에서 적용되도록 `useLayoutEffect` 사용.
+
+3. **`light-scope` 제거**
+   - `src/index.css`의 `.light-scope` 블록을 표준 Tailwind `:root.light` 토큰 블록으로 이전(현재 다크 토큰은 `:root` 또는 `.dark`에 정의되어 있는지 확인 후 정리).
+   - `DesignManagement.tsx`, `Workspace.tsx`의 `light-scope` 클래스 제거(전역 토글로 대체) → 페이지는 평소처럼 semantic 토큰만 사용.
+
+## index.css 토큰 구조 정리
+```css
+:root { /* 다크가 기본 — 기존 다크 토큰 그대로 */ }
+:root.dark { /* 명시 (no-op이지만 일관성) */ }
+:root.light {
+  --background: 220 20% 98%;
+  --card: 0 0% 100%;
+  --primary: 215 90% 55%;
+  --muted: 220 25% 96%;
+  --destructive: 0 72% 51%;
+  /* 기존 light-scope 토큰 전부 이전 */
+  color-scheme: light;
+}
 ```
+- `light-scope` 블록 + 그 안의 스크롤바/유틸 override는 `:root.light` 하위로 이전.
 
-- 배지: `h-4 w-4 rounded-full border`, 가운데 글리프, Pip 사이 2px 커넥터
-- SD는 항상 1개(`SD100` = `done`). `progressEngine.drawingStagePct`에서 SD는 100% 고정 처리되어 있으므로 일관됨
-- DD: 30/60/90/100 (4개), CD: 30/60/100 (3개)
-- 그룹 사이에 얇은 세로 구분(`│`, `border-r border-border/40 mx-1`)으로 SD/DD/CD 시각 분리
-- 각 그룹 라벨(`SD`, `DD`, `CD`)은 그룹 헤더 chevron 토글 버튼이 됨 (`▾`/`▸`)
+## Portal 컴포넌트 일관성
+- `<html class="light">` 전역 토글이므로 Toast/Tooltip/DropdownMenu/Dialog/Sheet 모두 자동으로 새 테마 적용.
+- 라우트 전환 시 열려 있던 모달은 자동 닫지 않음(전환 직후 짧게 다른 테마 잔존 가능). 현 단계에서는 별도 처리 불필요(드물고 사용자가 직접 닫음).
 
-### State 분류 (mdr_milestones + mdr_progress + asOf)
-| State | 글리프 | 색상 | 조건 |
-|-------|--------|------|------|
-| done | `●` | `bg-success` | `progress.is_done = true` |
-| delay | `⊘` | `bg-destructive` | 미완료 + `milestone.plan_date < asOf` |
-| wip | `◐` | `bg-amber-400` | 미완료 + 직전 마일스톤 done + plan_date ≥ asOf |
-| planned | `○` | 투명 + border | 그 외 정의된 마일스톤 |
-| empty | `○` | 매우 흐림 | 도면에 해당 마일스톤이 없음 |
+## 차트/SVG 색상 재렌더
+- Recharts/일부 SVG는 semantic 토큰(`hsl(var(--primary))` 등)을 사용하면 자동 반영. 직접 hex로 색을 prop으로 넘기는 곳이 있으면 토큰 함수로 교체.
+- 라우트 변경 시 `theme` 값을 React Context(`RouteThemeContext`)로 노출해 차트가 필요 시 `key={theme}`로 강제 remount 가능하도록 준비(현 단계에서는 매핑만 노출, 실제 적용은 차트별 필요 시).
 
-그룹 요약 state 우선순위: `delay > wip > planned > done > empty`.
+## 변경 파일 요약
+- **신규**: `src/lib/theme/routeTheme.ts`, `src/components/theme/RouteThemeController.tsx`
+- **수정**:
+  - `index.html` — `<head>`에 첫 페인트 테마 적용 inline 스크립트 추가
+  - `src/index.css` — `.light-scope` → `:root.light`로 이전, 스크롤바 override 동일 이전
+  - `src/App.tsx` 또는 `src/components/layout/AppLayout.tsx` — `<RouteThemeController />` 마운트
+  - `src/pages/DesignManagement.tsx`, `src/pages/Workspace.tsx` — `light-scope` 클래스 및 보정 마진 제거(전역 테마라 더 이상 필요 없음)
 
-### 툴팁 (hover)
-```
-Progress as of 2026-06-20
-SD     : Done
-DD30   : Done    · 02 May
-DD60   : WIP     (plan 30 Jun)
-DD90   : Planned (plan 31 Jul)
-DD100  : Planned (plan 31 Aug)
-CD30   : Delay   (plan 10 Jun, overdue 10d)
-CD60   : Planned (plan 30 Sep)
-CD100  : Planned (plan 31 Dec)
-```
-
-## 접기/펼치기 동작
-- 컬럼 헤더 우측에 3개의 토글 버튼: `[SD] [DD ▾] [CD ▾]` (SD는 항상 1개라 토글 비활성)
-- 클릭 시 해당 그룹만 접힘 → 해당 행 셀에서 그 그룹은 요약 Pip 1개로 렌더
-- 상태는 `useGridStatePersistence` (localStorage)에 `mdr-grid:groupCollapsed = {sd:false, dd:false, cd:false}` 로 저장 → 새로고침 후 유지
-- 접힘에 따라 컬럼 크기를 `getComputedWidth()`로 자동 보정 (펼침 230px → 모두 접힘 100px)
-- 개별 행 셀에서 접힌 그룹의 요약 Pip를 클릭해도 동일 토글 (편의)
-
-## 변경 범위 (frontend only)
-
-### 1. 신규 — `src/lib/mdr/progressIcon.ts`
-- `MdrMilestoneState`, `MdrPipCell` 타입
-- `MDR_PIP_CLASS`, `MDR_PIP_GLYPH`, `MDR_STATE_LABEL` 상수
-- `classifyMdrMilestoneState(...)`
-- `buildMdrProgressIconCells(milestones, progress, asOf)` → `{ sd: PipCell, dd: PipCell[], cd: PipCell[] }`
-- `summarizeGroupState(cells)` → 우선순위 기반 요약
-- `getMdrProgressTooltipLines(...)`
-
-### 2. 신규 — `src/components/mdr/grid/MdrProgressIconCell.tsx`
-- props: `cells`, `asOf`, `collapsed: {sd,dd,cd}`, `onToggleGroup(stage)`
-- 그룹별 펼침/접힘 분기 렌더, Radix `Tooltip` 사용
-- `MdrProgressIconLegend` 별도 export
-- `select-none`, `onClick stopPropagation`
-
-### 3. 수정 — `src/components/mdr/grid/columns.tsx`
-- `MdrDrawingRow`에 `progressIconCells` 필드 추가
-- `Disc.` 다음에 `progress_icon` 컬럼 1개 삽입
-  - `size: 230`(전부 펼침 기준), 접힘 시 `meta.collapsed`에 따라 셀에서 너비 시각 보정
-  - `enableSorting: false`, multi-select 필터(Done/WIP/Planned/Delay)
-- 컬럼 헤더는 `MdrProgressIconHeader`(그룹 토글 버튼 3개 포함) 사용
-- 기존 27개 P/A/Δ 컬럼은 유지(기본 visibility false), `sd_*` 컬럼은 SD가 단일화되므로 `sd_100_*`만 남기고 `sd_50_*` 3개는 빌드에서 제외
-
-### 4. 수정 — `src/components/mdr/grid/MdrAdvancedGrid.tsx`
-- 행 빌더에 `buildMdrProgressIconCells(ms, pg, asOf)` 주입
-- `groupCollapsed` state 추가, `useGridStatePersistence` 키 확장
-- 헤더/셀에 `collapsed`, `onToggleGroup` 전달 (column meta로)
-- 툴바 우측에 `<MdrProgressIconLegend />` 노출 (모바일 wrap)
-- `SD_PCTS = [50, 100]` → `SD_PCTS = [100]` 로 변경하여 SD 세부 컬럼은 SD100만 유지
-
-### 5. 수정 — `src/lib/mdr/exporter.ts` (사용 중인 export 경로)
-- `progress_icon` 컬럼 케이스 추가: `"SD:Done|DD:WIP|CD:Delay"` 압축 표기로 출력
-- 접힘 상태는 export에 영향 없음(항상 8개 raw state를 그룹 압축으로 출력)
-
-### 6. 기본 컬럼 가시성
-- 신규: `progress_icon = true`
-- 기존 모든 `sd_*|dd_*|cd_*` P/A/Δ = `false` (기본 숨김, 컬럼 메뉴에서 ON 가능)
-- 기존 사용자의 영속 상태는 보존(키 마이그레이션 없이 신규 컬럼은 default visible)
-
-## 비변경
-- DB 스키마, `progressEngine.ts` 계산, CPM, 대시보드, RLS/권한 모두 그대로
-- 다크/라이트 토큰 모두 호환 (semantic 토큰만 사용)
-- 정렬/필터/가상화/리사이즈 등 그리드 동작 그대로
+## 알려진 한계(이번 범위에서는 수용)
+1. **추가 라우트 등록 시 두 곳 동기화**: `routeTheme.ts`와 `index.html` inline 스크립트 매핑. → 주석/명명규칙으로 관리.
+2. **차트 색 즉시 갱신**: 토큰 기반 컴포넌트만 자동 반영. 하드코딩 색은 별도 PR로 정리.
+3. **모달 잔존 깜빡임**: 라우트 전환 직후 모달이 열려 있을 때 한 프레임 색 어색 가능. 드문 케이스로 수용.
+4. **사용자 토글 미제공**: 명시 요구. 추후 도입 시 `localStorage` override 레이어를 `resolveThemeForPath` 위에 추가하면 됨.
 
 ## 검증
-1. Playwright `/design` → 건물 시트 진입 → Progress 컬럼에 SD(1) + DD(4) + CD(3) Pip 표시 스크린샷
-2. 행 hover → 툴팁 8개 라인 표시
-3. 헤더 `[DD ▾]` 클릭 → DD 그룹이 요약 Pip 1개로 접힘, 새로고침 후에도 유지
-4. 필터 `Delay` → 8개 state 중 Delay 포함 행만 노출
-5. 컬럼 메뉴에서 `DD60 P/A/Δ` ON → 기존 컬럼 정상 동작
-6. Export view → `progress_icon` 압축 표기 포함
-
-## 산출물
-- 신규: `src/lib/mdr/progressIcon.ts`, `src/components/mdr/grid/MdrProgressIconCell.tsx`
-- 수정: `src/components/mdr/grid/columns.tsx`, `src/components/mdr/grid/MdrAdvancedGrid.tsx`, `src/components/mdr/grid/useGridStatePersistence.ts`, `src/lib/mdr/exporter.ts`
+1. Playwright로 `/` (dark) → `/design` (light 전환, 사이드바·헤더 포함) → `/workspace` (light) → `/calendar` (dark) 스크린샷.
+2. 새로고침 시 `/design`이 처음부터 light로 페인트되어 깜빡임 없는지 확인.
+3. Dropdown/Toast/Dialog가 라이트 라우트에서 라이트 톤으로 표시되는지 확인.
+4. 다크 라우트(`/`)에서 기존 디자인 회귀 없는지 확인.

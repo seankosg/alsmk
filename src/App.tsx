@@ -20,6 +20,7 @@ import DesignSummary from "./pages/DesignSummary";
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
 import NotFound from "./pages/NotFound";
+import { RouteThemeController } from "@/components/theme/RouteThemeController";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <RouteThemeController />
         <Routes>
           {/* Public route – outside AppLayout */}
           <Route path="/login" element={<Login />} />
