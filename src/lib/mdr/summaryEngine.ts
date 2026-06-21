@@ -119,6 +119,7 @@ function computeBlock(
   drawings: RawDrawing[],
   wf: MdrWfBundle,
   dataDate: string,
+  meta: { inMaster: boolean; sortOrder: number },
 ): BlockSummary {
   const byDisc = new Map<string, RawDrawing[]>();
   for (const d of drawings) {
