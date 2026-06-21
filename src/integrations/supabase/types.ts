@@ -433,6 +433,78 @@ export type Database = {
         }
         Relationships: []
       }
+      mdr_drawing_revisions: {
+        Row: {
+          actual_finish: string | null
+          building_code: string
+          created_at: string
+          doc_base: string | null
+          doc_no: string | null
+          drawing_id: string
+          drawing_title: string | null
+          id: string
+          import_log_id: string | null
+          out_of_scope: boolean | null
+          plan_finish: string | null
+          progress_snapshot: Json | null
+          rev: string
+          source_sheet: string | null
+          superseded_at: string
+          superseded_by_rev: string | null
+        }
+        Insert: {
+          actual_finish?: string | null
+          building_code: string
+          created_at?: string
+          doc_base?: string | null
+          doc_no?: string | null
+          drawing_id: string
+          drawing_title?: string | null
+          id?: string
+          import_log_id?: string | null
+          out_of_scope?: boolean | null
+          plan_finish?: string | null
+          progress_snapshot?: Json | null
+          rev: string
+          source_sheet?: string | null
+          superseded_at?: string
+          superseded_by_rev?: string | null
+        }
+        Update: {
+          actual_finish?: string | null
+          building_code?: string
+          created_at?: string
+          doc_base?: string | null
+          doc_no?: string | null
+          drawing_id?: string
+          drawing_title?: string | null
+          id?: string
+          import_log_id?: string | null
+          out_of_scope?: boolean | null
+          plan_finish?: string | null
+          progress_snapshot?: Json | null
+          rev?: string
+          source_sheet?: string | null
+          superseded_at?: string
+          superseded_by_rev?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_drawing_revisions_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: false
+            referencedRelation: "mdr_drawings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mdr_drawing_revisions_import_log_id_fkey"
+            columns: ["import_log_id"]
+            isOneToOne: false
+            referencedRelation: "mdr_import_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mdr_drawings: {
         Row: {
           activity_group: string | null
@@ -441,6 +513,8 @@ export type Database = {
           building_code: string
           created_at: string
           discipline: string
+          doc_base: string | null
+          doc_no: string | null
           drawing_title: string | null
           function_code: string | null
           id: string
@@ -448,6 +522,7 @@ export type Database = {
           job_no: string | null
           out_of_scope: boolean
           plan_finish: string | null
+          rev: string
           serial_no: string | null
           source_no: string
           source_sheet: string | null
@@ -460,6 +535,8 @@ export type Database = {
           building_code: string
           created_at?: string
           discipline: string
+          doc_base?: string | null
+          doc_no?: string | null
           drawing_title?: string | null
           function_code?: string | null
           id?: string
@@ -467,6 +544,7 @@ export type Database = {
           job_no?: string | null
           out_of_scope?: boolean
           plan_finish?: string | null
+          rev?: string
           serial_no?: string | null
           source_no: string
           source_sheet?: string | null
@@ -479,6 +557,8 @@ export type Database = {
           building_code?: string
           created_at?: string
           discipline?: string
+          doc_base?: string | null
+          doc_no?: string | null
           drawing_title?: string | null
           function_code?: string | null
           id?: string
@@ -486,6 +566,7 @@ export type Database = {
           job_no?: string | null
           out_of_scope?: boolean
           plan_finish?: string | null
+          rev?: string
           serial_no?: string | null
           source_no?: string
           source_sheet?: string | null
