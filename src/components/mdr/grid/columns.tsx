@@ -23,6 +23,9 @@ export interface MdrDrawingRow {
   source_no: string | null;
   building_code: string | null;
   item_no: string | null;
+  doc_no: string | null;
+  doc_base: string | null;
+  rev: string | null;
   discipline: string | null;
   job_no: string | null;
   area_code: string | null;
@@ -232,6 +235,24 @@ export function buildMdrColumns(
       sortingFn: naturalSort,
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: [] },
+    },
+    {
+      accessorKey: "doc_no", header: "Doc No.", size: 200,
+      sortingFn: naturalSort,
+      cell: ({ row, getValue }) => {
+        const v = (getValue() as string) ?? "-";
+        const rev = row.original.rev;
+        return (
+          <span className="font-mono inline-flex items-center gap-1">
+            {v}
+            {rev && rev !== "0" && (
+              <span className="text-[10px] px-1 rounded bg-primary/15 text-primary">Rev {rev}</span>
+            )}
+          </span>
+        );
+      },
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
     },
     {
       accessorKey: "item_no", header: "Item No.", size: 130,
