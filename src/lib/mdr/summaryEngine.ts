@@ -54,6 +54,9 @@ export interface BlockSummary {
   buildingWf: number;
   contributesToOverall: boolean;
   totals: { sd: StageCell; dd: StageCell; cd: StageCell };
+  inMaster: boolean;
+  hasDrawings: boolean;
+  sortOrder: number;
 }
 
 export interface MdrSummary {

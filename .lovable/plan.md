@@ -1,38 +1,54 @@
-# 임포트 로그 — 롤백 / 데이터 삭제 버튼
+# 근본 원인
 
-## 제거
-- 현재 행 우측의 **로그 삭제** 버튼(`deleteLog` + `Trash2` AlertDialog) 제거
-- 관련 state(`deletingId`) 정리
+`src/lib/mdr/summaryEngine.ts`의 `fetchSummary()`는 매트릭스 행(블록 목록)을 **`mdr_drawings`에서 발견된 `building_code`만 그룹화**하여 만듭니다.
 
-## 신규 액션 2종 (Admin 전용)
+DB 확인 결과:
+- `mdr_buildings`(건물 마스터): CRM, HSM, MAIN_OFFICE, FAFP, GEN, **SMP&CCM** — 총 6개
+- `mdr_drawings` distinct building_code: CRM, HSM, MAIN_OFFICE, FAFP, GEN — **5개** (SMP&CCM 도면 0건)
 
-### 1. 롤백 (Rollback)
-이 임포트로 발생한 변경을 되돌립니다.
-- `mdr_import_row_logs`에서 이 batch의 `inserted` 행 → 해당 `item_no` (또는 `doc_base`) 도면을 `mdr_drawings`에서 삭제 (CASCADE로 milestones/progress/revisions 정리)
-- 같은 batch의 `rev_updated` 행 → `mdr_drawing_revisions`에서 `import_log_id = batchId` 인 이력 스냅샷을 찾아, 해당 도면의 `rev / drawing_title / plan_finish / out_of_scope`를 이력 시점으로 되돌리고, `progress_snapshot`의 마일스톤·진행률을 다시 주입(기존 mdr_milestones/mdr_progress 삭제 후 재삽입). 복원 후 사용한 이력 행은 삭제.
-- 로그 자체는 보존하고 `status = 'rolled_back'` 으로 표시. row logs는 보존.
-- 확인 다이얼로그에 영향 카운트 미리 보여주기: "신규 N건 삭제, Rev 갱신 M건 복원"
+따라서 도면이 0건인 건물(현재 SMP&CCM, 또는 롤백/삭제 직후의 건물, 신규 등록 건물)은 화면에 **아예 표시되지 않습니다**. 임포트 전이라도 마스터에 등록된 건물은 골격(스켈레톤)으로 보여야 하며, 반대로 마스터에 등록되지 않은 채 임포트된 고아 building_code는 경고로 드러나야 합니다.
 
-### 2. 데이터 삭제 (Purge)
-이 임포트로 신규 추가된 도면 + 이력 + 로그를 **영구 삭제**합니다 (복원 불가).
-- 이 batch의 `inserted` 행 → 해당 도면 삭제 (CASCADE)
-- 이 batch가 만든 `mdr_drawing_revisions` 이력 행 삭제 (`import_log_id = batchId`)
-- `mdr_import_row_logs` 삭제
-- `mdr_import_logs` 삭제
-- Rev 갱신된 도면은 손대지 않음(이미 새 Rev로 운용 중이므로). 다이얼로그에 명시.
+# 변경 사항
 
-## UI
-`/design/import/logs` 행 우측 액션 컬럼에 두 버튼 묶음:
-- ↺ **Rollback** (secondary outline)
-- 🗑 **Purge** (destructive)
+## 1. `src/lib/mdr/summaryEngine.ts` — 행 소스 전환
 
-각 버튼은 빨강/노랑 톤의 `AlertDialog`로 영향 범위를 보여준 뒤 실행. 실행 중 스피너 표시. 완료 후 목록 refetch.
+**a. 건물 마스터 함께 로드**
+- `mdr_buildings`에서 `code, name, sort_order` 전체 fetch (병렬).
 
-`status = 'rolled_back'` 인 로그는 두 버튼 모두 비활성화(이미 되돌려졌으므로 Purge로 정리만 가능 → Purge는 활성 유지, Rollback만 비활성).
+**b. 합집합 빌딩 키 생성**
+- `buildingKeys = unique( masterCodes ∪ drawingCodes )`.
+- 각 키마다 도면 배열(없으면 `[]`)로 `computeBlock` 호출.
 
-## DB
-스키마 변경 없음. 모든 조작은 클라이언트에서 supabase 호출로 처리.
-`mdr_import_logs.status`는 기존 text 컬럼이라 그대로 `'rolled_back'` 사용 가능.
+**c. `computeBlock` 빈 도면 처리**
+- 도면 0건이면: `cells = []`, `totals` 모두 `emptyCell()`, `blockProgress = 0`.
+- 이 경우에도 행이 1줄은 보여야 하므로 `cells.length === 0`이면 **placeholder cell**(`discipline: "—", drawingCount: 0, sd/dd/cd: emptyCell()`) 1개를 푸시.
 
-## 변경 파일
-- `src/pages/DesignImportLogs.tsx` — 로그 삭제 제거, Rollback/Purge 함수와 다이얼로그 추가, 상태 배지 매핑에 `rolled_back` 추가
+**d. `BlockSummary`에 메타 추가**
+- `inMaster: boolean` — `mdr_buildings`에 등록되어 있는지.
+- `hasDrawings: boolean` — 도면 1건이라도 있는지.
+- 정렬 순서: `mdr_buildings.sort_order` → `buildingWf` 내림차순 → 코드 알파벳. 마스터에 없는 고아 코드는 항상 맨 아래.
+
+**e. overall 집계 변경 없음**
+- `contributesToOverall` 그대로 (`buildingWf > 0`만 합산) → 빈 건물이 추가되어도 전사 KPI 영향 없음.
+
+## 2. `src/components/mdr/MdrSummaryPanel.tsx` — 빈 행/배지 처리
+
+- placeholder cell(`discipline === "—"`)이면 DWG/모든 stage 셀에 `-` 표시 (기존 `StageCells`가 이미 `drawingCount === 0` 시 `-`를 출력하므로 그대로 동작).
+- 블록 라벨 아래 배지 우선순위:
+  1. `!inMaster` → 빨간 outline `"마스터 미등록"` (관리자에게 등록 유도)
+  2. `inMaster && !hasDrawings` → 회색 outline `"도면 없음"` 
+  3. `dim(!contributesToOverall)` → 기존 `"합산 제외"` 유지
+  4. 그 외 → WF 표시
+- `summary.blocks.length === 0` 빈상태 메시지 조건은 유지(마스터까지 0건일 때만 발동).
+
+## 3. 영향 범위 확인
+
+- `selectDisciplineRollup` / `selectStageRollup`: `contributesToOverall=false` 블록은 스킵하므로 영향 없음. 빈 placeholder cell도 `drawingCount=0`이라 분모에 0으로 들어가 결과 불변.
+- `MdrKpiCards` 등 overall 사용처: 합산식 미변경.
+
+# 검증
+
+1. `/design/summary` 진입 시 매트릭스에 **SMP&CCM 행이 "도면 없음" 배지와 함께** 표시되는지 확인.
+2. 마스터에 신규 건물 추가 → 즉시 행 출현(임포트 전).
+3. 임포트 후 마스터에 없는 코드로 들어온 건물이 있다면 "마스터 미등록" 배지로 마지막 줄에 출현.
+4. CRM/HSM 등 기존 합산 대상 행의 수치/Disc. Progress가 이전과 동일한지(스냅샷 비교).
