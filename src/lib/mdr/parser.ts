@@ -257,8 +257,9 @@ function parseSheet(
       planDate: m.planDate,
     }));
     const progress = milestoneCols.map((m) => {
-      const v = cellStr(ws, r, m.col);
-      return { stage: m.stage, pct: m.pct, isDone: isYes(v) };
+      // 그룹 내 어느 서브컬럼이라도 Yes 면 완료로 간주
+      const isDone = m.cols.some((x) => isYes(cellStr(ws, r, x)));
+      return { stage: m.stage, pct: m.pct, isDone };
     });
 
     // plan finish: 마일스톤 중 가장 늦은 plan_date
