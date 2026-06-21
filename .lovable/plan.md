@@ -1,40 +1,59 @@
-## 원인
-- Raw Data 그리드에 B~F 식별 컬럼이 정의돼 있지 않아 화면에 안 보임 (DB에는 저장됨).
-- `function_code`는 엑셀 헤더가 "Fuction Code"(오타)라 파서 매칭 후보(`"Function"`/`"FUNCTION"`)와 일치하지 않아 빈 값으로 저장됨.
+# Doc No. + Rev 이력 관리 (국제 표준 기반)
 
-## 변경 사항
+## 국제 규정 검토 요약
+- **ISO 7200 (Title block)**: 도면 헤더에 *Document identifier* + *Revision index* 를 분리해 표기. 식별자는 영구, Rev만 갱신.
+- **ISO 9001 / ISO 10005 (문서관리)**: 모든 리비전을 **추적 가능(traceable)** 하게 보존, 이전 Rev는 *Superseded(폐기 대체)* 상태로 보관.
+- **EPC Master Document Register 관례 (Hexagon SDx, Aveva, qdmssolutions)**:
+  - "Current Revision" 1행 + "Revision History" 다행 구조
+  - 이전 Rev는 삭제 금지, `superseded_at` 타임스탬프로 표시
+  - Rev 코드: IFR(Issued for Review), IFA(Approval), IFC(Construction), AFC(As-built) 등 알파/숫자 혼용 허용
 
-### 1. 파서 — `src/lib/mdr/parser.ts`
-`functionCode`의 `findVal` 후보에 `"FUCTION"` 추가:
-```ts
-functionCode: findVal("Function Code", "FUNCTION", "FUCTION"),
-```
+## 적용 사양
 
-### 2. Raw Data 그리드 — `src/components/mdr/grid/columns.tsx`
-`MdrDrawingRow` 타입과 컬럼 정의에 5개 식별 컬럼 추가 (Disc. 다음 위치, 기본 표시·정렬·텍스트 필터):
-| accessorKey | header | size |
-|---|---|---|
-| `job_no` | Job No. | 90 |
-| `area_code` | Area | 70 |
-| `function_code` | Func. | 80 |
-| `serial_no` | Serial | 80 |
-| `activity_group` | Activity Group | 130 |
+### 도면 식별
+- `doc_base` = `{Job}-{Area}-{Function}-{Serial}` — **영구 고유 키** (절대 변경 안 됨)
+- `rev` = 현재 리비전 코드 (`0`, `1`, `A`, `IFC` 등 문자열 그대로 보존)
+- `doc_no` = `doc_base + "-" + rev` — 표시·필터·검색용 컬럼
 
-### 3. 그리드 데이터 SELECT — `src/components/mdr/MdrRawDataGrid.tsx` (또는 `DesignManagement.tsx`)
-`mdr_drawings` SELECT에 `job_no, area_code, function_code, serial_no, activity_group` 누락 시 추가하고 행 매핑에 포함.
+### Rev 이력 보존 — 2-테이블 구조
+**`mdr_drawings`** (현재 Rev = "live")
+- 한 도면당 1행. `(building_code, doc_base)` UNIQUE
+- 재임포트 시 Rev가 바뀌면 이 행을 갱신, **그 전에 이전 상태를 이력 테이블로 복사**
 
-### 4. 기존 데이터 정리 — 옵션 A (사용자 선택)
-사용자가 잘못 임포트된 배치를 재임포트할 수 있도록:
-- `/design/import/logs` 화면에서 SMP&CCM 빌딩의 기존 import 배치/도면을 삭제하는 액션 안내 (또는 사용자가 직접 삭제 후 재임포트).
-- 코드 변경 후 동일 엑셀을 재업로드하면 `function_code`까지 정상 저장됨.
+**`mdr_drawing_revisions`** (신설, 이력)
+- `id`, `drawing_id`(FK→mdr_drawings, ON DELETE CASCADE)
+- `building_code`, `doc_base`, `rev`
+- `drawing_title`, `plan_finish`, `actual_finish`, `out_of_scope`
+- `progress_snapshot JSONB` — 해당 Rev 시점 마일스톤·진행률 스냅샷
+- `source_sheet`, `import_log_id`(FK→mdr_import_logs)
+- `superseded_at` (이력으로 옮겨진 시각), `superseded_by_rev`
+- `created_at`
 
-> 데이터 삭제는 마이그레이션이 아닌 별도 수동 실행 영역이므로, 코드 배포 완료 후 진행 절차를 안내합니다 (필요 시 별도 요청으로 SMP&CCM 도면 일괄 삭제를 수행).
+### 임포트 시 동작
+1. `(building_code, doc_base)` 기존 행 조회
+2. 없으면 신규 insert (이력 없음)
+3. 있고 Rev 동일 → 기존대로 데이터 갱신만
+4. 있고 Rev **다름** →
+   - 기존 행 상태를 `mdr_drawing_revisions`에 복사 (`superseded_at=now, superseded_by_rev=new`)
+   - `mdr_drawings` 행을 새 Rev로 갱신 (`id` 보존 → 마일스톤·진행 FK 유지)
 
-## 영향 파일
-- `src/lib/mdr/parser.ts`
-- `src/components/mdr/grid/columns.tsx`
-- `src/components/mdr/MdrRawDataGrid.tsx` 또는 `src/pages/DesignManagement.tsx` (SELECT 보강)
+### UI
+- 그리드: **Doc No.** 컬럼을 Item No. 좌측에 추가, 현재 Rev 포함 표시
+- 행 옆에 작은 배지 `Rev N` (Rev≥1이면 강조)
+- 행 클릭 시 사이드 패널 또는 "Revision History" 탭에서 과거 Rev 목록 (rev, superseded_at, plan_finish, overall_pct) 표시
+- 이력은 읽기 전용
 
-## 비범위
-- 다른 헤더 오타에 대한 광범위 정규화 (지금은 "Fuction"만 허용).
-- 컬럼 표시/숨김·순서 변경 UI는 기존 동작 사용.
+## 변경 파일
+1. **migration**: `mdr_drawings`에 `rev`, `doc_base`, `doc_no` + UNIQUE; `mdr_drawing_revisions` 신설 + RLS + GRANT
+2. **`src/lib/mdr/parser.ts`**: `rev`, `docBase`, `docNo` 파싱
+3. **`src/lib/mdr/importRunner.ts`**: upsert + 이력 복사 로직
+4. **`src/integrations/supabase/types.ts`**: 자동 재생성
+5. **`src/components/mdr/grid/columns.tsx`**: Doc No. 컬럼 + `rev` 배지
+6. **`src/components/mdr/grid/MdrAdvancedGrid.tsx`**: row 매핑
+7. **(신규) `src/components/mdr/RevisionHistoryDialog.tsx`**: 이력 조회 다이얼로그
+
+## 범위 제한
+- Rev 비교/diff 뷰는 이번 범위 외 (이력 보존만)
+- Rev 알파벳 자동 증가(A→B) 같은 자동 채번은 하지 않음 — Excel 원본 Rev 그대로 사용
+
+이 방향으로 진행할까요? 또는 이력 테이블 없이 단일 행만 갱신하는 단순안을 원하시면 알려주세요.

@@ -107,6 +107,9 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         source_no: d.source_no,
         building_code: d.building_code,
         item_no: d.item_no,
+        doc_no: d.doc_no ?? null,
+        doc_base: d.doc_base ?? null,
+        rev: d.rev ?? null,
         discipline: d.discipline,
         job_no: d.job_no ?? null,
         area_code: d.area_code ?? null,
@@ -213,7 +216,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       if (!value) return true;
       const v = String(value).toLowerCase();
       const r = row.original;
-      return [r.source_no, r.item_no, r.drawing_title, r.discipline, r.building_code]
+      return [r.source_no, r.item_no, r.doc_no, r.drawing_title, r.discipline, r.building_code]
         .some((f) => String(f ?? "").toLowerCase().includes(v));
     },
     getCoreRowModel: getCoreRowModel(),
@@ -251,7 +254,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       // 그리드의 헤더 라벨과 동일하게 매핑 (마일스톤 컬럼 포함)
       const headerLabel = (id: string, fallback: string): string => {
         const base: Record<string, string> = {
-          source_no: "No.", building_code: "Building", item_no: "Item No.",
+          source_no: "No.", building_code: "Building", doc_no: "Doc No.", item_no: "Item No.",
           discipline: "Disc.", drawing_title: "Title",
           sd_mark: "SD", dd_mark: "DD", cd_mark: "CD",
           dd_pct: "DD%", cd_pct: "CD%", overall_pct: "Overall%",
