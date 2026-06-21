@@ -6,10 +6,21 @@ export interface PersistResult {
   skipped: number;
 }
 
+interface RowLogEntry {
+  source_sheet: string | null;
+  raw_row_no: number | null;
+  item_no: string | null;
+  source_no: string | null;
+  drawing_title: string | null;
+  action: "inserted" | "skipped_duplicate" | "skipped_existing";
+  reason: string | null;
+}
+
 /** Persist a parsed MDR file. Returns counts. SUMMARY 파일은 호출 전에 필터링되어야 함. */
 export async function persistParsed(
   parsed: MdrParseResult,
   onLog?: (s: string) => void,
+  importLogId?: string | null,
 ): Promise<PersistResult> {
   const push = onLog ?? (() => {});
 
@@ -39,13 +50,33 @@ export async function persistParsed(
   }
   push(`  · 기존 도면 ${existing.size}건 — 보존`);
 
-  // 3) 신규 행
+  // 3) 신규/스킵 분류 (행별 로그 누적)
+  const rowLogs: RowLogEntry[] = [];
   const seen = new Set<string>();
-  const newRows = allRows.filter((r) => {
-    if (existing.has(r.itemNo) || seen.has(r.itemNo)) return false;
-    seen.add(r.itemNo);
-    return true;
-  });
+  const newRows: typeof allRows = [];
+  for (const r of allRows) {
+    if (existing.has(r.itemNo)) {
+      rowLogs.push({
+        source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
+        item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
+        action: "skipped_existing", reason: "이미 존재하는 도면",
+      });
+    } else if (seen.has(r.itemNo)) {
+      rowLogs.push({
+        source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
+        item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
+        action: "skipped_duplicate", reason: "파일 내 중복",
+      });
+    } else {
+      seen.add(r.itemNo);
+      newRows.push(r);
+      rowLogs.push({
+        source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
+        item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
+        action: "inserted", reason: null,
+      });
+    }
+  }
   const skipped = allRows.length - newRows.length;
 
   // 4) drawings bulk insert
@@ -115,6 +146,16 @@ export async function persistParsed(
     done_count: 0,
   } as any);
 
+  // 6) 행별 로그 저장
+  if (importLogId && rowLogs.length) {
+    const payload = rowLogs.map((r) => ({ ...r, import_log_id: importLogId }));
+    for (let i = 0; i < payload.length; i += 500) {
+      const chunk = payload.slice(i, i + 500);
+      const { error } = await supabase.from("mdr_import_row_logs" as never).insert(chunk as any);
+      if (error) console.error("[mdr] row logs insert failed", error);
+    }
+  }
+
   return { inserted: newRows.length, skipped };
 }
 
@@ -126,8 +167,8 @@ export async function logImport(opts: {
   skipped: number;
   userId: string | null;
   errorSummary?: string | null;
-}) {
-  await supabase.from("mdr_import_logs" as never).insert({
+}): Promise<string | null> {
+  const { data, error } = await supabase.from("mdr_import_logs" as never).insert({
     filename: opts.filename,
     building_code: opts.building,
     status: opts.status,
@@ -135,5 +176,10 @@ export async function logImport(opts: {
     rows_skipped: opts.skipped,
     error_summary: opts.errorSummary ?? null,
     imported_by: opts.userId,
-  } as any);
+  } as any).select("id").single();
+  if (error) {
+    console.error("[mdr] logImport failed", error);
+    return null;
+  }
+  return (data as any)?.id ?? null;
 }

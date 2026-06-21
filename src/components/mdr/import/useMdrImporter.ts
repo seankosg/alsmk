@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { parseMdrFile, isSummaryFilename, type MdrParseResult } from "@/lib/mdr/parser";
 import { validateSheet, applyAutoFix } from "@/lib/mdr/validator";
 import { persistParsed, logImport } from "@/lib/mdr/importRunner";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 export type ImportFileStatus =
@@ -111,15 +112,21 @@ export function useMdrImporter(onImported?: () => void) {
       for (const t of targets) {
         update(t.id, { status: "processing" });
         try {
-          const res = await persistParsed(t.parsed!);
-          await logImport({
+          // Pre-create the import log to get an ID, then persist with row-level logs attached.
+          const logId = await logImport({
             filename: t.parsed!.filename,
             building: t.parsed!.building,
             status: "success",
-            inserted: res.inserted,
-            skipped: res.skipped,
+            inserted: 0,
+            skipped: 0,
             userId: user?.id ?? null,
           });
+          const res = await persistParsed(t.parsed!, undefined, logId);
+          if (logId) {
+            await (supabase as any).from("mdr_import_logs")
+              .update({ rows_inserted: res.inserted, rows_skipped: res.skipped })
+              .eq("id", logId);
+          }
           update(t.id, { status: "done", result: res });
         } catch (e: any) {
           const msg = e?.message ?? String(e);
