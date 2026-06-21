@@ -200,14 +200,30 @@ function computeBlock(
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
+  // 도면 0건이어도 행을 1줄 표시하기 위한 placeholder cell
+  if (cells.length === 0) {
+    cells.push({
+      building,
+      discipline: "—",
+      drawingCount: 0,
+      sd: emptyCell(),
+      dd: emptyCell(),
+      cd: emptyCell(),
+      discProgress: 0,
+    });
+  }
+
   return {
     building,
     drawingCount: drawings.length,
     cells,
     blockProgress,
     buildingWf,
-    contributesToOverall: buildingWf > 0,
+    contributesToOverall: buildingWf > 0 && drawings.length > 0,
     totals,
+    inMaster: meta.inMaster,
+    hasDrawings: drawings.length > 0,
+    sortOrder: meta.sortOrder,
   };
 }
 
@@ -217,7 +233,17 @@ function stKey(s: StageCode): "sd" | "dd" | "cd" {
 }
 
 async function fetchSummary(): Promise<MdrSummary> {
-  const wf = await loadMdrWeights();
+  const [wf, mastersRes] = await Promise.all([
+    loadMdrWeights(),
+    supabase.from("mdr_buildings" as never).select("code, sort_order"),
+  ]);
+  if (mastersRes.error) throw mastersRes.error;
+  const masters = ((mastersRes.data as unknown) as { code: string; sort_order: number | null }[]) ?? [];
+  const masterMeta = new Map<string, { inMaster: true; sortOrder: number }>();
+  for (const m of masters) {
+    if (!m.code) continue;
+    masterMeta.set(m.code, { inMaster: true, sortOrder: m.sort_order ?? 0 });
+  }
 
   // PostgREST 기본 1000행 제한 회피: 1000행 단위 페이지네이션으로 전체 로드
   const PAGE = 1000;
@@ -244,12 +270,23 @@ async function fetchSummary(): Promise<MdrSummary> {
     byBuilding.set(d.building_code, arr);
   }
 
+  // 합집합: 마스터 등록 건물 ∪ 도면에 등장한 건물
+  const allKeys = new Set<string>([...masterMeta.keys(), ...byBuilding.keys()]);
+
   const blocks: BlockSummary[] = [];
-  for (const [building, list] of byBuilding.entries()) {
-    blocks.push(computeBlock(building, list, wf, dataDate));
+  for (const building of allKeys) {
+    const list = byBuilding.get(building) ?? [];
+    const meta = masterMeta.get(building) ?? { inMaster: false, sortOrder: 9999 };
+    blocks.push(computeBlock(building, list, wf, dataDate, meta));
   }
 
-  blocks.sort((a, b) => (b.buildingWf - a.buildingWf) || a.building.localeCompare(b.building));
+  blocks.sort((a, b) => {
+    // 마스터 미등록 건물은 항상 맨 아래
+    if (a.inMaster !== b.inMaster) return a.inMaster ? -1 : 1;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    if (b.buildingWf !== a.buildingWf) return b.buildingWf - a.buildingWf;
+    return a.building.localeCompare(b.building);
+  });
 
   let overallProgress = 0;
   let overallDwg = 0;
