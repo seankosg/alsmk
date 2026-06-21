@@ -91,8 +91,8 @@ export function buildMdrProgressIconCells(
     actualDate: sdFind.pg?.actual_date ?? null,
   };
 
-  const buildSeq = (stage: MdrStage, pcts: readonly number[]): MdrPipCell[] => {
-    let prevDone = true; // 그룹 시작 직전(SD) 완료로 간주
+  const buildSeq = (stage: MdrStage, pcts: readonly number[], initialPrevDone: boolean): MdrPipCell[] => {
+    let prevDone = initialPrevDone;
     return pcts.map((p) => {
       const { ms, pg } = find(stage, p);
       const state = classify(stage, p, ms, pg, prevDone, asOf);
@@ -108,11 +108,11 @@ export function buildMdrProgressIconCells(
     });
   };
 
-  return {
-    sd,
-    dd: buildSeq("DD", DD_PIP_PCTS),
-    cd: buildSeq("CD", CD_PIP_PCTS),
-  };
+  const dd = buildSeq("DD", DD_PIP_PCTS, true); // SD 완료 간주
+  const dd100Done = dd[dd.length - 1]?.state === "done";
+  const cd = buildSeq("CD", CD_PIP_PCTS, dd100Done);
+
+  return { sd, dd, cd };
 }
 
 const PRIORITY: Record<MdrMilestoneState, number> = {
