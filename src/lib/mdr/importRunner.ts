@@ -176,8 +176,8 @@ export async function persistParsed(
       const ex = p.existing!;
       const r = p.row;
       const docNo = r.docBase ? `${r.docBase}-${r.rev}` : null;
-      const { error: uErr } = await supabase
-        .from("mdr_drawings" as never)
+      const { error: uErr } = await (supabase
+        .from("mdr_drawings" as never) as any)
         .update({
           source_no: r.sourceNo,
           item_no: r.itemNo,
