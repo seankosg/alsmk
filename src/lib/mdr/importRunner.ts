@@ -198,8 +198,8 @@ export async function persistParsed(
         .eq("id", ex.id);
       if (uErr) throw uErr;
       // 기존 마일스톤/진행률 삭제 후 재삽입
-      await supabase.from("mdr_milestones" as never).delete().eq("drawing_id", ex.id);
-      await supabase.from("mdr_progress" as never).delete().eq("drawing_id", ex.id);
+      await (supabase.from("mdr_milestones" as never) as any).delete().eq("drawing_id", ex.id);
+      await (supabase.from("mdr_progress" as never) as any).delete().eq("drawing_id", ex.id);
       const msIns = r.milestones.map((m) => ({
         drawing_id: ex.id, stage: m.stage, pct: m.pct,
         increment_pct: m.incrementPct, plan_date: m.planDate ?? null,
