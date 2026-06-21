@@ -13,7 +13,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, Loader2, Trash2 } from "lucide-react";
+import { ChevronLeft, Loader2, Trash2, Undo2 } from "lucide-react";
 
 interface MdrLog {
   id: string;
@@ -27,6 +27,8 @@ interface MdrLog {
   imported_at: string;
 }
 
+type RowAction = "inserted" | "skipped_duplicate" | "skipped_existing" | "rev_updated";
+
 interface RowLog {
   id: string;
   source_sheet: string | null;
@@ -34,7 +36,7 @@ interface RowLog {
   item_no: string | null;
   source_no: string | null;
   drawing_title: string | null;
-  action: "inserted" | "skipped_duplicate" | "skipped_existing";
+  action: RowAction;
   reason: string | null;
 }
 
@@ -43,18 +45,21 @@ const STATUS_COLOR: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   processing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  rolled_back: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
 };
 
 const ACTION_COLOR: Record<string, string> = {
   inserted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   skipped_duplicate: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
   skipped_existing: "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200",
+  rev_updated: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
 };
 
 const ACTION_LABEL: Record<string, string> = {
   inserted: "Inserted",
   skipped_duplicate: "Skipped (중복)",
   skipped_existing: "Skipped (기존)",
+  rev_updated: "Rev 갱신",
 };
 
 function fmtDate(iso: string) {
@@ -70,7 +75,7 @@ export default function DesignImportLogs() {
   const [logs, setLogs] = useState<MdrLog[]>([]);
   const [uploaderNames, setUploaderNames] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
   const [selectedBatch, setSelectedBatch] = useState<string | null>(searchParams.get("batch"));
   const [rowLogs, setRowLogs] = useState<RowLog[]>([]);
@@ -146,17 +151,130 @@ export default function DesignImportLogs() {
     setRowsBusy(false);
   };
 
-  const deleteLog = async (id: string) => {
-    setDeletingId(id);
-    const { error } = await supabase.from("mdr_import_logs" as never).delete().eq("id", id);
-    setDeletingId(null);
-    if (error) {
-      toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
-      return;
+  /** 이 batch의 row logs에서 inserted/rev_updated item_no 목록 추출 */
+  const fetchBatchScope = async (batchId: string, buildingCode: string | null) => {
+    const { data, error } = await supabase
+      .from("mdr_import_row_logs" as never)
+      .select("item_no, action")
+      .eq("import_log_id", batchId)
+      .in("action", ["inserted", "rev_updated"])
+      .limit(50000);
+    if (error) throw error;
+    const inserted: string[] = [];
+    const revUpdated: string[] = [];
+    for (const r of (data as any[]) ?? []) {
+      if (!r.item_no) continue;
+      if (r.action === "inserted") inserted.push(r.item_no);
+      else if (r.action === "rev_updated") revUpdated.push(r.item_no);
     }
-    toast({ title: "삭제됨", description: "임포트 로그가 삭제되었습니다." });
-    if (selectedBatch === id) setSelectedBatch(null);
-    await fetchLogs();
+    return { inserted, revUpdated, buildingCode };
+  };
+
+  const rollback = async (log: MdrLog) => {
+    setActionBusyId(log.id);
+    try {
+      const { inserted, revUpdated, buildingCode } = await fetchBatchScope(log.id, log.building_code);
+
+      // 1) inserted 도면 삭제 (CASCADE로 milestones/progress/revisions 정리)
+      if (inserted.length && buildingCode) {
+        for (let i = 0; i < inserted.length; i += 500) {
+          const chunk = inserted.slice(i, i + 500);
+          const { error } = await (supabase.from("mdr_drawings" as never) as any)
+            .delete()
+            .eq("building_code", buildingCode)
+            .in("item_no", chunk);
+          if (error) throw error;
+        }
+      }
+
+      // 2) rev_updated 도면 복원: 이 batch가 만든 이력 스냅샷으로 되돌리기
+      let restored = 0;
+      if (revUpdated.length) {
+        const { data: revs, error: revErr } = await supabase
+          .from("mdr_drawing_revisions" as never)
+          .select("*")
+          .eq("import_log_id", log.id);
+        if (revErr) throw revErr;
+        const list = (revs as any[]) ?? [];
+        for (const snap of list) {
+          // 도면 본체 복원
+          const { error: uErr } = await (supabase.from("mdr_drawings" as never) as any)
+            .update({
+              rev: snap.rev,
+              doc_no: snap.doc_no,
+              drawing_title: snap.drawing_title,
+              plan_finish: snap.plan_finish,
+              out_of_scope: snap.out_of_scope ?? false,
+              source_sheet: snap.source_sheet,
+            })
+            .eq("id", snap.drawing_id);
+          if (uErr) throw uErr;
+          // 마일스톤/진행률 재주입
+          await (supabase.from("mdr_milestones" as never) as any).delete().eq("drawing_id", snap.drawing_id);
+          await (supabase.from("mdr_progress" as never) as any).delete().eq("drawing_id", snap.drawing_id);
+          const ms = (snap.progress_snapshot?.milestones ?? []).map((m: any) => ({
+            drawing_id: snap.drawing_id, stage: m.stage, pct: m.pct,
+            increment_pct: m.increment_pct, plan_date: m.plan_date,
+          }));
+          const pg = (snap.progress_snapshot?.progress ?? []).map((p: any) => ({
+            drawing_id: snap.drawing_id, stage: p.stage, pct: p.pct,
+            is_done: p.is_done, actual_date: p.actual_date ?? null,
+          }));
+          if (ms.length) await supabase.from("mdr_milestones" as never).insert(ms as any);
+          if (pg.length) await supabase.from("mdr_progress" as never).insert(pg as any);
+          restored++;
+        }
+        // 사용한 스냅샷 삭제
+        await (supabase.from("mdr_drawing_revisions" as never) as any).delete().eq("import_log_id", log.id);
+      }
+
+      // 3) 로그 상태 갱신
+      await (supabase.from("mdr_import_logs" as never) as any)
+        .update({ status: "rolled_back" })
+        .eq("id", log.id);
+
+      toast({
+        title: "롤백 완료",
+        description: `신규 ${inserted.length}건 삭제, Rev 갱신 ${restored}건 복원`,
+      });
+      await fetchLogs();
+    } catch (e: any) {
+      toast({ title: "롤백 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const purge = async (log: MdrLog) => {
+    setActionBusyId(log.id);
+    try {
+      const { inserted, buildingCode } = await fetchBatchScope(log.id, log.building_code);
+
+      // 신규 도면 삭제 (CASCADE)
+      if (inserted.length && buildingCode) {
+        for (let i = 0; i < inserted.length; i += 500) {
+          const chunk = inserted.slice(i, i + 500);
+          const { error } = await (supabase.from("mdr_drawings" as never) as any)
+            .delete()
+            .eq("building_code", buildingCode)
+            .in("item_no", chunk);
+          if (error) throw error;
+        }
+      }
+      // 이 batch가 만든 이력 삭제 (롤백 안 한 경우 대비)
+      await (supabase.from("mdr_drawing_revisions" as never) as any).delete().eq("import_log_id", log.id);
+      // 행 로그 + 로그 본체 삭제
+      await (supabase.from("mdr_import_row_logs" as never) as any).delete().eq("import_log_id", log.id);
+      await (supabase.from("mdr_import_logs" as never) as any).delete().eq("id", log.id);
+
+      toast({ title: "데이터 삭제 완료", description: `신규 ${inserted.length}건 + 로그 영구 삭제` });
+      if (selectedBatch === log.id) setSelectedBatch(null);
+      await fetchLogs();
+    } catch (e: any) {
+      toast({ title: "삭제 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setActionBusyId(null);
+    }
   };
 
   const sheets = useMemo(
@@ -178,8 +296,8 @@ export default function DesignImportLogs() {
   }, [rowLogs, actionFilter, sheetFilter, search]);
 
   const counts = useMemo(() => {
-    const c = { inserted: 0, skipped_existing: 0, skipped_duplicate: 0 };
-    rowLogs.forEach((r) => { (c as any)[r.action] += 1; });
+    const c = { inserted: 0, skipped_existing: 0, skipped_duplicate: 0, rev_updated: 0 };
+    rowLogs.forEach((r) => { (c as any)[r.action] = ((c as any)[r.action] ?? 0) + 1; });
     return c;
   }, [rowLogs]);
 
@@ -218,7 +336,7 @@ export default function DesignImportLogs() {
                     <TableHead className="text-xs text-right">Inserted</TableHead>
                     <TableHead className="text-xs text-right">Skipped</TableHead>
                     <TableHead className="text-xs">Error</TableHead>
-                    {isAdmin && <TableHead className="text-xs w-10"></TableHead>}
+                    {isAdmin && <TableHead className="text-xs text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -238,6 +356,8 @@ export default function DesignImportLogs() {
                     logs.map((l) => {
                       const uploader = l.imported_by ? (uploaderNames[l.imported_by] || "—") : "—";
                       const click = () => setSelectedBatch(l.id);
+                      const isBusy = actionBusyId === l.id;
+                      const isRolledBack = l.status === "rolled_back";
                       return (
                         <TableRow key={l.id} className="hover:bg-muted/50">
                           <TableCell className="text-xs font-medium cursor-pointer" onClick={click}>{l.filename}</TableCell>
@@ -256,30 +376,68 @@ export default function DesignImportLogs() {
                           </TableCell>
                           {isAdmin && (
                             <TableCell className="text-right">
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost" size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
-                                    disabled={deletingId === l.id}
-                                    title="로그 삭제 (도면 데이터는 보존됩니다)"
-                                  >
-                                    {deletingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>임포트 로그를 삭제할까요?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      이 로그와 행별 상세 기록이 삭제됩니다. 임포트된 도면 데이터는 보존됩니다.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deleteLog(l.id)}>삭제</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              <div className="flex items-center justify-end gap-1">
+                                {/* Rollback */}
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline" size="sm"
+                                      className="h-7 px-2 text-xs"
+                                      disabled={isBusy || isRolledBack}
+                                      title={isRolledBack ? "이미 롤백됨" : "이 임포트의 변경을 되돌리기"}
+                                    >
+                                      {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5 mr-1" />}
+                                      Rollback
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>이 임포트를 롤백할까요?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        이 배치로 신규 추가된 도면은 삭제되고, Rev가 갱신된 도면은 이전 Rev 상태(진행률 포함)로 복원됩니다.
+                                        로그는 <code>rolled_back</code> 상태로 보존됩니다.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => rollback(l)}>롤백 실행</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+
+                                {/* Purge */}
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost" size="sm"
+                                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                                      disabled={isBusy}
+                                      title="이 임포트로 추가된 도면과 로그를 영구 삭제"
+                                    >
+                                      {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1" />}
+                                      Purge
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>데이터를 영구 삭제할까요?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        이 임포트로 <strong>신규 추가된 도면</strong>과 관련 마일스톤/진행률, 그리고 임포트 로그가 영구 삭제됩니다.
+                                        Rev 갱신된 도면은 이미 새 Rev로 운용 중이므로 건드리지 않습니다. 이 작업은 되돌릴 수 없습니다.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => purge(l)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        영구 삭제
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
                             </TableCell>
                           )}
                         </TableRow>
@@ -297,6 +455,7 @@ export default function DesignImportLogs() {
             <CardTitle className="text-base flex flex-wrap items-center gap-2">
               <span>{selectedLog?.filename ?? "—"}</span>
               <Badge variant="outline" className={`text-xs ${ACTION_COLOR.inserted}`}>Inserted {counts.inserted}</Badge>
+              <Badge variant="outline" className={`text-xs ${ACTION_COLOR.rev_updated}`}>Rev 갱신 {counts.rev_updated}</Badge>
               <Badge variant="outline" className={`text-xs ${ACTION_COLOR.skipped_existing}`}>Existing {counts.skipped_existing}</Badge>
               <Badge variant="outline" className={`text-xs ${ACTION_COLOR.skipped_duplicate}`}>Duplicate {counts.skipped_duplicate}</Badge>
             </CardTitle>
@@ -308,6 +467,7 @@ export default function DesignImportLogs() {
                 <SelectContent>
                   <SelectItem value="all">All actions</SelectItem>
                   <SelectItem value="inserted">Inserted</SelectItem>
+                  <SelectItem value="rev_updated">Rev 갱신</SelectItem>
                   <SelectItem value="skipped_existing">Skipped (기존)</SelectItem>
                   <SelectItem value="skipped_duplicate">Skipped (중복)</SelectItem>
                 </SelectContent>
