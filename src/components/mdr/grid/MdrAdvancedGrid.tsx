@@ -216,7 +216,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       if (!value) return true;
       const v = String(value).toLowerCase();
       const r = row.original;
-      return [r.source_no, r.item_no, r.drawing_title, r.discipline, r.building_code]
+      return [r.source_no, r.item_no, r.doc_no, r.drawing_title, r.discipline, r.building_code]
         .some((f) => String(f ?? "").toLowerCase().includes(v));
     },
     getCoreRowModel: getCoreRowModel(),
