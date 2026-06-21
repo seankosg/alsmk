@@ -18,10 +18,29 @@ const DAY_MS = 86400000;
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 const dDay = (a: string, b: string) => (new Date(a).getTime() - new Date(b).getTime()) / DAY_MS;
 
+/** 단계의 첫 마일스톤 구간 시작일 결정 — 직전 단계 마지막 plan_date 우선. */
+function stageStartDate(
+  milestones: MilestoneRow[],
+  stage: MdrStage,
+  firstPlanDate: string,
+): string {
+  const prevStage: MdrStage | null = stage === "CD" ? "DD" : stage === "DD" ? "SD" : null;
+  if (prevStage) {
+    const prevDates = milestones
+      .filter((m) => m.stage === prevStage && m.planDate)
+      .map((m) => m.planDate as string)
+      .sort();
+    const last = prevDates[prevDates.length - 1];
+    if (last) return last;
+  }
+  // 폴백: 첫 마일스톤 plan_date − 7일
+  return new Date(new Date(firstPlanDate).getTime() - 7 * DAY_MS).toISOString().slice(0, 10);
+}
+
 /**
  * 일일 선형 보간 계획률.
  * - asOf 기준일까지의 계획 진행률(0~100).
- * - 직전 마일스톤 plan_date → 현재 마일스톤 plan_date 사이를 일자별 선형 분배.
+ * - 첫 구간 시작일은 직전 단계(SD→DD, DD→CD) 마지막 plan_date.
  */
 export function plannedPctAsOf(
   milestones: MilestoneRow[],
@@ -34,30 +53,27 @@ export function plannedPctAsOf(
   if (!list.length) return 0;
 
   let acc = 0;
-  let prevDate: string | null = null;
+  let prevDate: string = stageStartDate(milestones, stage, list[0].planDate as string);
   for (const m of list) {
     if (!m.planDate) continue;
-    const days = prevDate ? dDay(m.planDate, prevDate) : 7;
-    const elapsed = prevDate ? dDay(asOf, prevDate) : dDay(asOf, m.planDate) + 7;
     if (dDay(asOf, m.planDate) >= 0) {
       acc += m.incrementPct;
-    } else {
-      const ratio = clamp(days > 0 ? elapsed / days : 0, 0, 1);
-      acc += m.incrementPct * ratio;
-      break;
+      prevDate = m.planDate;
+      continue;
     }
-    prevDate = m.planDate;
+    const days = dDay(m.planDate, prevDate);
+    const elapsed = dDay(asOf, prevDate);
+    const ratio = clamp(days > 0 ? elapsed / days : 0, 0, 1);
+    acc += m.incrementPct * ratio;
+    break;
   }
   return clamp(acc, 0, 100);
 }
 
 /**
  * 도면 단위 — 특정 마일스톤(stage,pct)까지의 누적 계획%.
- * - 시작일 = 직전 마일스톤 plan_date + 1일 (없으면 현재 plan_date − 7일)
+ * - 첫 구간 시작일 = 직전 단계 마지막 plan_date (폴백: 현재 plan_date − 7일)
  * - 종료일 = 현재 마일스톤 plan_date
- * - asOf ≥ 종료일 → 해당 마일스톤 increment까지 모두 누적
- * - asOf < 시작일 → 직전까지의 누적만
- * - 그 사이 → 직전까지 누적 + increment × (경과/구간)
  * - SD는 항상 100
  */
 export function drawingMilestonePlannedPct(
@@ -72,6 +88,7 @@ export function drawingMilestonePlannedPct(
     .sort((a, b) => a.pct - b.pct);
   if (!list.length) return 0;
 
+  const stageStart = stageStartDate(milestones, stage, list[0].planDate as string);
   let acc = 0;
   let prevDate: string | null = null;
   for (const m of list) {
@@ -79,7 +96,7 @@ export function drawingMilestonePlannedPct(
     const endDate = m.planDate;
     const startDate = prevDate
       ? new Date(new Date(prevDate).getTime() + DAY_MS).toISOString().slice(0, 10)
-      : new Date(new Date(endDate).getTime() - 7 * DAY_MS).toISOString().slice(0, 10);
+      : stageStart;
     if (m.pct === pct) {
       if (dDay(asOf, endDate) >= 0) return clamp(acc + m.incrementPct, 0, 100);
       if (dDay(asOf, startDate) <= 0) return clamp(acc, 0, 100);
@@ -88,7 +105,6 @@ export function drawingMilestonePlannedPct(
       const ratio = clamp(span > 0 ? elapsed / span : 0, 0, 1);
       return clamp(acc + m.incrementPct * ratio, 0, 100);
     }
-    // 직전 마일스톤 전체 누적
     acc += m.incrementPct;
     prevDate = endDate;
   }
