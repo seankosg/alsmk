@@ -1,74 +1,48 @@
-## 목표
+## 문제
 
-`Design Raw Data` 그리드의 **개별 도면 행**에서 각 마일스톤(SD100, DD30/60/90/100, CD30/60/90/100)의 정보를 5개 하위 컬럼으로 분리해 표시할 수 있게 합니다.
+`src/lib/mdr/progressIcon.ts`의 `buildSeq`가 DD/CD 그룹 모두 `prevDone = true`로 시작합니다. 이 때문에 CD30은 DD가 전혀 진행되지 않았어도 `prevDone=true` → **WIP**로 분류됩니다.
 
-- 시트 단위 집계표(이미 합의된 plan)에서는 7컬럼(도면수 포함)
-- 개별 도면 행에서는 5컬럼(도면수 제외): **계획완료일 · 실적완료일 · 계획% · 실적% · 차이%**
-- 새 컬럼들은 **기본 숨김**, Columns 메뉴에서 켜기
+## 수정 방안 (옵션 A: DD100 완료 연쇄)
 
-## 컬럼 구성
+CD 그룹의 초기 `prevDone`을 **DD100이 done인지 여부**로 설정합니다.
 
-각 마일스톤(SD100, DD30, DD60, DD90, DD100, CD30, CD60, CD90, CD100)마다 5컬럼 → 총 45 컬럼:
+### 변경 파일
+- `src/lib/mdr/progressIcon.ts`
 
-| Suffix | 헤더 | 값 | 표시 |
-|---|---|---|---|
-| `_pd` | `{MS} 계획일` | `mdr_milestones.plan_date` | `YYYY-MM-DD` 또는 `-` |
-| `_ad` | `{MS} 실적일` | `mdr_progress.actual_date` (is_done=true) | `YYYY-MM-DD` 또는 `-` |
-| `_p`  | `{MS} P%` | 도면별 보간 계획% (해당 마일스톤 한 점) | 반올림 정수 |
-| `_a`  | `{MS} A%` | 해당 마일스톤 is_done이면 `increment_pct`, 아니면 0 | 반올림 정수 |
-| `_d`  | `{MS} Δ%` | `P% − A%` (deltaCls 색상) | 반올림 정수 |
+### 변경 내용
 
-기존 `_p / _a / _d`(3컬럼) 형식과 호환되도록 ID 스킴 유지하고, `_pd / _ad` 두 컬럼만 신설.
+`buildMdrProgressIconCells` 함수 내부:
 
-### 도면 행에서의 계산 규칙
+1. `buildSeq` 시그니처에 `initialPrevDone: boolean` 파라미터 추가
+2. DD는 기존대로 `true`(SD 완료 간주)로 호출
+3. DD 결과에서 DD100의 `state === "done"` 여부를 계산
+4. CD는 `initialPrevDone = (DD100 done 여부)`로 호출
 
-- 계획완료일 `_pd`: 해당 도면의 `(stage, pct)` 마일스톤 row의 `plan_date`
-- 실적완료일 `_ad`: 해당 도면의 `(stage, pct)` progress row 중 `is_done=true`인 `actual_date`. 없으면 `-`
-- 계획% `_p`: 도면 단위 해당 마일스톤까지의 누적 계획%
-  - 시작일 = 직전 마일스톤 `plan_date + 1일` (없으면 현재 `plan_date − 7일`)
-  - 종료일 = 현재 `plan_date`
-  - `asOf ≥ 종료일` → `increment_pct 누적합`까지
-  - `asOf < 시작일` → 이전 누적까지
-  - 그 사이 → 이전 누적 + `increment_pct × (asOf − 시작일)/(종료일 − 시작일)`
-  - SD100은 항상 100
-- 실적% `_a`: 해당 마일스톤이 `is_done`이면 `increment_pct`, 아니면 0 (기존 정책 유지)
-- 차이% `_d`: `_p − _a`, `deltaCls(threshold)`로 색상
+```ts
+const buildSeq = (stage, pcts, initialPrevDone) => {
+  let prevDone = initialPrevDone;
+  return pcts.map(...);
+};
 
-## UI/UX
+const dd = buildSeq("DD", DD_PIP_PCTS, true);
+const dd100Done = dd[dd.length - 1]?.state === "done";
+const cd = buildSeq("CD", CD_PIP_PCTS, dd100Done);
+```
 
-- 기본 숨김: `columnVisibility`에 새 `_pd / _ad` 컬럼은 모두 `false`로 초기화 (기존 `_p/_a/_d`와 동일 정책 유지)
-- Columns 드롭다운 메뉴에서 마일스톤별로 묶여 보이도록 `header` 문자열 일관화: `"{MS} 계획일"`, `"{MS} 실적일"`, `"{MS} P"`, `"{MS} A"`, `"{MS} Δ"` (예: `DD60 계획일`)
-- 셀: 날짜는 `text-center tabular-nums`, 숫자는 우측 정렬 `tabular-nums`
-- 정렬: 날짜는 ISO 문자열 lexical, 숫자는 numeric
-- 필터: 날짜는 `dateRangeFilterFn`, 숫자는 `progressFilterFn`
+### 결과 동작
 
-## 파일 변경
+| 시나리오 | CD30 상태 (수정 전) | CD30 상태 (수정 후) |
+|---|---|---|
+| DD 전혀 시작 안함, CD plan_date 미래 | WIP ❌ | planned ✅ |
+| DD 진행 중(DD100 미완료), CD plan_date 미래 | WIP ❌ | planned ✅ |
+| DD100 완료, CD30 미시작, plan_date 미래 | WIP | WIP ✅ |
+| CD30 plan_date 경과, 미완료 | delay | delay (변동 없음) |
+| CD30 is_done=true | done | done (변동 없음) |
 
-수정
-- `src/components/mdr/grid/columns.tsx`
-  - `MdrDrawingRow` 인터페이스: `sdCells/ddCells/cdCells` 셀 형식에 `planDate?: string | null; actualDate?: string | null` 추가
-  - `buildMilestoneCols`: 각 pct마다 `_pd`, `_ad` 컬럼 2개 추가 (기존 `_p/_a/_d` 옆)
-- `src/components/mdr/grid/MdrAdvancedGrid.tsx`
-  - `buildCell` 헬퍼에서 `planDate`(`m.plan_date`), `actualDate`(`p.actual_date`) 채움
-  - `_p` 계산을 기존 `increment_pct` 단발 표시가 아닌 **도면 단위 누적 보간**으로 교체 (신규 헬퍼 `drawingMilestonePlannedPct(milestones, stage, pct, asOf)` 사용)
-  - `columnVisibility` 초기 defaults에 `_pd` `_ad` 정규식 추가 → 기본 숨김
-- `src/components/mdr/grid/useGridStatePersistence.ts`
-  - 컬럼 ID 화이트리스트 정규식 갱신 (`/^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/`)
-- `src/lib/mdr/progressEngine.ts`
-  - 신규 함수 `drawingMilestonePlannedPct(milestones, stage, pct, asOf): number` — 위 보간식 단일 마일스톤까지의 누적 계획% 반환
-- `src/components/mdr/grid/MdrAdvancedGrid.tsx`의 `exportFilteredXlsx`
-  - `headerLabel` 정규식과 `formatCell` 분기에 `_pd`, `_ad` 처리 추가 (날짜는 문자열 그대로)
+### 검증
+- `/design` → 임의 시트에서 DD 미완료 도면의 Progress 아이콘 확인 (Playwright 스크린샷)
+- 기존 done/delay 케이스가 그대로 유지되는지 시각 비교
 
-## 검증
-
-- Playwright로 `/design` → SHAW 시트:
-  - 기본 진입 시 새 날짜 컬럼이 숨겨져 있는지 확인
-  - Columns 메뉴에서 `DD60 계획일`, `DD60 실적일` 켰을 때 그리드에 정확한 날짜 노출
-  - 임의 도면의 DD60 P% 값이 보간식과 일치(직전 마일스톤 plan_date+1 → DD60 plan_date 사이 일자 보간)
-  - asOf 변경에 따라 P%/Δ% 가 재계산
-  - Export view로 내보낸 xlsx에 날짜/숫자 헤더 정상 표기
-
-## 비고
-
-- 도면 단위 행에서 도면수(계획/실적/차이) 컬럼은 의미가 없어 제외 (집계표에서만 표시)
-- 기본 숨김 정책으로 인해 초기 그리드 가로폭은 변하지 않음
+### 비변경 사항
+- DD 그룹 시작 로직(SD→DD30)은 그대로 유지 (요청에 없음)
+- 컬럼/그리드/요약표 로직 변동 없음
