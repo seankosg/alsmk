@@ -540,6 +540,53 @@ export type Database = {
         }
         Relationships: []
       }
+      mdr_import_row_logs: {
+        Row: {
+          action: string
+          created_at: string
+          drawing_title: string | null
+          id: string
+          import_log_id: string
+          item_no: string | null
+          raw_row_no: number | null
+          reason: string | null
+          source_no: string | null
+          source_sheet: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          drawing_title?: string | null
+          id?: string
+          import_log_id: string
+          item_no?: string | null
+          raw_row_no?: number | null
+          reason?: string | null
+          source_no?: string | null
+          source_sheet?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          drawing_title?: string | null
+          id?: string
+          import_log_id?: string
+          item_no?: string | null
+          raw_row_no?: number | null
+          reason?: string | null
+          source_no?: string | null
+          source_sheet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_import_row_logs_import_log_id_fkey"
+            columns: ["import_log_id"]
+            isOneToOne: false
+            referencedRelation: "mdr_import_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mdr_milestones: {
         Row: {
           created_at: string
