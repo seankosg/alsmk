@@ -19,6 +19,9 @@ export interface MdrParsedRow {
   areaCode?: string;
   functionCode?: string;
   serialNo?: string;
+  rev: string;                  // 리비전 (없으면 "0")
+  docBase?: string;             // {Job}-{Area}-{Function}-{Serial}, 영구 고유 키
+  docNo?: string;               // docBase + "-" + rev (표시용)
   activityGroup?: string;
   drawingTitle?: string;
   planFinish?: string;          // 마일스톤 중 가장 늦은 plan_date
@@ -274,15 +277,30 @@ function parseSheet(
     const allZero = milestones.every((m) => m.incrementPct === 0);
 
     const itemNo = `${building}-${discipline}-${sourceNo}`;
+    const jobNo = findVal("JOB");
+    const areaCode = findVal("Area Code", "AREA");
+    const functionCode = findVal("Function Code", "FUNCTION", "FUCTION", "FSB");
+    const serialNo = findVal("Serial");
+    const revRaw = findVal("REV", "REVISION");
+    const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
+    const baseTokens = [jobNo, areaCode, functionCode, serialNo];
+    const docBase = baseTokens.some((t) => t && t.trim())
+      ? baseTokens.map((t) => (t ?? "").trim()).join("-")
+      : undefined;
+    const docNo = docBase ? `${docBase}-${rev}` : undefined;
+
     rows.push({
       sourceNo,
       itemNo,
       building,
       discipline: discRaw,
-      jobNo: findVal("JOB"),
-      areaCode: findVal("Area Code", "AREA"),
-      functionCode: findVal("Function Code", "FUNCTION", "FUCTION", "FSB"),
-      serialNo: findVal("Serial"),
+      jobNo,
+      areaCode,
+      functionCode,
+      serialNo,
+      rev,
+      docBase,
+      docNo,
       activityGroup: findVal("Activity Group", "GROUP"),
       drawingTitle: title,
       planFinish: lastPlan,
