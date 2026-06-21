@@ -157,24 +157,71 @@ function parseSheet(
   const incrementRow = milestoneLabelRow + 1;
   const planDateRow = milestoneLabelRow + 2;
 
-  // 1) 식별 컬럼 + 마일스톤 컬럼 위치 매핑
+  // 1) 식별 컬럼 + 마일스톤 그룹(서브컬럼 묶음) 매핑
   const headers: { col: number; key: ReturnType<typeof detectColumnKey> | null; text: string }[] = [];
-  const milestoneCols: { col: number; stage: MdrStage; pct: number; incrementPct: number; planDate?: string }[] = [];
-  for (let c = noCol; c <= maxCol; c++) {
+  interface MilestoneGroup {
+    stage: MdrStage;
+    pct: number;
+    cols: number[];           // 그룹에 속한 서브컬럼들
+    incrementPct: number;     // 서브컬럼 증분 합
+    planDate?: string;        // 서브컬럼 중 가장 늦은 plan_date
+  }
+  const milestoneGroups: MilestoneGroup[] = [];
+
+  // 병합셀(merge)로 라벨이 가로로 확장된 경우 시작셀(왼쪽-위)에만 라벨이 존재.
+  // headerRow 에 식별성 헤더 텍스트가 있는 컬럼은 마일스톤 그룹의 경계로 사용.
+  const isIdentHeader = (c: number): boolean => {
+    const t = cellStr(ws, headerRow, c);
+    if (!t) return false;
+    // 식별 헤더만 경계로 인정 (DISCIPLINE/JOB/Area Code/Function Code/Serial/Activity Group/Drawing Title 등)
+    return detectColumnKey(t) !== null || /discipline|job|area|function|serial|activity|drawing|title|remark|status|note/i.test(t);
+  };
+
+  let c = noCol;
+  while (c <= maxCol) {
     const labelText = cellStr(ws, milestoneLabelRow, c);
     const m = labelText.match(MILESTONE_RE);
     if (m) {
       const stage = m[1].toUpperCase() as MdrStage;
       const pct = parseInt(m[2], 10);
-      const incRaw = cellStr(ws, incrementRow, c).replace("%", "").trim();
-      const incrementPct = parseFloat(incRaw) || 0;
-      const planDate = parseDate(cellRaw(ws, planDateRow, c));
-      milestoneCols.push({ col: c, stage, pct, incrementPct, planDate });
+      const start = c;
+      let end = c;
+      // 다음 라벨 / 식별 헤더 직전까지 동일 그룹
+      for (let k = c + 1; k <= maxCol; k++) {
+        const nextLabel = cellStr(ws, milestoneLabelRow, k);
+        if (nextLabel && MILESTONE_RE.test(nextLabel)) break;
+        if (isIdentHeader(k)) break;
+        end = k;
+      }
+      const cols: number[] = [];
+      let incrementPct = 0;
+      let planDate: string | undefined;
+      for (let x = start; x <= end; x++) {
+        cols.push(x);
+        const incRaw = cellStr(ws, incrementRow, x).replace("%", "").trim();
+        const v = parseFloat(incRaw);
+        if (!isNaN(v)) incrementPct += v;
+        const pd = parseDate(cellRaw(ws, planDateRow, x));
+        if (pd && (!planDate || pd > planDate)) planDate = pd;
+      }
+      milestoneGroups.push({ stage, pct, cols, incrementPct, planDate });
+      c = end + 1;
     } else {
       const headerText = cellStr(ws, headerRow, c);
       if (headerText) headers.push({ col: c, key: detectColumnKey(headerText), text: headerText });
+      c++;
     }
   }
+
+  // 행 진행도 계산용으로 호환 형태 유지
+  const milestoneCols = milestoneGroups.map((g) => ({
+    col: g.cols[0],
+    stage: g.stage,
+    pct: g.pct,
+    incrementPct: g.incrementPct,
+    planDate: g.planDate,
+    cols: g.cols,
+  }));
 
   // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
   const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
