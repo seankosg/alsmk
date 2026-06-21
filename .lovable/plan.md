@@ -1,105 +1,71 @@
-# SHAW 풍 Import / Import Logs 페이지 도입
 
-SHAW PROJECT CMS의 Import UI(드래그-드롭 카드, 파일별 상태 배지, 결과 배지)와 Import Logs 페이지를 그대로 본떠서, 현재 `MdrImportDialog` 다이얼로그를 전용 페이지로 교체합니다. **백엔드는 기존 `mdr_import_logs` / `mdr_drawings` / `mdr_milestones` / `mdr_progress` 구조 그대로 유지**하고, UI 레이어와 화면 라우팅만 새로 만듭니다.
+# MDR 파서 재설계 (SHAW 멀티 서브컬럼 지원)
 
-## 변경 요약
+## 배경
+현재 `src/lib/mdr/parser.ts`의 `MILESTONE_RE`는 마일스톤 라벨(SD30%/DD30%/CD30% 등) 1개당 1개 컬럼만 매핑한다. 그러나 SHAW MDR(`03_HSM_MDR_progress.xlsx`)은 마일스톤 1개가 **여러 서브컬럼(Plan/Actual × 단계 수)** 으로 펼쳐져 있어, DD/CD 합계가 100%가 되지 않고 경고가 발생한다.
 
+## 변경 범위
+편집 파일: `src/lib/mdr/parser.ts`, `src/lib/mdr/validator.ts` (사이드이펙트 정리만)
+변경 없음: `importRunner.ts`, UI, DB 스키마, columnMap.
+
+## 새 파싱 로직 (parser.ts)
+
+### 1. 마일스톤 라벨 → 컬럼 범위 묶기
+- `MILESTONE_RE` 로 매칭된 셀을 발견하면, **다음 마일스톤 라벨(또는 비-마일스톤 헤더) 직전까지의 모든 컬럼**을 같은 마일스톤의 서브컬럼 그룹으로 묶는다.
+- 병합셀(merged cells, `ws['!merges']`)을 보조 신호로 사용해 라벨이 차지하는 가로 범위를 정확히 식별한다. merge 정보가 없는 경우는 순차 스캔으로 폴백.
+
+### 2. incrementPct 합산
+- 그룹 내 모든 서브컬럼의 incrementRow 값을 **합산**하여 마일스톤의 최종 `incrementPct` 로 사용.
+  - 예: DD30%가 4개 서브컬럼(5%·5%·5%·5%) → 20%가 아니라 그룹 전체로 누적, 다른 DD 그룹과 합쳐 100% 검증.
+- 단, SHAW 템플릿이 서브컬럼별 가중치를 따로 가질 경우(예: 75/80%) 그 값도 합산된다. 이는 의도된 동작.
+
+### 3. planDate
+- 그룹 내 서브컬럼들의 planDate 중 **가장 늦은 날짜**를 그 마일스톤의 planDate 로 사용 (없으면 undefined).
+
+### 4. progress(달성여부)
+- 행 데이터에서 그룹 내 **어느 서브컬럼이라도 `isYes`** 면 해당 마일스톤은 `isDone = true`.
+- 부분 완료 비율이 필요하면 차후 확장 포인트로 남기되, 이번 변경에선 Boolean 유지(스키마 호환).
+
+### 5. milestoneLabelRow 탐지
+- 기존 로직(headerRow ~ headerRow+2 중 매칭 최다 행) 유지하되, 서브컬럼이 많아진 SHAW 파일에서도 그대로 동작.
+
+## 변경 의사 코드
 ```text
-[추가]
-  src/pages/DesignImport.tsx             SHAW 풍 Import 페이지
-  src/pages/DesignImportLogs.tsx         SHAW 풍 Import 이력 페이지
-  src/components/mdr/import/ImportShell.tsx   드래그-드롭 카드 UI (SHAW DocsImportShell 축약판)
-  src/components/mdr/import/useMdrImporter.ts 파일 상태/파싱/임포트 훅 (기존 parser·persist 로직 래핑)
+groups = []
+c = noCol
+while c <= maxCol:
+  label = cell(milestoneLabelRow, c)
+  m = MILESTONE_RE.match(label)
+  if m:
+    start = c
+    c++
+    # 다음 라벨 또는 비어있지 않은 다른 헤더 직전까지 같은 그룹
+    while c <= maxCol and !isNewMilestoneOrHeader(c):
+      c++
+    end = c - 1
+    groups.push({stage, pct, cols: [start..end]})
+  else:
+    headers.push(c); c++
 
-[수정]
-  src/App.tsx                            라우트 2개 추가
-  src/pages/DesignManagement.tsx         Raw Data 헤더의 Import 버튼을
-                                          → `/design/import` 링크로 교체
-                                          + 옆에 'Import Logs' 아웃라인 버튼 추가
-  src/pages/DesignDashboard.tsx          '최근 임포트 로그' 카드 제거
-
-[제거]
-  src/components/mdr/MdrImportDialog.tsx 더 이상 사용되지 않음 — 삭제
+for g in groups:
+  incrementPct = sum(parseFloat(cell(incrementRow, x)) for x in g.cols)
+  planDate     = max(parseDate(cell(planDateRow, x)) for x in g.cols)
+  // 행 진행도: any(isYes(cell(r, x)) for x in g.cols)
 ```
 
-## 1. 라우팅
+`isNewMilestoneOrHeader(c)` 기준:
+- `MILESTONE_RE.test(cell(milestoneLabelRow, c))` → 새 그룹 시작
+- 또는 `cell(headerRow, c)` 가 비어있지 않고 식별 컬럼으로 분류 가능 → 그룹 종료
 
-`src/App.tsx` 에 두 라우트를 추가합니다(Admin/PM 가드는 기존 `DesignManagement`와 동일하게 페이지 내부에서 처리).
+## validator.ts
+재설계 후 DD/CD 합계가 100% 근처로 정상화되므로 별도 수정 없음. autoFix 폴백 로직은 그대로 유지.
 
-- `/design/import` → `DesignImport`
-- `/design/import/logs` → `DesignImportLogs`
+## 검증 절차 (빌드 모드에서 수행)
+1. `03_HSM_MDR_progress.xlsx`를 임시 Node 스크립트로 신규 파서에 통과시켜 시트별 DD/CD 합계 출력 → 100±1 인지 확인.
+2. 기존 정상 파일(`01_GEN`, `02_SMP&CCM`)도 회귀 확인 — 단일 컬럼 케이스도 그룹화 로직에서 길이 1 그룹으로 자연 처리.
+3. UI 임포트 흐름 (`/design/import`) Playwright 로 헤드리스 임포트 후 경고 0건 확인.
 
-## 2. `DesignImport.tsx` + `ImportShell.tsx`
-
-SHAW `DocsImportShell` 구조를 단일-서브모듈 버전으로 축약. 표현 요소만 동일하게 가져오고, 데이터/검증 규칙은 현재 MDR 로직(`src/lib/mdr/parser.ts`, `validator.ts`, 기존 `persistParsed`)을 그대로 사용합니다.
-
-화면 구성:
-
-```text
-Header  ────────────────────────────────────────────────
-  ▸ Title: "MDR Import"
-  ▸ Description: "Upload MDR Excel(.xlsx, .xls) ..."
-  ▸ Right: [ View Import Logs ] 버튼  →  /design/import/logs
-
-Card 1. Upload Files
-  ▸ 점선 드롭존 + click-to-browse, multiple, .xlsx/.xls
-
-Card 2. Files (N)
-  ▸ Header: "{N} ready to import" + [Clear all] [Start import (N)]
-  ▸ 파일 카드 (SHAW와 동일 레이아웃)
-      • 좌: 파일 아이콘, 이름, 크기 · sheets · parsedCount rows
-      • 검증 에러/경고/SUMMARY 스킵 사유 표시
-      • 우: status Badge (pending/parsing/ready/processing/done/failed) + X 제거
-      • processing: 하단 Progress 바
-      • done: Inserted / Skipped 결과 Badge (현재 persist 결과 매핑)
-```
-
-상태 훅 `useMdrImporter`:
-
-- `files: ImportFile[]` — id, name, size, status, sheetNames, parsedCount, validationError, error, result {inserted, skipped}
-- `addFiles(File[])` → 즉시 `parseMdrFile` + `validateSheet` 실행해 ready/failed 결정 (SUMMARY 파일은 자동 ready=false, 사유 표시)
-- `removeFile(id)`, `clearAll()`
-- `startImport()` → 순차 처리. 각 파일별로 `persistParsed`(기존 로직을 모듈 함수로 추출) 호출하고 `result` 업데이트. 기존처럼 `mdr_import_logs` insert.
-
-기존 `MdrImportDialog`의 `persistParsed` / `logImport`는 `src/lib/mdr/importRunner.ts`로 이동해 페이지/훅에서 재사용합니다(다이얼로그 파일 자체는 제거).
-
-## 3. `DesignImportLogs.tsx`
-
-SHAW `DocsImportLogsPage`의 **목록 화면**만 본뜬 단일 테이블 페이지. row-level/필드-level 로그 테이블이 현재 없으므로 상세 화면은 만들지 않습니다(드릴다운 없음).
-
-- 좌상단 [◀] → `/design/import`
-- 제목: "MDR Import History"
-- 테이블 컬럼: File · Building · Date · Uploader · Status · Inserted · Skipped · Error · (admin) 삭제
-- 데이터: `mdr_import_logs` 전체 (최신 100건, `imported_at desc`)
-- Uploader 이름은 SHAW와 동일 방식으로 `profiles`(or `members`) 조인 매핑
-- 상태/액션 컬러는 SHAW의 `statusColor` 매핑(`completed/processing/failed`)을 `success/failed` 두 가지로 축소 사용
-- Admin만 보이는 삭제 버튼은 단순 `delete from mdr_import_logs where id = …` (RPC 불필요)
-
-## 4. `DesignManagement.tsx` 변경
-
-Raw Data 헤더 우측의 단일 `Import` 버튼을 두 개로 교체:
-
-```tsx
-<Link to="/design/import"><Button><Upload/> Import</Button></Link>
-<Link to="/design/import/logs"><Button variant="outline"><History/> Import Logs</Button></Link>
-```
-
-기존 `MdrImportDialog` 마운트와 `importOpen` 상태는 삭제.
-
-## 5. `DesignDashboard.tsx` 변경
-
-`{/* 6. 최근 임포트 로그 */}` 카드 블록(212–229) 및 관련 `logs` 쿼리 제거.
-
-## 검증 방법
-
-- 빌드 통과 확인
-- Playwright로 `/design/import` 접속 → 가짜 xlsx 드롭이 어려우면 최소 라우트 렌더링 + 헤더 버튼 스크린샷
-- `/design/import/logs` 렌더링 스크린샷 — 기존 `mdr_import_logs` 행이 표시되는지 확인
-- `/design` 헤더에 Import / Import Logs 두 버튼이 보이는지 확인
-- `/design/dashboard`에서 '최근 임포트 로그' 카드가 사라졌는지 확인
-
-## 범위 외 (별도 합의 필요)
-
-- 배치/Row/Field 단위 로그 테이블 신설 (사용자 선택지 A이므로 제외)
-- Rollback / Auto-register masters / Header Mappings / Similar Master Dialog
-- 모듈 pause / external-busy 가드, Per-file Data Date, Select Columns 다이얼로그 — 현재 MDR 파이프라인에 대응 개념이 없어 SHAW UI 중 해당 요소들은 렌더링하지 않음
+## 영향 / 리스크
+- DB 스키마 변경 없음. progress는 여전히 boolean.
+- 기존 정상 파일은 그룹 길이 1이라 동작 동일.
+- 서브컬럼 weight 합이 100을 명백히 초과하는 비정상 템플릿은 여전히 validator 경고가 뜨며, 이는 데이터 문제로 사용자에게 노출.
