@@ -16,6 +16,8 @@ import CpmOrphanCenter from "./pages/CpmOrphanCenter";
 import DesignManagement from "./pages/DesignManagement";
 import DesignDashboard from "./pages/DesignDashboard";
 import DesignSummary from "./pages/DesignSummary";
+import DesignImport from "./pages/DesignImport";
+import DesignImportLogs from "./pages/DesignImportLogs";
 
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
@@ -63,6 +65,8 @@ const App = () => (
                   <Route path="/design" element={<DesignManagement />} />
                   <Route path="/design/dashboard" element={<DesignDashboard />} />
                   <Route path="/design/summary" element={<DesignSummary />} />
+                  <Route path="/design/import" element={<DesignImport />} />
+                  <Route path="/design/import/logs" element={<DesignImportLogs />} />
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

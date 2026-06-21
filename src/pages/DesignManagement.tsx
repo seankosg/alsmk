@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,11 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Settings, Database } from "lucide-react";
-import { MdrImportDialog } from "@/components/mdr/MdrImportDialog";
+import { Upload, Settings, Database, History } from "lucide-react";
 import { MdrRawDataGrid } from "@/components/mdr/MdrRawDataGrid";
 import { MdrWeightsEditor } from "@/components/mdr/MdrWeightsEditor";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 function BuildingSheets({ buildingCode, asOf, threshold }: { buildingCode: string; asOf: string; threshold: number }) {
   const { data: sheets } = useQuery({
