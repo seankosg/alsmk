@@ -1,0 +1,1 @@
+TRUNCATE TABLE public.mdr_progress, public.mdr_milestones, public.mdr_drawings, public.mdr_snapshots, public.mdr_import_logs, public.mdr_buildings RESTART IDENTITY CASCADE;
