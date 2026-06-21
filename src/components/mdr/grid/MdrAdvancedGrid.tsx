@@ -254,7 +254,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       // 그리드의 헤더 라벨과 동일하게 매핑 (마일스톤 컬럼 포함)
       const headerLabel = (id: string, fallback: string): string => {
         const base: Record<string, string> = {
-          source_no: "No.", building_code: "Building", item_no: "Item No.",
+          source_no: "No.", building_code: "Building", doc_no: "Doc No.", item_no: "Item No.",
           discipline: "Disc.", drawing_title: "Title",
           sd_mark: "SD", dd_mark: "DD", cd_mark: "CD",
           dd_pct: "DD%", cd_pct: "CD%", overall_pct: "Overall%",
