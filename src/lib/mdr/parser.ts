@@ -281,7 +281,7 @@ function parseSheet(
       discipline: discRaw,
       jobNo: findVal("JOB"),
       areaCode: findVal("Area Code", "AREA"),
-      functionCode: findVal("Function Code", "FUNCTION", "FUCTION"),
+      functionCode: findVal("Function Code", "FUNCTION", "FUCTION", "FSB"),
       serialNo: findVal("Serial"),
       activityGroup: findVal("Activity Group", "GROUP"),
       drawingTitle: title,
