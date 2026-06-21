@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, Navigate } from "react-router-dom";
 import { LayoutDashboard, AlertTriangle, ExternalLink } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
 import {
   useMdrSummary,
   useMdrOverdueDrawings,
@@ -33,16 +32,7 @@ export default function DesignDashboard() {
   const { isAdminOrPm, loading } = useAuth();
   const { data: summary, isLoading } = useMdrSummary();
   const { data: overdue } = useMdrOverdueDrawings(20);
-  const { data: logs } = useQuery({
-    queryKey: ["mdr_import_logs"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("mdr_import_logs" as never)
-        .select("*").order("imported_at", { ascending: false }).limit(10);
-      if (error) throw error;
-      return (data as any[]) ?? [];
-    },
-  });
+
 
   if (loading) return <div className="p-8 text-muted-foreground">로딩 중...</div>;
   if (!isAdminOrPm) return <Navigate to="/" replace />;
@@ -208,27 +198,9 @@ export default function DesignDashboard() {
               </table>
             </div>
           </Card>
-
-          {/* 6. 최근 임포트 로그 */}
-          <Card className="p-4">
-            <h3 className="font-semibold mb-3">최근 임포트 로그</h3>
-            <div className="space-y-1 max-h-48 overflow-auto">
-              {(logs ?? []).map((l: any) => (
-                <div key={l.id} className="text-sm border-b py-1 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Badge variant={l.status === "success" ? "default" : "destructive"}>{l.status}</Badge>
-                    <span className="truncate">{l.filename}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    +{l.rows_inserted} · {new Date(l.imported_at).toLocaleString()}
-                  </span>
-                </div>
-              ))}
-              {(logs ?? []).length === 0 && <div className="text-muted-foreground text-sm">없음</div>}
-            </div>
-          </Card>
         </>
       )}
     </div>
   );
 }
+

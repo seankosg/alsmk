@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,11 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Settings, Database } from "lucide-react";
-import { MdrImportDialog } from "@/components/mdr/MdrImportDialog";
+import { Upload, Settings, Database, History } from "lucide-react";
 import { MdrRawDataGrid } from "@/components/mdr/MdrRawDataGrid";
 import { MdrWeightsEditor } from "@/components/mdr/MdrWeightsEditor";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 function BuildingSheets({ buildingCode, asOf, threshold }: { buildingCode: string; asOf: string; threshold: number }) {
   const { data: sheets } = useQuery({
@@ -53,7 +52,6 @@ function BuildingSheets({ buildingCode, asOf, threshold }: { buildingCode: strin
 
 export default function DesignManagement() {
   const { isAdminOrPm, loading } = useAuth();
-  const [importOpen, setImportOpen] = useState(false);
   const [asOf, setAsOf] = useState(() => new Date().toISOString().slice(0, 10));
   const [threshold, setThreshold] = useState<number>(() => {
     const stored = typeof window !== "undefined" ? localStorage.getItem("mdr.deltaThreshold") : null;
@@ -64,7 +62,7 @@ export default function DesignManagement() {
     localStorage.setItem("mdr.deltaThreshold", String(v));
   }, []);
 
-  const qc = useQueryClient();
+
   const { data: buildings } = useQuery({
     queryKey: ["mdr_buildings"],
     queryFn: async () => {
@@ -91,9 +89,15 @@ export default function DesignManagement() {
           </h1>
           <p className="text-sm text-muted-foreground">MDR 도면 진척 관리 — 건물·분야별 SD / DD / CD</p>
         </div>
-        <Button onClick={() => setImportOpen(true)}>
-          <Upload className="h-4 w-4 mr-1" /> Import
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild>
+            <Link to="/design/import"><Upload className="h-4 w-4 mr-1" /> Import</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/design/import/logs"><History className="h-4 w-4 mr-1" /> Import Logs</Link>
+          </Button>
+        </div>
+
       </div>
 
       <Tabs defaultValue="raw" className="space-y-4">
@@ -147,16 +151,7 @@ export default function DesignManagement() {
         </TabsContent>
       </Tabs>
 
-      <MdrImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImported={() => {
-          qc.invalidateQueries({ queryKey: ["mdr_buildings"] });
-          qc.invalidateQueries({ queryKey: ["mdr_drawings"] });
-          qc.invalidateQueries({ queryKey: ["mdr_drawings_sheets"] });
-          qc.invalidateQueries({ queryKey: ["mdr_snapshots"] });
-        }}
-      />
     </div>
   );
 }
+
