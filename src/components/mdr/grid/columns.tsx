@@ -24,6 +24,11 @@ export interface MdrDrawingRow {
   building_code: string | null;
   item_no: string | null;
   discipline: string | null;
+  job_no: string | null;
+  area_code: string | null;
+  function_code: string | null;
+  serial_no: string | null;
+  activity_group: string | null;
   drawing_title: string | null;
   plan_finish: string | null;
   updated_at: string | null;
@@ -262,6 +267,44 @@ export function buildMdrColumns(
       accessorKey: "discipline", header: "Disc.", size: 70,
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: DISCIPLINE_OPTIONS },
+    },
+    {
+      accessorKey: "job_no", header: "Job No.", size: 90,
+      sortingFn: naturalSort,
+      cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
+    },
+    {
+      accessorKey: "area_code", header: "Area", size: 70,
+      sortingFn: naturalSort,
+      cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
+    },
+    {
+      accessorKey: "function_code", header: "Func.", size: 80,
+      sortingFn: naturalSort,
+      cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
+    },
+    {
+      accessorKey: "serial_no", header: "Serial", size: 80,
+      sortingFn: naturalSort,
+      cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
+    },
+    {
+      accessorKey: "activity_group", header: "Activity Group", size: 130,
+      cell: ({ getValue }) => (
+        <span className="block truncate" title={(getValue() as string) ?? ""}>
+          {(getValue() as string) ?? "-"}
+        </span>
+      ),
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
     },
     {
       accessorKey: "drawing_title", header: "Title", size: 280,
