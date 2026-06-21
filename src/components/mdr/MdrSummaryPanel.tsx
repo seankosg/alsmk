@@ -34,11 +34,19 @@ function StageCells({ cell }: { cell: StageCell }) {
 
 function BlockRow({ block }: { block: BlockSummary }) {
   const dim = !block.contributesToOverall;
+  let badge: { label: string; className: string } | null = null;
+  if (!block.inMaster) {
+    badge = { label: "마스터 미등록", className: "text-[10px] w-fit border-destructive text-destructive" };
+  } else if (!block.hasDrawings) {
+    badge = { label: "도면 없음", className: "text-[10px] w-fit text-muted-foreground" };
+  } else if (dim) {
+    badge = { label: "합산 제외", className: "text-[10px] w-fit" };
+  }
   return (
     <>
       {block.cells.map((c, idx) => (
         <tr
-          key={`${block.building}-${c.discipline}`}
+          key={`${block.building}-${c.discipline}-${idx}`}
           className={`border-b hover:bg-muted/30 ${dim ? "opacity-50" : ""}`}
         >
           {idx === 0 && (
@@ -48,8 +56,8 @@ function BlockRow({ block }: { block: BlockSummary }) {
             >
               <div className="flex flex-col gap-0.5">
                 <span>{block.building}</span>
-                {dim ? (
-                  <Badge variant="outline" className="text-[10px] w-fit">합산 제외</Badge>
+                {badge ? (
+                  <Badge variant="outline" className={badge.className}>{badge.label}</Badge>
                 ) : (
                   <span className="text-[10px] text-muted-foreground">WF {pct(block.buildingWf)}</span>
                 )}
@@ -57,20 +65,28 @@ function BlockRow({ block }: { block: BlockSummary }) {
             </td>
           )}
           <td className="px-2 py-0.5">{c.discipline}</td>
-          <td className="text-center px-2 py-0.5 tabular-nums">{c.drawingCount}</td>
+          <td className="text-center px-2 py-0.5 tabular-nums">
+            {c.drawingCount > 0 ? c.drawingCount : "-"}
+          </td>
           <StageCells cell={c.sd} />
           <StageCells cell={c.dd} />
           <StageCells cell={c.cd} />
-          <td className="text-center px-2 py-0.5 border-l font-medium tabular-nums">{pct(c.discProgress)}</td>
+          <td className="text-center px-2 py-0.5 border-l font-medium tabular-nums">
+            {c.drawingCount > 0 ? pct(c.discProgress) : "-"}
+          </td>
         </tr>
       ))}
       <tr className={`border-b-2 bg-muted/40 ${dim ? "opacity-50" : ""}`}>
         <td className="px-2 py-0.5 text-[11px] font-semibold">Sub-total</td>
-        <td className="text-center px-2 py-0.5 tabular-nums">{block.drawingCount}</td>
+        <td className="text-center px-2 py-0.5 tabular-nums">
+          {block.drawingCount > 0 ? block.drawingCount : "-"}
+        </td>
         <StageCells cell={block.totals.sd} />
         <StageCells cell={block.totals.dd} />
         <StageCells cell={block.totals.cd} />
-        <td className="text-center px-2 py-0.5 border-l font-bold tabular-nums text-primary">{pct(block.blockProgress)}</td>
+        <td className="text-center px-2 py-0.5 border-l font-bold tabular-nums text-primary">
+          {block.drawingCount > 0 ? pct(block.blockProgress) : "-"}
+        </td>
       </tr>
     </>
   );
