@@ -123,8 +123,8 @@ export function useMdrImporter(onImported?: () => void) {
           });
           const res = await persistParsed(t.parsed!, undefined, logId);
           if (logId) {
-            await supabase.from("mdr_import_logs" as never)
-              .update({ rows_inserted: res.inserted, rows_skipped: res.skipped } as any)
+            await (supabase as any).from("mdr_import_logs")
+              .update({ rows_inserted: res.inserted, rows_skipped: res.skipped })
               .eq("id", logId);
           }
           update(t.id, { status: "done", result: res });
