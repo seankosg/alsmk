@@ -24,6 +24,7 @@ export interface MdrParsedRow {
   planFinish?: string;          // 마일스톤 중 가장 늦은 plan_date
   outOfScope: boolean;
   sourceSheet: string;
+  rawRowNo: number;
   milestones: MdrMilestoneDef[];
   progress: { stage: MdrStage; pct: number; isDone: boolean }[];
 }
@@ -287,6 +288,7 @@ function parseSheet(
       planFinish: lastPlan,
       outOfScope: allZero,
       sourceSheet: sheetName,
+      rawRowNo: r + 1,
       milestones,
       progress,
     });
