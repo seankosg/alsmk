@@ -13,11 +13,12 @@ interface RowLogEntry {
   item_no: string | null;
   source_no: string | null;
   drawing_title: string | null;
+  doc_base: string | null;
   action: "inserted" | "skipped_duplicate" | "skipped_existing" | "rev_updated";
   reason: string | null;
 }
 
-/** Persist a parsed MDR file. Returns counts. SUMMARY 파일은 호출 전에 필터링되어야 함. */
+/** Persist a parsed MDR file. 매칭 키는 (building_code, doc_base). SUMMARY 파일은 호출 전에 필터링. */
 export async function persistParsed(
   parsed: MdrParseResult,
   onLog?: (s: string) => void,
@@ -36,33 +37,30 @@ export async function persistParsed(
 
   const allRows = parsed.sheets.flatMap((s) => (s.skipped ? [] : s.rows));
 
-  // 2) 기존 도면 조회 — item_no 기반 단일 인덱스 (docBase는 표시용)
+  // 2) 기존 도면 조회 — (building_code, doc_base) 매칭
   type ExistingDrawing = {
-    id: string; item_no: string; doc_base: string | null; rev: string | null;
+    id: string; item_no: string | null; doc_base: string; rev: string | null;
     drawing_title: string | null; plan_finish: string | null; actual_finish: string | null;
     out_of_scope: boolean | null; source_sheet: string | null;
   };
-  const existingByItemNo = new Map<string, ExistingDrawing>();
+  const existingByDocBase = new Map<string, ExistingDrawing>();
 
-  const allItemNos = Array.from(new Set(allRows.map((r) => r.itemNo)));
+  const allDocBases = Array.from(new Set(allRows.map((r) => r.docBase)));
 
-  const fetchExisting = async (col: "item_no", values: string[]) => {
-    for (let i = 0; i < values.length; i += 500) {
-      const chunk = values.slice(i, i + 500);
-      const { data, error } = await supabase
-        .from("mdr_drawings" as never)
-        .select("id, item_no, doc_base, rev, drawing_title, plan_finish, actual_finish, out_of_scope, source_sheet")
-        .eq("building_code", parsed.building)
-        .in(col, chunk);
-      if (error) throw error;
-      for (const d of (data as any[]) ?? []) {
-        if (d.item_no) existingByItemNo.set(d.item_no as string, d as ExistingDrawing);
-      }
+  for (let i = 0; i < allDocBases.length; i += 500) {
+    const chunk = allDocBases.slice(i, i + 500);
+    const { data, error } = await supabase
+      .from("mdr_drawings" as never)
+      .select("id, item_no, doc_base, rev, drawing_title, plan_finish, actual_finish, out_of_scope, source_sheet")
+      .eq("building_code", parsed.building)
+      .in("doc_base", chunk);
+    if (error) throw error;
+    for (const d of (data as any[]) ?? []) {
+      if (d.doc_base) existingByDocBase.set(d.doc_base as string, d as ExistingDrawing);
     }
-  };
-  if (allItemNos.length) await fetchExisting("item_no", allItemNos);
+  }
 
-  push(`  · 기존 도면 ${existingByItemNo.size}건 — 매칭 시도`);
+  push(`  · 기존 도면 ${existingByDocBase.size}건 — (building, doc_base) 매칭`);
 
   // 3) 분류: 신규 / 동일 Rev(스킵) / Rev 변경(이력 보관 후 갱신) / 파일 내 중복
   interface RowPlan {
@@ -71,45 +69,48 @@ export async function persistParsed(
     existing?: ExistingDrawing;
   }
   const rowLogs: RowLogEntry[] = [];
-  const seenItemNo = new Set<string>();
+  const seenDocBase = new Set<string>();
   const plans: RowPlan[] = [];
 
-  for (const r of allRows) {
-    const existing = existingByItemNo.get(r.itemNo);
+  const baseLog = (r: MdrParsedRow) => ({
+    source_sheet: r.sourceSheet,
+    raw_row_no: r.rawRowNo,
+    item_no: r.itemNo,
+    source_no: r.sourceNo,
+    drawing_title: r.drawingTitle ?? null,
+    doc_base: r.docBase,
+  });
 
-    // 파일 내 중복: itemNo 기준
-    if (seenItemNo.has(r.itemNo)) {
+  for (const r of allRows) {
+    const existing = existingByDocBase.get(r.docBase);
+
+    if (seenDocBase.has(r.docBase)) {
       plans.push({ row: r, action: "dup_in_file" });
       rowLogs.push({
-        source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
-        item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
+        ...baseLog(r),
         action: "skipped_duplicate",
-        reason: "파일 내 중복 (Item No.)",
+        reason: "파일 내 중복 (Doc No.)",
       });
       continue;
     }
-    seenItemNo.add(r.itemNo);
+    seenDocBase.add(r.docBase);
 
     if (!existing) {
       plans.push({ row: r, action: "insert" });
-      rowLogs.push({
-        source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
-        item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
-        action: "inserted", reason: null,
-      });
+      rowLogs.push({ ...baseLog(r), action: "inserted", reason: null });
     } else if ((existing.rev ?? "0") === r.rev) {
       plans.push({ row: r, action: "skip_same_rev", existing });
       rowLogs.push({
-        source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
-        item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
-        action: "skipped_existing", reason: `이미 존재 (Rev ${existing.rev ?? "0"})`,
+        ...baseLog(r),
+        action: "skipped_existing",
+        reason: `이미 존재 (Rev ${existing.rev ?? "0"})`,
       });
     } else {
       plans.push({ row: r, action: "rev_update", existing });
       rowLogs.push({
-        source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
-        item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
-        action: "rev_updated", reason: `Rev ${existing.rev ?? "0"} → ${r.rev}`,
+        ...baseLog(r),
+        action: "rev_updated",
+        reason: `Rev ${existing.rev ?? "0"} → ${r.rev}`,
       });
     }
   }
@@ -118,9 +119,8 @@ export async function persistParsed(
   const revUpdates = plans.filter((p) => p.action === "rev_update");
   const skipped = plans.filter((p) => p.action === "skip_same_rev" || p.action === "dup_in_file").length;
 
-  // 4-a) Rev 변경: 기존 진행률 스냅샷 후 이력 테이블 기록
+  // 4-a) Rev 변경: 기존 진행률 스냅샷
   if (revUpdates.length) {
-    // 기존 milestones/progress를 한 번에 조회
     const ids = revUpdates.map((p) => p.existing!.id);
     const [{ data: msData }, { data: pgData }] = await Promise.all([
       supabase.from("mdr_milestones" as never).select("*").in("drawing_id", ids),
@@ -143,7 +143,7 @@ export async function persistParsed(
         drawing_id: ex.id,
         building_code: parsed.building,
         doc_base: ex.doc_base,
-        doc_no: ex.doc_base ? `${ex.doc_base}-${ex.rev ?? "0"}` : null,
+        doc_no: `${ex.doc_base}-${ex.rev ?? "0"}`,
         rev: ex.rev ?? "0",
         drawing_title: ex.drawing_title,
         plan_finish: ex.plan_finish,
@@ -165,11 +165,10 @@ export async function persistParsed(
       if (error) throw error;
     }
 
-    // 기존 도면 행 갱신 + 마일스톤/진행률 초기화 (새 Rev 데이터로 교체)
+    // 기존 도면 행 갱신 + 마일스톤/진행률 초기화
     for (const p of revUpdates) {
       const ex = p.existing!;
       const r = p.row;
-      const docNo = r.docBase ? `${r.docBase}-${r.rev}` : null;
       const { error: uErr } = await (supabase
         .from("mdr_drawings" as never) as any)
         .update({
@@ -181,8 +180,8 @@ export async function persistParsed(
           fbs: r.fbs ?? null,
           ser_no: r.serNo ?? null,
           rev: r.rev,
-          doc_base: r.docBase ?? null,
-          doc_no: docNo,
+          doc_base: r.docBase,
+          doc_no: `${r.docBase}-${r.rev}`,
           activity_group: r.activityGroup ?? null,
           drawing_title: r.drawingTitle ?? null,
           plan_finish: r.planFinish ?? null,
@@ -190,12 +189,15 @@ export async function persistParsed(
           in_scope_sd: r.inScope.sd,
           in_scope_dd: r.inScope.dd,
           in_scope_cd: r.inScope.cd,
+          missing_plant_id: r.missingTokens.plantId,
+          missing_pbs: r.missingTokens.pbs,
+          missing_fbs: r.missingTokens.fbs,
+          missing_ser_no: r.missingTokens.serNo,
           source_sheet: r.sourceSheet,
           import_log_id: importLogId ?? null,
         } as any)
         .eq("id", ex.id);
       if (uErr) throw uErr;
-      // 기존 마일스톤/진행률 삭제 후 재삽입
       await (supabase.from("mdr_milestones" as never) as any).delete().eq("drawing_id", ex.id);
       await (supabase.from("mdr_progress" as never) as any).delete().eq("drawing_id", ex.id);
       const msIns = r.milestones.map((m) => ({
@@ -211,8 +213,9 @@ export async function persistParsed(
     }
   }
 
-  // 4-b) 신규 행 bulk insert
-  const itemToId = new Map<string, string>();
+  // 4-b) 신규 행 bulk insert. UNIQUE(building, doc_base) 위반 발생 시 행 단위로 재시도하여 충돌만 로그 처리.
+  const docBaseToId = new Map<string, string>();
+  const insertSingles: MdrParsedRow[] = [];
   for (let i = 0; i < newRows.length; i += 200) {
     const chunk = newRows.slice(i, i + 200);
     const payload = chunk.map((row) => ({
@@ -225,8 +228,8 @@ export async function persistParsed(
       fbs: row.fbs ?? null,
       ser_no: row.serNo ?? null,
       rev: row.rev,
-      doc_base: row.docBase ?? null,
-      doc_no: row.docBase ? `${row.docBase}-${row.rev}` : null,
+      doc_base: row.docBase,
+      doc_no: `${row.docBase}-${row.rev}`,
       activity_group: row.activityGroup ?? null,
       drawing_title: row.drawingTitle ?? null,
       plan_finish: row.planFinish ?? null,
@@ -234,22 +237,61 @@ export async function persistParsed(
       in_scope_sd: row.inScope.sd,
       in_scope_dd: row.inScope.dd,
       in_scope_cd: row.inScope.cd,
+      missing_plant_id: row.missingTokens.plantId,
+      missing_pbs: row.missingTokens.pbs,
+      missing_fbs: row.missingTokens.fbs,
+      missing_ser_no: row.missingTokens.serNo,
       source_sheet: row.sourceSheet,
       import_log_id: importLogId ?? null,
     }));
     const { data, error } = await supabase
       .from("mdr_drawings" as never)
       .insert(payload as any)
-      .select("id, item_no");
-    if (error) throw error;
-    (data as any[] ?? []).forEach((d) => itemToId.set(d.item_no, d.id));
+      .select("id, doc_base");
+    if (error) {
+      // 충돌 시 단건 재시도 fallback
+      insertSingles.push(...chunk);
+    } else {
+      (data as any[] ?? []).forEach((d) => docBaseToId.set(d.doc_base, d.id));
+    }
+  }
+
+  // 단건 재시도: 실패한 행은 rowLogs 충돌로 기록
+  for (const row of insertSingles) {
+    const payload = {
+      building_code: parsed.building,
+      source_no: row.sourceNo, item_no: row.itemNo, discipline: row.discipline,
+      plant_id: row.plantId ?? null, pbs: row.pbs ?? null, fbs: row.fbs ?? null, ser_no: row.serNo ?? null,
+      rev: row.rev, doc_base: row.docBase, doc_no: `${row.docBase}-${row.rev}`,
+      activity_group: row.activityGroup ?? null, drawing_title: row.drawingTitle ?? null,
+      plan_finish: row.planFinish ?? null, out_of_scope: row.outOfScope,
+      in_scope_sd: row.inScope.sd, in_scope_dd: row.inScope.dd, in_scope_cd: row.inScope.cd,
+      missing_plant_id: row.missingTokens.plantId, missing_pbs: row.missingTokens.pbs,
+      missing_fbs: row.missingTokens.fbs, missing_ser_no: row.missingTokens.serNo,
+      source_sheet: row.sourceSheet, import_log_id: importLogId ?? null,
+    };
+    const { data, error } = await supabase
+      .from("mdr_drawings" as never)
+      .insert(payload as any)
+      .select("id, doc_base");
+    if (error) {
+      const idx = rowLogs.findIndex((l) =>
+        l.action === "inserted" && l.doc_base === row.docBase && l.source_sheet === row.sourceSheet && l.raw_row_no === row.rawRowNo,
+      );
+      if (idx >= 0) {
+        rowLogs[idx].action = "skipped_existing";
+        rowLogs[idx].reason = `doc_base 중복 (${row.docBase})`;
+      }
+    } else {
+      (data as any[] ?? []).forEach((d) => docBaseToId.set(d.doc_base, d.id));
+    }
   }
 
   // 5) 신규 행 milestones / progress bulk insert
   const milestonePayloads: any[] = [];
   const progressPayloads: any[] = [];
   for (const row of newRows) {
-    const id = itemToId.get(row.itemNo);
+    const id = docBaseToId.get(row.docBase);
     if (!id) continue;
     for (const m of row.milestones) {
       milestonePayloads.push({
@@ -275,12 +317,11 @@ export async function persistParsed(
     if (error && !error.message.includes("duplicate")) throw error;
   }
 
-  // 5.5) skip_same_rev 도면도 milestone/progress를 재동기화 (멱등성 보장 + 과거 누락분 백필)
+  // 5.5) skip_same_rev 도면 재동기화
   const skipSameRevPlans = plans.filter((p) => p.action === "skip_same_rev");
   let resynced = 0;
   if (skipSameRevPlans.length) {
     const ids = skipSameRevPlans.map((p) => p.existing!.id);
-    // 기존 milestone/progress 일괄 삭제
     for (let i = 0; i < ids.length; i += 200) {
       const chunk = ids.slice(i, i + 200);
       const [{ error: mErr }, { error: pErr }] = await Promise.all([
@@ -290,7 +331,6 @@ export async function persistParsed(
       if (mErr) throw mErr;
       if (pErr) throw pErr;
     }
-    // in_scope_* / out_of_scope / plan_finish 같은 셀 단위 필드도 재임포트로 백필.
     for (const p of skipSameRevPlans) {
       const ex = p.existing!;
       const r = p.row;
@@ -299,13 +339,17 @@ export async function persistParsed(
           in_scope_sd: r.inScope.sd,
           in_scope_dd: r.inScope.dd,
           in_scope_cd: r.inScope.cd,
+          missing_plant_id: r.missingTokens.plantId,
+          missing_pbs: r.missingTokens.pbs,
+          missing_fbs: r.missingTokens.fbs,
+          missing_ser_no: r.missingTokens.serNo,
           out_of_scope: r.outOfScope,
           plan_finish: r.planFinish ?? null,
           source_sheet: r.sourceSheet,
+          item_no: r.itemNo,
         } as any)
         .eq("id", ex.id);
     }
-    // 새 파싱 결과로 재삽입
     const msResync: any[] = [];
     const pgResync: any[] = [];
     for (const p of skipSameRevPlans) {
