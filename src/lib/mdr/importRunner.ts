@@ -187,6 +187,9 @@ export async function persistParsed(
           drawing_title: r.drawingTitle ?? null,
           plan_finish: r.planFinish ?? null,
           out_of_scope: r.outOfScope,
+          in_scope_sd: r.inScope.sd,
+          in_scope_dd: r.inScope.dd,
+          in_scope_cd: r.inScope.cd,
           source_sheet: r.sourceSheet,
           import_log_id: importLogId ?? null,
         } as any)
