@@ -235,6 +235,7 @@ export async function persistParsed(
       plan_finish: row.planFinish ?? null,
       out_of_scope: row.outOfScope,
       source_sheet: row.sourceSheet,
+      import_log_id: importLogId ?? null,
     }));
     const { data, error } = await supabase
       .from("mdr_drawings" as never)
