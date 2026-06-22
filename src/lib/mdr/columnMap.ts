@@ -25,6 +25,16 @@ export const MDR_COLUMN_MAP = {
   serNo:         { header: "SER.NO.",        source: "original" },
   activityGroup: { header: "Activity Group", source: "original" },
   drawingTitle:  { header: "Drawing Title",  source: "original" },
+  confirmedBy:   { header: "Confirmed By",         source: "original", preserveOnReimport: true },
+  ifrStart:      { header: "IFR/IFI Start Date",   source: "original", preserveOnReimport: true },
+  ifrIssue:      { header: "IFR/IFI Issue Date",   source: "original", preserveOnReimport: true },
+  ifcStart:      { header: "IFC Start Date",       source: "original", preserveOnReimport: true },
+  ifcIssue:      { header: "IFC Issue Date",       source: "original", preserveOnReimport: true },
+  documentClass: { header: "Document Class",       source: "original", preserveOnReimport: true },
+  docClassCode:  { header: "문서분류체계 코드",     source: "original", preserveOnReimport: true },
+  stagePlanSd:   { header: "SD Stage Plan",        source: "app_generated", preserveOnReimport: true },
+  stagePlanDd:   { header: "DD Stage Plan",        source: "app_generated", preserveOnReimport: true },
+  stagePlanCd:   { header: "CD Stage Plan",        source: "app_generated", preserveOnReimport: true },
 } as const satisfies Record<string, MdrColumnDef>;
 
 export type MdrColumnKey = keyof typeof MDR_COLUMN_MAP;
