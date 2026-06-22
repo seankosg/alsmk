@@ -293,7 +293,9 @@ function parseSheet(
     // out of scope: 모든 마일스톤 increment 0 또는 SD/DD/CD 모두 비활성
     const allZero = milestones.every((m) => m.incrementPct === 0);
 
-    const itemNo = `${building}-${discipline}-${sourceNo}`;
+    // itemNo: 행의 DISCIPLINE 값을 우선 사용 (한 시트에 여러 하위 discipline이 섞여도 itemNo 충돌 방지)
+    const discCode = (discRaw || discipline).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "") || discipline;
+    const itemNo = `${building}-${discCode}-${sourceNo}`;
     const plantId = findVal("Plant ID", "PLANT", "JOB");
     const pbs = findVal("PBS", "Area Code", "AREA");
     const fbs = findVal("FBS", "Function Code", "FUNCTION", "FUCTION");
