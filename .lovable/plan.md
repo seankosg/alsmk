@@ -1,62 +1,46 @@
-## 근본 원인 (재확정)
+## 목적
+FAFP MDR 파일(`06_FAFP_MDR_Progress-2.xlsx`)의 시트명이 `MDR (Drawing)_FA,FP` 형태여서 현재 파서가 discipline을 `"MDR"`로 잘못 추출하는 문제를 해결합니다. 다른 4개 파일(GEN, SMP&CCM, HSM, MAIN OFFICE)은 헤더 구조가 동일하여 이번 수정으로 영향을 받지 않습니다.
 
-CRM Excel의 `SER. NO.` 컬럼은 **비어있지 않습니다**. 4개 시트 2,008행 모두 값이 채워져 있습니다.
-
-진짜 문제는 헤더 매칭 실패입니다.
-
-- Excel 헤더 텍스트: `"SER. NO."` (SER 다음 점과 공백)
-- 파서 코드: `findVal("SER.NO.", "SER NO", "Serial No.", "Serial")`
-- `findVal`은 substring 매칭(`.includes`)을 쓰는데 `"SER. NO."` 안에는 `"SER.NO."`도 `"SER NO"`도 들어있지 않음
-- 결과: `serNo = undefined` → `docBase = "L8Z1-800-EA100-"` (끝이 `-`)
-- 같은 PBS/FBS 그룹이 전부 동일 docBase로 충돌 → 262개 파일 내 중복 발생
-
-## 구현
-
-### 1) `src/lib/mdr/parser.ts` — `serNo` 매칭 + `docBase` 생성 규칙 수정
-
-`findVal` substring 매칭 대신 헤더 텍스트에 정규식 매칭을 사용하고, `docBase`는 4개 토큰이 모두 있을 때만 생성합니다.
-
+## 근본 원인
+`src/lib/mdr/parser.ts` line 142:
 ```ts
-const plantId = findVal("Plant ID", "PLANT", "JOB");
-const pbs = findVal("PBS", "Area Code", "AREA");
-const fbs = findVal("FBS", "Function Code", "FUNCTION", "FUCTION");
-// "SER. NO.", "SER.NO.", "SER NO", "Serial" 모두 매칭
-const serHeader = headers.find((h) =>
-  /^\s*ser\.?\s*no\.?\s*$/i.test(h.text) || /serial/i.test(h.text)
-);
-const serNo = serHeader ? (cellStr(ws, r, serHeader.col) || undefined) : undefined;
-
-const revRaw = findVal("REV", "REVISION");
-const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
-
-// 4개 토큰이 모두 존재할 때만 docBase 생성 (불완전 키 금지)
-const tokens = [plantId, pbs, fbs, serNo].map((t) => (t ?? "").trim());
-const docBase = tokens.every((t) => t.length > 0) ? tokens.join("-") : undefined;
-const docNo = docBase ? `${docBase}-${rev}` : undefined;
+const discipline = sheetName.toUpperCase().split(/[_\-\s]/)[0];
 ```
+- `"MDR (Drawing)_FA,FP"` → split 결과 첫 토큰 = `"MDR"` (실제 의도: `FA,FP`)
+- 이 값이 `itemNo` 생성(`${building}-${discipline}-${sourceNo}`)과 시트 메타데이터로 사용되므로, 잘못된 키가 DB에 들어갑니다.
 
-### 2) `src/lib/mdr/columnMap.ts` — alias 보강
+## 해결 방안
 
-```ts
-const HEADER_ALIASES: Record<string, MdrColumnKey> = {
-  // ...기존 항목 유지
-  "ser. no.": "serNo",
-  "ser.no.": "serNo",
-  "ser no.": "serNo",
-  "ser no": "serNo",
-  "ser.no": "serNo",
-};
-```
+### 1. 시트명 기반 discipline 추출 로직 개선 (`parser.ts`)
+새 헬퍼 `extractDisciplineFromSheetName(sheetName)` 추가:
+- **규칙 1**: `MDR` 접두/관련 토큰(`MDR`, `DRAWING`, `DWG`, `PROGRESS`)은 무시
+- **규칙 2**: 괄호 `(...)` 안 내용도 무시 (예: `(Drawing)`)
+- **규칙 3**: 남은 토큰들 중 첫 번째 의미있는 토큰을 discipline으로 채택
+- **분리자**: `_`, `-`, 공백 (쉼표 `,`는 보존 → `FA,FP` 유지)
 
-### 3) 잘못 import 된 CRM 부분 데이터 정리
+예시 결과:
+| 시트명 | 기존 | 개선 |
+|---|---|---|
+| `MDR (Drawing)_FA,FP` | `MDR` | `FA,FP` |
+| `MDR_GEN` | `MDR` | `GEN` |
+| `Electrical_MDR` | `ELECTRICAL` | `ELECTRICAL` |
+| `HVAC` | `HVAC` | `HVAC` |
 
-이전 import로 `mdr_drawings`에 잘못 들어간 CRM 일부 행을 삭제합니다 (FK CASCADE로 milestones/progress/revisions 자동 정리).
+### 2. 컬럼 값 우선 사용 (보조 안전장치)
+`parseSheet` 내부에서 첫 데이터 행의 `DISCIPLINE` 컬럼 값이 존재하면 그것을 시트 discipline으로 우선 채택. 시트명 파싱은 폴백으로 사용. 이렇게 하면 향후 시트명이 어떻게 바뀌어도 헤더 데이터 기반으로 안정적으로 동작합니다.
 
-```sql
-DELETE FROM public.mdr_drawings WHERE building_code = 'CRM';
-```
+### 3. 검증
+- 5개 업로드 파일을 로컬에서 다시 파싱하여 각 시트의 discipline이 의도된 값(`GEN`, `SMP&CCM`, `HSM`, `MAIN_OFFICE`, `FA,FP` 등)으로 추출되는지 확인
+- 기존 CRM 파일에 회귀 없음을 확인
 
-## 검증
+## 영향 범위
+- 수정 파일: `src/lib/mdr/parser.ts` 1개 (헬퍼 추가 + line 142 교체 + DISCIPLINE 컬럼 우선 적용 로직)
+- DB 스키마 변경 없음
+- 이미 import된 데이터에는 영향 없음(다음 import부터 적용)
 
-- 로컬 파싱 재실행 시 `docBase` 충돌 0건 기대
-- 4개 시트 모두 정상 import 후 화면에서 `Inserted` 표시 확인
+## 작업 단계
+1. `parser.ts`에 `extractDisciplineFromSheetName` 헬퍼 추가
+2. `parseSheet` line 142를 새 헬퍼 호출로 교체
+3. 첫 데이터 행 `DISCIPLINE` 컬럼 값이 있으면 시트 discipline 덮어쓰기
+4. 5개 파일 로컬 파싱 검증
+5. 사용자에게 재import 안내

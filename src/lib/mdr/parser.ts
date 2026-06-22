@@ -134,12 +134,26 @@ function isYes(s: string): boolean {
   return t === "y" || t === "yes" || t === "o" || t === "✓" || t === "1";
 }
 
+/**
+ * 시트명에서 discipline 추출.
+ * - 괄호 안 내용 제거: "MDR (Drawing)_FA,FP" → "MDR _FA,FP"
+ * - MDR/DRAWING/DWG/PROGRESS 등 노이즈 토큰 제외
+ * - 분리자 `_`, `-`, 공백 (쉼표 보존)
+ */
+function extractDisciplineFromSheetName(sheetName: string): string {
+  const NOISE = new Set(["MDR", "DRAWING", "DWG", "PROGRESS", "DRAWINGS"]);
+  const cleaned = sheetName.replace(/\([^)]*\)/g, " ").toUpperCase();
+  const tokens = cleaned.split(/[_\-\s]+/).map((t) => t.trim()).filter(Boolean);
+  const meaningful = tokens.find((t) => !NOISE.has(t));
+  return meaningful ?? tokens[0] ?? sheetName.toUpperCase();
+}
+
 function parseSheet(
   ws: XLSX.WorkSheet,
   sheetName: string,
   building: string,
 ): MdrParsedSheet {
-  const discipline = sheetName.toUpperCase().split(/[_\-\s]/)[0];
+  let discipline = extractDisciplineFromSheetName(sheetName);
   const anchor = findHeaderAnchor(ws);
   if (!anchor) {
     return { sheetName, discipline, rows: [], milestoneOrder: [], skipped: true, skipReason: "헤더(NO.) 셀을 찾지 못함" };
@@ -230,6 +244,18 @@ function parseSheet(
   // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
   const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
   const dataStartRow = hasPlanDates ? planDateRow + 1 : incrementRow + 1;
+
+  // DISCIPLINE 컬럼이 존재하면 첫 비어있지 않은 값을 시트 discipline으로 사용 (시트명 파싱보다 우선)
+  const disciplineHeader = headers.find((h) => /discipline/i.test(h.text));
+  if (disciplineHeader) {
+    for (let r = dataStartRow; r <= range.e.r; r++) {
+      const v = cellStr(ws, r, disciplineHeader.col).trim();
+      if (v) {
+        discipline = v.toUpperCase();
+        break;
+      }
+    }
+  }
 
   // 2) 데이터 행 파싱
   const rows: MdrParsedRow[] = [];
