@@ -280,13 +280,17 @@ function parseSheet(
     const plantId = findVal("Plant ID", "PLANT", "JOB");
     const pbs = findVal("PBS", "Area Code", "AREA");
     const fbs = findVal("FBS", "Function Code", "FUNCTION", "FUCTION");
-    const serNo = findVal("SER.NO.", "SER NO", "Serial No.", "Serial");
+    // SER.NO. 헤더는 "SER. NO.", "SER.NO.", "SER NO" 등 공백/점 변형 다수.
+    // findVal substring 매칭은 공백 변형에 약하므로 정규식으로 직접 매칭.
+    const serHeader = headers.find((h) =>
+      /^\s*ser\.?\s*no\.?\s*$/i.test(h.text) || /serial/i.test(h.text),
+    );
+    const serNo = serHeader ? (cellStr(ws, r, serHeader.col) || undefined) : undefined;
     const revRaw = findVal("REV", "REVISION");
     const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
-    const baseTokens = [plantId, pbs, fbs, serNo];
-    const docBase = baseTokens.some((t) => t && t.trim())
-      ? baseTokens.map((t) => (t ?? "").trim()).join("-")
-      : undefined;
+    // docBase: 4개 토큰이 모두 존재할 때만 생성 (불완전 키 금지 → itemNo fallback)
+    const tokens = [plantId, pbs, fbs, serNo].map((t) => (t ?? "").trim());
+    const docBase = tokens.every((t) => t.length > 0) ? tokens.join("-") : undefined;
     const docNo = docBase ? `${docBase}-${rev}` : undefined;
 
     rows.push({

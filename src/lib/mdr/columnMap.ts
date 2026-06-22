@@ -38,6 +38,11 @@ const HEADER_ALIASES: Record<string, MdrColumnKey> = {
   "function": "fbs",
   "serial no.": "serNo",
   "serial": "serNo",
+  "ser. no.": "serNo",
+  "ser.no.": "serNo",
+  "ser no.": "serNo",
+  "ser no": "serNo",
+  "ser.no": "serNo",
 };
 
 /** 시트 셀에서 헤더 텍스트로 컬럼 키를 추정 */
