@@ -66,7 +66,7 @@ const toBuildingCode = (s: string): string =>
 export function extractBuildingFromFilename(filename: string): string {
   const base = filename.replace(/\.[^.]+$/, "");
   // 1) {NN}_..._MDR 패턴 (다단어 건물명 보존)
-  const m = base.match(/^\d+[_\s\-]+(.+?)[_\s\-]+MDR\b/i);
+  const m = base.match(/^\d+[_\s\-]+(.+)[_\s\-]+MDR\b/i);
   if (m) {
     const captured = m[1].trim();
     if (captured) return toBuildingCode(captured);
