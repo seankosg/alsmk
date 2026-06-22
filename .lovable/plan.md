@@ -1,38 +1,62 @@
-# item_no UNIQUE 제약 해제 + doc_base 부분 유니크 전환
+## 근본 원인 (재확정)
 
-## 결정사항
-- `item_no`는 **비고유 표시·검색용** 컬럼으로 강등 (NULL 허용).
-- `doc_base`(Plant ID-PBS-FBS-SER.NO.)가 **있는 행**만 건물별 유일성 강제.
-- 같은 시트 안에서 `No.`가 반복되어도 `doc_base`가 다르면 별개 도면으로 정상 임포트.
+CRM Excel의 `SER. NO.` 컬럼은 **비어있지 않습니다**. 4개 시트 2,008행 모두 값이 채워져 있습니다.
 
-## 작업 항목
+진짜 문제는 헤더 매칭 실패입니다.
 
-### 1. DB 마이그레이션 — 적용 완료 ✅
-- `mdr_drawings.item_no` → `NOT NULL` 해제
-- `(building_code, item_no)` UNIQUE 제거
-- `(building_code, doc_base) WHERE doc_base IS NOT NULL` 부분 UNIQUE 인덱스 추가
-- `(building_code, item_no)` 일반 인덱스(조회용) 추가
+- Excel 헤더 텍스트: `"SER. NO."` (SER 다음 점과 공백)
+- 파서 코드: `findVal("SER.NO.", "SER NO", "Serial No.", "Serial")`
+- `findVal`은 substring 매칭(`.includes`)을 쓰는데 `"SER. NO."` 안에는 `"SER.NO."`도 `"SER NO"`도 들어있지 않음
+- 결과: `serNo = undefined` → `docBase = "L8Z1-800-EA100-"` (끝이 `-`)
+- 같은 PBS/FBS 그룹이 전부 동일 docBase로 충돌 → 262개 파일 내 중복 발생
 
-### 2. 부분 데이터 정리 — 적용 완료 ✅
-- 깨진 부분 임포트 잔여분(SMP&CCM 400, HSM 400, CRM 1000, MAIN_OFFICE 등) 일괄 삭제
-- 관련 milestones/progress는 FK 캐스케이드, drawing_revisions는 명시적 삭제
+## 구현
 
-### 3. `src/lib/mdr/importRunner.ts` 수정 (남은 작업)
-- 매칭 우선순위 변경:
-  - `docBase`가 있으면 `existingByDocBase`로만 매칭
-  - `docBase`가 없으면(legacy/TBD) `existingByItemNo`로 fallback 매칭
-- 파일 내 중복 판정:
-  - `docBase` 있는 행 → `seenDocBase`로만 판정 (item_no 중복 허용)
-  - `docBase` 없는 행 → `seenItemNo`로 판정
-- 로그 reason 메시지 세분화: "파일 내 중복 (Doc No.)" / "파일 내 중복 (Item No.)"
+### 1) `src/lib/mdr/parser.ts` — `serNo` 매칭 + `docBase` 생성 규칙 수정
 
-### 4. 영향 점검 (변경 불필요한 곳)
-- `DesignImportLogs.tsx`의 item_no 검색/표시: 그대로 동작 (NULL 허용으로 인해 빈 값이 늘어날 뿐 충돌 없음)
-- `MdrAdvancedGrid` 컬럼·검색 hay: 그대로 유지
-- `exporter.ts` 엑셀 출력: 그대로 유지
-- `parser.ts`의 itemNo 생성 로직: 그대로 유지 (`${building}-${discipline}-${sourceNo}`)
+`findVal` substring 매칭 대신 헤더 텍스트에 정규식 매칭을 사용하고, `docBase`는 4개 토큰이 모두 있을 때만 생성합니다.
+
+```ts
+const plantId = findVal("Plant ID", "PLANT", "JOB");
+const pbs = findVal("PBS", "Area Code", "AREA");
+const fbs = findVal("FBS", "Function Code", "FUNCTION", "FUCTION");
+// "SER. NO.", "SER.NO.", "SER NO", "Serial" 모두 매칭
+const serHeader = headers.find((h) =>
+  /^\s*ser\.?\s*no\.?\s*$/i.test(h.text) || /serial/i.test(h.text)
+);
+const serNo = serHeader ? (cellStr(ws, r, serHeader.col) || undefined) : undefined;
+
+const revRaw = findVal("REV", "REVISION");
+const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
+
+// 4개 토큰이 모두 존재할 때만 docBase 생성 (불완전 키 금지)
+const tokens = [plantId, pbs, fbs, serNo].map((t) => (t ?? "").trim());
+const docBase = tokens.every((t) => t.length > 0) ? tokens.join("-") : undefined;
+const docNo = docBase ? `${docBase}-${rev}` : undefined;
+```
+
+### 2) `src/lib/mdr/columnMap.ts` — alias 보강
+
+```ts
+const HEADER_ALIASES: Record<string, MdrColumnKey> = {
+  // ...기존 항목 유지
+  "ser. no.": "serNo",
+  "ser.no.": "serNo",
+  "ser no.": "serNo",
+  "ser no": "serNo",
+  "ser.no": "serNo",
+};
+```
+
+### 3) 잘못 import 된 CRM 부분 데이터 정리
+
+이전 import로 `mdr_drawings`에 잘못 들어간 CRM 일부 행을 삭제합니다 (FK CASCADE로 milestones/progress/revisions 자동 정리).
+
+```sql
+DELETE FROM public.mdr_drawings WHERE building_code = 'CRM';
+```
 
 ## 검증
-1. 02/03/04/05 MDR 엑셀 4개를 다시 임포트
-2. 임포트 로그에 Failed 없이 Inserted/Skipped 카운트로 마감되는지 확인
-3. DesignManagement 그리드에서 각 건물별 도면 수가 엑셀 시트 합계와 일치하는지 확인
+
+- 로컬 파싱 재실행 시 `docBase` 충돌 0건 기대
+- 4개 시트 모두 정상 import 후 화면에서 `Inserted` 표시 확인
