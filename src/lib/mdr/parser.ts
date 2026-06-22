@@ -208,7 +208,7 @@ function parseSheet(
     const t = cellStr(ws, headerRow, c);
     if (!t) return false;
     // 식별 헤더만 경계로 인정 (DISCIPLINE/Plant ID/PBS/FBS/SER.NO./Activity Group/Drawing Title 등, 구버전 헤더 포함)
-    return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note/i.test(t);
+    return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note|confirmed|weight|plan\s*date|document\s*class|문서분류|부서별/i.test(t);
   };
 
   let c = noCol;
