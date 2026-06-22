@@ -285,17 +285,43 @@ function parseSheet(
     const title = findVal("Drawing Title", "TITLE", "DRAWING");
     if (!title && !sourceNo.match(/\d/)) continue;
 
-    const milestones: MdrMilestoneDef[] = milestoneCols.map((m) => ({
+    const milestonesAll: MdrMilestoneDef[] = milestoneCols.map((m) => ({
       stage: m.stage,
       pct: m.pct,
       incrementPct: m.incrementPct,
       planDate: m.planDate,
     }));
-    const progress = milestoneCols.map((m) => {
+    const progressAll = milestoneCols.map((m) => {
       // 그룹 내 어느 서브컬럼이라도 Yes 면 완료로 간주
       const isDone = m.cols.some((x) => isYes(cellStr(ws, r, x)));
       return { stage: m.stage, pct: m.pct, isDone };
     });
+
+    // 단계 범위(scope) 판정: 헤더 컬럼이 있으면 셀 값으로 결정.
+    // 헤더 컬럼이 없으면 폴백으로 그 단계 마일스톤이 정의되어 있고 increment 합이 0 초과인지로 판정.
+    const stageInScopeByMs = (stage: MdrStage): boolean => {
+      const sum = milestonesAll
+        .filter((m) => m.stage === stage)
+        .reduce((s, m) => s + (m.incrementPct || 0), 0);
+      return sum > 0;
+    };
+    const inScope = {
+      sd: scopeCols.sd !== undefined
+        ? isYes(cellStr(ws, r, scopeCols.sd))
+        : stageInScopeByMs("SD"),
+      dd: scopeCols.dd !== undefined
+        ? isYes(cellStr(ws, r, scopeCols.dd))
+        : stageInScopeByMs("DD"),
+      cd: scopeCols.cd !== undefined
+        ? isYes(cellStr(ws, r, scopeCols.cd))
+        : stageInScopeByMs("CD"),
+    };
+
+    // 범위 밖 단계의 마일스톤·진행률은 저장하지 않는다 (도면수·진척·weight 모두 0 처리).
+    const stageOk = (s: MdrStage) =>
+      (s === "SD" && inScope.sd) || (s === "DD" && inScope.dd) || (s === "CD" && inScope.cd);
+    const milestones = milestonesAll.filter((m) => stageOk(m.stage));
+    const progress = progressAll.filter((p) => stageOk(p.stage));
 
     // plan finish: 마일스톤 중 가장 늦은 plan_date
     const lastPlan = milestones
@@ -304,8 +330,10 @@ function parseSheet(
       .sort()
       .pop();
 
-    // out of scope: 모든 마일스톤 increment 0 또는 SD/DD/CD 모두 비활성
-    const allZero = milestones.every((m) => m.incrementPct === 0);
+    // out of scope: 세 단계 모두 범위 밖이거나, 범위 안 단계의 increment 합이 모두 0
+    const noStage = !inScope.sd && !inScope.dd && !inScope.cd;
+    const allZero = milestones.length > 0 && milestones.every((m) => m.incrementPct === 0);
+    const outOfScope = noStage || allZero;
 
     // itemNo: 행의 DISCIPLINE 값을 우선 사용 (한 시트에 여러 하위 discipline이 섞여도 itemNo 충돌 방지)
     const discCode = (discRaw || discipline).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "") || discipline;
@@ -345,7 +373,8 @@ function parseSheet(
       activityGroup: findVal("Activity Group", "GROUP"),
       drawingTitle: title,
       planFinish: lastPlan,
-      outOfScope: allZero,
+      outOfScope,
+      inScope,
       sourceSheet: sheetName,
       rawRowNo: r + 1,
       milestones,
