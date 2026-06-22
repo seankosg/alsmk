@@ -518,6 +518,7 @@ export type Database = {
           drawing_title: string | null
           function_code: string | null
           id: string
+          import_log_id: string | null
           item_no: string
           job_no: string | null
           out_of_scope: boolean
@@ -540,6 +541,7 @@ export type Database = {
           drawing_title?: string | null
           function_code?: string | null
           id?: string
+          import_log_id?: string | null
           item_no: string
           job_no?: string | null
           out_of_scope?: boolean
@@ -562,6 +564,7 @@ export type Database = {
           drawing_title?: string | null
           function_code?: string | null
           id?: string
+          import_log_id?: string | null
           item_no?: string
           job_no?: string | null
           out_of_scope?: boolean
@@ -579,6 +582,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "mdr_buildings"
             referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "mdr_drawings_import_log_id_fkey"
+            columns: ["import_log_id"]
+            isOneToOne: false
+            referencedRelation: "mdr_import_logs"
+            referencedColumns: ["id"]
           },
         ]
       }

@@ -248,26 +248,24 @@ export default function DesignImportLogs() {
   const purge = async (log: MdrLog) => {
     setActionBusyId(log.id);
     try {
-      const { inserted, buildingCode } = await fetchBatchScope(log.id, log.building_code);
+      // 표시용 카운트 (row_logs가 남아 있을 때만 의미)
+      const { inserted } = await fetchBatchScope(log.id, log.building_code);
 
-      // 신규 도면 삭제 (CASCADE)
-      if (inserted.length && buildingCode) {
-        for (let i = 0; i < inserted.length; i += 500) {
-          const chunk = inserted.slice(i, i + 500);
-          const { error } = await (supabase.from("mdr_drawings" as never) as any)
-            .delete()
-            .eq("building_code", buildingCode)
-            .in("item_no", chunk);
-          if (error) throw error;
-        }
-      }
-      // 이 batch가 만든 이력 삭제 (롤백 안 한 경우 대비)
+      // 1) 이 batch가 만들었거나 마지막으로 갱신한 도면 직접 삭제 (CASCADE → milestones/progress)
+      const { error: dErr, count } = await (supabase.from("mdr_drawings" as never) as any)
+        .delete({ count: "exact" })
+        .eq("import_log_id", log.id);
+      if (dErr) throw dErr;
+      // 2) 이 batch가 만든 rev 스냅샷 정리
       await (supabase.from("mdr_drawing_revisions" as never) as any).delete().eq("import_log_id", log.id);
-      // 행 로그 + 로그 본체 삭제
+      // 3) 행 로그 + 로그 본체 삭제
       await (supabase.from("mdr_import_row_logs" as never) as any).delete().eq("import_log_id", log.id);
       await (supabase.from("mdr_import_logs" as never) as any).delete().eq("id", log.id);
 
-      toast({ title: "데이터 삭제 완료", description: `신규 ${inserted.length}건 + 로그 영구 삭제` });
+      toast({
+        title: "데이터 삭제 완료",
+        description: `도면 ${count ?? inserted.length}건 + 로그 영구 삭제`,
+      });
       if (selectedBatch === log.id) setSelectedBatch(null);
       await fetchLogs();
     } catch (e: any) {
