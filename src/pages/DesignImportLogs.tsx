@@ -287,7 +287,7 @@ export default function DesignImportLogs() {
       if (actionFilter !== "all" && r.action !== actionFilter) return false;
       if (sheetFilter !== "all" && r.source_sheet !== sheetFilter) return false;
       if (q) {
-        const hay = `${r.item_no ?? ""} ${r.source_no ?? ""} ${r.drawing_title ?? ""}`.toLowerCase();
+        const hay = `${r.item_no ?? ""} ${r.source_no ?? ""} ${r.doc_base ?? ""} ${r.drawing_title ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
