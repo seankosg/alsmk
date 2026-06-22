@@ -18,6 +18,9 @@ interface RawDrawing {
   building_code: string;
   discipline: string | null;
   out_of_scope: boolean;
+  in_scope_sd: boolean | null;
+  in_scope_dd: boolean | null;
+  in_scope_cd: boolean | null;
   mdr_milestones: { stage: StageCode; pct: number; plan_date: string | null }[] | null;
   mdr_progress: { stage: StageCode; pct: number; is_done: boolean; actual_date: string | null }[] | null;
 }
