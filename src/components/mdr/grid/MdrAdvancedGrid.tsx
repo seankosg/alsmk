@@ -25,7 +25,7 @@ import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { drawingStagePct, drawingMilestonePlannedPct } from "@/lib/mdr/progressEngine";
+import { drawingStagePct, drawingMilestonePlannedPct, drawingOverall } from "@/lib/mdr/progressEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
