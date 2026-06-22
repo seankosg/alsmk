@@ -109,12 +109,19 @@ function actualAtDate(
   return m;
 }
 
-function hasPlanForStage(
-  milestones: { stage: StageCode; pct: number; plan_date: string | null }[] | null,
-  stage: StageCode,
-): boolean {
-  if (!milestones) return false;
-  return milestones.some((m) => m.stage === stage && (m.plan_date || m.pct > 0));
+function isInScope(d: RawDrawing, stage: StageCode): boolean {
+  // in_scope_* 가 명시적으로 채워진 경우(true/false) 그것이 권위.
+  // 모두 null 인 레거시 행이면 마일스톤·plan_date 로 폴백 판정.
+  const explicit =
+    d.in_scope_sd !== null || d.in_scope_dd !== null || d.in_scope_cd !== null;
+  if (explicit) {
+    if (stage === "SD") return !!d.in_scope_sd;
+    if (stage === "DD") return !!d.in_scope_dd;
+    return !!d.in_scope_cd;
+  }
+  // 폴백: 마일스톤이 있으면 그 단계는 in-scope 로 간주
+  if (!d.mdr_milestones) return false;
+  return d.mdr_milestones.some((m) => m.stage === stage && (m.plan_date || m.pct > 0));
 }
 
 function computeBlock(
@@ -146,8 +153,7 @@ function computeBlock(
 
     for (const dr of list) {
       for (const st of STAGES) {
-        const planned = hasPlanForStage(dr.mdr_milestones, st);
-        if (!planned) continue;
+        if (!isInScope(dr, st)) continue;
         cell[stKey(st)].drawingCount += 1;
         planSum[st] += planAtDate(dr.mdr_milestones, st, dataDate) / 100;
         actualSum[st] += actualAtDate(dr.mdr_progress, st, dataDate) / 100;
