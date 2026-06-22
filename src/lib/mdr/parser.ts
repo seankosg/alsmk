@@ -66,7 +66,7 @@ const toBuildingCode = (s: string): string =>
 export function extractBuildingFromFilename(filename: string): string {
   const base = filename.replace(/\.[^.]+$/, "");
   // 1) {NN}_..._MDR 패턴 (다단어 건물명 보존)
-  const m = base.match(/^\d+[_\s\-]+(.+?)[_\s\-]+MDR\b/i);
+  const m = base.match(/^\d+[_\s\-]+(.+)[_\s\-]+MDR(?=[_\s\-]|$)/i);
   if (m) {
     const captured = m[1].trim();
     if (captured) return toBuildingCode(captured);
@@ -245,17 +245,8 @@ function parseSheet(
   const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
   const dataStartRow = hasPlanDates ? planDateRow + 1 : incrementRow + 1;
 
-  // DISCIPLINE 컬럼이 존재하면 첫 비어있지 않은 값을 시트 discipline으로 사용 (시트명 파싱보다 우선)
-  const disciplineHeader = headers.find((h) => /discipline/i.test(h.text));
-  if (disciplineHeader) {
-    for (let r = dataStartRow; r <= range.e.r; r++) {
-      const v = cellStr(ws, r, disciplineHeader.col).trim();
-      if (v) {
-        discipline = v.toUpperCase();
-        break;
-      }
-    }
-  }
+  // (DISCIPLINE 컬럼 override는 부작용 때문에 제거. 시트명 헬퍼만 사용)
+
 
   // 2) 데이터 행 파싱
   const rows: MdrParsedRow[] = [];
@@ -302,7 +293,9 @@ function parseSheet(
     // out of scope: 모든 마일스톤 increment 0 또는 SD/DD/CD 모두 비활성
     const allZero = milestones.every((m) => m.incrementPct === 0);
 
-    const itemNo = `${building}-${discipline}-${sourceNo}`;
+    // itemNo: 행의 DISCIPLINE 값을 우선 사용 (한 시트에 여러 하위 discipline이 섞여도 itemNo 충돌 방지)
+    const discCode = (discRaw || discipline).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "") || discipline;
+    const itemNo = `${building}-${discCode}-${sourceNo}`;
     const plantId = findVal("Plant ID", "PLANT", "JOB");
     const pbs = findVal("PBS", "Area Code", "AREA");
     const fbs = findVal("FBS", "Function Code", "FUNCTION", "FUCTION");
@@ -314,8 +307,12 @@ function parseSheet(
     const serNo = serHeader ? (cellStr(ws, r, serHeader.col) || undefined) : undefined;
     const revRaw = findVal("REV", "REVISION");
     const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
-    // docBase: 4개 토큰이 모두 존재할 때만 생성 (불완전 키 금지 → itemNo fallback)
-    const tokens = [plantId, pbs, fbs, serNo].map((t) => (t ?? "").trim());
+    // docBase: 4개 토큰이 모두 존재할 때만 생성 (TBD/N/A 등 플레이스홀더는 빈 값으로 처리)
+    const PLACEHOLDER_RE = /^(tbd|tba|n\/a|na|미정|tbc|-)$/i;
+    const tokens = [plantId, pbs, fbs, serNo].map((t) => {
+      const v = (t ?? "").trim();
+      return PLACEHOLDER_RE.test(v) ? "" : v;
+    });
     const docBase = tokens.every((t) => t.length > 0) ? tokens.join("-") : undefined;
     const docNo = docBase ? `${docBase}-${rev}` : undefined;
 
