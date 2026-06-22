@@ -260,7 +260,7 @@ async function fetchSummary(): Promise<MdrSummary> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("mdr_drawings" as never)
-      .select("id, building_code, discipline, out_of_scope, mdr_milestones(stage,pct,plan_date), mdr_progress(stage,pct,is_done,actual_date)")
+      .select("id, building_code, discipline, out_of_scope, in_scope_sd, in_scope_dd, in_scope_cd, mdr_milestones(stage,pct,plan_date), mdr_progress(stage,pct,is_done,actual_date)")
       .eq("out_of_scope", false)
       .range(from, from + PAGE - 1);
     if (error) throw error;
