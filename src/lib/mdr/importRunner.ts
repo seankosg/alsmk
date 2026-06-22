@@ -36,19 +36,17 @@ export async function persistParsed(
 
   const allRows = parsed.sheets.flatMap((s) => (s.skipped ? [] : s.rows));
 
-  // 2) 기존 도면 조회 — doc_base + item_no 둘 다 인덱스화
+  // 2) 기존 도면 조회 — item_no 기반 단일 인덱스 (docBase는 표시용)
   type ExistingDrawing = {
     id: string; item_no: string; doc_base: string | null; rev: string | null;
     drawing_title: string | null; plan_finish: string | null; actual_finish: string | null;
     out_of_scope: boolean | null; source_sheet: string | null;
   };
-  const existingByDocBase = new Map<string, ExistingDrawing>();
   const existingByItemNo = new Map<string, ExistingDrawing>();
 
-  const allDocBases = Array.from(new Set(allRows.map((r) => r.docBase).filter((x): x is string => !!x)));
   const allItemNos = Array.from(new Set(allRows.map((r) => r.itemNo)));
 
-  const fetchExisting = async (col: "doc_base" | "item_no", values: string[]) => {
+  const fetchExisting = async (col: "item_no", values: string[]) => {
     for (let i = 0; i < values.length; i += 500) {
       const chunk = values.slice(i, i + 500);
       const { data, error } = await supabase
@@ -58,15 +56,13 @@ export async function persistParsed(
         .in(col, chunk);
       if (error) throw error;
       for (const d of (data as any[]) ?? []) {
-        if (d.doc_base) existingByDocBase.set(d.doc_base as string, d as ExistingDrawing);
         if (d.item_no) existingByItemNo.set(d.item_no as string, d as ExistingDrawing);
       }
     }
   };
-  if (allDocBases.length) await fetchExisting("doc_base", allDocBases);
   if (allItemNos.length) await fetchExisting("item_no", allItemNos);
 
-  push(`  · 기존 도면 ${new Set([...existingByDocBase.values(), ...existingByItemNo.values()].map((x) => x.id)).size}건 — 매칭 시도`);
+  push(`  · 기존 도면 ${existingByItemNo.size}건 — 매칭 시도`);
 
   // 3) 분류: 신규 / 동일 Rev(스킵) / Rev 변경(이력 보관 후 갱신) / 파일 내 중복
   interface RowPlan {
@@ -75,33 +71,24 @@ export async function persistParsed(
     existing?: ExistingDrawing;
   }
   const rowLogs: RowLogEntry[] = [];
-  const seenDocBase = new Set<string>();
   const seenItemNo = new Set<string>();
   const plans: RowPlan[] = [];
 
   for (const r of allRows) {
-    // 매칭: docBase가 있으면 docBase 우선, 없으면 item_no fallback (legacy/TBD 호환)
-    const existing = r.docBase
-      ? existingByDocBase.get(r.docBase)
-      : existingByItemNo.get(r.itemNo);
+    const existing = existingByItemNo.get(r.itemNo);
 
-    // 파일 내 중복: docBase 있으면 docBase로만 판정 (같은 시트 No. 반복은 정상),
-    //              없으면 item_no로 판정 (legacy 호환)
-    const isDup = r.docBase
-      ? seenDocBase.has(r.docBase)
-      : seenItemNo.has(r.itemNo);
-    if (isDup) {
+    // 파일 내 중복: itemNo 기준
+    if (seenItemNo.has(r.itemNo)) {
       plans.push({ row: r, action: "dup_in_file" });
       rowLogs.push({
         source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
         item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
         action: "skipped_duplicate",
-        reason: r.docBase ? "파일 내 중복 (Doc No.)" : "파일 내 중복 (Item No.)",
+        reason: "파일 내 중복 (Item No.)",
       });
       continue;
     }
-    if (r.docBase) seenDocBase.add(r.docBase);
-    else seenItemNo.add(r.itemNo);
+    seenItemNo.add(r.itemNo);
 
     if (!existing) {
       plans.push({ row: r, action: "insert" });
