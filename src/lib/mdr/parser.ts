@@ -31,6 +31,17 @@ export interface MdrParsedRow {
   outOfScope: boolean;
   /** SD/DD/CD 헤더 컬럼의 "O" 표시 여부. 도면이 해당 단계에서 필요한지 결정. */
   inScope: { sd: boolean; dd: boolean; cd: boolean };
+  /** 엑셀 부가 메타 (UI에 노출, 진척 계산에는 미사용) */
+  confirmedBy?: string;
+  ifrStartDate?: string;
+  ifrIssueDate?: string;
+  ifcStartDate?: string;
+  ifcIssueDate?: string;
+  documentClass?: string;
+  docClassCode?: string;
+  stagePlanSd?: string;
+  stagePlanDd?: string;
+  stagePlanCd?: string;
   sourceSheet: string;
   rawRowNo: number;
   milestones: MdrMilestoneDef[];
