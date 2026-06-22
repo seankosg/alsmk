@@ -80,21 +80,28 @@ export async function persistParsed(
   const plans: RowPlan[] = [];
 
   for (const r of allRows) {
-    const existing = (r.docBase && existingByDocBase.get(r.docBase)) || existingByItemNo.get(r.itemNo);
+    // 매칭: docBase가 있으면 docBase 우선, 없으면 item_no fallback (legacy/TBD 호환)
+    const existing = r.docBase
+      ? existingByDocBase.get(r.docBase)
+      : existingByItemNo.get(r.itemNo);
 
-    // 파일 내 중복 (같은 docBase 또는 같은 itemNo)
-    const dupKey = r.docBase ?? r.itemNo;
-    if (r.docBase ? seenDocBase.has(r.docBase) : seenItemNo.has(r.itemNo)) {
+    // 파일 내 중복: docBase 있으면 docBase로만 판정 (같은 시트 No. 반복은 정상),
+    //              없으면 item_no로 판정 (legacy 호환)
+    const isDup = r.docBase
+      ? seenDocBase.has(r.docBase)
+      : seenItemNo.has(r.itemNo);
+    if (isDup) {
       plans.push({ row: r, action: "dup_in_file" });
       rowLogs.push({
         source_sheet: r.sourceSheet, raw_row_no: r.rawRowNo,
         item_no: r.itemNo, source_no: r.sourceNo, drawing_title: r.drawingTitle ?? null,
-        action: "skipped_duplicate", reason: "파일 내 중복",
+        action: "skipped_duplicate",
+        reason: r.docBase ? "파일 내 중복 (Doc No.)" : "파일 내 중복 (Item No.)",
       });
       continue;
     }
     if (r.docBase) seenDocBase.add(r.docBase);
-    seenItemNo.add(r.itemNo);
+    else seenItemNo.add(r.itemNo);
 
     if (!existing) {
       plans.push({ row: r, action: "insert" });
