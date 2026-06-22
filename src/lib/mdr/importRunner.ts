@@ -288,6 +288,12 @@ export async function persistParsed(
       in_scope_sd: row.inScope.sd, in_scope_dd: row.inScope.dd, in_scope_cd: row.inScope.cd,
       missing_plant_id: row.missingTokens.plantId, missing_pbs: row.missingTokens.pbs,
       missing_fbs: row.missingTokens.fbs, missing_ser_no: row.missingTokens.serNo,
+      confirmed_by: row.confirmedBy ?? null,
+      ifr_start_date: row.ifrStartDate ?? null, ifr_issue_date: row.ifrIssueDate ?? null,
+      ifc_start_date: row.ifcStartDate ?? null, ifc_issue_date: row.ifcIssueDate ?? null,
+      document_class: row.documentClass ?? null, doc_class_code: row.docClassCode ?? null,
+      stage_plan_sd: row.stagePlanSd ?? null, stage_plan_dd: row.stagePlanDd ?? null,
+      stage_plan_cd: row.stagePlanCd ?? null,
       source_sheet: row.sourceSheet, import_log_id: importLogId ?? null,
     };
     const { data, error } = await supabase
