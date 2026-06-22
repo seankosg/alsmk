@@ -373,6 +373,16 @@ export async function persistParsed(
           plan_finish: r.planFinish ?? null,
           source_sheet: r.sourceSheet,
           item_no: r.itemNo,
+          confirmed_by: r.confirmedBy ?? null,
+          ifr_start_date: r.ifrStartDate ?? null,
+          ifr_issue_date: r.ifrIssueDate ?? null,
+          ifc_start_date: r.ifcStartDate ?? null,
+          ifc_issue_date: r.ifcIssueDate ?? null,
+          document_class: r.documentClass ?? null,
+          doc_class_code: r.docClassCode ?? null,
+          stage_plan_sd: r.stagePlanSd ?? null,
+          stage_plan_dd: r.stagePlanDd ?? null,
+          stage_plan_cd: r.stagePlanCd ?? null,
         } as any)
         .eq("id", ex.id);
     }
