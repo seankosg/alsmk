@@ -31,6 +31,17 @@ export interface MdrParsedRow {
   outOfScope: boolean;
   /** SD/DD/CD 헤더 컬럼의 "O" 표시 여부. 도면이 해당 단계에서 필요한지 결정. */
   inScope: { sd: boolean; dd: boolean; cd: boolean };
+  /** 엑셀 부가 메타 (UI에 노출, 진척 계산에는 미사용) */
+  confirmedBy?: string;
+  ifrStartDate?: string;
+  ifrIssueDate?: string;
+  ifcStartDate?: string;
+  ifcIssueDate?: string;
+  documentClass?: string;
+  docClassCode?: string;
+  stagePlanSd?: string;
+  stagePlanDd?: string;
+  stagePlanCd?: string;
   sourceSheet: string;
   rawRowNo: number;
   milestones: MdrMilestoneDef[];
@@ -197,7 +208,7 @@ function parseSheet(
     const t = cellStr(ws, headerRow, c);
     if (!t) return false;
     // 식별 헤더만 경계로 인정 (DISCIPLINE/Plant ID/PBS/FBS/SER.NO./Activity Group/Drawing Title 등, 구버전 헤더 포함)
-    return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note/i.test(t);
+    return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note|confirmed|weight|plan\s*date|document\s*class|문서분류|부서별/i.test(t);
   };
 
   let c = noCol;
@@ -246,16 +257,46 @@ function parseSheet(
     cols: g.cols,
   }));
 
-  // SD/DD/CD 단계 범위(scope) 컬럼 — headerRow에서 정확히 "SD"/"DD"/"CD" 텍스트 셀.
-  // 마일스톤 라벨(SD50%, DD30% 등)과 구분하기 위해 % 미포함 + 단독 텍스트만 인식.
+  // SD/DD/CD 단계 범위(scope) 컬럼 — headerRow에서 "SD"/"DD"/"CD" 또는 "SD Stage"/"DD Stage"/"CD Stage".
+  // 마일스톤 라벨(SD50%, DD30% 등)과 구분하기 위해 % 미포함만 인식.
   // 첫 마일스톤 컬럼 시작 이전 범위에서만 탐색.
   const firstMsCol = milestoneCols.length ? Math.min(...milestoneCols.map((m) => m.col)) : maxCol + 1;
   const scopeCols: { sd?: number; dd?: number; cd?: number } = {};
+  const stagePlanCols: { sd?: number; dd?: number; cd?: number } = {};
   for (let cc = noCol; cc < firstMsCol; cc++) {
-    const t = cellStr(ws, headerRow, cc).trim().toUpperCase();
-    if (t === "SD" && scopeCols.sd === undefined) scopeCols.sd = cc;
-    else if (t === "DD" && scopeCols.dd === undefined) scopeCols.dd = cc;
-    else if (t === "CD" && scopeCols.cd === undefined) scopeCols.cd = cc;
+    const t = cellStr(ws, headerRow, cc).trim().toUpperCase().replace(/\s+/g, " ");
+    if ((t === "SD" || t === "SD STAGE") && scopeCols.sd === undefined) { scopeCols.sd = cc; stagePlanCols.sd = cc; }
+    else if ((t === "DD" || t === "DD STAGE") && scopeCols.dd === undefined) { scopeCols.dd = cc; stagePlanCols.dd = cc; }
+    else if ((t === "CD" || t === "CD STAGE") && scopeCols.cd === undefined) { scopeCols.cd = cc; stagePlanCols.cd = cc; }
+  }
+
+  // 부가 메타 컬럼 탐지 (Confirmed By, Document Class, 문서분류체계 코드, Plan Date IFR/IFI/IFC)
+  // - headerRow(r4)에 "Plan Date", "Confirmed By", "Document Class", "문서분류" 등 라벨.
+  // - headerRow+1(r5)에 "IFR/IFI", "IFC", "코드" 그룹 라벨.
+  // - planDateRow(r7)에 "Start Date" / "Issue Date" 페어 구분.
+  const extraCols: {
+    confirmedBy?: number;
+    documentClass?: number;
+    docClassCode?: number;
+    ifrStart?: number;
+    ifrIssue?: number;
+    ifcStart?: number;
+    ifcIssue?: number;
+  } = {};
+  for (let c = noCol; c <= maxCol; c++) {
+    const h4 = cellStr(ws, headerRow, c).toLowerCase().replace(/\s+/g, " ").trim();
+    const h5 = cellStr(ws, headerRow + 1, c).toLowerCase().replace(/\s+/g, " ").trim();
+    const h7 = cellStr(ws, planDateRow, c).toLowerCase().replace(/\s+/g, " ").trim();
+    if (h4.includes("confirmed") && extraCols.confirmedBy === undefined) extraCols.confirmedBy = c;
+    if (h4.includes("document class") && extraCols.documentClass === undefined) extraCols.documentClass = c;
+    if ((h4.includes("문서분류") || h5 === "코드" || h4 === "코드") && extraCols.docClassCode === undefined) extraCols.docClassCode = c;
+    if (/ifr\/?ifi/i.test(h5) || /ifr\/?ifi/i.test(h4)) {
+      if (h7.includes("issue") && extraCols.ifrIssue === undefined) extraCols.ifrIssue = c;
+      else if (extraCols.ifrStart === undefined) extraCols.ifrStart = c;
+    } else if (/^ifc/i.test(h5) || /^ifc/i.test(h4)) {
+      if (h7.includes("issue") && extraCols.ifcIssue === undefined) extraCols.ifcIssue = c;
+      else if (extraCols.ifcStart === undefined) extraCols.ifcStart = c;
+    }
   }
 
   // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
@@ -375,6 +416,14 @@ function parseSheet(
       : [tPlant, tPbs, tFbs, tSer].join("-");
     const docNo = `${docBase}-${rev}`;
 
+    const readDateAt = (c: number | undefined) =>
+      c !== undefined ? parseDate(cellRaw(ws, r, c)) : undefined;
+    const readStrAt = (c: number | undefined) => {
+      if (c === undefined) return undefined;
+      const v = cellStr(ws, r, c);
+      return v && !/^(tbd|tba|n\/a|na|미정|tbc|-)$/i.test(v) ? v : undefined;
+    };
+
     rows.push({
       sourceNo,
       itemNo,
@@ -393,6 +442,16 @@ function parseSheet(
       planFinish: lastPlan,
       outOfScope,
       inScope,
+      confirmedBy: readStrAt(extraCols.confirmedBy),
+      ifrStartDate: readDateAt(extraCols.ifrStart),
+      ifrIssueDate: readDateAt(extraCols.ifrIssue),
+      ifcStartDate: readDateAt(extraCols.ifcStart),
+      ifcIssueDate: readDateAt(extraCols.ifcIssue),
+      documentClass: readStrAt(extraCols.documentClass),
+      docClassCode: readStrAt(extraCols.docClassCode),
+      stagePlanSd: readDateAt(stagePlanCols.sd),
+      stagePlanDd: readDateAt(stagePlanCols.dd),
+      stagePlanCd: readDateAt(stagePlanCols.cd),
       sourceSheet: sheetName,
       rawRowNo: r + 1,
       milestones,

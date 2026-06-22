@@ -136,6 +136,16 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         drawing_title: d.drawing_title,
         plan_finish: d.plan_finish,
         updated_at: d.updated_at,
+        confirmed_by: (d as any).confirmed_by ?? null,
+        ifr_start_date: (d as any).ifr_start_date ?? null,
+        ifr_issue_date: (d as any).ifr_issue_date ?? null,
+        ifc_start_date: (d as any).ifc_start_date ?? null,
+        ifc_issue_date: (d as any).ifc_issue_date ?? null,
+        document_class: (d as any).document_class ?? null,
+        doc_class_code: (d as any).doc_class_code ?? null,
+        stage_plan_sd: (d as any).stage_plan_sd ?? null,
+        stage_plan_dd: (d as any).stage_plan_dd ?? null,
+        stage_plan_cd: (d as any).stage_plan_cd ?? null,
         sd_mark: scope.sd ? "O" : "-",
         dd_mark: scope.dd ? "O" : "-",
         cd_mark: scope.cd ? "O" : "-",
@@ -190,11 +200,19 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => pruneRecord(persisted.columnSizing));
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
     const cleaned = pruneRecord(persisted.columnVisibility);
-    // 최초 1회 기본값: mark 컬럼 + SD/DD/CD 세부 P/A/Δ 컬럼은 숨김 (Progress 아이콘으로 대체)
+    // 최초 1회 기본값: mark 컬럼 + SD/DD/CD 세부 P/A/Δ 컬럼 + 부가 메타 컬럼은 숨김
     const defaults: VisibilityState = {};
     if (!("sd_mark" in cleaned)) defaults.sd_mark = false;
     if (!("dd_mark" in cleaned)) defaults.dd_mark = false;
     if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
+    const EXTRA_META = [
+      "confirmed_by", "document_class", "doc_class_code",
+      "stage_plan_sd", "stage_plan_dd", "stage_plan_cd",
+      "ifr_start_date", "ifr_issue_date", "ifc_start_date", "ifc_issue_date",
+    ];
+    for (const id of EXTRA_META) {
+      if (!(id in cleaned)) defaults[id] = false;
+    }
     columns.forEach((c: any) => {
       const id = c.id;
       if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/.test(id) && !(id in cleaned)) {
