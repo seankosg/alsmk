@@ -69,24 +69,28 @@ function classify(
 
 /**
  * SD는 항상 단일 done Pip (SD100). DD/CD는 정의된 마일스톤 기준.
+ * scope 가 주어지고 그 단계가 false 면 해당 단계는 "empty" 상태로 비활성 표시.
  */
 export function buildMdrProgressIconCells(
   milestones: MsRow[],
   progress: PgRow[],
   asOf: string,
+  scope?: { sd: boolean; dd: boolean; cd: boolean },
 ): MdrProgressIconCells {
   const find = (stage: MdrStage, pct: number) => ({
     ms: milestones.find((m) => m.stage === stage && m.pct === pct),
     pg: progress.find((p) => p.stage === stage && p.pct === pct),
   });
 
-  // SD: 100만, 항상 done
+  const sc = scope ?? { sd: true, dd: true, cd: true };
+
+  // SD: 100만, scope.sd 인 경우에만 done
   const sdFind = find("SD", 100);
   const sd: MdrPipCell = {
     stage: "SD",
     pct: 100,
     label: "SD",
-    state: "done",
+    state: sc.sd ? "done" : "empty",
     planDate: sdFind.ms?.plan_date ?? null,
     actualDate: sdFind.pg?.actual_date ?? null,
   };
@@ -108,9 +112,16 @@ export function buildMdrProgressIconCells(
     });
   };
 
-  const dd = buildSeq("DD", DD_PIP_PCTS, true); // SD 완료 간주
-  const dd100Done = dd[dd.length - 1]?.state === "done";
-  const cd = buildSeq("CD", CD_PIP_PCTS, dd100Done);
+  const buildEmpty = (stage: MdrStage, pcts: readonly number[]): MdrPipCell[] =>
+    pcts.map((p) => ({
+      stage, pct: p, label: `${stage}${p}`,
+      state: "empty" as MdrMilestoneState,
+      planDate: null, actualDate: null,
+    }));
+
+  const dd = sc.dd ? buildSeq("DD", DD_PIP_PCTS, sc.sd) : buildEmpty("DD", DD_PIP_PCTS);
+  const dd100Done = sc.dd && dd[dd.length - 1]?.state === "done";
+  const cd = sc.cd ? buildSeq("CD", CD_PIP_PCTS, dd100Done) : buildEmpty("CD", CD_PIP_PCTS);
 
   return { sd, dd, cd };
 }
