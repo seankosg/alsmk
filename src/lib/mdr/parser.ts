@@ -177,8 +177,8 @@ function parseSheet(
   const isIdentHeader = (c: number): boolean => {
     const t = cellStr(ws, headerRow, c);
     if (!t) return false;
-    // 식별 헤더만 경계로 인정 (DISCIPLINE/JOB/Area Code/Function Code/Serial/Activity Group/Drawing Title 등)
-    return detectColumnKey(t) !== null || /discipline|job|area|function|serial|activity|drawing|title|remark|status|note/i.test(t);
+    // 식별 헤더만 경계로 인정 (DISCIPLINE/Plant ID/PBS/FBS/SER.NO./Activity Group/Drawing Title 등, 구버전 헤더 포함)
+    return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note/i.test(t);
   };
 
   let c = noCol;
@@ -277,10 +277,10 @@ function parseSheet(
     const allZero = milestones.every((m) => m.incrementPct === 0);
 
     const itemNo = `${building}-${discipline}-${sourceNo}`;
-    const plantId = findVal("JOB");
-    const pbs = findVal("Area Code", "AREA");
-    const fbs = findVal("Function Code", "FUNCTION", "FUCTION", "FSB");
-    const serNo = findVal("Serial");
+    const plantId = findVal("Plant ID", "PLANT", "JOB");
+    const pbs = findVal("PBS", "Area Code", "AREA");
+    const fbs = findVal("FBS", "Function Code", "FUNCTION", "FUCTION");
+    const serNo = findVal("SER.NO.", "SER NO", "Serial No.", "Serial");
     const revRaw = findVal("REV", "REVISION");
     const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
     const baseTokens = [plantId, pbs, fbs, serNo];
