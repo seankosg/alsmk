@@ -7,10 +7,10 @@ export interface MdrExportDrawing {
   building: string;
   itemNo: string;
   discipline?: string;
-  jobNo?: string;
-  areaCode?: string;
-  functionCode?: string;
-  serialNo?: string;
+  plantId?: string;
+  pbs?: string;
+  fbs?: string;
+  serNo?: string;
   activityGroup?: string;
   drawingTitle?: string;
   outOfScope?: boolean;
