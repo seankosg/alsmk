@@ -495,6 +495,7 @@ export default function DesignImportLogs() {
                   <TableRow>
                     <TableHead className="text-xs w-16">Row#</TableHead>
                     <TableHead className="text-xs w-20">Sheet</TableHead>
+                    <TableHead className="text-xs">Doc No (base)</TableHead>
                     <TableHead className="text-xs">Item No</TableHead>
                     <TableHead className="text-xs">Source No</TableHead>
                     <TableHead className="text-xs">Title</TableHead>
@@ -504,21 +505,22 @@ export default function DesignImportLogs() {
                 </TableHeader>
                 <TableBody>
                   {rowsBusy ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
                   ) : rowLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         이 배치는 행 단위 상세 정보가 기록되지 않았습니다. (신규 import부터 적용됩니다)
                       </TableCell>
                     </TableRow>
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">조건에 맞는 행이 없습니다.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">조건에 맞는 행이 없습니다.</TableCell></TableRow>
                   ) : (
                     filtered.slice(0, renderLimit).map((r) => (
                       <TableRow key={r.id}>
                         <TableCell className="text-xs tabular-nums">{r.raw_row_no ?? "—"}</TableCell>
                         <TableCell className="text-xs">{r.source_sheet ?? "—"}</TableCell>
-                        <TableCell className="text-xs font-medium">{r.item_no ?? "—"}</TableCell>
+                        <TableCell className="text-xs font-mono">{r.doc_base ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{r.item_no ?? "—"}</TableCell>
                         <TableCell className="text-xs">{r.source_no ?? "—"}</TableCell>
                         <TableCell className="text-xs max-w-[360px] truncate" title={r.drawing_title ?? ""}>{r.drawing_title ?? "—"}</TableCell>
                         <TableCell>
