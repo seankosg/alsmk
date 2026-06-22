@@ -518,6 +518,9 @@ export type Database = {
           fbs: string | null
           id: string
           import_log_id: string | null
+          in_scope_cd: boolean
+          in_scope_dd: boolean
+          in_scope_sd: boolean
           item_no: string | null
           out_of_scope: boolean
           pbs: string | null
@@ -541,6 +544,9 @@ export type Database = {
           fbs?: string | null
           id?: string
           import_log_id?: string | null
+          in_scope_cd?: boolean
+          in_scope_dd?: boolean
+          in_scope_sd?: boolean
           item_no?: string | null
           out_of_scope?: boolean
           pbs?: string | null
@@ -564,6 +570,9 @@ export type Database = {
           fbs?: string | null
           id?: string
           import_log_id?: string | null
+          in_scope_cd?: boolean
+          in_scope_dd?: boolean
+          in_scope_sd?: boolean
           item_no?: string | null
           out_of_scope?: boolean
           pbs?: string | null

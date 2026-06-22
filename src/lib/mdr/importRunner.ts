@@ -187,6 +187,9 @@ export async function persistParsed(
           drawing_title: r.drawingTitle ?? null,
           plan_finish: r.planFinish ?? null,
           out_of_scope: r.outOfScope,
+          in_scope_sd: r.inScope.sd,
+          in_scope_dd: r.inScope.dd,
+          in_scope_cd: r.inScope.cd,
           source_sheet: r.sourceSheet,
           import_log_id: importLogId ?? null,
         } as any)
@@ -228,6 +231,9 @@ export async function persistParsed(
       drawing_title: row.drawingTitle ?? null,
       plan_finish: row.planFinish ?? null,
       out_of_scope: row.outOfScope,
+      in_scope_sd: row.inScope.sd,
+      in_scope_dd: row.inScope.dd,
+      in_scope_cd: row.inScope.cd,
       source_sheet: row.sourceSheet,
       import_log_id: importLogId ?? null,
     }));
@@ -283,6 +289,21 @@ export async function persistParsed(
       ]);
       if (mErr) throw mErr;
       if (pErr) throw pErr;
+    }
+    // in_scope_* / out_of_scope / plan_finish 같은 셀 단위 필드도 재임포트로 백필.
+    for (const p of skipSameRevPlans) {
+      const ex = p.existing!;
+      const r = p.row;
+      await (supabase.from("mdr_drawings" as never) as any)
+        .update({
+          in_scope_sd: r.inScope.sd,
+          in_scope_dd: r.inScope.dd,
+          in_scope_cd: r.inScope.cd,
+          out_of_scope: r.outOfScope,
+          plan_finish: r.planFinish ?? null,
+          source_sheet: r.sourceSheet,
+        } as any)
+        .eq("id", ex.id);
     }
     // 새 파싱 결과로 재삽입
     const msResync: any[] = [];
