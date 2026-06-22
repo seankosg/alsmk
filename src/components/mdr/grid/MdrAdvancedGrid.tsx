@@ -200,11 +200,19 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => pruneRecord(persisted.columnSizing));
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
     const cleaned = pruneRecord(persisted.columnVisibility);
-    // 최초 1회 기본값: mark 컬럼 + SD/DD/CD 세부 P/A/Δ 컬럼은 숨김 (Progress 아이콘으로 대체)
+    // 최초 1회 기본값: mark 컬럼 + SD/DD/CD 세부 P/A/Δ 컬럼 + 부가 메타 컬럼은 숨김
     const defaults: VisibilityState = {};
     if (!("sd_mark" in cleaned)) defaults.sd_mark = false;
     if (!("dd_mark" in cleaned)) defaults.dd_mark = false;
     if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
+    const EXTRA_META = [
+      "confirmed_by", "document_class", "doc_class_code",
+      "stage_plan_sd", "stage_plan_dd", "stage_plan_cd",
+      "ifr_start_date", "ifr_issue_date", "ifc_start_date", "ifc_issue_date",
+    ];
+    for (const id of EXTRA_META) {
+      if (!(id in cleaned)) defaults[id] = false;
+    }
     columns.forEach((c: any) => {
       const id = c.id;
       if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/.test(id) && !(id in cleaned)) {
