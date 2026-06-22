@@ -440,6 +440,88 @@ export function buildMdrColumns(
       filterFn: dateRangeFilterFn,
       meta: { filterType: "date-range" },
     },
+    // ===== 부가 메타 컬럼 (기본 숨김, 컬럼 토글로 표시) =====
+    {
+      accessorKey: "confirmed_by", header: "Confirmed By", size: 110,
+      cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
+    },
+    {
+      accessorKey: "document_class", header: "Document Class", size: 130,
+      cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
+    },
+    {
+      accessorKey: "doc_class_code", header: "분류 코드", size: 110,
+      cell: ({ getValue }) => <span className="font-mono">{(getValue() as string) ?? "-"}</span>,
+      filterFn: textFilterFn,
+      meta: { filterType: "text" },
+    },
+    {
+      accessorKey: "stage_plan_sd", header: "SD Plan", size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
+      },
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+    },
+    {
+      accessorKey: "stage_plan_dd", header: "DD Plan", size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
+      },
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+    },
+    {
+      accessorKey: "stage_plan_cd", header: "CD Plan", size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
+      },
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+    },
+    {
+      accessorKey: "ifr_start_date", header: "IFR Start", size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
+      },
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+    },
+    {
+      accessorKey: "ifr_issue_date", header: "IFR Issue", size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
+      },
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+    },
+    {
+      accessorKey: "ifc_start_date", header: "IFC Start", size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
+      },
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+    },
+    {
+      accessorKey: "ifc_issue_date", header: "IFC Issue", size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
+      },
+      filterFn: dateRangeFilterFn,
+      meta: { filterType: "date-range" },
+    },
   ];
 }
 
