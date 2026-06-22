@@ -257,16 +257,46 @@ function parseSheet(
     cols: g.cols,
   }));
 
-  // SD/DD/CD 단계 범위(scope) 컬럼 — headerRow에서 정확히 "SD"/"DD"/"CD" 텍스트 셀.
-  // 마일스톤 라벨(SD50%, DD30% 등)과 구분하기 위해 % 미포함 + 단독 텍스트만 인식.
+  // SD/DD/CD 단계 범위(scope) 컬럼 — headerRow에서 "SD"/"DD"/"CD" 또는 "SD Stage"/"DD Stage"/"CD Stage".
+  // 마일스톤 라벨(SD50%, DD30% 등)과 구분하기 위해 % 미포함만 인식.
   // 첫 마일스톤 컬럼 시작 이전 범위에서만 탐색.
   const firstMsCol = milestoneCols.length ? Math.min(...milestoneCols.map((m) => m.col)) : maxCol + 1;
   const scopeCols: { sd?: number; dd?: number; cd?: number } = {};
+  const stagePlanCols: { sd?: number; dd?: number; cd?: number } = {};
   for (let cc = noCol; cc < firstMsCol; cc++) {
-    const t = cellStr(ws, headerRow, cc).trim().toUpperCase();
-    if (t === "SD" && scopeCols.sd === undefined) scopeCols.sd = cc;
-    else if (t === "DD" && scopeCols.dd === undefined) scopeCols.dd = cc;
-    else if (t === "CD" && scopeCols.cd === undefined) scopeCols.cd = cc;
+    const t = cellStr(ws, headerRow, cc).trim().toUpperCase().replace(/\s+/g, " ");
+    if ((t === "SD" || t === "SD STAGE") && scopeCols.sd === undefined) { scopeCols.sd = cc; stagePlanCols.sd = cc; }
+    else if ((t === "DD" || t === "DD STAGE") && scopeCols.dd === undefined) { scopeCols.dd = cc; stagePlanCols.dd = cc; }
+    else if ((t === "CD" || t === "CD STAGE") && scopeCols.cd === undefined) { scopeCols.cd = cc; stagePlanCols.cd = cc; }
+  }
+
+  // 부가 메타 컬럼 탐지 (Confirmed By, Document Class, 문서분류체계 코드, Plan Date IFR/IFI/IFC)
+  // - headerRow(r4)에 "Plan Date", "Confirmed By", "Document Class", "문서분류" 등 라벨.
+  // - headerRow+1(r5)에 "IFR/IFI", "IFC", "코드" 그룹 라벨.
+  // - planDateRow(r7)에 "Start Date" / "Issue Date" 페어 구분.
+  const extraCols: {
+    confirmedBy?: number;
+    documentClass?: number;
+    docClassCode?: number;
+    ifrStart?: number;
+    ifrIssue?: number;
+    ifcStart?: number;
+    ifcIssue?: number;
+  } = {};
+  for (let c = noCol; c <= maxCol; c++) {
+    const h4 = cellStr(ws, headerRow, c).toLowerCase().replace(/\s+/g, " ").trim();
+    const h5 = cellStr(ws, headerRow + 1, c).toLowerCase().replace(/\s+/g, " ").trim();
+    const h7 = cellStr(ws, planDateRow, c).toLowerCase().replace(/\s+/g, " ").trim();
+    if (h4.includes("confirmed") && extraCols.confirmedBy === undefined) extraCols.confirmedBy = c;
+    if (h4.includes("document class") && extraCols.documentClass === undefined) extraCols.documentClass = c;
+    if ((h4.includes("문서분류") || h5 === "코드" || h4 === "코드") && extraCols.docClassCode === undefined) extraCols.docClassCode = c;
+    if (/ifr\/?ifi/i.test(h5) || /ifr\/?ifi/i.test(h4)) {
+      if (h7.includes("issue") && extraCols.ifrIssue === undefined) extraCols.ifrIssue = c;
+      else if (extraCols.ifrStart === undefined) extraCols.ifrStart = c;
+    } else if (/^ifc/i.test(h5) || /^ifc/i.test(h4)) {
+      if (h7.includes("issue") && extraCols.ifcIssue === undefined) extraCols.ifcIssue = c;
+      else if (extraCols.ifcStart === undefined) extraCols.ifcStart = c;
+    }
   }
 
   // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
