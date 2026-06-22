@@ -39,6 +39,16 @@ export interface MdrDrawingRow {
   drawing_title: string | null;
   plan_finish: string | null;
   updated_at: string | null;
+  confirmed_by: string | null;
+  ifr_start_date: string | null;
+  ifr_issue_date: string | null;
+  ifc_start_date: string | null;
+  ifc_issue_date: string | null;
+  document_class: string | null;
+  doc_class_code: string | null;
+  stage_plan_sd: string | null;
+  stage_plan_dd: string | null;
+  stage_plan_cd: string | null;
   sd_mark: string;
   dd_mark: string;
   cd_mark: string;
