@@ -243,6 +243,18 @@ function parseSheet(
     cols: g.cols,
   }));
 
+  // SD/DD/CD 단계 범위(scope) 컬럼 — headerRow에서 정확히 "SD"/"DD"/"CD" 텍스트 셀.
+  // 마일스톤 라벨(SD50%, DD30% 등)과 구분하기 위해 % 미포함 + 단독 텍스트만 인식.
+  // 첫 마일스톤 컬럼 시작 이전 범위에서만 탐색.
+  const firstMsCol = milestoneCols.length ? Math.min(...milestoneCols.map((m) => m.col)) : maxCol + 1;
+  const scopeCols: { sd?: number; dd?: number; cd?: number } = {};
+  for (let cc = noCol; cc < firstMsCol; cc++) {
+    const t = cellStr(ws, headerRow, cc).trim().toUpperCase();
+    if (t === "SD" && scopeCols.sd === undefined) scopeCols.sd = cc;
+    else if (t === "DD" && scopeCols.dd === undefined) scopeCols.dd = cc;
+    else if (t === "CD" && scopeCols.cd === undefined) scopeCols.cd = cc;
+  }
+
   // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
   const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
   const dataStartRow = hasPlanDates ? planDateRow + 1 : incrementRow + 1;
