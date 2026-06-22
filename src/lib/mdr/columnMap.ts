@@ -54,6 +54,14 @@ const HEADER_ALIASES: Record<string, MdrColumnKey> = {
   "ser no.": "serNo",
   "ser no": "serNo",
   "ser.no": "serNo",
+  "confirmed\nby": "confirmedBy",
+  "ifr/ifi start date": "ifrStart",
+  "ifr/ifi issue date": "ifrIssue",
+  "ifc start date": "ifcStart",
+  "ifc issue date": "ifcIssue",
+  "document class": "documentClass",
+  "문서분류체계": "docClassCode",
+  "코드": "docClassCode",
 };
 
 /** 시트 셀에서 헤더 텍스트로 컬럼 키를 추정 */
