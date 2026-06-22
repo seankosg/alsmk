@@ -194,6 +194,7 @@ export async function persistParsed(
           plan_finish: r.planFinish ?? null,
           out_of_scope: r.outOfScope,
           source_sheet: r.sourceSheet,
+          import_log_id: importLogId ?? null,
         } as any)
         .eq("id", ex.id);
       if (uErr) throw uErr;
