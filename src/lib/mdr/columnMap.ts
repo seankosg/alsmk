@@ -16,7 +16,8 @@ export interface MdrColumnDef {
 export const MDR_COLUMN_MAP = {
   no:            { header: "No.",            source: "original_a" },
   building:      { header: "Building",       source: "app_generated", preserveOnReimport: true },
-  itemNo:        { header: "Item No.",       source: "app_generated", preserveOnReimport: true, key: true },
+  docNo:         { header: "Doc No.",        source: "app_generated", preserveOnReimport: true, key: true },
+  itemNo:        { header: "Item No.",       source: "app_generated", preserveOnReimport: true },
   discipline:    { header: "DISCIPLINE",     source: "original" },
   plantId:       { header: "Plant ID",       source: "original" },
   pbs:           { header: "PBS",            source: "original" },

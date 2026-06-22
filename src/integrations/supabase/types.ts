@@ -438,7 +438,7 @@ export type Database = {
           actual_finish: string | null
           building_code: string
           created_at: string
-          doc_base: string | null
+          doc_base: string
           doc_no: string | null
           drawing_id: string
           drawing_title: string | null
@@ -456,7 +456,7 @@ export type Database = {
           actual_finish?: string | null
           building_code: string
           created_at?: string
-          doc_base?: string | null
+          doc_base: string
           doc_no?: string | null
           drawing_id: string
           drawing_title?: string | null
@@ -474,7 +474,7 @@ export type Database = {
           actual_finish?: string | null
           building_code?: string
           created_at?: string
-          doc_base?: string | null
+          doc_base?: string
           doc_no?: string | null
           drawing_id?: string
           drawing_title?: string | null
@@ -512,7 +512,7 @@ export type Database = {
           building_code: string
           created_at: string
           discipline: string
-          doc_base: string | null
+          doc_base: string
           doc_no: string | null
           drawing_title: string | null
           fbs: string | null
@@ -522,6 +522,10 @@ export type Database = {
           in_scope_dd: boolean
           in_scope_sd: boolean
           item_no: string | null
+          missing_fbs: boolean
+          missing_pbs: boolean
+          missing_plant_id: boolean
+          missing_ser_no: boolean
           out_of_scope: boolean
           pbs: string | null
           plan_finish: string | null
@@ -538,7 +542,7 @@ export type Database = {
           building_code: string
           created_at?: string
           discipline: string
-          doc_base?: string | null
+          doc_base: string
           doc_no?: string | null
           drawing_title?: string | null
           fbs?: string | null
@@ -548,6 +552,10 @@ export type Database = {
           in_scope_dd?: boolean
           in_scope_sd?: boolean
           item_no?: string | null
+          missing_fbs?: boolean
+          missing_pbs?: boolean
+          missing_plant_id?: boolean
+          missing_ser_no?: boolean
           out_of_scope?: boolean
           pbs?: string | null
           plan_finish?: string | null
@@ -564,7 +572,7 @@ export type Database = {
           building_code?: string
           created_at?: string
           discipline?: string
-          doc_base?: string | null
+          doc_base?: string
           doc_no?: string | null
           drawing_title?: string | null
           fbs?: string | null
@@ -574,6 +582,10 @@ export type Database = {
           in_scope_dd?: boolean
           in_scope_sd?: boolean
           item_no?: string | null
+          missing_fbs?: boolean
+          missing_pbs?: boolean
+          missing_plant_id?: boolean
+          missing_ser_no?: boolean
           out_of_scope?: boolean
           pbs?: string | null
           plan_finish?: string | null
@@ -644,6 +656,7 @@ export type Database = {
         Row: {
           action: string
           created_at: string
+          doc_base: string | null
           drawing_title: string | null
           id: string
           import_log_id: string
@@ -656,6 +669,7 @@ export type Database = {
         Insert: {
           action: string
           created_at?: string
+          doc_base?: string | null
           drawing_title?: string | null
           id?: string
           import_log_id: string
@@ -668,6 +682,7 @@ export type Database = {
         Update: {
           action?: string
           created_at?: string
+          doc_base?: string | null
           drawing_title?: string | null
           id?: string
           import_log_id?: string

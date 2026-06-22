@@ -31,6 +31,10 @@ export interface MdrDrawingRow {
   pbs: string | null;
   fbs: string | null;
   ser_no: string | null;
+  missing_plant_id: boolean;
+  missing_pbs: boolean;
+  missing_fbs: boolean;
+  missing_ser_no: boolean;
   activity_group: string | null;
   drawing_title: string | null;
   plan_finish: string | null;
@@ -237,14 +241,49 @@ export function buildMdrColumns(
       meta: { filterType: "multi-select", filterOptions: [] },
     },
     {
-      accessorKey: "doc_no", header: "Doc No.", size: 200,
+      accessorKey: "doc_no", header: "Doc No.", size: 220,
       sortingFn: naturalSort,
       cell: ({ row, getValue }) => {
         const v = (getValue() as string) ?? "-";
-        const rev = row.original.rev;
+        const r = row.original;
+        const rev = r.rev;
+        // doc_no = doc_base + "-" + rev; doc_base = plant-pbs-fbs-ser (4 segments)
+        // Rev 부분을 잘라낸 뒤 4개 토큰으로 split하여 누락 토큰만 붉게 표시.
+        const base = r.doc_base ?? "";
+        const tokens = base.split("-");
+        const labels = ["Plant ID", "PBS", "FBS", "Ser No."];
+        const missing = [r.missing_plant_id, r.missing_pbs, r.missing_fbs, r.missing_ser_no];
+        const showSegmented = !base.startsWith("__UNKNOWN__") && tokens.length === 4;
         return (
-          <span className="font-mono inline-flex items-center gap-1">
-            {v}
+          <span className="font-mono inline-flex items-center gap-1 flex-wrap">
+            {showSegmented ? (
+              <span className="inline-flex items-center">
+                {tokens.map((t, i) => (
+                  <span key={i} className="inline-flex items-center">
+                    {missing[i] ? (
+                      <span
+                        className="bg-destructive/20 text-destructive px-1 rounded border border-destructive/40"
+                        title={`${labels[i]} 누락 — 엑셀에서 보완 필요`}
+                      >
+                        ⚠
+                      </span>
+                    ) : (
+                      <span>{t}</span>
+                    )}
+                    {i < tokens.length - 1 && <span className="text-muted-foreground">-</span>}
+                  </span>
+                ))}
+                <span className="text-muted-foreground">-</span>
+                <span>{rev ?? "0"}</span>
+              </span>
+            ) : (
+              <span
+                className={base.startsWith("__UNKNOWN__") ? "bg-destructive/20 text-destructive px-1 rounded" : ""}
+                title={base.startsWith("__UNKNOWN__") ? "도면번호 4개 토큰 모두 누락" : undefined}
+              >
+                {v}
+              </span>
+            )}
             {rev && rev !== "0" && (
               <span className="text-[10px] px-1 rounded bg-primary/15 text-primary">Rev {rev}</span>
             )}

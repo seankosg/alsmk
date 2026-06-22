@@ -36,6 +36,7 @@ interface RowLog {
   item_no: string | null;
   source_no: string | null;
   drawing_title: string | null;
+  doc_base: string | null;
   action: RowAction;
   reason: string | null;
 }
@@ -137,7 +138,7 @@ export default function DesignImportLogs() {
     setRenderLimit(500);
     const { data, error } = await supabase
       .from("mdr_import_row_logs" as never)
-      .select("id, source_sheet, raw_row_no, item_no, source_no, drawing_title, action, reason")
+      .select("id, source_sheet, raw_row_no, item_no, source_no, drawing_title, doc_base, action, reason")
       .eq("import_log_id", batchId)
       .order("raw_row_no", { ascending: true })
       .limit(50000);
@@ -151,11 +152,11 @@ export default function DesignImportLogs() {
     setRowsBusy(false);
   };
 
-  /** 이 batch의 row logs에서 inserted/rev_updated item_no 목록 추출 */
+  /** 이 batch의 row logs에서 inserted/rev_updated doc_base 목록 추출 */
   const fetchBatchScope = async (batchId: string, buildingCode: string | null) => {
     const { data, error } = await supabase
       .from("mdr_import_row_logs" as never)
-      .select("item_no, action")
+      .select("doc_base, action")
       .eq("import_log_id", batchId)
       .in("action", ["inserted", "rev_updated"])
       .limit(50000);
@@ -163,9 +164,9 @@ export default function DesignImportLogs() {
     const inserted: string[] = [];
     const revUpdated: string[] = [];
     for (const r of (data as any[]) ?? []) {
-      if (!r.item_no) continue;
-      if (r.action === "inserted") inserted.push(r.item_no);
-      else if (r.action === "rev_updated") revUpdated.push(r.item_no);
+      if (!r.doc_base) continue;
+      if (r.action === "inserted") inserted.push(r.doc_base);
+      else if (r.action === "rev_updated") revUpdated.push(r.doc_base);
     }
     return { inserted, revUpdated, buildingCode };
   };
@@ -182,7 +183,7 @@ export default function DesignImportLogs() {
           const { error } = await (supabase.from("mdr_drawings" as never) as any)
             .delete()
             .eq("building_code", buildingCode)
-            .in("item_no", chunk);
+            .in("doc_base", chunk);
           if (error) throw error;
         }
       }
@@ -286,7 +287,7 @@ export default function DesignImportLogs() {
       if (actionFilter !== "all" && r.action !== actionFilter) return false;
       if (sheetFilter !== "all" && r.source_sheet !== sheetFilter) return false;
       if (q) {
-        const hay = `${r.item_no ?? ""} ${r.source_no ?? ""} ${r.drawing_title ?? ""}`.toLowerCase();
+        const hay = `${r.item_no ?? ""} ${r.source_no ?? ""} ${r.doc_base ?? ""} ${r.drawing_title ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -494,6 +495,7 @@ export default function DesignImportLogs() {
                   <TableRow>
                     <TableHead className="text-xs w-16">Row#</TableHead>
                     <TableHead className="text-xs w-20">Sheet</TableHead>
+                    <TableHead className="text-xs">Doc No (base)</TableHead>
                     <TableHead className="text-xs">Item No</TableHead>
                     <TableHead className="text-xs">Source No</TableHead>
                     <TableHead className="text-xs">Title</TableHead>
@@ -503,21 +505,22 @@ export default function DesignImportLogs() {
                 </TableHeader>
                 <TableBody>
                   {rowsBusy ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
                   ) : rowLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         이 배치는 행 단위 상세 정보가 기록되지 않았습니다. (신규 import부터 적용됩니다)
                       </TableCell>
                     </TableRow>
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">조건에 맞는 행이 없습니다.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">조건에 맞는 행이 없습니다.</TableCell></TableRow>
                   ) : (
                     filtered.slice(0, renderLimit).map((r) => (
                       <TableRow key={r.id}>
                         <TableCell className="text-xs tabular-nums">{r.raw_row_no ?? "—"}</TableCell>
                         <TableCell className="text-xs">{r.source_sheet ?? "—"}</TableCell>
-                        <TableCell className="text-xs font-medium">{r.item_no ?? "—"}</TableCell>
+                        <TableCell className="text-xs font-mono">{r.doc_base ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{r.item_no ?? "—"}</TableCell>
                         <TableCell className="text-xs">{r.source_no ?? "—"}</TableCell>
                         <TableCell className="text-xs max-w-[360px] truncate" title={r.drawing_title ?? ""}>{r.drawing_title ?? "—"}</TableCell>
                         <TableCell>
