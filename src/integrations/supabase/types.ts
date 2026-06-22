@@ -510,13 +510,20 @@ export type Database = {
           activity_group: string | null
           actual_finish: string | null
           building_code: string
+          confirmed_by: string | null
           created_at: string
           discipline: string
           doc_base: string
+          doc_class_code: string | null
           doc_no: string | null
+          document_class: string | null
           drawing_title: string | null
           fbs: string | null
           id: string
+          ifc_issue_date: string | null
+          ifc_start_date: string | null
+          ifr_issue_date: string | null
+          ifr_start_date: string | null
           import_log_id: string | null
           in_scope_cd: boolean
           in_scope_dd: boolean
@@ -534,19 +541,29 @@ export type Database = {
           ser_no: string | null
           source_no: string
           source_sheet: string | null
+          stage_plan_cd: string | null
+          stage_plan_dd: string | null
+          stage_plan_sd: string | null
           updated_at: string
         }
         Insert: {
           activity_group?: string | null
           actual_finish?: string | null
           building_code: string
+          confirmed_by?: string | null
           created_at?: string
           discipline: string
           doc_base: string
+          doc_class_code?: string | null
           doc_no?: string | null
+          document_class?: string | null
           drawing_title?: string | null
           fbs?: string | null
           id?: string
+          ifc_issue_date?: string | null
+          ifc_start_date?: string | null
+          ifr_issue_date?: string | null
+          ifr_start_date?: string | null
           import_log_id?: string | null
           in_scope_cd?: boolean
           in_scope_dd?: boolean
@@ -564,19 +581,29 @@ export type Database = {
           ser_no?: string | null
           source_no: string
           source_sheet?: string | null
+          stage_plan_cd?: string | null
+          stage_plan_dd?: string | null
+          stage_plan_sd?: string | null
           updated_at?: string
         }
         Update: {
           activity_group?: string | null
           actual_finish?: string | null
           building_code?: string
+          confirmed_by?: string | null
           created_at?: string
           discipline?: string
           doc_base?: string
+          doc_class_code?: string | null
           doc_no?: string | null
+          document_class?: string | null
           drawing_title?: string | null
           fbs?: string | null
           id?: string
+          ifc_issue_date?: string | null
+          ifc_start_date?: string | null
+          ifr_issue_date?: string | null
+          ifr_start_date?: string | null
           import_log_id?: string | null
           in_scope_cd?: boolean
           in_scope_dd?: boolean
@@ -594,6 +621,9 @@ export type Database = {
           ser_no?: string | null
           source_no?: string
           source_sheet?: string | null
+          stage_plan_cd?: string | null
+          stage_plan_dd?: string | null
+          stage_plan_sd?: string | null
           updated_at?: string
         }
         Relationships: [

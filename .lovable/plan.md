@@ -1,111 +1,94 @@
-# Doc No 자연키 전환 — 영향 로직 전수 검토 및 계획 (v2)
+## 누락 엑셀 컬럼 전체 보존 — 구현 플랜
 
-## 1. 식별자 정의
+선택: **옵션 3 (전체 보존)**. 매핑 누락된 12개 헤더를 `mdr_drawings`에 영구 저장하고, 그리드 표시 및 재임포트 왕복(round-trip) 호환성을 보장합니다.
 
-- **자연키 = `doc_base`** (= Plant-PBS-FBS-SerNo, Rev 제외). UI 표기는 `doc_no = doc_base-rev`.
-- **고유 범위 = `(building_code, doc_base)`**.
-- Rev 비교 정책(skip_same_rev / rev_update / 이력 스냅샷)은 그대로, 비교 키만 교체.
-- `item_no`는 호환·검색용 보조 컬럼 (제거하지 않음, UNIQUE 아님).
+### 1. 데이터베이스 마이그레이션
 
-DB는 현재 비어 있어 데이터 마이그레이션 부담 없음. 6개 파일 재임포트로 채움.
+`mdr_drawings`에 컬럼 추가 (모두 NULLABLE, 기존 행은 NULL):
 
-## 2. ★ 토큰 누락 행 처리 정책 (변경됨)
+| 컬럼 | 타입 | 출처 헤더 |
+|---|---|---|
+| `confirmed_by` | TEXT | `Confirmed By` |
+| `ifr_start_date` | DATE | `Plan Date > IFR/IFI > Start Date` |
+| `ifr_issue_date` | DATE | `Plan Date > IFR/IFI > Issue Date` |
+| `ifc_start_date` | DATE | `Plan Date > IFC > Start Date` |
+| `ifc_issue_date` | DATE | `Plan Date > IFC > Issue Date` |
+| `document_class` | TEXT | `Document Class` |
+| `doc_class_code` | TEXT | `문서분류체계 > 코드` |
+| `stage_plan_sd` | DATE | `SD Stage` 헤더의 통합 Plan 날짜 (행7) |
+| `stage_plan_dd` | DATE | `DD Stage` 헤더의 통합 Plan 날짜 |
+| `stage_plan_cd` | DATE | `CD Stage` 헤더의 통합 Plan 날짜 |
 
-**모든 행은 Import 한다.** Plant/PBS/FBS/Ser No. 중 일부가 비거나 TBD/N/A여도 행을 거부하지 않는다.
+`TBD`/공백은 NULL 저장. 마이그레이션은 GRANT/RLS 변경 없음 (기존 정책 그대로 적용).
 
-- 누락 토큰은 빈 문자열 `""`로 보관 (placeholder는 빈칸으로 정규화).
-- `doc_base`는 **빈 토큰 포함 그대로 join**해서 생성. 예: `JOB1--FBS3-SER9` (PBS 누락) → 그래도 식별자로 사용.
-- `doc_no` = `doc_base-rev` 동일 규칙.
-- UI(그리드/Doc No 셀)에서 **빈 토큰 위치를 붉은색 배경 + "⚠" 마크**로 표시해 사용자 주의를 유도.
+### 2. `parser.ts`
 
-이렇게 하면:
-- 사용자가 엑셀에서 누락분을 채우고 재임포트하면 동일 `doc_base`(또는 변경된 경우 신규 도면)로 자동 처리됨.
-- 단점: 같은 빌딩 내 여러 행이 동일하게 토큰을 누락하면 같은 `doc_base`로 충돌 → UNIQUE 위반. 이 경우는 import 시 **명시적 에러**로 분리해 사용자에게 행 번호와 함께 안내.
+- `MdrParsedRow`에 위 10개 필드 추가 (모두 optional).
+- 헤더 탐지:
+  - `Confirmed By` / `Document Class` / `문서분류체계` / `코드` → `findVal()` 후보 확장.
+  - `Plan Date` 그룹: 행4 `Plan Date` 병합 셀 + 행5 `IFR/IFI` `IFC` + 행7 `Start Date`/`Issue Date` 4쌍을 좌→우 순서로 컬럼 인덱싱.
+  - `SD Stage`/`DD Stage`/`CD Stage`: 행4 헤더 텍스트 매칭 → 행7 셀의 날짜를 `stage_plan_*`으로 저장. (부수적으로 scope 컬럼 인식도 `"SD"|"SD STAGE"` 양쪽 허용으로 확장.)
+- `parseDate()` 재사용, 문자열 `TBD/-` 등은 undefined.
 
-## 3. 영향 받는 기존 로직 (수정 대상 전수)
+### 3. `columnMap.ts`
 
-### A. 파서 — `src/lib/mdr/parser.ts`
-- placeholder 정규화는 유지 (`TBD/N/A/-` 등 → 빈 문자열).
-- `docBase`는 빈 토큰 포함 항상 생성. 단, 4개가 모두 비어 있으면 `null`로 두고 `errors[]`에 기록.
-- 행 단위 메타 `missingTokens: { plantId, pbs, fbs, serNo }` boolean 4개를 `MdrParsedRow`에 추가 → UI 하이라이트 근거.
-- 같은 시트 내 `doc_base` 중복은 errors가 아니라 경고 리스트로 보관(첫 행만 insert, 이후는 skipped_duplicate로 분리).
+새 키 추가 (모두 `source: "original"`, `preserveOnReimport: true`):
 
-### B. Importer — `src/lib/mdr/importRunner.ts`
-- 매칭/중복 키 `item_no` → `doc_base` 교체.
-- insert/update 페이로드에 **누락 플래그 4개 컬럼**(`missing_plant_id`, `missing_pbs`, `missing_fbs`, `missing_ser_no` boolean) 포함.
-- 파일 간 doc_base 충돌(다른 source_sheet/raw_row인데 동일 `(building, doc_base)`)은 DB UNIQUE 위반 → catch 후 rowLogs에 `skipped_existing` + reason "doc_base 중복 (이전 행과 동일 식별자)" 로 기록.
+```ts
+confirmedBy:     { header: "Confirmed By",        source: "original", preserveOnReimport: true }
+ifrStart:        { header: "IFR/IFI Start Date",  source: "original", preserveOnReimport: true }
+ifrIssue:        { header: "IFR/IFI Issue Date",  source: "original", preserveOnReimport: true }
+ifcStart:        { header: "IFC Start Date",      source: "original", preserveOnReimport: true }
+ifcIssue:        { header: "IFC Issue Date",      source: "original", preserveOnReimport: true }
+documentClass:   { header: "Document Class",      source: "original", preserveOnReimport: true }
+docClassCode:    { header: "문서분류체계 코드",    source: "original", preserveOnReimport: true }
+stagePlanSd:     { header: "SD Stage Plan",       source: "app_generated", preserveOnReimport: true }
+stagePlanDd:     { header: "DD Stage Plan",       source: "app_generated", preserveOnReimport: true }
+stagePlanCd:     { header: "CD Stage Plan",       source: "app_generated", preserveOnReimport: true }
+```
 
-### C. 컬럼 매핑·exporter — `src/lib/mdr/columnMap.ts`, `src/lib/mdr/exporter.ts`
-- `itemNo.key: true` → `false`. `docBase` 또는 `docNo`에 `key: true`.
-- exporter 컬럼 순서 검토 (Doc No 우선).
+HEADER_ALIASES에 `"ifr/ifi start date"`, `"ifc start date"`, `"코드"` 등 변형 추가.
 
-### D. 행 로그 페이지 — `src/pages/DesignImportLogs.tsx`
-- `mdr_import_row_logs.doc_base TEXT` 컬럼 추가(마이그 H에 포함).
-- 행 로그 insert 시 `doc_base` 동시 저장.
-- 역조회 쿼리: `.in("doc_base", chunk)` + `building_code` 필터.
-- 테이블에 "Doc No." 열 추가. 검색 hay에 `doc_base/doc_no` 포함.
+### 4. `importRunner.ts`
 
-### E. 그리드 — `src/components/mdr/grid/columns.tsx`, `MdrAdvancedGrid.tsx`
-- Doc No 컬럼을 최우선 식별 컬럼으로 배치 + 기본 정렬 키 변경 검토.
-- **Doc No 셀 렌더러**: `missing_*` 플래그가 true인 토큰 위치에 붉은색 배경(`bg-destructive/20 text-destructive`) + Tooltip "PBS 누락 — 엑셀에서 보완 필요" 표시.
-- export 라벨 매핑에서 Doc No 우선.
+- INSERT/UPDATE payload에 새 10개 컬럼 매핑 (snake_case).
+- 변경 없는 행 식별 로직(`isUnchanged`)에 새 필드도 포함 → 진정한 변화만 update.
 
-### F. Bulk 작업 — `MdrBulkActionBar.tsx`
-- 미리보기 표 식별자 컬럼을 `item_no` → `doc_no` (병기 가능). 로직 자체는 uuid 기반이라 무관.
+### 5. `exporter.ts`
 
-### G. 이력 테이블 — `mdr_drawing_revisions`
-- 이미 `doc_base` 컬럼 보유. 단, 도면 본 테이블이 `doc_base NOT NULL`이 되므로 이력 테이블도 동일 강화 + `(building_code, doc_base, rev)` 보조 인덱스.
+- 신규 컬럼이 템플릿에 이미 존재하면 값만 patch.
+- 없으면 우측 끝에 헤더 추가 후 값 작성 (Building/Item No 추가 로직과 동일 패턴).
+- 재임포트 시 `detectColumnKey`가 다시 인식하도록 헤더 텍스트 통일.
 
-### H. DB 스키마 마이그레이션 1건
-- `mdr_drawings.doc_base NOT NULL` (현재 DB 비어 있어 안전).
-- 기존 `(building_code, item_no)` UNIQUE 인덱스 DROP, 비고유 인덱스로 재생성.
-- `(building_code, doc_base)` UNIQUE 인덱스 **전체 UNIQUE**로 재생성(부분 조건 제거).
-- `mdr_drawings`에 누락 플래그 4컬럼 추가:
-  `missing_plant_id boolean NOT NULL DEFAULT false`,
-  `missing_pbs boolean NOT NULL DEFAULT false`,
-  `missing_fbs boolean NOT NULL DEFAULT false`,
-  `missing_ser_no boolean NOT NULL DEFAULT false`.
-- `mdr_import_row_logs.doc_base TEXT` 컬럼 추가.
+### 6. 그리드 (`columns.tsx`, `MdrDrawingRow`)
 
-### I. Import UI — `ImportShell.tsx` / `useMdrImporter.ts`
-- 파서 결과의 `errors[]`(4토큰 모두 결측 등)와 `missingTokens` 통계를 import 사전 미리보기에 표시:
-  "PBS 누락 12행, FBS 누락 3행" 같은 요약. Import는 진행 가능.
-- import 완료 후 결과 토스트에 "주의가 필요한 도면 N건" 링크 → Doc No 누락 필터로 그리드 이동.
+- `MdrDrawingRow` 인터페이스에 10개 필드 추가.
+- 신규 컬럼 정의 (기본 숨김 처리 가능하도록 `meta: { hideByDefault: true }` 추가 — 사용자가 컬럼 토글로 표시):
+  - `Confirmed By`, `Document Class`, `Doc Class Code` — 텍스트 필터
+  - `IFR Start/Issue`, `IFC Start/Issue`, `SD/DD/CD Plan` — 날짜 범위 필터
+- 기본 표시되는 컬럼 순서는 변경하지 않음 (오른쪽 끝에 추가).
 
-### J. 외부 참조
-- `mdr_milestones/progress`는 `drawing_id`(uuid) FK라 영향 없음.
+### 7. `useGridStatePersistence.ts`
 
-## 4. 영향 받지 **않는** 로직
+- 신규 컬럼 ID가 저장된 visibility 상태와 충돌하지 않도록 기본 hidden 보장.
 
-- progressEngine, summaryEngine, weights: drawing row 객체 단위로 동작.
-- CPM, Tasks, Auth, Messaging 등 MDR 외 모든 모듈.
+### 8. 영향 없음 (확인)
 
-## 5. 실행 순서
+- `progressEngine`, `summaryEngine`, `weights`, `mdr_progress`, `mdr_snapshots`, CPM, 메시징, 권한 정책 — 변경 없음.
+- 기존 행의 NULL 컬럼은 그리드에서 `-`로 표시.
 
-1. 마이그레이션 H 적용.
-2. `parser.ts`: missingTokens / 항상-doc_base 생성으로 수정.
-3. `importRunner.ts`: 매칭 키 doc_base 교체, missing_* 페이로드, doc_base 중복 catch.
-4. `columnMap.ts`/`exporter.ts`: key 플래그 교체.
-5. `DesignImportLogs.tsx`: 역조회·UI 갱신.
-6. 그리드: Doc No 우선 + **빈 토큰 붉은색 하이라이트** 렌더러.
-7. `MdrBulkActionBar` / `ImportShell` UI 보정.
-8. 6개 파일 재임포트 → 단계별 도면수 및 누락 통계 검증.
+### 9. 사용자 후속 작업
 
-## 6. 사용자에게 미리 알릴 위험
+1. 마이그레이션 자동 적용 후 **엑셀 재임포트** 1회 → 신규 10개 컬럼 일괄 채움.
+2. 그리드의 컬럼 토글 메뉴에서 원하는 신규 컬럼 표시.
 
-- 같은 빌딩 내 토큰이 모두 같은 패턴으로 누락된 여러 행이 있으면 **doc_base가 동일해져 두 번째부터 import 거부**됨 (UNIQUE). 결과 화면에서 해당 행 목록을 안내.
-- 추후 엑셀에서 누락 토큰을 채우면 **doc_base 문자열 자체가 변경**되어 새 도면으로 인식, 이전 진척 이력이 끊김. 운영 규칙으로 "누락 토큰은 가급적 첫 import 전에 채울 것" 안내 권장.
+### 변경 파일
 
-## 7. 변경 파일
-
-- 마이그레이션 1건
+- `supabase/migrations/<timestamp>_mdr_extended_columns.sql` (신규)
 - `src/lib/mdr/parser.ts`
-- `src/lib/mdr/importRunner.ts`
 - `src/lib/mdr/columnMap.ts`
+- `src/lib/mdr/importRunner.ts`
 - `src/lib/mdr/exporter.ts`
-- `src/pages/DesignImportLogs.tsx`
-- `src/components/mdr/grid/columns.tsx` (Doc No 셀 렌더러 신규)
-- `src/components/mdr/grid/MdrAdvancedGrid.tsx`
-- `src/components/mdr/grid/MdrBulkActionBar.tsx`
-- `src/components/mdr/import/ImportShell.tsx` 또는 `useMdrImporter.ts`
-- `src/integrations/supabase/types.ts` (자동)
+- `src/components/mdr/grid/columns.tsx`
+- `src/components/mdr/grid/useGridStatePersistence.ts` (필요 시)
+- `src/integrations/supabase/types.ts` (자동 재생성)
