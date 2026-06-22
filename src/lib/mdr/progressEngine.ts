@@ -131,7 +131,7 @@ export function deltaPct(planned: number, actual: number): number {
   return planned - actual;
 }
 
-/** 도면 단계별 계획/실적 — SD는 항상 계획·실적 100% */
+/** 도면 단계별 계획/실적 — SD는 항상 계획·실적 100% (범위 안일 때) */
 export function drawingStagePct(
   milestones: MilestoneRow[],
   progress: ProgressRow[],
@@ -144,21 +144,43 @@ export function drawingStagePct(
   return { planned, actual, delta: planned - actual };
 }
 
-/** 도면 전체 (SD=100 상수, DD+CD 가중평균 — 기본 균등) */
+export interface DrawingScope {
+  sd: boolean;
+  dd: boolean;
+  cd: boolean;
+}
+
+/**
+ * 도면 전체 진척률.
+ * - inScope 가 주어지면 그 단계만 골라 weight 정규화 (CD-only → CD=100%).
+ * - inScope 미지정이면 세 단계 모두 1로 가중평균.
+ * - 범위 밖 단계는 sd/dd/cd 객체에 planned=null/actual=null 로 표시.
+ */
 export function drawingOverall(
   milestones: MilestoneRow[],
   progress: ProgressRow[],
   asOf: string,
   weights: { sd?: number; dd?: number; cd?: number } = { sd: 1, dd: 1, cd: 1 },
+  inScope?: DrawingScope,
 ) {
-  const sd = drawingStagePct(milestones, progress, "SD", asOf);
-  const dd = drawingStagePct(milestones, progress, "DD", asOf);
-  const cd = drawingStagePct(milestones, progress, "CD", asOf);
   const w = { sd: weights.sd ?? 1, dd: weights.dd ?? 1, cd: weights.cd ?? 1 };
-  const wsum = w.sd + w.dd + w.cd;
+  const scope: DrawingScope = inScope ?? { sd: true, dd: true, cd: true };
+
+  const stageOf = (s: MdrStage) =>
+    drawingStagePct(milestones, progress, s, asOf);
+
+  const sd = scope.sd ? stageOf("SD") : { planned: null, actual: null, delta: null };
+  const dd = scope.dd ? stageOf("DD") : { planned: null, actual: null, delta: null };
+  const cd = scope.cd ? stageOf("CD") : { planned: null, actual: null, delta: null };
+
+  let pNum = 0, aNum = 0, wSum = 0;
+  if (scope.sd) { pNum += (sd.planned ?? 0) * w.sd; aNum += (sd.actual ?? 0) * w.sd; wSum += w.sd; }
+  if (scope.dd) { pNum += (dd.planned ?? 0) * w.dd; aNum += (dd.actual ?? 0) * w.dd; wSum += w.dd; }
+  if (scope.cd) { pNum += (cd.planned ?? 0) * w.cd; aNum += (cd.actual ?? 0) * w.cd; wSum += w.cd; }
+
   return {
     sd, dd, cd,
-    planned: (sd.planned * w.sd + dd.planned * w.dd + cd.planned * w.cd) / wsum,
-    actual: (sd.actual * w.sd + dd.actual * w.dd + cd.actual * w.cd) / wsum,
+    planned: wSum > 0 ? pNum / wSum : 0,
+    actual: wSum > 0 ? aNum / wSum : 0,
   };
 }
