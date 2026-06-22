@@ -269,7 +269,54 @@ export async function persistParsed(
     if (error && !error.message.includes("duplicate")) throw error;
   }
 
-  push(`  ✓ 신규 ${newRows.length}건, Rev 갱신 ${revUpdates.length}건, 보존 ${skipped}건`);
+  // 5.5) skip_same_rev 도면도 milestone/progress를 재동기화 (멱등성 보장 + 과거 누락분 백필)
+  const skipSameRevPlans = plans.filter((p) => p.action === "skip_same_rev");
+  let resynced = 0;
+  if (skipSameRevPlans.length) {
+    const ids = skipSameRevPlans.map((p) => p.existing!.id);
+    // 기존 milestone/progress 일괄 삭제
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200);
+      const [{ error: mErr }, { error: pErr }] = await Promise.all([
+        (supabase.from("mdr_milestones" as never) as any).delete().in("drawing_id", chunk),
+        (supabase.from("mdr_progress" as never) as any).delete().in("drawing_id", chunk),
+      ]);
+      if (mErr) throw mErr;
+      if (pErr) throw pErr;
+    }
+    // 새 파싱 결과로 재삽입
+    const msResync: any[] = [];
+    const pgResync: any[] = [];
+    for (const p of skipSameRevPlans) {
+      const id = p.existing!.id;
+      const r = p.row;
+      for (const m of r.milestones) {
+        msResync.push({
+          drawing_id: id, stage: m.stage, pct: m.pct,
+          increment_pct: m.incrementPct, plan_date: m.planDate ?? null,
+        });
+      }
+      for (const pr of r.progress) {
+        pgResync.push({
+          drawing_id: id, stage: pr.stage, pct: pr.pct,
+          is_done: pr.stage === "SD" ? true : pr.isDone,
+        });
+      }
+    }
+    for (let i = 0; i < msResync.length; i += 1000) {
+      const chunk = msResync.slice(i, i + 1000);
+      const { error } = await supabase.from("mdr_milestones" as never).insert(chunk as any);
+      if (error && !error.message.includes("duplicate")) throw error;
+    }
+    for (let i = 0; i < pgResync.length; i += 1000) {
+      const chunk = pgResync.slice(i, i + 1000);
+      const { error } = await supabase.from("mdr_progress" as never).insert(chunk as any);
+      if (error && !error.message.includes("duplicate")) throw error;
+    }
+    resynced = skipSameRevPlans.length;
+  }
+
+  push(`  ✓ 신규 ${newRows.length}건, Rev 갱신 ${revUpdates.length}건, 보존 ${skipped}건 (재동기화 ${resynced}건)`);
 
   await supabase.from("mdr_snapshots" as never).insert({
     snapshot_date: new Date().toISOString().slice(0, 10),
