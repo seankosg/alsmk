@@ -305,8 +305,12 @@ function parseSheet(
     const serNo = serHeader ? (cellStr(ws, r, serHeader.col) || undefined) : undefined;
     const revRaw = findVal("REV", "REVISION");
     const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
-    // docBase: 4개 토큰이 모두 존재할 때만 생성 (불완전 키 금지 → itemNo fallback)
-    const tokens = [plantId, pbs, fbs, serNo].map((t) => (t ?? "").trim());
+    // docBase: 4개 토큰이 모두 존재할 때만 생성 (TBD/N/A 등 플레이스홀더는 빈 값으로 처리)
+    const PLACEHOLDER_RE = /^(tbd|tba|n\/a|na|미정|tbc|-)$/i;
+    const tokens = [plantId, pbs, fbs, serNo].map((t) => {
+      const v = (t ?? "").trim();
+      return PLACEHOLDER_RE.test(v) ? "" : v;
+    });
     const docBase = tokens.every((t) => t.length > 0) ? tokens.join("-") : undefined;
     const docNo = docBase ? `${docBase}-${rev}` : undefined;
 
