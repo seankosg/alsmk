@@ -245,6 +245,18 @@ function parseSheet(
   const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
   const dataStartRow = hasPlanDates ? planDateRow + 1 : incrementRow + 1;
 
+  // DISCIPLINE 컬럼이 존재하면 첫 비어있지 않은 값을 시트 discipline으로 사용 (시트명 파싱보다 우선)
+  const disciplineHeader = headers.find((h) => /discipline/i.test(h.text));
+  if (disciplineHeader) {
+    for (let r = dataStartRow; r <= range.e.r; r++) {
+      const v = cellStr(ws, r, disciplineHeader.col).trim();
+      if (v) {
+        discipline = v.toUpperCase();
+        break;
+      }
+    }
+  }
+
   // 2) 데이터 행 파싱
   const rows: MdrParsedRow[] = [];
   for (let r = dataStartRow; r <= range.e.r; r++) {
