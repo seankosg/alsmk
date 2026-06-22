@@ -231,6 +231,9 @@ export async function persistParsed(
       drawing_title: row.drawingTitle ?? null,
       plan_finish: row.planFinish ?? null,
       out_of_scope: row.outOfScope,
+      in_scope_sd: row.inScope.sd,
+      in_scope_dd: row.inScope.dd,
+      in_scope_cd: row.inScope.cd,
       source_sheet: row.sourceSheet,
       import_log_id: importLogId ?? null,
     }));
