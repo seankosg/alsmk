@@ -12,7 +12,7 @@ export interface MdrMilestoneDef {
 
 export interface MdrParsedRow {
   sourceNo: string;             // 원본 A열
-  itemNo: string;               // ${BUILDING}-${sourceNo}
+  itemNo: string;               // ${BUILDING}-${sourceNo} (보조 식별자)
   building: string;
   discipline: string;
   plantId?: string;
@@ -20,8 +20,11 @@ export interface MdrParsedRow {
   fbs?: string;
   serNo?: string;
   rev: string;                  // 리비전 (없으면 "0")
-  docBase?: string;             // {Job}-{Area}-{Function}-{Serial}, 영구 고유 키
-  docNo?: string;               // docBase + "-" + rev (표시용)
+  /** 자연키. 누락 토큰은 빈 문자열로 join. 4개 모두 누락이면 fallback 적용. */
+  docBase: string;
+  docNo: string;                // docBase + "-" + rev (표시용)
+  /** 4개 토큰 중 어느 것이 누락(빈값/TBD)이었는지. UI 하이라이트용. */
+  missingTokens: { plantId: boolean; pbs: boolean; fbs: boolean; serNo: boolean };
   activityGroup?: string;
   drawingTitle?: string;
   planFinish?: string;          // 마일스톤 중 가장 늦은 plan_date
@@ -349,14 +352,28 @@ function parseSheet(
     const serNo = serHeader ? (cellStr(ws, r, serHeader.col) || undefined) : undefined;
     const revRaw = findVal("REV", "REVISION");
     const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
-    // docBase: 4개 토큰이 모두 존재할 때만 생성 (TBD/N/A 등 플레이스홀더는 빈 값으로 처리)
+    // docBase: 4개 토큰을 항상 join. 누락 토큰은 빈 문자열로 유지(예: "JOB1--FBS3-SER9").
+    // 4개 모두 누락이면 fallback으로 sheet+row 기반 키 생성(빌딩 내 UNIQUE 만족용).
     const PLACEHOLDER_RE = /^(tbd|tba|n\/a|na|미정|tbc|-)$/i;
-    const tokens = [plantId, pbs, fbs, serNo].map((t) => {
+    const normTok = (t: string | undefined) => {
       const v = (t ?? "").trim();
       return PLACEHOLDER_RE.test(v) ? "" : v;
-    });
-    const docBase = tokens.every((t) => t.length > 0) ? tokens.join("-") : undefined;
-    const docNo = docBase ? `${docBase}-${rev}` : undefined;
+    };
+    const tPlant = normTok(plantId);
+    const tPbs = normTok(pbs);
+    const tFbs = normTok(fbs);
+    const tSer = normTok(serNo);
+    const missingTokens = {
+      plantId: tPlant.length === 0,
+      pbs: tPbs.length === 0,
+      fbs: tFbs.length === 0,
+      serNo: tSer.length === 0,
+    };
+    const allMissing = missingTokens.plantId && missingTokens.pbs && missingTokens.fbs && missingTokens.serNo;
+    const docBase = allMissing
+      ? `__UNKNOWN__-${sheetName}-${r + 1}`
+      : [tPlant, tPbs, tFbs, tSer].join("-");
+    const docNo = `${docBase}-${rev}`;
 
     rows.push({
       sourceNo,
@@ -370,6 +387,7 @@ function parseSheet(
       rev,
       docBase,
       docNo,
+      missingTokens,
       activityGroup: findVal("Activity Group", "GROUP"),
       drawingTitle: title,
       planFinish: lastPlan,
