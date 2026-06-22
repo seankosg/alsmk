@@ -66,10 +66,21 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     return (data ?? []).map((d: any): MdrDrawingRow => {
       const ms = d.mdr_milestones ?? [];
       const pg = d.mdr_progress ?? [];
+      // in_scope_* 가 null 인 레거시 행은 마일스톤 존재 여부로 폴백 판정.
+      const hasStage = (st: MdrStage) =>
+        ms.some((x: any) => x.stage === st && (x.plan_date || (x.pct ?? 0) > 0));
+      const explicit =
+        d.in_scope_sd !== null || d.in_scope_dd !== null || d.in_scope_cd !== null;
+      const scope = {
+        sd: explicit ? !!d.in_scope_sd : hasStage("SD"),
+        dd: explicit ? !!d.in_scope_dd : hasStage("DD"),
+        cd: explicit ? !!d.in_scope_cd : hasStage("CD"),
+      };
+
       const sd = drawingStagePct(ms, pg, "SD", asOf);
       const dd = drawingStagePct(ms, pg, "DD", asOf);
       const cd = drawingStagePct(ms, pg, "CD", asOf);
-      const overall = (sd.actual + dd.actual + cd.actual) / 3;
+      const overall = drawingOverall(ms, pg, asOf, { sd: 1, dd: 1, cd: 1 }, scope);
 
       const msRows = ms.map((x: any) => ({
         stage: x.stage,
@@ -79,6 +90,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       }));
 
       const buildCell = (stage: MdrStage, pct: number) => {
+        const stageKey = stage === "SD" ? "sd" : stage === "DD" ? "dd" : "cd";
+        if (!scope[stageKey]) return null;
         const m = ms.find((x: any) => x.stage === stage && x.pct === pct);
         const p = pg.find((x: any) => x.stage === stage && x.pct === pct);
         if (!m) return null;
@@ -100,7 +113,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       const cdCells: MdrDrawingRow["cdCells"] = {};
       CD_PCTS.forEach((p) => { cdCells[p] = buildCell("CD", p); });
 
-      const progressIconCells = buildMdrProgressIconCells(ms, pg, asOf);
+      const progressIconCells = buildMdrProgressIconCells(ms, pg, asOf, scope);
 
       return {
         id: d.id,
@@ -119,12 +132,12 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         drawing_title: d.drawing_title,
         plan_finish: d.plan_finish,
         updated_at: d.updated_at,
-        sd_mark: "O",
-        dd_mark: dd.planned + dd.actual > 0 ? "O" : "-",
-        cd_mark: cd.planned + cd.actual > 0 ? "O" : "-",
-        dd_pct: dd.actual,
-        cd_pct: cd.actual,
-        overall_pct: overall,
+        sd_mark: scope.sd ? "O" : "-",
+        dd_mark: scope.dd ? "O" : "-",
+        cd_mark: scope.cd ? "O" : "-",
+        dd_pct: scope.dd ? dd.actual : 0,
+        cd_pct: scope.cd ? cd.actual : 0,
+        overall_pct: overall.actual,
         sdCells,
         ddCells,
         cdCells,
