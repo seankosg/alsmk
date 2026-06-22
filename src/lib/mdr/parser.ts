@@ -26,6 +26,8 @@ export interface MdrParsedRow {
   drawingTitle?: string;
   planFinish?: string;          // 마일스톤 중 가장 늦은 plan_date
   outOfScope: boolean;
+  /** SD/DD/CD 헤더 컬럼의 "O" 표시 여부. 도면이 해당 단계에서 필요한지 결정. */
+  inScope: { sd: boolean; dd: boolean; cd: boolean };
   sourceSheet: string;
   rawRowNo: number;
   milestones: MdrMilestoneDef[];
