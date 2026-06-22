@@ -509,22 +509,22 @@ export type Database = {
         Row: {
           activity_group: string | null
           actual_finish: string | null
-          area_code: string | null
           building_code: string
           created_at: string
           discipline: string
           doc_base: string | null
           doc_no: string | null
           drawing_title: string | null
-          function_code: string | null
+          fbs: string | null
           id: string
           import_log_id: string | null
           item_no: string
-          job_no: string | null
           out_of_scope: boolean
+          pbs: string | null
           plan_finish: string | null
+          plant_id: string | null
           rev: string
-          serial_no: string | null
+          ser_no: string | null
           source_no: string
           source_sheet: string | null
           updated_at: string
@@ -532,22 +532,22 @@ export type Database = {
         Insert: {
           activity_group?: string | null
           actual_finish?: string | null
-          area_code?: string | null
           building_code: string
           created_at?: string
           discipline: string
           doc_base?: string | null
           doc_no?: string | null
           drawing_title?: string | null
-          function_code?: string | null
+          fbs?: string | null
           id?: string
           import_log_id?: string | null
           item_no: string
-          job_no?: string | null
           out_of_scope?: boolean
+          pbs?: string | null
           plan_finish?: string | null
+          plant_id?: string | null
           rev?: string
-          serial_no?: string | null
+          ser_no?: string | null
           source_no: string
           source_sheet?: string | null
           updated_at?: string
@@ -555,22 +555,22 @@ export type Database = {
         Update: {
           activity_group?: string | null
           actual_finish?: string | null
-          area_code?: string | null
           building_code?: string
           created_at?: string
           discipline?: string
           doc_base?: string | null
           doc_no?: string | null
           drawing_title?: string | null
-          function_code?: string | null
+          fbs?: string | null
           id?: string
           import_log_id?: string | null
           item_no?: string
-          job_no?: string | null
           out_of_scope?: boolean
+          pbs?: string | null
           plan_finish?: string | null
+          plant_id?: string | null
           rev?: string
-          serial_no?: string | null
+          ser_no?: string | null
           source_no?: string
           source_sheet?: string | null
           updated_at?: string

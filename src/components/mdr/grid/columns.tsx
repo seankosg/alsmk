@@ -27,10 +27,10 @@ export interface MdrDrawingRow {
   doc_base: string | null;
   rev: string | null;
   discipline: string | null;
-  job_no: string | null;
-  area_code: string | null;
-  function_code: string | null;
-  serial_no: string | null;
+  plant_id: string | null;
+  pbs: string | null;
+  fbs: string | null;
+  ser_no: string | null;
   activity_group: string | null;
   drawing_title: string | null;
   plan_finish: string | null;
@@ -290,28 +290,28 @@ export function buildMdrColumns(
       meta: { filterType: "multi-select", filterOptions: DISCIPLINE_OPTIONS },
     },
     {
-      accessorKey: "job_no", header: "Job No.", size: 90,
+      accessorKey: "plant_id", header: "Plant ID", size: 90,
       sortingFn: naturalSort,
       cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
       filterFn: textFilterFn,
       meta: { filterType: "text" },
     },
     {
-      accessorKey: "area_code", header: "Area", size: 70,
+      accessorKey: "pbs", header: "PBS", size: 70,
       sortingFn: naturalSort,
       cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
       filterFn: textFilterFn,
       meta: { filterType: "text" },
     },
     {
-      accessorKey: "function_code", header: "Func.", size: 80,
+      accessorKey: "fbs", header: "FBS", size: 80,
       sortingFn: naturalSort,
       cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
       filterFn: textFilterFn,
       meta: { filterType: "text" },
     },
     {
-      accessorKey: "serial_no", header: "Serial", size: 80,
+      accessorKey: "ser_no", header: "SER.NO.", size: 80,
       sortingFn: naturalSort,
       cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
       filterFn: textFilterFn,

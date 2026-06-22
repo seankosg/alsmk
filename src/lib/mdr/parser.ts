@@ -15,10 +15,10 @@ export interface MdrParsedRow {
   itemNo: string;               // ${BUILDING}-${sourceNo}
   building: string;
   discipline: string;
-  jobNo?: string;
-  areaCode?: string;
-  functionCode?: string;
-  serialNo?: string;
+  plantId?: string;
+  pbs?: string;
+  fbs?: string;
+  serNo?: string;
   rev: string;                  // 리비전 (없으면 "0")
   docBase?: string;             // {Job}-{Area}-{Function}-{Serial}, 영구 고유 키
   docNo?: string;               // docBase + "-" + rev (표시용)
@@ -177,8 +177,8 @@ function parseSheet(
   const isIdentHeader = (c: number): boolean => {
     const t = cellStr(ws, headerRow, c);
     if (!t) return false;
-    // 식별 헤더만 경계로 인정 (DISCIPLINE/JOB/Area Code/Function Code/Serial/Activity Group/Drawing Title 등)
-    return detectColumnKey(t) !== null || /discipline|job|area|function|serial|activity|drawing|title|remark|status|note/i.test(t);
+    // 식별 헤더만 경계로 인정 (DISCIPLINE/Plant ID/PBS/FBS/SER.NO./Activity Group/Drawing Title 등, 구버전 헤더 포함)
+    return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note/i.test(t);
   };
 
   let c = noCol;
@@ -277,13 +277,13 @@ function parseSheet(
     const allZero = milestones.every((m) => m.incrementPct === 0);
 
     const itemNo = `${building}-${discipline}-${sourceNo}`;
-    const jobNo = findVal("JOB");
-    const areaCode = findVal("Area Code", "AREA");
-    const functionCode = findVal("Function Code", "FUNCTION", "FUCTION", "FSB");
-    const serialNo = findVal("Serial");
+    const plantId = findVal("Plant ID", "PLANT", "JOB");
+    const pbs = findVal("PBS", "Area Code", "AREA");
+    const fbs = findVal("FBS", "Function Code", "FUNCTION", "FUCTION");
+    const serNo = findVal("SER.NO.", "SER NO", "Serial No.", "Serial");
     const revRaw = findVal("REV", "REVISION");
     const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
-    const baseTokens = [jobNo, areaCode, functionCode, serialNo];
+    const baseTokens = [plantId, pbs, fbs, serNo];
     const docBase = baseTokens.some((t) => t && t.trim())
       ? baseTokens.map((t) => (t ?? "").trim()).join("-")
       : undefined;
@@ -294,10 +294,10 @@ function parseSheet(
       itemNo,
       building,
       discipline: discRaw,
-      jobNo,
-      areaCode,
-      functionCode,
-      serialNo,
+      plantId,
+      pbs,
+      fbs,
+      serNo,
       rev,
       docBase,
       docNo,
