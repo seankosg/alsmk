@@ -416,6 +416,14 @@ function parseSheet(
       : [tPlant, tPbs, tFbs, tSer].join("-");
     const docNo = `${docBase}-${rev}`;
 
+    const readDateAt = (c: number | undefined) =>
+      c !== undefined ? parseDate(cellRaw(ws, r, c)) : undefined;
+    const readStrAt = (c: number | undefined) => {
+      if (c === undefined) return undefined;
+      const v = cellStr(ws, r, c);
+      return v && !/^(tbd|tba|n\/a|na|미정|tbc|-)$/i.test(v) ? v : undefined;
+    };
+
     rows.push({
       sourceNo,
       itemNo,
@@ -434,6 +442,16 @@ function parseSheet(
       planFinish: lastPlan,
       outOfScope,
       inScope,
+      confirmedBy: readStrAt(extraCols.confirmedBy),
+      ifrStartDate: readDateAt(extraCols.ifrStart),
+      ifrIssueDate: readDateAt(extraCols.ifrIssue),
+      ifcStartDate: readDateAt(extraCols.ifcStart),
+      ifcIssueDate: readDateAt(extraCols.ifcIssue),
+      documentClass: readStrAt(extraCols.documentClass),
+      docClassCode: readStrAt(extraCols.docClassCode),
+      stagePlanSd: readDateAt(stagePlanCols.sd),
+      stagePlanDd: readDateAt(stagePlanCols.dd),
+      stagePlanCd: readDateAt(stagePlanCols.cd),
       sourceSheet: sheetName,
       rawRowNo: r + 1,
       milestones,
