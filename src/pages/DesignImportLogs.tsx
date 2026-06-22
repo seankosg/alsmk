@@ -36,6 +36,7 @@ interface RowLog {
   item_no: string | null;
   source_no: string | null;
   drawing_title: string | null;
+  doc_base: string | null;
   action: RowAction;
   reason: string | null;
 }
@@ -137,7 +138,7 @@ export default function DesignImportLogs() {
     setRenderLimit(500);
     const { data, error } = await supabase
       .from("mdr_import_row_logs" as never)
-      .select("id, source_sheet, raw_row_no, item_no, source_no, drawing_title, action, reason")
+      .select("id, source_sheet, raw_row_no, item_no, source_no, drawing_title, doc_base, action, reason")
       .eq("import_log_id", batchId)
       .order("raw_row_no", { ascending: true })
       .limit(50000);
@@ -151,11 +152,11 @@ export default function DesignImportLogs() {
     setRowsBusy(false);
   };
 
-  /** 이 batch의 row logs에서 inserted/rev_updated item_no 목록 추출 */
+  /** 이 batch의 row logs에서 inserted/rev_updated doc_base 목록 추출 */
   const fetchBatchScope = async (batchId: string, buildingCode: string | null) => {
     const { data, error } = await supabase
       .from("mdr_import_row_logs" as never)
-      .select("item_no, action")
+      .select("doc_base, action")
       .eq("import_log_id", batchId)
       .in("action", ["inserted", "rev_updated"])
       .limit(50000);
@@ -163,9 +164,9 @@ export default function DesignImportLogs() {
     const inserted: string[] = [];
     const revUpdated: string[] = [];
     for (const r of (data as any[]) ?? []) {
-      if (!r.item_no) continue;
-      if (r.action === "inserted") inserted.push(r.item_no);
-      else if (r.action === "rev_updated") revUpdated.push(r.item_no);
+      if (!r.doc_base) continue;
+      if (r.action === "inserted") inserted.push(r.doc_base);
+      else if (r.action === "rev_updated") revUpdated.push(r.doc_base);
     }
     return { inserted, revUpdated, buildingCode };
   };
@@ -182,7 +183,7 @@ export default function DesignImportLogs() {
           const { error } = await (supabase.from("mdr_drawings" as never) as any)
             .delete()
             .eq("building_code", buildingCode)
-            .in("item_no", chunk);
+            .in("doc_base", chunk);
           if (error) throw error;
         }
       }
