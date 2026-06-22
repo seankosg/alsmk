@@ -518,7 +518,7 @@ export type Database = {
           fbs: string | null
           id: string
           import_log_id: string | null
-          item_no: string
+          item_no: string | null
           out_of_scope: boolean
           pbs: string | null
           plan_finish: string | null
@@ -541,7 +541,7 @@ export type Database = {
           fbs?: string | null
           id?: string
           import_log_id?: string | null
-          item_no: string
+          item_no?: string | null
           out_of_scope?: boolean
           pbs?: string | null
           plan_finish?: string | null
@@ -564,7 +564,7 @@ export type Database = {
           fbs?: string | null
           id?: string
           import_log_id?: string | null
-          item_no?: string
+          item_no?: string | null
           out_of_scope?: boolean
           pbs?: string | null
           plan_finish?: string | null
