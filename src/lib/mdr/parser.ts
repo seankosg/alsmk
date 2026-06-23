@@ -342,12 +342,16 @@ function parseSheet(
 
 
   // 2) 데이터 행 파싱
+  // 마일스톤 컬럼 위치 set (rawRowCells 에서 제외 — 그건 progress 로 따로 저장됨)
+  const milestoneColSet = new Set<number>();
+  for (const g of milestoneGroups) for (const x of g.cols) milestoneColSet.add(x);
   const rows: MdrParsedRow[] = [];
   for (let r = dataStartRow; r <= range.e.r; r++) {
     const sourceNo = cellStr(ws, r, noCol);
     if (!sourceNo) continue;
     // No 가 숫자/문자 혼합 가능. 빈 줄·합계 행은 패스
     if (/^total|sum|합계/i.test(sourceNo)) continue;
+
 
     const findVal = (...candidates: string[]) => {
       for (const cand of candidates) {
