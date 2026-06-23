@@ -80,6 +80,7 @@ export async function persistParsed(
     source_no: r.sourceNo,
     drawing_title: r.drawingTitle ?? null,
     doc_base: r.docBase,
+    rev: r.rev ?? null,
   });
 
   for (const r of allRows) {
