@@ -13,7 +13,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, Loader2, Trash2, Undo2 } from "lucide-react";
+import { ChevronLeft, Loader2, Trash2, Undo2, Download } from "lucide-react";
+import { exportImportIssues } from "@/lib/mdr/exportIssues";
 
 interface MdrLog {
   id: string;
