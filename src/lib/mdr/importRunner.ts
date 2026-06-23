@@ -212,6 +212,7 @@ export async function persistParsed(
           stage_plan_cd: r.stagePlanCd ?? null,
           source_sheet: r.sourceSheet,
           import_log_id: importLogId ?? null,
+          raw_row_cells: r.rawRowCells ?? null,
         } as any)
         .eq("id", ex.id);
       if (uErr) throw uErr;
