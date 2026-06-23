@@ -94,6 +94,10 @@ export async function applyMdrBulkDelete({ ids, userName }: ApplyBulkDeleteArgs)
       .delete().in("drawing_id", chunk);
     if (msErr) result.errors.push(`milestones: ${msErr.message}`);
 
+    const { error: cErr } = await (supabase.from("mdr_milestone_cells" as never) as any)
+      .delete().in("drawing_id", chunk);
+    if (cErr) result.errors.push(`milestone_cells: ${cErr.message}`);
+
     const { error: pgErr } = await (supabase.from("mdr_progress" as never) as any)
       .delete().in("drawing_id", chunk);
     if (pgErr) result.errors.push(`progress: ${pgErr.message}`);
