@@ -618,6 +618,14 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
                 </button>
               </div>
             </div>
+            <button
+              type="button"
+              className="flex w-full items-center gap-1 rounded px-1 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              onClick={() => setColumnOrder(defaultLeafOrder)}
+              title="드래그로 변경한 컬럼 순서를 기본값으로 되돌립니다"
+            >
+              <RotateCcw className="h-3 w-3" /> 컬럼 순서 초기화
+            </button>
             <div className="my-1 h-px bg-border" />
             {table.getAllLeafColumns().filter((c) => c.id !== "__select__").map((col) => (
               <label
@@ -648,6 +656,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
           const paddingBottom = virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0;
           const leafCount = visibleLeafColumns.length;
+          const leafIds = visibleLeafColumns.map((c) => c.id);
           return (
             <table className="text-xs" style={{ width: totalWidth, tableLayout: "fixed" }}>
               <colgroup>
@@ -655,52 +664,57 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
                   <col key={col.id} style={{ width: col.getSize() }} />
                 ))}
               </colgroup>
-              <thead>
-                {table.getHeaderGroups().map((hg) => (
-                  <tr key={hg.id}>
-                    {hg.headers.map((header) => {
-                      const canSort = header.column.getCanSort();
-                      const sorted = header.column.getIsSorted();
-                      const canFilter = header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
-                      const w = header.getSize();
-                      return (
-                        <th
-                          key={header.id}
-                          style={{
-                            width: w,
-                            minWidth: w,
-                            maxWidth: w,
-                            position: "sticky",
-                            top: 0,
-                            zIndex: 2,
-                            background: "hsl(var(--muted))",
-                          }}
-                          className="border-r border-b px-2 py-1.5 text-left font-medium"
-                        >
-                          <div className="flex items-center gap-1">
-                            <span className={cn("flex-1 truncate", canSort && "cursor-pointer select-none")} onClick={canSort ? header.column.getToggleSortingHandler() : undefined}>
-                              {flexRender(header.column.columnDef.header, header.getContext())}
-                              {canSort && (
-                                sorted === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" />
-                                : sorted === "desc" ? <ArrowDown className="ml-1 inline h-3 w-3" />
-                                : <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
-                              )}
-                            </span>
-                            {canFilter && <ColumnFilterDropdown column={header.column} />}
-                          </div>
-                          {header.column.getCanResize() && (
-                            <div
-                              onMouseDown={header.getResizeHandler()}
-                              onTouchStart={header.getResizeHandler()}
-                              className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-transparent hover:bg-primary/30"
+              <DndHeaderContext
+                leafIds={leafIds}
+                onReorder={(activeId, overId) => {
+                  if (activeId === overId) return;
+                  if (activeId === "__select__" || overId === "__select__") return;
+                  const groupA = getColumnGroupOf(activeId);
+                  const groupO = getColumnGroupOf(overId);
+                  // 그룹 leaf 끼리는 같은 그룹 안에서만 reorder 허용
+                  if (groupA || groupO) {
+                    if (groupA !== groupO) return;
+                  }
+                  setColumnOrder((prev) => {
+                    const base = prev.length ? prev : defaultLeafOrder;
+                    const next = [...base];
+                    const from = next.indexOf(activeId);
+                    const to = next.indexOf(overId);
+                    if (from < 0 || to < 0) return prev;
+                    next.splice(from, 1);
+                    next.splice(to, 0, activeId);
+                    return sanitizeColumnOrder(next, defaultLeafOrder);
+                  });
+                }}
+              >
+                <thead>
+                  {table.getHeaderGroups().map((hg) => (
+                    <tr key={hg.id}>
+                      {hg.headers.map((header) => {
+                        if (header.isPlaceholder) {
+                          // placeholder — 같은 leaf 가 부모 행에도 표시되는 경우. 빈 셀로 colSpan 처리.
+                          return (
+                            <th
+                              key={header.id}
+                              colSpan={header.colSpan}
+                              style={{ position: "sticky", top: 0, zIndex: 2, background: "hsl(var(--muted))" }}
+                              className="border-r border-b"
                             />
-                          )}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </thead>
+                          );
+                        }
+                        const isLeaf = header.subHeaders.length === 0;
+                        return (
+                          <SortableHeaderCell
+                            key={header.id}
+                            header={header}
+                            isLeaf={isLeaf}
+                          />
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </thead>
+              </DndHeaderContext>
               <tbody>
                 {paddingTop > 0 && (
                   <tr aria-hidden style={{ height: paddingTop }}>
