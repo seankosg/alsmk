@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import type { ColumnFiltersState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
+import type { ColumnFiltersState, ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
 
 export interface PersistedGridState {
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
   columnSizing: ColumnSizingState;
   columnVisibility: VisibilityState;
+  columnOrder?: ColumnOrderState;
   groupCollapsed?: { dd: boolean; cd: boolean };
 }
 
@@ -14,6 +15,7 @@ const DEFAULT_STATE: PersistedGridState = {
   columnFilters: [],
   columnSizing: {},
   columnVisibility: {},
+  columnOrder: [],
   groupCollapsed: { dd: false, cd: false },
 };
 
