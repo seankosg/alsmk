@@ -158,12 +158,13 @@ function SortableHeaderCell({
   header: Header<MdrDrawingRow, unknown>;
   isLeaf: boolean;
 }) {
+  const isGroup = header.subHeaders.length > 0;
   const draggable = isLeaf && header.column.id !== "__select__";
   const sortable = useSortable({ id: header.column.id, disabled: !draggable });
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable;
-  const canSort = header.column.getCanSort();
+  const canSort = !isGroup && header.column.getCanSort();
   const sorted = header.column.getIsSorted();
-  const canFilter = header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
+  const canFilter = !isGroup && header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
   const w = header.getSize();
   const style: CSSProperties = {
     width: w,
@@ -171,20 +172,23 @@ function SortableHeaderCell({
     maxWidth: w,
     position: "sticky",
     top: 0,
-    zIndex: isDragging ? 3 : 2,
-    background: "hsl(var(--muted))",
+    zIndex: isDragging ? 4 : isGroup ? 3 : 2,
+    background: isGroup ? "hsl(var(--primary) / 0.12)" : "hsl(var(--muted))",
     transform: draggable ? CSS.Translate.toString(transform) : undefined,
     transition: draggable ? transition : undefined,
     opacity: isDragging ? 0.6 : 1,
   };
+  const thCls = isGroup
+    ? "border-r border-b border-primary/30 px-2 py-1.5 text-center text-[11px] font-semibold uppercase tracking-wider text-primary"
+    : "border-r border-b-2 border-border px-2 py-1.5 text-left font-medium text-foreground";
   return (
     <th
       ref={draggable ? setNodeRef : undefined}
       colSpan={header.colSpan}
       style={style}
-      className="border-r border-b px-2 py-1.5 text-left font-medium"
+      className={thCls}
     >
-      <div className="flex items-center gap-1">
+      <div className={cn("flex items-center gap-1", isGroup && "justify-center")}>
         {draggable && (
           <button
             type="button"
@@ -198,7 +202,10 @@ function SortableHeaderCell({
           </button>
         )}
         <span
-          className={cn("flex-1 truncate", canSort && "cursor-pointer select-none")}
+          className={cn(
+            isGroup ? "truncate" : "flex-1 truncate",
+            canSort && "cursor-pointer select-none",
+          )}
           onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
         >
           {flexRender(header.column.columnDef.header, header.getContext())}
