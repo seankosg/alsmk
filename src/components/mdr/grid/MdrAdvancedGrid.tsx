@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   flexRender,
@@ -13,9 +13,10 @@ import {
   type SortingState,
   type VisibilityState,
   type RowSelectionState,
+  type Header,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download, GripVertical, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,17 +24,87 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { drawingStagePct, drawingMilestonePlannedPct, drawingOverall } from "@/lib/mdr/progressEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
-import { buildMdrColumns, ColumnFilterDropdown, SD_PCTS, DD_PCTS, CD_PCTS, type MdrDrawingRow } from "./columns";
+import {
+  buildMdrColumns,
+  ColumnFilterDropdown,
+  SD_PCTS, DD_PCTS, CD_PCTS,
+  STAGE_GROUP_LEAVES,
+  getColumnGroupOf,
+  type MdrDrawingRow,
+} from "./columns";
 import { buildMdrProgressIconCells } from "@/lib/mdr/progressIcon";
 import { MdrProgressIconLegend, type ProgressGroup } from "./MdrProgressIconCell";
 import { TopHorizontalScrollbar } from "./TopHorizontalScrollbar";
 import { useGridStatePersistence } from "./useGridStatePersistence";
 import { MdrBulkActionBar } from "./MdrBulkActionBar";
+
+/**
+ * 영속된 컬럼 순서를 현재 컬럼 정의 기준으로 정규화한다.
+ * - 더 이상 존재하지 않는 id 제거
+ * - 신규 추가된 id 는 기본 순서상의 위치에 삽입
+ * - 같은 단계 그룹(sd_group/dd_group/cd_group) leaf 는 연속(contiguous) 상태 유지
+ *   (drag 결과로 split 된 경우, 그룹 첫 leaf 위치로 모음)
+ * - __select__ 는 항상 맨 앞
+ */
+function sanitizeColumnOrder(prev: string[], defaultOrder: string[]): string[] {
+  const validSet = new Set(defaultOrder);
+  // 1) 유효한 id 만, 중복 제거
+  const seen = new Set<string>();
+  let order = prev.filter((id) => validSet.has(id) && !seen.has(id) && seen.add(id) !== undefined);
+  // 2) 신규 id 는 defaultOrder 의 위치에 삽입
+  const inPrev = new Set(order);
+  for (let i = 0; i < defaultOrder.length; i++) {
+    const id = defaultOrder[i];
+    if (inPrev.has(id)) continue;
+    // defaultOrder 에서의 직전 id 가 order 에 있으면 그 뒤에, 없으면 맨 뒤에
+    let insertAt = order.length;
+    for (let j = i - 1; j >= 0; j--) {
+      const idx = order.indexOf(defaultOrder[j]);
+      if (idx >= 0) { insertAt = idx + 1; break; }
+    }
+    order.splice(insertAt, 0, id);
+  }
+  // 3) 그룹 contiguous 보장
+  for (const [, leaves] of Object.entries(STAGE_GROUP_LEAVES)) {
+    const presentLeaves = leaves.filter((l) => order.includes(l));
+    if (presentLeaves.length < 2) continue;
+    // 그룹 첫 leaf 위치
+    const firstIdx = Math.min(...presentLeaves.map((l) => order.indexOf(l)));
+    // 그룹 leaves 제거
+    order = order.filter((id) => !presentLeaves.includes(id));
+    // 그룹 leaves 의 정해진 P→A→Δ 순서 유지하며 firstIdx 에 삽입
+    const ordered = leaves.filter((l) => presentLeaves.includes(l));
+    order.splice(firstIdx, 0, ...ordered);
+  }
+  // 4) __select__ 가 있으면 맨 앞으로
+  const selIdx = order.indexOf("__select__");
+  if (selIdx > 0) {
+    order.splice(selIdx, 1);
+    order.unshift("__select__");
+  }
+  return order;
+}
 
 interface Props {
   buildingCode: string;
