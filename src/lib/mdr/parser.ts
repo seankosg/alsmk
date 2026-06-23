@@ -3,11 +3,19 @@ import { MDR_REIMPORT_MARKER, detectColumnKey } from "./columnMap";
 
 export type MdrStage = "SD" | "DD" | "CD";
 
+/** 마일스톤 그룹 내 단일 서브컬럼(엑셀 셀) 정의 */
+export interface MdrMilestoneCellDef {
+  subIdx: number;        // 그룹 내 0-based 인덱스
+  incrementPct: number;  // 셀 단위 증분 (헤더 2행의 그 셀)
+  planDate?: string;     // 셀 단위 plan_date (없으면 그룹 plan_date 사용)
+}
+
 export interface MdrMilestoneDef {
   stage: MdrStage;
   pct: number;          // 30, 60, 90, 100
-  incrementPct: number; // 헤더 2행: 증분
-  planDate?: string;    // ISO YYYY-MM-DD
+  incrementPct: number; // 그룹 합 (mdr_milestones.increment_pct 호환)
+  planDate?: string;    // ISO YYYY-MM-DD — 그룹의 가장 늦은 plan_date
+  cells: MdrMilestoneCellDef[]; // 그룹 내 모든 서브컬럼
 }
 
 export interface MdrParsedRow {
@@ -45,7 +53,8 @@ export interface MdrParsedRow {
   sourceSheet: string;
   rawRowNo: number;
   milestones: MdrMilestoneDef[];
-  progress: { stage: MdrStage; pct: number; isDone: boolean }[];
+  /** 셀 단위 진행 — 그룹 OR 아닌 서브컬럼별 Y/N */
+  progress: { stage: MdrStage; pct: number; subIdx: number; isDone: boolean }[];
 }
 
 export interface MdrParsedSheet {
