@@ -1,25 +1,18 @@
 ## 목표
-Summary 페이지의 Block(건물) 목록 순서를 사용자가 지정한 순서로 고정한다.
+Raw Data 그리드의 **Columns** 드롭다운(컬럼 표시 토글)에서:
+1. 체크박스를 라벨 옆에 명시적으로 표시 (현재는 shadcn `DropdownMenuCheckboxItem`이 좌측에 indicator만 노출 — 직관성 부족)
+2. 항목을 여러 개 연속으로 켜고/끌 수 있도록 토글 시 **메뉴(팝오버)가 닫히지 않게** 유지
 
-## 배경
-현재 `summaryEngine.ts`는 `mdr_buildings` 테이블의 `sort_order` 값을 기준으로 Block을 정렬한다. DB에 값이 없거나 일치하지 않으면 원하는 순서가 나오지 않는다.
+## 변경 파일
+`src/components/mdr/grid/MdrAdvancedGrid.tsx` (한 파일, 라인 422–440 블록만)
 
-## 변경 범위
-- `src/lib/mdr/summaryEngine.ts` — 정렬 로직 1곳만 수정
+## 구현 방식
+- `DropdownMenu` → `Popover`로 교체 (이미 같은 파일/프로젝트 컨벤션, `ColumnFilterDropdown`와 동일한 패턴).
+- 각 항목을 `<label>` + shadcn `Checkbox` + 텍스트 구조로 렌더 → 체크박스가 라벨 옆에 보이고, 클릭해도 Popover는 닫히지 않음 (Popover는 외부 클릭/ESC에서만 닫힘).
+- 트리거 버튼/아이콘(`Settings2` "Columns")·정렬·`max-h-80 overflow-auto`는 유지.
+- 상단에 "전체 선택 / 전체 해제" 보조 버튼 추가(다중 토글 편의 — `ColumnFilterDropdown`과 동일한 UX). `__select__` 컬럼은 기존처럼 제외.
+- 사용하지 않게 된 `DropdownMenu*` import 중 이 위치에서만 쓰던 것은 그대로 두되, 다른 사용처가 없으면 정리.
 
-## 구현 상세
-1. `BUILDING_ORDER: string[]` 상수를 추가한다.
-   - 순서: `GEN` → `SMP&CCM` → `HSM` → `CRM` → `MAIN_OFFICE` → `FAFP`
-   - (사용자 표기: General, SMP, HSM, CRM, Main Office, FAFP)
-2. `fetchSummary()` 안 `blocks.sort()`의 첫 번째 기준을 `BUILDING_ORDER` 인덱스 비교로 변경한다.
-   - 두 Block 모두 목록에 있으면 인덱스 오름차순
-   - 한쪽만 있으면 목록에 있는 쪽이 위로
-   - 둘 다 없으면 기존 로직(`inMaster` → `sortOrder` → `buildingWf` → `localeCompare`) 폴백
-3. UI 컴포넌트(`MdrSummaryPanel.tsx`)에는 변경 없음.
-
-## 검증
-- 브라우저에서 `/design/summary` 진입 시 Block 행이 지정한 순서로 표시되는지 확인.
-
-## 예외 처리
-- DB에 존재하지만 `BUILDING_ORDER`에 없는 건물 코드는 기존 정렬 규칙 폴백을 따른다.
-- 도면 데이터에만 존재하고 `mdr_buildings`에 없는 건물도 동일하게 폴백 처리.
+## 동작 변경 없음
+- 컬럼 가시성 영속화(`columnVisibility` state·`setPersisted`)는 그대로.
+- 헤더 라벨 산출 로직 동일 (`typeof col.columnDef.header === "string" ? ... : col.id`).
