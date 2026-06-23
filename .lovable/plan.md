@@ -1,42 +1,76 @@
-## 헤더 디자인 개선 (1단 가운데 정렬 + 시인성 강화)
+## Progress Icon 세부 마일스톤 기준 수정 계획
 
-### 현재 상태
-`SortableHeaderCell` (MdrAdvancedGrid.tsx 154~222) 및 placeholder `<th>` (910~916) 모두 동일한 `hsl(var(--muted))` 배경 + `text-left` + `font-medium` 으로 렌더됨. 결과:
-- 1단 그룹 헤더(SD / DD / CD / Overall) 와 2단 leaf 헤더(P / A / Δ) 가 동일한 톤이라 구조가 잘 안 보임
-- 그룹 헤더 라벨이 왼쪽에 붙어 하위 컬럼 그룹의 중앙성이 약함
+### 문제
+현재 `src/lib/mdr/progressIcon.ts` 의 `buildMdrProgressIconCells()` 는 각 마일스톤 그룹(예: DD60) 자체의 완료 여부만 보고 `done / delay / planned` 를 판단합니다.
 
-### 변경 사항
-`SortableHeaderCell` 내부에서 `isGroup = header.subHeaders.length > 0` 로 분기하여 1단/2단 스타일 분리.
+하지만 MDR progress icon은 사용자가 말씀하신 것처럼 **공정실제진행율의 누적 위치**를 기준으로 표시되어야 합니다.
 
-#### 1단(그룹 헤더) — SD · DD · CD · Overall
-- 정렬: `text-center`, 컨테이너 `justify-center`
-- 배경: `hsl(var(--primary))` 톤의 진한 배경 — 구체적으로 인라인 스타일을 `hsl(var(--primary) / 0.12)` 로 깔고, 좌우/하단 보더는 `border-primary/30`
-- 글자: `text-primary` 계열로 강조, `font-semibold`, `uppercase`, `tracking-wider`, `text-[11px]`
-- 드래그 핸들/필터 아이콘은 표시하지 않음 (그룹 헤더는 정렬/필터/드래그 비대상)
-- `z-index: 3` (스크롤 시 2단 위로 자연스럽게)
+예: SMP&CCM / ARCH / No.1
+- 계획: DD30 완료, DD60 기준 계획 약 57%
+- 실적: DD60 누적 50%
+- 따라서 DD30은 완료, **DD60은 지연**, DD90은 아직 planned/empty 성격이어야 함
+- 현재는 DD60 그룹 자체 셀들이 모두 완료된 것으로 판정되어 DD60이 `done`, 다음 DD90이 `delay` 로 밀려 표시됨
 
-#### 2단(leaf 헤더) — 기존 컬럼 라벨
-- 정렬: 현재의 `text-left` 유지 (필터/정렬 아이콘이 우측에 자연스럽게 정렬되도록)
-- 배경: `hsl(var(--muted))` 유지하되 살짝 진하게 — `hsl(var(--muted))` + `border-b-2 border-border` 로 1단과 시각 분리
-- 글자: `font-medium text-foreground` 그대로
-- 좌우 보더 음영 약간 강화 (`border-border`)
+### 수정 방향
+Progress Icon 상태를 “그룹별 단순 완료”가 아니라 **세부 마일스톤의 누적 계획률(P)과 누적 실적률(A)** 로 판정하도록 변경합니다.
 
-#### Placeholder 셀 (단일 레벨 컬럼의 1단 자리)
-- 동일한 1단 톤(`hsl(var(--primary) / 0.12)`)으로 채워 1단 색대가 끊기지 않게 함
+각 pip(DD30, DD60, DD90, DD100, CD30...) 별로 다음 값을 계산합니다.
 
-### 디자인 토큰 / 접근성
-- 모두 기존 시맨틱 토큰(`--primary`, `--muted`, `--foreground`, `--border`) 사용 — 다크 모드 자동 대응
-- primary/12 배경 위 primary 글자는 라이트/다크 양쪽 모두 4.5:1 이상 대비 확보
-- 색약 사용자를 위해 색상만이 아니라 굵기·자간 변화로도 1단/2단 구분
+```text
+누적 계획률 P = 해당 세부 마일스톤까지의 planned %
+누적 실적률 A = 해당 세부 마일스톤까지 완료된 실제 increment 합계
+```
 
-### 변경 파일
-- `src/components/mdr/grid/MdrAdvancedGrid.tsx`
-  - `SortableHeaderCell` 의 `style` / className 분기
-  - placeholder `<th>` 의 background/border 동기화
+상태 판정:
+```text
+1) 해당 단계/마일스톤이 없거나 scope 밖이면 empty
+2) A >= pip 기준 누적 목표율이면 done
+3) P > A 이고 asOf 기준 그 pip 계획 구간에 진입했으면 delay
+4) 직전 pip가 done이고 현재 pip가 진행 중이면 wip
+5) 그 외 planned
+```
+
+### 구현 상세
+
+#### 1) `progressIcon.ts` 로직 재작성
+- 기존 `classify()` 와 `groupCellsDone()` 중심 로직을 누적 기준으로 교체합니다.
+- `cells` 가 있으면 `mdr_milestone_cells` 의 `incrementPct` 단위로 누적 실적(A)을 계산합니다.
+- `cells` 가 없는 레거시 데이터는 기존 `mdr_progress` 그룹 단위 완료 여부로 fallback 합니다.
+- 각 pip마다:
+  - `targetActual`: 해당 pct까지의 누적 increment 합
+  - `actualToPct`: 해당 pct까지 완료된 increment 합
+  - `plannedToPct`: `drawingMilestonePlannedPct()` 로 계산한 해당 pct 기준 계획률
+  - `state`: 위 판정식으로 결정
+
+#### 2) No.1 케이스 기대 결과
+SMP&CCM / ARCH / `L2Z1-800-EA100-001-B`
+- SD: done
+- DD30: done
+- DD60: delay (계획 약 57, 실적 50)
+- DD90: planned 또는 아직 비활성에 가까운 상태
+- DD100: planned
+- CD: planned/empty 성격
+
+즉, 화면처럼 “DD60 done + DD90 delay”가 아니라 **DD60 자체가 delay** 로 표시되도록 수정합니다.
+
+#### 3) Tooltip 개선
+가능하면 tooltip에도 pip별 판정 근거가 보이도록 다음 정보를 추가합니다.
+```text
+DD60: Delay (P 57 / A 50, plan 06-26)
+```
+기존 tooltip의 actual/plan 날짜 표시는 유지하되, P/A 값을 함께 보여 문제 확인이 쉬워지게 합니다.
+
+#### 4) 호출부 유지
+`MdrAdvancedGrid.tsx` 의 호출부는 이미 필요한 데이터(`ms`, `pgRaw`, `asOf`, `scope`, `cellRows`)를 전달하고 있으므로 큰 변경 없이 유지합니다.
+필요하면 `progressIcon.ts` 내부 타입만 확장합니다.
 
 ### 검증
-- SD/DD/CD/Overall 1단 라벨이 정확히 그룹 가운데 정렬
-- 1단 row 와 2단 row 가 한눈에 구분 (배경/굵기/자간)
-- 가로 스크롤·세로 스크롤 시 색대 일관성 유지
-- 정렬·필터·드래그 동작 정상 (leaf 한정)
-- 다크 모드에서도 대비 충분
+- SMP&CCM > ARCH > No.1 의 Progress icon이 DD60 지연으로 표시되는지 확인
+- 같은 행의 단계별 DD-P/DD-A 값과 Progress icon 상태가 일치하는지 확인
+- DD60이 100% 완료된 행은 DD60 done으로 유지되는지 확인
+- 아직 계획일 전인 pip는 delay가 아니라 planned/wip로 표시되는지 확인
+- 범위 밖 단계는 empty로 유지되는지 확인
+
+### 변경 파일
+- `src/lib/mdr/progressIcon.ts`
+- 필요 시 `src/components/mdr/grid/MdrProgressIconCell.tsx` tooltip 표시만 보조 수정

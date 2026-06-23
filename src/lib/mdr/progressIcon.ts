@@ -1,18 +1,27 @@
 /**
- * MDR Progress Icon — milestone별 Pip 상태 분류
- * SHAW PROJECT CMS의 StageProgress 디자인을 차용
+ * MDR Progress Icon — 세부 마일스톤별 누적 P/A 비교 기반 분류
+ * - done   : 해당 pip가 자체적으로 완료(누적 increment 채움)
+ * - delay  : asOf 가 이 pip 의 계획 구간에 진입했고 (per-pip planned > actual)
+ * - wip    : asOf 가 진입했고 일부 실적이 있는 경우 (planned ≈ actual 또는 actual > 0)
+ * - planned: 아직 이 pip 구간 미진입
+ * - empty  : 단계 비범위 또는 마일스톤 미정의
  */
 import type { MdrStage } from "./parser";
+import { drawingMilestonePlannedPct } from "./progressEngine";
 
 export type MdrMilestoneState = "done" | "wip" | "delay" | "planned" | "empty";
 
 export interface MdrPipCell {
   stage: MdrStage;
   pct: number;
-  label: string; // "SD", "DD30", "DD60", ...
+  label: string;
   state: MdrMilestoneState;
   planDate: string | null;
   actualDate: string | null;
+  /** 누적 계획률 (단계 합 100 기준) */
+  plannedPct?: number;
+  /** 누적 실적률 (단계 합 100 기준) */
+  actualPct?: number;
 }
 
 export interface MdrProgressIconCells {
@@ -49,30 +58,34 @@ export const MDR_PIP_CLASS: Record<MdrMilestoneState, string> = {
   empty: "bg-transparent text-muted-foreground/40 border-border/40",
 };
 
-interface MsRow { stage: MdrStage; pct: number; plan_date: string | null; increment_pct?: number | string | null }
-interface PgRow { stage: MdrStage; pct: number; is_done: boolean; actual_date: string | null; sub_idx?: number | null }
-interface CellRow { stage: MdrStage; pct: number; subIdx: number; incrementPct: number }
-
-function classify(
-  stage: MdrStage,
-  pct: number,
-  ms: MsRow | undefined,
-  pg: PgRow | undefined,
-  prevDone: boolean,
-  asOf: string,
-  cellsDone?: boolean, // 셀 합 기반 done 판정
-): MdrMilestoneState {
-  if (!ms) return "empty";
-  if (cellsDone) return "done";
-  if (pg?.is_done) return "done";
-  if (ms.plan_date && ms.plan_date < asOf) return "delay";
-  if (prevDone) return "wip";
-  return "planned";
+interface MsRow {
+  stage: MdrStage;
+  pct: number;
+  plan_date: string | null;
+  increment_pct?: number | string | null;
+}
+interface PgRow {
+  stage: MdrStage;
+  pct: number;
+  is_done: boolean;
+  actual_date: string | null;
+  sub_idx?: number | null;
+}
+interface CellRow {
+  stage: MdrStage;
+  pct: number;
+  subIdx: number;
+  incrementPct: number;
+  planDate?: string | null;
 }
 
+const EPS = 1e-6;
+
 /**
- * SD는 항상 단일 done Pip (SD100). DD/CD는 정의된 마일스톤 기준.
- * scope 가 주어지고 그 단계가 false 면 해당 단계는 "empty" 상태로 비활성 표시.
+ * 도면 단위 — 세부 마일스톤별 pip 상태 계산.
+ * - cells 가 있으면 셀 단위 increment 로 누적 실적, plannedPctAsOf 보간으로 누적 계획률을 계산.
+ * - 두 값의 비교로 done / delay / wip / planned 를 판정.
+ * - scope 가 false 인 단계는 모두 empty.
  */
 export function buildMdrProgressIconCells(
   milestones: MsRow[],
@@ -81,66 +94,123 @@ export function buildMdrProgressIconCells(
   scope?: { sd: boolean; dd: boolean; cd: boolean },
   cells?: CellRow[],
 ): MdrProgressIconCells {
-  const find = (stage: MdrStage, pct: number) => ({
-    ms: milestones.find((m) => m.stage === stage && m.pct === pct),
-    pg: progress.find((p) => p.stage === stage && p.pct === pct && (p.sub_idx ?? 0) === 0),
-    pgs: progress.filter((p) => p.stage === stage && p.pct === pct),
-  });
-
   const sc = scope ?? { sd: true, dd: true, cd: true };
 
-  // 셀 합 ≥ 그룹 합 일 때 done 판정
-  const groupCellsDone = (stage: MdrStage, pct: number): boolean => {
-    if (!cells || !cells.length) return false;
-    const groupCells = cells.filter((c) => c.stage === stage && c.pct === pct);
-    if (!groupCells.length) return false;
-    let sum = 0;
-    let target = 0;
-    for (const cc of groupCells) {
-      target += cc.incrementPct;
-      const matched = progress.find((p) =>
-        p.stage === stage && p.pct === pct && (p.sub_idx ?? 0) === cc.subIdx && p.is_done,
-      );
-      if (matched) sum += cc.incrementPct;
+  // engine 용 normalized milestones (camelCase)
+  const msNorm = milestones.map((m) => ({
+    stage: m.stage,
+    pct: Number(m.pct),
+    incrementPct: Number(m.increment_pct ?? 0),
+    planDate: m.plan_date ?? null,
+  }));
+
+  const findMs = (stage: MdrStage, pct: number) =>
+    milestones.find((m) => m.stage === stage && m.pct === pct);
+
+  // 단계별 sub-cell 합 → 누적 실적 / 누적 목표
+  const stageActualUpTo = (stage: MdrStage, pct: number): number => {
+    if (cells && cells.length) {
+      let sum = 0;
+      for (const cc of cells) {
+        if (cc.stage !== stage || cc.pct > pct) continue;
+        const done = progress.some((p) =>
+          p.stage === stage && p.pct === cc.pct &&
+          (p.sub_idx ?? 0) === cc.subIdx && p.is_done,
+        );
+        if (done) sum += cc.incrementPct;
+      }
+      return sum;
     }
-    return target > 0 && sum + 1e-6 >= target;
+    // 셀 데이터 없을 때(레거시): 그룹 단위 increment 합산
+    let sum = 0;
+    for (const m of msNorm) {
+      if (m.stage !== stage || m.pct > pct) continue;
+      const anyDone = progress.some((p) => p.stage === stage && p.pct === m.pct && p.is_done);
+      if (anyDone) sum += m.incrementPct;
+    }
+    return sum;
   };
 
-  // SD: 100만, scope.sd 인 경우에만 done
-  const sdFind = find("SD", 100);
+  const stageTargetUpTo = (stage: MdrStage, pct: number): number =>
+    msNorm.filter((m) => m.stage === stage && m.pct <= pct)
+      .reduce((s, m) => s + m.incrementPct, 0);
+
+  // 최신 actual_date — 해당 pct 그룹 내 완료 sub-cell 중 가장 늦은 일자
+  const latestActualDate = (stage: MdrStage, pct: number): string | null => {
+    let latest: string | null = null;
+    for (const p of progress) {
+      if (p.stage !== stage || p.pct !== pct || !p.is_done) continue;
+      const ad = p.actual_date ?? null;
+      if (ad && (!latest || ad > latest)) latest = ad;
+    }
+    return latest;
+  };
+
+  // SD: 단일 pip — scope 면 done (SD는 단계 정의상 항상 완료)
+  const sdMs = findMs("SD", 100);
+  const sdActual = stageActualUpTo("SD", 100);
+  const sdTarget = stageTargetUpTo("SD", 100);
   const sd: MdrPipCell = {
     stage: "SD",
     pct: 100,
     label: "SD",
     state: sc.sd ? "done" : "empty",
-    planDate: sdFind.ms?.plan_date ?? null,
-    actualDate: sdFind.pg?.actual_date ?? null,
+    planDate: sdMs?.plan_date ?? null,
+    actualDate: latestActualDate("SD", 100),
+    plannedPct: sc.sd ? 100 : 0,
+    actualPct: sc.sd ? (sdTarget > 0 ? Math.min(100, (sdActual / sdTarget) * 100) : 100) : 0,
   };
 
-  const buildSeq = (stage: MdrStage, pcts: readonly number[], initialPrevDone: boolean): MdrPipCell[] => {
-    let prevDone = initialPrevDone;
+  const buildSeq = (stage: MdrStage, pcts: readonly number[], prevStageDoneFlag: boolean): MdrPipCell[] => {
+    // 각 pip 의 누적 P / A 를 미리 계산
+    const stageTotal = msNorm
+      .filter((m) => m.stage === stage)
+      .reduce((s, m) => s + m.incrementPct, 0);
+
+    let prevPlannedCum = 0; // 단계 합 100 기준 (drawingMilestonePlannedPct 가 0~100 반환)
+    let prevActualCum = 0;
+    let prevDone = prevStageDoneFlag;
+
     return pcts.map((p) => {
-      const { ms, pg, pgs } = find(stage, p);
-      const cellsDone = groupCellsDone(stage, p);
-      const state = classify(stage, p, ms, pg, prevDone, asOf, cellsDone);
-      prevDone = state === "done";
-      // actualDate: 셀 단위 완료시 가장 늦은 actual_date
-      let actualDate: string | null = pg?.actual_date ?? null;
-      if (cellsDone) {
-        for (const pp of pgs) {
-          if (pp.is_done && pp.actual_date && (!actualDate || pp.actual_date > actualDate)) {
-            actualDate = pp.actual_date;
-          }
-        }
+      const ms = findMs(stage, p);
+      const actualCum = stageTotal > 0 ? (stageActualUpTo(stage, p) / stageTotal) * 100 : 0;
+      const plannedCum = ms ? drawingMilestonePlannedPct(msNorm, stage, p, asOf) : prevPlannedCum;
+
+      const pipPlanned = Math.max(0, plannedCum - prevPlannedCum);
+      const pipActual = Math.max(0, actualCum - prevActualCum);
+      const pipTarget = stageTotal > 0 ? (Number(ms?.increment_pct ?? 0) / stageTotal) * 100 : 0;
+
+      let state: MdrMilestoneState;
+      if (!ms) {
+        state = "empty";
+      } else if (pipActual + EPS >= pipTarget && pipTarget > 0) {
+        state = "done";
+      } else if (pipPlanned > EPS) {
+        // asOf 가 이 pip 구간에 진입함
+        if (pipPlanned > pipActual + EPS) state = "delay";
+        else state = pipActual > EPS ? "wip" : "delay";
+      } else {
+        // pip 구간 미진입
+        if (pipActual > EPS) state = "wip";
+        else if (prevDone) state = "wip";
+        else state = "planned";
       }
-      return {
+
+      const cell: MdrPipCell = {
         stage,
         pct: p,
         label: `${stage}${p}`,
         state,
         planDate: ms?.plan_date ?? null,
-        actualDate,
+        actualDate: latestActualDate(stage, p),
+        plannedPct: plannedCum,
+        actualPct: actualCum,
       };
+
+      prevPlannedCum = plannedCum;
+      prevActualCum = actualCum;
+      prevDone = state === "done";
+      return cell;
     });
   };
 
@@ -149,6 +219,7 @@ export function buildMdrProgressIconCells(
       stage, pct: p, label: `${stage}${p}`,
       state: "empty" as MdrMilestoneState,
       planDate: null, actualDate: null,
+      plannedPct: 0, actualPct: 0,
     }));
 
   const dd = sc.dd ? buildSeq("DD", DD_PIP_PCTS, sc.sd) : buildEmpty("DD", DD_PIP_PCTS);
@@ -179,11 +250,16 @@ export function getMdrProgressTooltipLines(c: MdrProgressIconCells, asOf: string
     const lbl = cell.label.padEnd(6);
     const st = MDR_STATE_LABEL[cell.state];
     const extras: string[] = [];
-    if (cell.state === "done" && cell.actualDate) extras.push(`actual ${fmt(cell.actualDate)}`);
-    else if (cell.planDate) {
+    if (cell.plannedPct != null && cell.actualPct != null && cell.state !== "empty") {
+      extras.push(`P ${Math.round(cell.plannedPct)} / A ${Math.round(cell.actualPct)}`);
+    }
+    if (cell.state === "done" && cell.actualDate) {
+      extras.push(`actual ${fmt(cell.actualDate)}`);
+    } else if (cell.planDate) {
       if (cell.state === "delay") {
         const days = Math.floor((new Date(asOf).getTime() - new Date(cell.planDate).getTime()) / 86400000);
-        extras.push(`plan ${fmt(cell.planDate)}, overdue ${days}d`);
+        if (days > 0) extras.push(`plan ${fmt(cell.planDate)}, overdue ${days}d`);
+        else extras.push(`plan ${fmt(cell.planDate)}`);
       } else {
         extras.push(`plan ${fmt(cell.planDate)}`);
       }
