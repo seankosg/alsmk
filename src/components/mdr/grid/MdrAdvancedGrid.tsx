@@ -460,12 +460,18 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           source_no: "No.", building_code: "Building", doc_no: "Doc No.", item_no: "Item No.",
           discipline: "Disc.", drawing_title: "Title",
           sd_mark: "SD", dd_mark: "DD", cd_mark: "CD",
-          dd_pct: "DD%", cd_pct: "CD%", overall_pct: "Overall%",
+          sd_p: "SD P", sd_a: "SD A", sd_d: "SD Δ",
+          dd_p: "DD P", dd_a: "DD A", dd_d: "DD Δ",
+          cd_p: "CD P", cd_a: "CD A", cd_d: "CD Δ",
+          overall_pct: "Overall%",
+          stage_plan_sd: "SD목표완료일",
+          stage_plan_dd: "DD목표완료일",
+          stage_plan_cd: "CD목표완료일",
           plan_finish: "Plan Finish", updated_at: "Updated",
           progress_icon: "Progress",
         };
         if (base[id]) return base[id];
-        // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d / dd_60_pd / dd_60_ad → "SD50 P" / "DD60 계획일" 등
+        // 세부 마일스톤: sd_100_p / dd_30_a / cd_100_d / dd_60_pd / dd_60_ad → "DD60 계획일" 등
         const m = id.match(/^(sd|dd|cd)_(\d+)_(pd|ad|p|a|d)$/);
         if (m) {
           const sfx = m[3];
@@ -481,7 +487,6 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       // 그리드 셀 렌더와 동일한 표시 문자열로 변환
       const formatCell = (id: string, value: any): any => {
         if (id === "progress_icon") {
-          // value = state[] of 8 pips (SD + DD4 + CD3) → 그룹 압축 표기
           const arr = Array.isArray(value) ? value : [];
           if (arr.length < 8) return "";
           const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -492,8 +497,10 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           };
           return `SD:${cap(arr[0])}|DD:${summ(arr.slice(1, 5))}|CD:${summ(arr.slice(5, 8))}`;
         }
-        if (id === "dd_pct" || id === "cd_pct" || id === "overall_pct") {
-          return formatPct(value);
+        if (id === "overall_pct") return formatPct(value);
+        if (/^(sd|dd|cd)_(p|a|d)$/.test(id)) {
+          if (value == null) return "-";
+          return Math.round(Number(value));
         }
         if (id === "sd_mark" || id === "dd_mark" || id === "cd_mark") {
           return (value as string) || "-";
