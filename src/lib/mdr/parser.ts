@@ -3,11 +3,19 @@ import { MDR_REIMPORT_MARKER, detectColumnKey } from "./columnMap";
 
 export type MdrStage = "SD" | "DD" | "CD";
 
+/** 마일스톤 그룹 내 단일 서브컬럼(엑셀 셀) 정의 */
+export interface MdrMilestoneCellDef {
+  subIdx: number;        // 그룹 내 0-based 인덱스
+  incrementPct: number;  // 셀 단위 증분 (헤더 2행의 그 셀)
+  planDate?: string;     // 셀 단위 plan_date (없으면 그룹 plan_date 사용)
+}
+
 export interface MdrMilestoneDef {
   stage: MdrStage;
   pct: number;          // 30, 60, 90, 100
-  incrementPct: number; // 헤더 2행: 증분
-  planDate?: string;    // ISO YYYY-MM-DD
+  incrementPct: number; // 그룹 합 (mdr_milestones.increment_pct 호환)
+  planDate?: string;    // ISO YYYY-MM-DD — 그룹의 가장 늦은 plan_date
+  cells: MdrMilestoneCellDef[]; // 그룹 내 모든 서브컬럼
 }
 
 export interface MdrParsedRow {
@@ -45,7 +53,8 @@ export interface MdrParsedRow {
   sourceSheet: string;
   rawRowNo: number;
   milestones: MdrMilestoneDef[];
-  progress: { stage: MdrStage; pct: number; isDone: boolean }[];
+  /** 셀 단위 진행 — 그룹 OR 아닌 서브컬럼별 Y/N */
+  progress: { stage: MdrStage; pct: number; subIdx: number; isDone: boolean }[];
 }
 
 export interface MdrParsedSheet {
@@ -199,6 +208,7 @@ function parseSheet(
     cols: number[];           // 그룹에 속한 서브컬럼들
     incrementPct: number;     // 서브컬럼 증분 합
     planDate?: string;        // 서브컬럼 중 가장 늦은 plan_date
+    cells: { subIdx: number; col: number; incrementPct: number; planDate?: string }[];
   }
   const milestoneGroups: MilestoneGroup[] = [];
 
@@ -241,17 +251,24 @@ function parseSheet(
         end = k;
       }
       const cols: number[] = [];
+      const cells: { subIdx: number; col: number; incrementPct: number; planDate?: string }[] = [];
       let incrementPct = 0;
       let planDate: string | undefined;
+      let subIdx = 0;
       for (let x = start; x <= end; x++) {
         cols.push(x);
         const incRaw = cellStr(ws, incrementRow, x).replace("%", "").trim();
         const v = parseFloat(incRaw);
-        if (!isNaN(v)) incrementPct += v;
+        const cellInc = !isNaN(v) ? v : 0;
+        if (cellInc > 0) incrementPct += cellInc;
         const pd = parseDate(cellRaw(ws, planDateRow, x));
         if (pd && (!planDate || pd > planDate)) planDate = pd;
+        if (cellInc > 0) {
+          cells.push({ subIdx, col: x, incrementPct: cellInc, planDate: pd });
+          subIdx++;
+        }
       }
-      milestoneGroups.push({ stage, pct, cols, incrementPct, planDate });
+      milestoneGroups.push({ stage, pct, cols, incrementPct, planDate, cells });
       c = end + 1;
     } else {
       const headerText = headerTextAt(c);
@@ -270,6 +287,7 @@ function parseSheet(
     incrementPct: g.incrementPct,
     planDate: g.planDate,
     cols: g.cols,
+    cells: g.cells,
   }));
 
   // SD/DD/CD 단계 범위(scope) 컬럼 — headerRow에서 "SD"/"DD"/"CD" 또는 "SD Stage"/"DD Stage"/"CD Stage".
@@ -349,12 +367,20 @@ function parseSheet(
       pct: m.pct,
       incrementPct: m.incrementPct,
       planDate: m.planDate,
+      cells: m.cells.map((cc) => ({
+        subIdx: cc.subIdx,
+        incrementPct: cc.incrementPct,
+        planDate: cc.planDate,
+      })),
     }));
-    const progressAll = milestoneCols.map((m) => {
-      // 그룹 내 어느 서브컬럼이라도 Yes 면 완료로 간주
-      const isDone = m.cols.some((x) => isYes(cellStr(ws, r, x)));
-      return { stage: m.stage, pct: m.pct, isDone };
-    });
+    // 셀 단위 progress: 그룹 OR 아닌 서브컬럼별 Y/N (increment > 0 셀만)
+    const progressAll: { stage: MdrStage; pct: number; subIdx: number; isDone: boolean }[] = [];
+    for (const m of milestoneCols) {
+      for (const cc of m.cells) {
+        const isDone = isYes(cellStr(ws, r, cc.col));
+        progressAll.push({ stage: m.stage, pct: m.pct, subIdx: cc.subIdx, isDone });
+      }
+    }
 
     // 단계 범위(scope) 판정: 헤더 컬럼이 있으면 셀 값으로 결정.
     // 헤더 컬럼이 없으면 폴백으로 그 단계 마일스톤이 정의되어 있고 increment 합이 0 초과인지로 판정.

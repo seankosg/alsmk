@@ -30,7 +30,8 @@ interface RawDrawing {
   in_scope_dd: boolean | null;
   in_scope_cd: boolean | null;
   mdr_milestones: { stage: StageCode; pct: number; plan_date: string | null }[] | null;
-  mdr_progress: { stage: StageCode; pct: number; is_done: boolean; actual_date: string | null }[] | null;
+  mdr_milestone_cells: { stage: StageCode; pct: number; sub_idx: number; increment_pct: number; plan_date: string | null }[] | null;
+  mdr_progress: { stage: StageCode; pct: number; sub_idx: number | null; is_done: boolean; actual_date: string | null }[] | null;
 }
 
 /**
@@ -122,13 +123,34 @@ function planAtDate(
   return m;
 }
 
-/** is_done=true & actual_date ≤ D인 progress 중 최대 pct → 실적 진도율(0~100). */
+/**
+ * 셀 단위 실적 합산. 사용자 직관: Y가 표시된 셀의 increment 만 합산.
+ *  - mdr_milestone_cells 가 있으면 (stage,pct,sub_idx) 매칭으로 합산.
+ *  - 백필된 레거시 (sub_idx=0) 도 정상 동작.
+ *  - 셀 데이터가 전혀 없는 경우 그룹 단위 폴백.
+ */
 function actualAtDate(
-  progress: { stage: StageCode; pct: number; is_done: boolean; actual_date: string | null }[] | null,
+  cells: { stage: StageCode; pct: number; sub_idx: number; increment_pct: number; plan_date: string | null }[] | null,
+  progress: { stage: StageCode; pct: number; sub_idx: number | null; is_done: boolean; actual_date: string | null }[] | null,
+  milestones: { stage: StageCode; pct: number; plan_date: string | null }[] | null,
   stage: StageCode,
   D: string,
 ): number {
   if (!progress) return 0;
+  if (cells && cells.length) {
+    let sum = 0;
+    for (const cc of cells) {
+      if (cc.stage !== stage) continue;
+      const matched = progress.find((p) =>
+        p.stage === stage && p.pct === cc.pct && (p.sub_idx ?? 0) === cc.sub_idx
+        && p.is_done && (!p.actual_date || p.actual_date <= D),
+      );
+      if (matched) sum += Number(cc.increment_pct) || 0;
+    }
+    return Math.min(100, Math.max(0, sum));
+  }
+  // 폴백: 그룹 단위 — 완료된 마일스톤 pct 들의 increment(=다음 pct - 현 pct 추정 불가)이므로
+  // 안전하게 done 된 최대 pct 를 반환 (구 동작 호환).
   let m = 0;
   for (const r of progress) {
     if (r.stage !== stage) continue;
@@ -187,7 +209,7 @@ function computeBlock(
         const sc = cell[stKey(st)];
         sc.drawingCount += 1;
         const planPct = planAtDate(dr.mdr_milestones, st, dataDate);
-        const actualPct = actualAtDate(dr.mdr_progress, st, dataDate);
+        const actualPct = actualAtDate(dr.mdr_milestone_cells, dr.mdr_progress, dr.mdr_milestones, st, dataDate);
         planSum[st] += planPct / 100;
         actualSum[st] += actualPct / 100;
         if (planPct > 0) sc.planCount += 1;
@@ -319,7 +341,7 @@ async function fetchSummary(): Promise<MdrSummary> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("mdr_drawings" as never)
-      .select("id, building_code, discipline, out_of_scope, in_scope_sd, in_scope_dd, in_scope_cd, mdr_milestones(stage,pct,plan_date), mdr_progress(stage,pct,is_done,actual_date)")
+      .select("id, building_code, discipline, out_of_scope, in_scope_sd, in_scope_dd, in_scope_cd, mdr_milestones(stage,pct,plan_date), mdr_milestone_cells(stage,pct,sub_idx,increment_pct,plan_date), mdr_progress(stage,pct,sub_idx,is_done,actual_date)")
       .eq("out_of_scope", false)
       .range(from, from + PAGE - 1);
     if (error) throw error;

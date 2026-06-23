@@ -51,7 +51,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     queryFn: async () => {
       let q = supabase
         .from("mdr_drawings" as never)
-        .select("*, mdr_milestones(*), mdr_progress(*)")
+        .select("*, mdr_milestones(*), mdr_milestone_cells(*), mdr_progress(*)")
         .eq("building_code", buildingCode)
         .order("discipline");
       if (sheetName) q = q.eq("source_sheet", sheetName);
@@ -64,7 +64,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const rows: MdrDrawingRow[] = useMemo(() => {
     return (data ?? []).map((d: any): MdrDrawingRow => {
       const ms = d.mdr_milestones ?? [];
-      const pg = d.mdr_progress ?? [];
+      const cells = d.mdr_milestone_cells ?? [];
+      const pgRaw = d.mdr_progress ?? [];
       // in_scope_* 가 null 인 레거시 행은 마일스톤 존재 여부로 폴백 판정.
       const hasStage = (st: MdrStage) =>
         ms.some((x: any) => x.stage === st && (x.plan_date || (x.pct ?? 0) > 0));
@@ -76,10 +77,26 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         cd: explicit ? !!d.in_scope_cd : hasStage("CD"),
       };
 
-      const sd = drawingStagePct(ms, pg, "SD", asOf);
-      const dd = drawingStagePct(ms, pg, "DD", asOf);
-      const cd = drawingStagePct(ms, pg, "CD", asOf);
-      const overall = drawingOverall(ms, pg, asOf, { sd: 1, dd: 1, cd: 1 }, scope);
+      // 엔진용 셀/진척 정규화
+      const cellRows = cells.map((x: any) => ({
+        stage: x.stage as MdrStage,
+        pct: Number(x.pct),
+        subIdx: Number(x.sub_idx ?? 0),
+        incrementPct: Number(x.increment_pct),
+        planDate: x.plan_date ?? null,
+      }));
+      const pgRows = pgRaw.map((x: any) => ({
+        stage: x.stage as MdrStage,
+        pct: Number(x.pct),
+        subIdx: Number(x.sub_idx ?? 0),
+        isDone: !!x.is_done,
+        actualDate: x.actual_date ?? null,
+      }));
+
+      const sd = drawingStagePct(ms, pgRows, "SD", asOf, cellRows);
+      const dd = drawingStagePct(ms, pgRows, "DD", asOf, cellRows);
+      const cd = drawingStagePct(ms, pgRows, "CD", asOf, cellRows);
+      const overall = drawingOverall(ms, pgRows, asOf, { sd: 1, dd: 1, cd: 1 }, scope, cellRows);
 
       const msRows = ms.map((x: any) => ({
         stage: x.stage,
@@ -88,20 +105,45 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         planDate: x.plan_date ?? null,
       }));
 
+      // 그룹 셀의 actual(A) = 셀별 increment 합 (셀별 isDone 일 때).
+      // 셀 데이터가 없으면(레거시) 그룹 is_done × group increment 폴백.
       const buildCell = (stage: MdrStage, pct: number) => {
         const stageKey = stage === "SD" ? "sd" : stage === "DD" ? "dd" : "cd";
         if (!scope[stageKey]) return null;
         const m = ms.find((x: any) => x.stage === stage && x.pct === pct);
-        const p = pg.find((x: any) => x.stage === stage && x.pct === pct);
         if (!m) return null;
-        const aShow = p?.is_done ? Number(m.increment_pct) : 0;
+        const groupCells = cellRows.filter((cc: any) => cc.stage === stage && cc.pct === pct);
+        const pgGroup = pgRows.filter((p: any) => p.stage === stage && p.pct === pct);
+        let aShow = 0;
+        let actualDate: string | null = null;
+        if (groupCells.length) {
+          for (const cc of groupCells) {
+            const matched = pgGroup.find((p: any) => (p.subIdx ?? 0) === cc.subIdx && p.isDone);
+            if (matched) {
+              aShow += cc.incrementPct;
+              const raw = pgRaw.find((x: any) =>
+                x.stage === stage && x.pct === pct && Number(x.sub_idx ?? 0) === cc.subIdx && x.is_done,
+              );
+              const ad = raw?.actual_date ?? null;
+              if (ad && (!actualDate || ad > actualDate)) actualDate = ad;
+            }
+          }
+        } else {
+          // 레거시 폴백: 그룹 단위
+          const anyDone = pgGroup.find((p: any) => p.isDone);
+          if (anyDone) {
+            aShow = Number(m.increment_pct);
+            const raw = pgRaw.find((x: any) => x.stage === stage && x.pct === pct && x.is_done);
+            actualDate = raw?.actual_date ?? null;
+          }
+        }
         const pShow = drawingMilestonePlannedPct(msRows, stage, pct, asOf);
         return {
           p: pShow,
           a: aShow,
           delta: pShow - aShow,
           planDate: m.plan_date ?? null,
-          actualDate: p?.is_done ? (p?.actual_date ?? null) : null,
+          actualDate,
         };
       };
 
@@ -112,7 +154,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       const cdCells: MdrDrawingRow["cdCells"] = {};
       CD_PCTS.forEach((p) => { cdCells[p] = buildCell("CD", p); });
 
-      const progressIconCells = buildMdrProgressIconCells(ms, pg, asOf, scope);
+      const progressIconCells = buildMdrProgressIconCells(ms, pgRaw, asOf, scope, cellRows);
 
       return {
         id: d.id,

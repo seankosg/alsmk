@@ -10,8 +10,18 @@ export interface MilestoneRow {
 export interface ProgressRow {
   stage: MdrStage;
   pct: number;
+  subIdx?: number;        // 셀 단위 진척의 인덱스(0-based). 없으면 그룹 단위로 간주.
   isDone: boolean;
   actualDate?: string | null;
+}
+
+/** mdr_milestone_cells 한 행 — 셀 단위 증분 */
+export interface MilestoneCellRow {
+  stage: MdrStage;
+  pct: number;
+  subIdx: number;
+  incrementPct: number;
+  planDate?: string | null;
 }
 
 const DAY_MS = 86400000;
@@ -111,17 +121,39 @@ export function drawingMilestonePlannedPct(
   return clamp(acc, 0, 100);
 }
 
-/** 실적률 — step 함수 (완료된 마일스톤 증분의 합) */
+/** 실적률 — step 함수 (완료된 마일스톤 증분의 합)
+ *  - cells(셀 단위 증분)가 제공되면 (stage,pct,subIdx) 정확 매칭으로 합산 → 사용자 직관과 일치.
+ *  - 미제공 시 그룹 단위 호환 모드: 어느 셀이라도 isDone 이면 그룹 increment 합산.
+ */
 export function actualPct(
   milestones: MilestoneRow[],
   progress: ProgressRow[],
   stage: MdrStage,
+  cells?: MilestoneCellRow[],
 ): number {
+  // 셀 단위 모드
+  if (cells && cells.length) {
+    let sum = 0;
+    for (const cc of cells) {
+      if (cc.stage !== stage) continue;
+      const matched = progress.find((p) =>
+        p.stage === stage && p.pct === cc.pct && (p.subIdx ?? 0) === cc.subIdx && p.isDone
+      );
+      if (matched) sum += cc.incrementPct;
+    }
+    return clamp(sum, 0, 100);
+  }
+  // 그룹 단위 호환 모드 (셀 데이터 없음)
   const incMap = new Map<number, number>();
   for (const m of milestones) if (m.stage === stage) incMap.set(m.pct, m.incrementPct);
-  let sum = 0;
+  const doneByPct = new Map<number, boolean>();
   for (const p of progress) {
-    if (p.stage === stage && p.isDone) sum += incMap.get(p.pct) ?? 0;
+    if (p.stage !== stage) continue;
+    if (p.isDone) doneByPct.set(p.pct, true);
+  }
+  let sum = 0;
+  for (const [pct, inc] of incMap.entries()) {
+    if (doneByPct.get(pct)) sum += inc;
   }
   return clamp(sum, 0, 100);
 }
@@ -137,10 +169,11 @@ export function drawingStagePct(
   progress: ProgressRow[],
   stage: MdrStage,
   asOf: string,
+  cells?: MilestoneCellRow[],
 ) {
   if (stage === "SD") return { planned: 100, actual: 100, delta: 0 };
   const planned = plannedPctAsOf(milestones, stage, asOf);
-  const actual = actualPct(milestones, progress, stage);
+  const actual = actualPct(milestones, progress, stage, cells);
   return { planned, actual, delta: planned - actual };
 }
 
@@ -162,12 +195,13 @@ export function drawingOverall(
   asOf: string,
   weights: { sd?: number; dd?: number; cd?: number } = { sd: 1, dd: 1, cd: 1 },
   inScope?: DrawingScope,
+  cells?: MilestoneCellRow[],
 ) {
   const w = { sd: weights.sd ?? 1, dd: weights.dd ?? 1, cd: weights.cd ?? 1 };
   const scope: DrawingScope = inScope ?? { sd: true, dd: true, cd: true };
 
   const stageOf = (s: MdrStage) =>
-    drawingStagePct(milestones, progress, s, asOf);
+    drawingStagePct(milestones, progress, s, asOf, cells);
 
   const sd = scope.sd ? stageOf("SD") : { planned: null, actual: null, delta: null };
   const dd = scope.dd ? stageOf("DD") : { planned: null, actual: null, delta: null };

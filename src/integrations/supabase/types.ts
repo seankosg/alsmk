@@ -735,6 +735,47 @@ export type Database = {
           },
         ]
       }
+      mdr_milestone_cells: {
+        Row: {
+          created_at: string
+          drawing_id: string
+          id: string
+          increment_pct: number
+          pct: number
+          plan_date: string | null
+          stage: string
+          sub_idx: number
+        }
+        Insert: {
+          created_at?: string
+          drawing_id: string
+          id?: string
+          increment_pct?: number
+          pct: number
+          plan_date?: string | null
+          stage: string
+          sub_idx: number
+        }
+        Update: {
+          created_at?: string
+          drawing_id?: string
+          id?: string
+          increment_pct?: number
+          pct?: number
+          plan_date?: string | null
+          stage?: string
+          sub_idx?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdr_milestone_cells_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: false
+            referencedRelation: "mdr_drawings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mdr_milestones: {
         Row: {
           created_at: string
@@ -783,6 +824,7 @@ export type Database = {
           is_done: boolean
           pct: number
           stage: string
+          sub_idx: number
           updated_at: string
         }
         Insert: {
@@ -794,6 +836,7 @@ export type Database = {
           is_done?: boolean
           pct: number
           stage: string
+          sub_idx?: number
           updated_at?: string
         }
         Update: {
@@ -805,6 +848,7 @@ export type Database = {
           is_done?: boolean
           pct?: number
           stage?: string
+          sub_idx?: number
           updated_at?: string
         }
         Relationships: [

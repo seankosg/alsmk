@@ -216,16 +216,25 @@ export async function persistParsed(
         .eq("id", ex.id);
       if (uErr) throw uErr;
       await (supabase.from("mdr_milestones" as never) as any).delete().eq("drawing_id", ex.id);
+      await (supabase.from("mdr_milestone_cells" as never) as any).delete().eq("drawing_id", ex.id);
       await (supabase.from("mdr_progress" as never) as any).delete().eq("drawing_id", ex.id);
       const msIns = r.milestones.map((m) => ({
         drawing_id: ex.id, stage: m.stage, pct: m.pct,
         increment_pct: m.incrementPct, plan_date: m.planDate ?? null,
       }));
+      const cellsIns = r.milestones.flatMap((m) =>
+        (m.cells ?? []).map((cc) => ({
+          drawing_id: ex.id, stage: m.stage, pct: m.pct,
+          sub_idx: cc.subIdx, increment_pct: cc.incrementPct,
+          plan_date: cc.planDate ?? m.planDate ?? null,
+        })),
+      );
       const pgIns = r.progress.map((pr) => ({
-        drawing_id: ex.id, stage: pr.stage, pct: pr.pct,
+        drawing_id: ex.id, stage: pr.stage, pct: pr.pct, sub_idx: pr.subIdx,
         is_done: pr.stage === "SD" ? true : pr.isDone,
       }));
       if (msIns.length) await supabase.from("mdr_milestones" as never).insert(msIns as any);
+      if (cellsIns.length) await supabase.from("mdr_milestone_cells" as never).insert(cellsIns as any);
       if (pgIns.length) await supabase.from("mdr_progress" as never).insert(pgIns as any);
     }
   }
@@ -320,8 +329,9 @@ export async function persistParsed(
     }
   }
 
-  // 5) 신규 행 milestones / progress bulk insert
+  // 5) 신규 행 milestones / milestone_cells / progress bulk insert
   const milestonePayloads: any[] = [];
+  const cellPayloads: any[] = [];
   const progressPayloads: any[] = [];
   for (const row of newRows) {
     const id = docBaseToId.get(row.docBase);
@@ -331,10 +341,17 @@ export async function persistParsed(
         drawing_id: id, stage: m.stage, pct: m.pct,
         increment_pct: m.incrementPct, plan_date: m.planDate ?? null,
       });
+      for (const cc of m.cells ?? []) {
+        cellPayloads.push({
+          drawing_id: id, stage: m.stage, pct: m.pct,
+          sub_idx: cc.subIdx, increment_pct: cc.incrementPct,
+          plan_date: cc.planDate ?? m.planDate ?? null,
+        });
+      }
     }
     for (const p of row.progress) {
       progressPayloads.push({
-        drawing_id: id, stage: p.stage, pct: p.pct,
+        drawing_id: id, stage: p.stage, pct: p.pct, sub_idx: p.subIdx,
         is_done: p.stage === "SD" ? true : p.isDone,
       });
     }
@@ -342,6 +359,11 @@ export async function persistParsed(
   for (let i = 0; i < milestonePayloads.length; i += 1000) {
     const chunk = milestonePayloads.slice(i, i + 1000);
     const { error } = await supabase.from("mdr_milestones" as never).insert(chunk as any);
+    if (error && !error.message.includes("duplicate")) throw error;
+  }
+  for (let i = 0; i < cellPayloads.length; i += 1000) {
+    const chunk = cellPayloads.slice(i, i + 1000);
+    const { error } = await supabase.from("mdr_milestone_cells" as never).insert(chunk as any);
     if (error && !error.message.includes("duplicate")) throw error;
   }
   for (let i = 0; i < progressPayloads.length; i += 1000) {
@@ -357,11 +379,13 @@ export async function persistParsed(
     const ids = skipSameRevPlans.map((p) => p.existing!.id);
     for (let i = 0; i < ids.length; i += 200) {
       const chunk = ids.slice(i, i + 200);
-      const [{ error: mErr }, { error: pErr }] = await Promise.all([
+      const [{ error: mErr }, { error: cErr }, { error: pErr }] = await Promise.all([
         (supabase.from("mdr_milestones" as never) as any).delete().in("drawing_id", chunk),
+        (supabase.from("mdr_milestone_cells" as never) as any).delete().in("drawing_id", chunk),
         (supabase.from("mdr_progress" as never) as any).delete().in("drawing_id", chunk),
       ]);
       if (mErr) throw mErr;
+      if (cErr) throw cErr;
       if (pErr) throw pErr;
     }
     for (const p of skipSameRevPlans) {
@@ -394,6 +418,7 @@ export async function persistParsed(
         .eq("id", ex.id);
     }
     const msResync: any[] = [];
+    const cellResync: any[] = [];
     const pgResync: any[] = [];
     for (const p of skipSameRevPlans) {
       const id = p.existing!.id;
@@ -403,10 +428,17 @@ export async function persistParsed(
           drawing_id: id, stage: m.stage, pct: m.pct,
           increment_pct: m.incrementPct, plan_date: m.planDate ?? null,
         });
+        for (const cc of m.cells ?? []) {
+          cellResync.push({
+            drawing_id: id, stage: m.stage, pct: m.pct,
+            sub_idx: cc.subIdx, increment_pct: cc.incrementPct,
+            plan_date: cc.planDate ?? m.planDate ?? null,
+          });
+        }
       }
       for (const pr of r.progress) {
         pgResync.push({
-          drawing_id: id, stage: pr.stage, pct: pr.pct,
+          drawing_id: id, stage: pr.stage, pct: pr.pct, sub_idx: pr.subIdx,
           is_done: pr.stage === "SD" ? true : pr.isDone,
         });
       }
@@ -414,6 +446,11 @@ export async function persistParsed(
     for (let i = 0; i < msResync.length; i += 1000) {
       const chunk = msResync.slice(i, i + 1000);
       const { error } = await supabase.from("mdr_milestones" as never).insert(chunk as any);
+      if (error && !error.message.includes("duplicate")) throw error;
+    }
+    for (let i = 0; i < cellResync.length; i += 1000) {
+      const chunk = cellResync.slice(i, i + 1000);
+      const { error } = await supabase.from("mdr_milestone_cells" as never).insert(chunk as any);
       if (error && !error.message.includes("duplicate")) throw error;
     }
     for (let i = 0; i < pgResync.length; i += 1000) {
