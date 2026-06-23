@@ -693,6 +693,7 @@ export type Database = {
           item_no: string | null
           raw_row_no: number | null
           reason: string | null
+          rev: string | null
           source_no: string | null
           source_sheet: string | null
         }
@@ -706,6 +707,7 @@ export type Database = {
           item_no?: string | null
           raw_row_no?: number | null
           reason?: string | null
+          rev?: string | null
           source_no?: string | null
           source_sheet?: string | null
         }
@@ -719,6 +721,7 @@ export type Database = {
           item_no?: string | null
           raw_row_no?: number | null
           reason?: string | null
+          rev?: string | null
           source_no?: string | null
           source_sheet?: string | null
         }

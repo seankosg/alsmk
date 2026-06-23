@@ -1,0 +1,1 @@
+ALTER TABLE public.mdr_import_row_logs ADD COLUMN IF NOT EXISTS rev text;
