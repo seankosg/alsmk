@@ -93,8 +93,16 @@ export interface MdrSummary {
   dataDate: string; // YYYY-MM-DD
 }
 
-function emptyCell(): StageCell {
-  return { plan: 0, actual: 0, progress: 0, drawingCount: 0 };
+function emptyCell(stage?: StageCode): StageCell {
+  const milestones: MilestoneCell[] = stage
+    ? STAGE_MILESTONE_PCTS[stage].map((p) => ({
+        pct: p, planCount: 0, actualCount: 0, planRatio: 0, actualRatio: 0,
+      }))
+    : [];
+  return {
+    plan: 0, actual: 0, progress: 0, drawingCount: 0,
+    planCount: 0, actualCount: 0, milestones,
+  };
 }
 
 /** 조회일 D 이전(포함) 마일스톤 중 최대 pct → 계획 진도율(0~100). */
