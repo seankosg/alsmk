@@ -150,9 +150,10 @@ export function exportImportIssues(batch: BatchInfo, rowLogs: IssueRowLog[]) {
     });
 
   const dupCols: ColSpec[] = [
-    { header: "Row #", width: 8, align: "right", type: "n" },
+    { header: "Excel Row#", width: 12, align: "right", type: "n" },
     { header: "Sheet", width: 14, align: "center" },
     { header: "Doc No (base)", width: 34 },
+    { header: "Rev", width: 8, align: "center" },
     { header: "Item No", width: 24 },
     { header: "Source No", width: 12, align: "right" },
     { header: "Title", width: 60 },
@@ -162,6 +163,7 @@ export function exportImportIssues(batch: BatchInfo, rowLogs: IssueRowLog[]) {
     r.raw_row_no ?? "",
     r.source_sheet ?? "",
     r.doc_base ?? "",
+    r.rev ?? "",
     r.item_no ?? "",
     r.source_no ?? "",
     r.drawing_title ?? "",
