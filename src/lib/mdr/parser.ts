@@ -205,9 +205,13 @@ function parseSheet(
   // 식별 헤더 텍스트: row 4 (headerRow) ∪ row 5 (milestoneLabelRow) 결합.
   // 일부 파일(SMP&CCM 등)은 row 4 "DWG. NO" 가로병합 + row 5 서브헤더(PLANT ID/PBS/FBS/SER.NO./REV.NO.) 구조.
   const headerTextAt = (col: number): string => {
+    const t5 = milestoneLabelRow !== headerRow ? cellStr(ws, milestoneLabelRow, col) : "";
+    // 서브헤더(row5) 우선: 병합된 그룹헤더(예: "DWG. NO") 아래의 실제 식별 헤더(PLANT ID 등)를 잡기 위함.
+    // 단, row5가 마일스톤 라벨이면 row4로 폴백.
+    if (t5 && !MILESTONE_RE.test(t5)) return t5;
     const t4 = cellStr(ws, headerRow, col);
     if (t4) return t4;
-    return milestoneLabelRow !== headerRow ? cellStr(ws, milestoneLabelRow, col) : "";
+    return t5;
   };
 
   // 병합셀(merge)로 라벨이 가로로 확장된 경우 시작셀(왼쪽-위)에만 라벨이 존재.
