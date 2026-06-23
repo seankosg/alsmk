@@ -212,6 +212,7 @@ export async function persistParsed(
           stage_plan_cd: r.stagePlanCd ?? null,
           source_sheet: r.sourceSheet,
           import_log_id: importLogId ?? null,
+          raw_row_cells: r.rawRowCells ?? null,
         } as any)
         .eq("id", ex.id);
       if (uErr) throw uErr;
@@ -279,6 +280,7 @@ export async function persistParsed(
       stage_plan_cd: row.stagePlanCd ?? null,
       source_sheet: row.sourceSheet,
       import_log_id: importLogId ?? null,
+      raw_row_cells: row.rawRowCells ?? null,
     }));
     const { data, error } = await supabase
       .from("mdr_drawings" as never)
@@ -311,6 +313,7 @@ export async function persistParsed(
       stage_plan_sd: row.stagePlanSd ?? null, stage_plan_dd: row.stagePlanDd ?? null,
       stage_plan_cd: row.stagePlanCd ?? null,
       source_sheet: row.sourceSheet, import_log_id: importLogId ?? null,
+      raw_row_cells: row.rawRowCells ?? null,
     };
     const { data, error } = await supabase
       .from("mdr_drawings" as never)
@@ -414,6 +417,7 @@ export async function persistParsed(
           stage_plan_sd: r.stagePlanSd ?? null,
           stage_plan_dd: r.stagePlanDd ?? null,
           stage_plan_cd: r.stagePlanCd ?? null,
+          raw_row_cells: r.rawRowCells ?? null,
         } as any)
         .eq("id", ex.id);
     }

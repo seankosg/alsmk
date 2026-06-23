@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   flexRender,
@@ -13,9 +13,10 @@ import {
   type SortingState,
   type VisibilityState,
   type RowSelectionState,
+  type Header,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download, GripVertical, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,17 +24,87 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { drawingStagePct, drawingMilestonePlannedPct, drawingOverall } from "@/lib/mdr/progressEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { useAuthContext } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
-import { buildMdrColumns, ColumnFilterDropdown, SD_PCTS, DD_PCTS, CD_PCTS, type MdrDrawingRow } from "./columns";
+import {
+  buildMdrColumns,
+  ColumnFilterDropdown,
+  SD_PCTS, DD_PCTS, CD_PCTS,
+  STAGE_GROUP_LEAVES,
+  getColumnGroupOf,
+  type MdrDrawingRow,
+} from "./columns";
 import { buildMdrProgressIconCells } from "@/lib/mdr/progressIcon";
 import { MdrProgressIconLegend, type ProgressGroup } from "./MdrProgressIconCell";
 import { TopHorizontalScrollbar } from "./TopHorizontalScrollbar";
 import { useGridStatePersistence } from "./useGridStatePersistence";
 import { MdrBulkActionBar } from "./MdrBulkActionBar";
+
+/**
+ * 영속된 컬럼 순서를 현재 컬럼 정의 기준으로 정규화한다.
+ * - 더 이상 존재하지 않는 id 제거
+ * - 신규 추가된 id 는 기본 순서상의 위치에 삽입
+ * - 같은 단계 그룹(sd_group/dd_group/cd_group) leaf 는 연속(contiguous) 상태 유지
+ *   (drag 결과로 split 된 경우, 그룹 첫 leaf 위치로 모음)
+ * - __select__ 는 항상 맨 앞
+ */
+function sanitizeColumnOrder(prev: string[], defaultOrder: string[]): string[] {
+  const validSet = new Set(defaultOrder);
+  // 1) 유효한 id 만, 중복 제거
+  const seen = new Set<string>();
+  let order = prev.filter((id) => validSet.has(id) && !seen.has(id) && seen.add(id) !== undefined);
+  // 2) 신규 id 는 defaultOrder 의 위치에 삽입
+  const inPrev = new Set(order);
+  for (let i = 0; i < defaultOrder.length; i++) {
+    const id = defaultOrder[i];
+    if (inPrev.has(id)) continue;
+    // defaultOrder 에서의 직전 id 가 order 에 있으면 그 뒤에, 없으면 맨 뒤에
+    let insertAt = order.length;
+    for (let j = i - 1; j >= 0; j--) {
+      const idx = order.indexOf(defaultOrder[j]);
+      if (idx >= 0) { insertAt = idx + 1; break; }
+    }
+    order.splice(insertAt, 0, id);
+  }
+  // 3) 그룹 contiguous 보장
+  for (const [, leaves] of Object.entries(STAGE_GROUP_LEAVES)) {
+    const presentLeaves = leaves.filter((l) => order.includes(l));
+    if (presentLeaves.length < 2) continue;
+    // 그룹 첫 leaf 위치
+    const firstIdx = Math.min(...presentLeaves.map((l) => order.indexOf(l)));
+    // 그룹 leaves 제거
+    order = order.filter((id) => !presentLeaves.includes(id));
+    // 그룹 leaves 의 정해진 P→A→Δ 순서 유지하며 firstIdx 에 삽입
+    const ordered = leaves.filter((l) => presentLeaves.includes(l));
+    order.splice(firstIdx, 0, ...ordered);
+  }
+  // 4) __select__ 가 있으면 맨 앞으로
+  const selIdx = order.indexOf("__select__");
+  if (selIdx > 0) {
+    order.splice(selIdx, 1);
+    order.unshift("__select__");
+  }
+  return order;
+}
 
 interface Props {
   buildingCode: string;
@@ -105,36 +176,44 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         planDate: x.plan_date ?? null,
       }));
 
-      // 그룹 셀의 actual(A) = 셀별 increment 합 (셀별 isDone 일 때).
-      // 셀 데이터가 없으면(레거시) 그룹 is_done × group increment 폴백.
+      // 그룹 셀의 actual(A) = 동일 stage 내 pct' ≤ pct 인 모든 완료 셀의 increment 합 (누계).
+      // 셀 데이터가 없으면(레거시) 그룹 단위 fallback (해당 pct 의 group increment).
       const buildCell = (stage: MdrStage, pct: number) => {
         const stageKey = stage === "SD" ? "sd" : stage === "DD" ? "dd" : "cd";
         if (!scope[stageKey]) return null;
         const m = ms.find((x: any) => x.stage === stage && x.pct === pct);
         if (!m) return null;
-        const groupCells = cellRows.filter((cc: any) => cc.stage === stage && cc.pct === pct);
-        const pgGroup = pgRows.filter((p: any) => p.stage === stage && p.pct === pct);
+        const stageCells = cellRows.filter((cc: any) => cc.stage === stage && cc.pct <= pct);
+        const stagePg = pgRows.filter((p: any) => p.stage === stage && p.pct <= pct);
         let aShow = 0;
         let actualDate: string | null = null;
-        if (groupCells.length) {
-          for (const cc of groupCells) {
-            const matched = pgGroup.find((p: any) => (p.subIdx ?? 0) === cc.subIdx && p.isDone);
+        if (stageCells.length) {
+          for (const cc of stageCells) {
+            const matched = stagePg.find(
+              (p: any) => p.pct === cc.pct && (p.subIdx ?? 0) === cc.subIdx && p.isDone,
+            );
             if (matched) {
               aShow += cc.incrementPct;
-              const raw = pgRaw.find((x: any) =>
-                x.stage === stage && x.pct === pct && Number(x.sub_idx ?? 0) === cc.subIdx && x.is_done,
-              );
-              const ad = raw?.actual_date ?? null;
-              if (ad && (!actualDate || ad > actualDate)) actualDate = ad;
+              // 현재 그룹(pct)의 actualDate 만 추적
+              if (cc.pct === pct) {
+                const raw = pgRaw.find((x: any) =>
+                  x.stage === stage && x.pct === pct && Number(x.sub_idx ?? 0) === cc.subIdx && x.is_done,
+                );
+                const ad = raw?.actual_date ?? null;
+                if (ad && (!actualDate || ad > actualDate)) actualDate = ad;
+              }
             }
           }
         } else {
-          // 레거시 폴백: 그룹 단위
-          const anyDone = pgGroup.find((p: any) => p.isDone);
-          if (anyDone) {
-            aShow = Number(m.increment_pct);
-            const raw = pgRaw.find((x: any) => x.stage === stage && x.pct === pct && x.is_done);
-            actualDate = raw?.actual_date ?? null;
+          // 레거시 폴백: 그룹 단위 누계
+          const stageMs = ms.filter((x: any) => x.stage === stage && x.pct <= pct);
+          for (const sm of stageMs) {
+            const anyDone = pgRows.find((p: any) => p.stage === stage && p.pct === sm.pct && p.isDone);
+            if (anyDone) aShow += Number(sm.increment_pct);
+            if (sm.pct === pct && anyDone) {
+              const raw = pgRaw.find((x: any) => x.stage === stage && x.pct === pct && x.is_done);
+              actualDate = raw?.actual_date ?? null;
+            }
           }
         }
         const pShow = drawingMilestonePlannedPct(msRows, stage, pct, asOf);
@@ -190,13 +269,21 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         sd_mark: scope.sd ? "O" : "-",
         dd_mark: scope.dd ? "O" : "-",
         cd_mark: scope.cd ? "O" : "-",
-        dd_pct: scope.dd ? dd.actual : 0,
-        cd_pct: scope.cd ? cd.actual : 0,
+        sd_p: scope.sd ? sd.planned : null,
+        sd_a: scope.sd ? sd.actual : null,
+        sd_d: scope.sd ? sd.delta : null,
+        dd_p: scope.dd ? dd.planned : null,
+        dd_a: scope.dd ? dd.actual : null,
+        dd_d: scope.dd ? dd.delta : null,
+        cd_p: scope.cd ? cd.planned : null,
+        cd_a: scope.cd ? cd.actual : null,
+        cd_d: scope.cd ? cd.delta : null,
         overall_pct: overall.actual,
         sdCells,
         ddCells,
         cdCells,
         progressIconCells,
+        raw_row_cells: (d as any).raw_row_cells ?? null,
         _raw: d,
       };
     });
@@ -229,9 +316,37 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     () => buildMdrColumns(deltaCls, { collapsed: groupCollapsed, onToggleGroup, asOf }),
     [threshold, groupCollapsed, asOf],
   );
-  const validColumnIds = useMemo(() => new Set(columns.map((c: any) => c.id ?? c.accessorKey).filter(Boolean)), [columns]);
 
-  // 옛 컬럼 ID 정리 (예: dd_30, cd_60 등 → 신규 dd_30_p/a/d 로 대체됨)
+  // 모든 컬럼 id (그룹/leaf 모두) — pruneById/Record 가 그룹 컬럼 id 도 보존하도록.
+  const validColumnIds = useMemo(() => {
+    const set = new Set<string>();
+    const walk = (defs: any[]) => {
+      for (const c of defs) {
+        const id = c.id ?? c.accessorKey;
+        if (id) set.add(id);
+        if (c.columns) walk(c.columns);
+      }
+    };
+    walk(columns as any[]);
+    return set;
+  }, [columns]);
+
+  // leaf 컬럼 id 의 기본 순서 (TanStack columnOrder 용)
+  const defaultLeafOrder = useMemo(() => {
+    const ids: string[] = [];
+    const walk = (defs: any[]) => {
+      for (const c of defs) {
+        if (c.columns) walk(c.columns);
+        else {
+          const id = c.id ?? c.accessorKey;
+          if (id) ids.push(id);
+        }
+      }
+    };
+    walk(columns as any[]);
+    return ids;
+  }, [columns]);
+
   const pruneById = <T extends { id: string }>(arr: T[]) => arr.filter((x) => validColumnIds.has(x.id));
   const pruneRecord = <T,>(rec: Record<string, T>) =>
     Object.fromEntries(Object.entries(rec).filter(([k]) => validColumnIds.has(k))) as Record<string, T>;
@@ -241,27 +356,38 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => pruneRecord(persisted.columnSizing));
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
     const cleaned = pruneRecord(persisted.columnVisibility);
-    // 최초 1회 기본값: mark 컬럼 + SD/DD/CD 세부 P/A/Δ 컬럼 + 부가 메타 컬럼은 숨김
+    // 최초 1회 기본값: mark 컬럼 + SD 단계 트리오 + 세부 마일스톤 P/A/Δ + 부가 메타 컬럼은 숨김
     const defaults: VisibilityState = {};
     if (!("sd_mark" in cleaned)) defaults.sd_mark = false;
     if (!("dd_mark" in cleaned)) defaults.dd_mark = false;
     if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
+    // SD 단계 트리오 기본 숨김 (항상 100/100/0)
+    for (const id of ["sd_p", "sd_a", "sd_d"]) {
+      if (!(id in cleaned)) defaults[id] = false;
+    }
     const EXTRA_META = [
       "confirmed_by", "document_class", "doc_class_code",
-      "stage_plan_sd", "stage_plan_dd", "stage_plan_cd",
       "ifr_start_date", "ifr_issue_date", "ifc_start_date", "ifc_issue_date",
     ];
     for (const id of EXTRA_META) {
       if (!(id in cleaned)) defaults[id] = false;
     }
-    columns.forEach((c: any) => {
-      const id = c.id;
-      if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/.test(id) && !(id in cleaned)) {
+    for (const id of defaultLeafOrder) {
+      if (/^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/.test(id) && !(id in cleaned)) {
         defaults[id] = false;
       }
-    });
+    }
     return { ...defaults, ...cleaned };
   });
+  // 사용자별 컬럼 순서 (leaf id 만). 빈 배열이면 기본 순서 사용.
+  const [columnOrder, setColumnOrder] = useState<string[]>(() =>
+    sanitizeColumnOrder(persisted.columnOrder ?? [], defaultLeafOrder),
+  );
+  // 컬럼 정의가 바뀌면 (신규 컬럼 추가/제거) 순서 재정규화
+  useEffect(() => {
+    setColumnOrder((prev) => sanitizeColumnOrder(prev, defaultLeafOrder));
+  }, [defaultLeafOrder]);
+
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [globalFilter, setGlobalFilter] = useState("");
   const [debouncedGlobal, setDebouncedGlobal] = useState("");
@@ -272,17 +398,18 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   }, [globalFilter]);
 
   useEffect(() => {
-    setPersisted({ sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed });
-  }, [sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed, setPersisted]);
+    setPersisted({ sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed, columnOrder });
+  }, [sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed, columnOrder, setPersisted]);
 
   const table = useReactTable({
     data: sortedRows,
     columns,
-    state: { sorting, columnFilters, columnSizing, columnVisibility, rowSelection, globalFilter: debouncedGlobal },
+    state: { sorting, columnFilters, columnSizing, columnVisibility, columnOrder, rowSelection, globalFilter: debouncedGlobal },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder as any,
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
     getRowId: (r) => r.id,
@@ -333,12 +460,18 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           source_no: "No.", building_code: "Building", doc_no: "Doc No.", item_no: "Item No.",
           discipline: "Disc.", drawing_title: "Title",
           sd_mark: "SD", dd_mark: "DD", cd_mark: "CD",
-          dd_pct: "DD%", cd_pct: "CD%", overall_pct: "Overall%",
+          sd_p: "SD P", sd_a: "SD A", sd_d: "SD Δ",
+          dd_p: "DD P", dd_a: "DD A", dd_d: "DD Δ",
+          cd_p: "CD P", cd_a: "CD A", cd_d: "CD Δ",
+          overall_pct: "Overall%",
+          stage_plan_sd: "SD목표완료일",
+          stage_plan_dd: "DD목표완료일",
+          stage_plan_cd: "CD목표완료일",
           plan_finish: "Plan Finish", updated_at: "Updated",
           progress_icon: "Progress",
         };
         if (base[id]) return base[id];
-        // 마일스톤 컬럼: sd_50_p / dd_30_a / cd_100_d / dd_60_pd / dd_60_ad → "SD50 P" / "DD60 계획일" 등
+        // 세부 마일스톤: sd_100_p / dd_30_a / cd_100_d / dd_60_pd / dd_60_ad → "DD60 계획일" 등
         const m = id.match(/^(sd|dd|cd)_(\d+)_(pd|ad|p|a|d)$/);
         if (m) {
           const sfx = m[3];
@@ -354,7 +487,6 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
       // 그리드 셀 렌더와 동일한 표시 문자열로 변환
       const formatCell = (id: string, value: any): any => {
         if (id === "progress_icon") {
-          // value = state[] of 8 pips (SD + DD4 + CD3) → 그룹 압축 표기
           const arr = Array.isArray(value) ? value : [];
           if (arr.length < 8) return "";
           const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -365,8 +497,10 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           };
           return `SD:${cap(arr[0])}|DD:${summ(arr.slice(1, 5))}|CD:${summ(arr.slice(5, 8))}`;
         }
-        if (id === "dd_pct" || id === "cd_pct" || id === "overall_pct") {
-          return formatPct(value);
+        if (id === "overall_pct") return formatPct(value);
+        if (/^(sd|dd|cd)_(p|a|d)$/.test(id)) {
+          if (value == null) return "-";
+          return Math.round(Number(value));
         }
         if (id === "sd_mark" || id === "dd_mark" || id === "cd_mark") {
           return (value as string) || "-";
@@ -484,6 +618,14 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
                 </button>
               </div>
             </div>
+            <button
+              type="button"
+              className="flex w-full items-center gap-1 rounded px-1 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              onClick={() => setColumnOrder(defaultLeafOrder)}
+              title="드래그로 변경한 컬럼 순서를 기본값으로 되돌립니다"
+            >
+              <RotateCcw className="h-3 w-3" /> 컬럼 순서 초기화
+            </button>
             <div className="my-1 h-px bg-border" />
             {table.getAllLeafColumns().filter((c) => c.id !== "__select__").map((col) => (
               <label
@@ -514,6 +656,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
           const paddingBottom = virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0;
           const leafCount = visibleLeafColumns.length;
+          const leafIds = visibleLeafColumns.map((c) => c.id);
           return (
             <table className="text-xs" style={{ width: totalWidth, tableLayout: "fixed" }}>
               <colgroup>
@@ -521,52 +664,57 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
                   <col key={col.id} style={{ width: col.getSize() }} />
                 ))}
               </colgroup>
-              <thead>
-                {table.getHeaderGroups().map((hg) => (
-                  <tr key={hg.id}>
-                    {hg.headers.map((header) => {
-                      const canSort = header.column.getCanSort();
-                      const sorted = header.column.getIsSorted();
-                      const canFilter = header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
-                      const w = header.getSize();
-                      return (
-                        <th
-                          key={header.id}
-                          style={{
-                            width: w,
-                            minWidth: w,
-                            maxWidth: w,
-                            position: "sticky",
-                            top: 0,
-                            zIndex: 2,
-                            background: "hsl(var(--muted))",
-                          }}
-                          className="border-r border-b px-2 py-1.5 text-left font-medium"
-                        >
-                          <div className="flex items-center gap-1">
-                            <span className={cn("flex-1 truncate", canSort && "cursor-pointer select-none")} onClick={canSort ? header.column.getToggleSortingHandler() : undefined}>
-                              {flexRender(header.column.columnDef.header, header.getContext())}
-                              {canSort && (
-                                sorted === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" />
-                                : sorted === "desc" ? <ArrowDown className="ml-1 inline h-3 w-3" />
-                                : <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
-                              )}
-                            </span>
-                            {canFilter && <ColumnFilterDropdown column={header.column} />}
-                          </div>
-                          {header.column.getCanResize() && (
-                            <div
-                              onMouseDown={header.getResizeHandler()}
-                              onTouchStart={header.getResizeHandler()}
-                              className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-transparent hover:bg-primary/30"
+              <DndHeaderContext
+                leafIds={leafIds}
+                onReorder={(activeId, overId) => {
+                  if (activeId === overId) return;
+                  if (activeId === "__select__" || overId === "__select__") return;
+                  const groupA = getColumnGroupOf(activeId);
+                  const groupO = getColumnGroupOf(overId);
+                  // 그룹 leaf 끼리는 같은 그룹 안에서만 reorder 허용
+                  if (groupA || groupO) {
+                    if (groupA !== groupO) return;
+                  }
+                  setColumnOrder((prev) => {
+                    const base = prev.length ? prev : defaultLeafOrder;
+                    const next = [...base];
+                    const from = next.indexOf(activeId);
+                    const to = next.indexOf(overId);
+                    if (from < 0 || to < 0) return prev;
+                    next.splice(from, 1);
+                    next.splice(to, 0, activeId);
+                    return sanitizeColumnOrder(next, defaultLeafOrder);
+                  });
+                }}
+              >
+                <thead>
+                  {table.getHeaderGroups().map((hg) => (
+                    <tr key={hg.id}>
+                      {hg.headers.map((header) => {
+                        if (header.isPlaceholder) {
+                          // placeholder — 같은 leaf 가 부모 행에도 표시되는 경우. 빈 셀로 colSpan 처리.
+                          return (
+                            <th
+                              key={header.id}
+                              colSpan={header.colSpan}
+                              style={{ position: "sticky", top: 0, zIndex: 2, background: "hsl(var(--muted))" }}
+                              className="border-r border-b"
                             />
-                          )}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </thead>
+                          );
+                        }
+                        const isLeaf = header.subHeaders.length === 0;
+                        return (
+                          <SortableHeaderCell
+                            key={header.id}
+                            header={header}
+                            isLeaf={isLeaf}
+                          />
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </thead>
+              </DndHeaderContext>
               <tbody>
                 {paddingTop > 0 && (
                   <tr aria-hidden style={{ height: paddingTop }}>
@@ -610,3 +758,106 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     </Card>
   );
 }
+
+// ============================================================================
+// 컬럼 드래그 reorder — dnd-kit wrapper
+// ============================================================================
+
+function DndHeaderContext({
+  leafIds,
+  onReorder,
+  children,
+}: {
+  leafIds: string[];
+  onReorder: (activeId: string, overId: string) => void;
+  children: React.ReactNode;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const handleDragEnd = (e: DragEndEvent) => {
+    const active = String(e.active?.id ?? "");
+    const over = String(e.over?.id ?? "");
+    if (!active || !over) return;
+    onReorder(active, over);
+  };
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={leafIds} strategy={horizontalListSortingStrategy}>
+        {children}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function SortableHeaderCell({
+  header,
+  isLeaf,
+}: {
+  header: Header<MdrDrawingRow, unknown>;
+  isLeaf: boolean;
+}) {
+  const draggable = isLeaf && header.column.id !== "__select__";
+  const sortable = useSortable({ id: header.column.id, disabled: !draggable });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable;
+  const canSort = header.column.getCanSort();
+  const sorted = header.column.getIsSorted();
+  const canFilter = header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
+  const w = header.getSize();
+  const style: CSSProperties = {
+    width: w,
+    minWidth: w,
+    maxWidth: w,
+    position: "sticky",
+    top: 0,
+    zIndex: isDragging ? 3 : 2,
+    background: "hsl(var(--muted))",
+    transform: draggable ? CSS.Translate.toString(transform) : undefined,
+    transition: draggable ? transition : undefined,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <th
+      ref={draggable ? setNodeRef : undefined}
+      colSpan={header.colSpan}
+      style={style}
+      className="border-r border-b px-2 py-1.5 text-left font-medium"
+    >
+      <div className="flex items-center gap-1">
+        {draggable && (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="cursor-grab text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
+            aria-label="컬럼 위치 이동"
+            title="드래그하여 컬럼 위치 변경"
+          >
+            <GripVertical className="h-3 w-3" />
+          </button>
+        )}
+        <span
+          className={cn("flex-1 truncate", canSort && "cursor-pointer select-none")}
+          onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+        >
+          {flexRender(header.column.columnDef.header, header.getContext())}
+          {canSort && (
+            sorted === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" />
+            : sorted === "desc" ? <ArrowDown className="ml-1 inline h-3 w-3" />
+            : <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
+          )}
+        </span>
+        {canFilter && <ColumnFilterDropdown column={header.column} />}
+      </div>
+      {isLeaf && header.column.getCanResize() && (
+        <div
+          onMouseDown={header.getResizeHandler()}
+          onTouchStart={header.getResizeHandler()}
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-transparent hover:bg-primary/30"
+        />
+      )}
+    </th>
+  );
+}
+

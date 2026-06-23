@@ -55,6 +55,8 @@ export interface MdrParsedRow {
   milestones: MdrMilestoneDef[];
   /** 셀 단위 진행 — 그룹 OR 아닌 서브컬럼별 Y/N */
   progress: { stage: MdrStage; pct: number; subIdx: number; isDone: boolean }[];
+  /** 원본 엑셀 행의 셀 값 (헤더 → 값). 동일 양식 재내보내기에 사용. */
+  rawRowCells: Record<string, string | number | boolean | null>;
 }
 
 export interface MdrParsedSheet {
@@ -340,12 +342,16 @@ function parseSheet(
 
 
   // 2) 데이터 행 파싱
+  // 마일스톤 컬럼 위치 set (rawRowCells 에서 제외 — 그건 progress 로 따로 저장됨)
+  const milestoneColSet = new Set<number>();
+  for (const g of milestoneGroups) for (const x of g.cols) milestoneColSet.add(x);
   const rows: MdrParsedRow[] = [];
   for (let r = dataStartRow; r <= range.e.r; r++) {
     const sourceNo = cellStr(ws, r, noCol);
     if (!sourceNo) continue;
     // No 가 숫자/문자 혼합 가능. 빈 줄·합계 행은 패스
     if (/^total|sum|합계/i.test(sourceNo)) continue;
+
 
     const findVal = (...candidates: string[]) => {
       for (const cand of candidates) {
@@ -465,6 +471,26 @@ function parseSheet(
       return v && !/^(tbd|tba|n\/a|na|미정|tbc|-)$/i.test(v) ? v : undefined;
     };
 
+    // 원본 행의 모든 셀(헤더→값) 수집 — 마일스톤 Y/N 컬럼은 별도로 progress 에 저장되므로 제외.
+    const rawRowCells: Record<string, string | number | boolean | null> = {};
+    for (let cc = range.s.c; cc <= maxCol; cc++) {
+      if (milestoneColSet.has(cc)) continue;
+      const header = headerTextAt(cc).trim();
+      if (!header) continue;
+      const cell = cellRaw(ws, r, cc);
+      if (!cell || cell.v === undefined || cell.v === null) continue;
+      let value: string | number | boolean | null;
+      if (typeof cell.v === "number") {
+        // 날짜셀이면 ISO 로 변환
+        if (cell.t === "n" && (cell.z || cell.w)) {
+          const iso = parseDate(cell);
+          value = iso ?? cell.v;
+        } else value = cell.v;
+      } else if (typeof cell.v === "boolean") value = cell.v;
+      else value = String(cell.v);
+      rawRowCells[header] = value;
+    }
+
     rows.push({
       sourceNo,
       itemNo,
@@ -497,6 +523,7 @@ function parseSheet(
       rawRowNo: r + 1,
       milestones,
       progress,
+      rawRowCells,
     });
   }
 

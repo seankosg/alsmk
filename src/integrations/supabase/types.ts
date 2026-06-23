@@ -537,6 +537,7 @@ export type Database = {
           pbs: string | null
           plan_finish: string | null
           plant_id: string | null
+          raw_row_cells: Json | null
           rev: string
           ser_no: string | null
           source_no: string
@@ -577,6 +578,7 @@ export type Database = {
           pbs?: string | null
           plan_finish?: string | null
           plant_id?: string | null
+          raw_row_cells?: Json | null
           rev?: string
           ser_no?: string | null
           source_no: string
@@ -617,6 +619,7 @@ export type Database = {
           pbs?: string | null
           plan_finish?: string | null
           plant_id?: string | null
+          raw_row_cells?: Json | null
           rev?: string
           ser_no?: string | null
           source_no?: string
