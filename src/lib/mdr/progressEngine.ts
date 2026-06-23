@@ -10,8 +10,18 @@ export interface MilestoneRow {
 export interface ProgressRow {
   stage: MdrStage;
   pct: number;
+  subIdx?: number;        // 셀 단위 진척의 인덱스(0-based). 없으면 그룹 단위로 간주.
   isDone: boolean;
   actualDate?: string | null;
+}
+
+/** mdr_milestone_cells 한 행 — 셀 단위 증분 */
+export interface MilestoneCellRow {
+  stage: MdrStage;
+  pct: number;
+  subIdx: number;
+  incrementPct: number;
+  planDate?: string | null;
 }
 
 const DAY_MS = 86400000;
