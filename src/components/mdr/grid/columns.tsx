@@ -52,13 +52,22 @@ export interface MdrDrawingRow {
   sd_mark: string;
   dd_mark: string;
   cd_mark: string;
-  dd_pct: number;
-  cd_pct: number;
+  /** 단계별 계획/실적/Δ — 범위 밖이면 null */
+  sd_p: number | null;
+  sd_a: number | null;
+  sd_d: number | null;
+  dd_p: number | null;
+  dd_a: number | null;
+  dd_d: number | null;
+  cd_p: number | null;
+  cd_a: number | null;
+  cd_d: number | null;
   overall_pct: number;
   sdCells: Record<number, MdrMilestoneCell | null>;
   ddCells: Record<number, MdrMilestoneCell | null>;
   cdCells: Record<number, MdrMilestoneCell | null>;
   progressIconCells: MdrProgressIconCells;
+  raw_row_cells: Record<string, unknown> | null;
   _raw: any;
 }
 
