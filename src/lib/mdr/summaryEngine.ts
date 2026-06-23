@@ -40,11 +40,25 @@ interface RawDrawing {
  *  progress: 호환용 — actual과 동일 (% 컬럼 표시는 후속 정의)
  *  drawingCount: 해당 stage에 마일스톤(계획)이 존재하는 도면 수
  */
+export interface MilestoneCell {
+  pct: number;
+  planCount: number;   // plan_date ≤ D 도면 수
+  actualCount: number; // is_done & actual_date ≤ D 도면 수 (해당 마일스톤에 도달)
+  planRatio: number;   // planCount / N (N = stage in-scope 도면 수)
+  actualRatio: number;
+}
+
 export interface StageCell {
   plan: number;
   actual: number;
   progress: number;
   drawingCount: number;
+  /** stage에서 최소 1개 마일스톤 plan_date ≤ D 인 도면 수 (엑셀 SD/DD/CD Plan) */
+  planCount: number;
+  /** stage에서 최소 1개 마일스톤 완료(actual ≤ D & is_done) 인 도면 수 (엑셀 Actual) */
+  actualCount: number;
+  /** 마일스톤별 누적 진척 */
+  milestones: MilestoneCell[];
 }
 
 export interface DiscCell {
