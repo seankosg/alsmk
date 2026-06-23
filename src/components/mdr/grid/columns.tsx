@@ -230,7 +230,7 @@ export function getColumnGroupOf(leafId: string): keyof typeof STAGE_GROUP_LEAVE
 }
 
 function buildStageTrioCols(
-  stage: Stage,
+  stage: TrioKey,
   deltaCls: (delta: number) => string,
 ): ColumnDef<MdrDrawingRow>[] {
   const numericSort = (a: any, b: any, id: string) => {
