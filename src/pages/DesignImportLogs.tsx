@@ -38,6 +38,7 @@ interface RowLog {
   source_no: string | null;
   drawing_title: string | null;
   doc_base: string | null;
+  rev: string | null;
   action: RowAction;
   reason: string | null;
 }
