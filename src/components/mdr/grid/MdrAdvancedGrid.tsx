@@ -113,6 +113,108 @@ interface Props {
   sheetName?: string;
 }
 
+// ============================================================================
+// 컬럼 드래그 reorder — dnd-kit wrapper (메인 컴포넌트 위에 선언해 hoisting/HMR 이슈 회피)
+// ============================================================================
+
+function DndHeaderContext({
+  leafIds,
+  onReorder,
+  children,
+}: {
+  leafIds: string[];
+  onReorder: (activeId: string, overId: string) => void;
+  children: React.ReactNode;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const handleDragEnd = (e: DragEndEvent) => {
+    const active = String(e.active?.id ?? "");
+    const over = String(e.over?.id ?? "");
+    if (!active || !over) return;
+    onReorder(active, over);
+  };
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={leafIds} strategy={horizontalListSortingStrategy}>
+        {children}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function SortableHeaderCell({
+  header,
+  isLeaf,
+}: {
+  header: Header<MdrDrawingRow, unknown>;
+  isLeaf: boolean;
+}) {
+  const draggable = isLeaf && header.column.id !== "__select__";
+  const sortable = useSortable({ id: header.column.id, disabled: !draggable });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable;
+  const canSort = header.column.getCanSort();
+  const sorted = header.column.getIsSorted();
+  const canFilter = header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
+  const w = header.getSize();
+  const style: CSSProperties = {
+    width: w,
+    minWidth: w,
+    maxWidth: w,
+    position: "sticky",
+    top: 0,
+    zIndex: isDragging ? 3 : 2,
+    background: "hsl(var(--muted))",
+    transform: draggable ? CSS.Translate.toString(transform) : undefined,
+    transition: draggable ? transition : undefined,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <th
+      ref={draggable ? setNodeRef : undefined}
+      colSpan={header.colSpan}
+      style={style}
+      className="border-r border-b px-2 py-1.5 text-left font-medium"
+    >
+      <div className="flex items-center gap-1">
+        {draggable && (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="cursor-grab text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
+            aria-label="컬럼 위치 이동"
+            title="드래그하여 컬럼 위치 변경"
+          >
+            <GripVertical className="h-3 w-3" />
+          </button>
+        )}
+        <span
+          className={cn("flex-1 truncate", canSort && "cursor-pointer select-none")}
+          onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+        >
+          {flexRender(header.column.columnDef.header, header.getContext())}
+          {canSort && (
+            sorted === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" />
+            : sorted === "desc" ? <ArrowDown className="ml-1 inline h-3 w-3" />
+            : <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
+          )}
+        </span>
+        {canFilter && <ColumnFilterDropdown column={header.column} />}
+      </div>
+      {isLeaf && header.column.getCanResize() && (
+        <div
+          onMouseDown={header.getResizeHandler()}
+          onTouchStart={header.getResizeHandler()}
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-transparent hover:bg-primary/30"
+        />
+      )}
+    </th>
+  );
+}
+
 export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Props) {
   const { user, isAdminOrPm, memberName } = useAuthContext();
   const { toast } = useToast();
@@ -759,105 +861,4 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   );
 }
 
-// ============================================================================
-// 컬럼 드래그 reorder — dnd-kit wrapper
-// ============================================================================
-
-function DndHeaderContext({
-  leafIds,
-  onReorder,
-  children,
-}: {
-  leafIds: string[];
-  onReorder: (activeId: string, overId: string) => void;
-  children: React.ReactNode;
-}) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-  const handleDragEnd = (e: DragEndEvent) => {
-    const active = String(e.active?.id ?? "");
-    const over = String(e.over?.id ?? "");
-    if (!active || !over) return;
-    onReorder(active, over);
-  };
-  return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={leafIds} strategy={horizontalListSortingStrategy}>
-        {children}
-      </SortableContext>
-    </DndContext>
-  );
-}
-
-function SortableHeaderCell({
-  header,
-  isLeaf,
-}: {
-  header: Header<MdrDrawingRow, unknown>;
-  isLeaf: boolean;
-}) {
-  const draggable = isLeaf && header.column.id !== "__select__";
-  const sortable = useSortable({ id: header.column.id, disabled: !draggable });
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable;
-  const canSort = header.column.getCanSort();
-  const sorted = header.column.getIsSorted();
-  const canFilter = header.column.getCanFilter() && (header.column.columnDef.meta as any)?.filterType;
-  const w = header.getSize();
-  const style: CSSProperties = {
-    width: w,
-    minWidth: w,
-    maxWidth: w,
-    position: "sticky",
-    top: 0,
-    zIndex: isDragging ? 3 : 2,
-    background: "hsl(var(--muted))",
-    transform: draggable ? CSS.Translate.toString(transform) : undefined,
-    transition: draggable ? transition : undefined,
-    opacity: isDragging ? 0.6 : 1,
-  };
-  return (
-    <th
-      ref={draggable ? setNodeRef : undefined}
-      colSpan={header.colSpan}
-      style={style}
-      className="border-r border-b px-2 py-1.5 text-left font-medium"
-    >
-      <div className="flex items-center gap-1">
-        {draggable && (
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            className="cursor-grab text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
-            aria-label="컬럼 위치 이동"
-            title="드래그하여 컬럼 위치 변경"
-          >
-            <GripVertical className="h-3 w-3" />
-          </button>
-        )}
-        <span
-          className={cn("flex-1 truncate", canSort && "cursor-pointer select-none")}
-          onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
-        >
-          {flexRender(header.column.columnDef.header, header.getContext())}
-          {canSort && (
-            sorted === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" />
-            : sorted === "desc" ? <ArrowDown className="ml-1 inline h-3 w-3" />
-            : <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
-          )}
-        </span>
-        {canFilter && <ColumnFilterDropdown column={header.column} />}
-      </div>
-      {isLeaf && header.column.getCanResize() && (
-        <div
-          onMouseDown={header.getResizeHandler()}
-          onTouchStart={header.getResizeHandler()}
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-transparent hover:bg-primary/30"
-        />
-      )}
-    </th>
-  );
-}
 
