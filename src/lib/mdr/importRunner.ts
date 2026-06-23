@@ -14,6 +14,7 @@ interface RowLogEntry {
   source_no: string | null;
   drawing_title: string | null;
   doc_base: string | null;
+  rev: string | null;
   action: "inserted" | "skipped_duplicate" | "skipped_existing" | "rev_updated";
   reason: string | null;
 }
