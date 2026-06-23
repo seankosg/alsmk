@@ -149,48 +149,59 @@ export function exportImportIssues(batch: BatchInfo, rowLogs: IssueRowLog[]) {
       return (a.raw_row_no ?? 0) - (b.raw_row_no ?? 0);
     });
 
-  const dupCols: ColSpec[] = [
-    { header: "Excel Row#", width: 12, align: "right", type: "n" },
+  const parseDupRow = (reason: string | null): number | "" => {
+    if (!reason) return "";
+    const m = reason.match(/Row #(\d+)/);
+    return m ? Number(m[1]) : "";
+  };
+
+  const commonCols: ColSpec[] = [
     { header: "Sheet", width: 14, align: "center" },
-    { header: "Doc No (base)", width: 34 },
-    { header: "Rev", width: 8, align: "center" },
-    { header: "Item No", width: 24 },
-    { header: "Source No", width: 12, align: "right" },
+    { header: "Excel Row#", width: 12, align: "right", type: "n" },
+    { header: "Duplicated Excel Row#", width: 22, align: "right", type: "n" },
+    { header: "Source No.", width: 14, align: "right" },
+    { header: "Doc No.", width: 34 },
+    { header: "Rev.", width: 8, align: "center" },
     { header: "Title", width: 60 },
     { header: "Reason", width: 50 },
   ];
+
   const dupRows = duplicates.map((r) => [
-    r.raw_row_no ?? "",
     r.source_sheet ?? "",
+    r.raw_row_no ?? "",
+    parseDupRow(r.reason),
+    r.source_no ?? "",
     r.doc_base ?? "",
     r.rev ?? "",
-    r.item_no ?? "",
-    r.source_no ?? "",
     r.drawing_title ?? "",
     r.reason ?? "",
   ]);
-  const wsDup = buildSheet(`중복 (Duplicate) — ${batch.filename}`, dupCols, dupRows);
+  const wsDup = buildSheet(`중복 (Duplicate) — ${batch.filename}`, commonCols, dupRows);
   XLSX.utils.book_append_sheet(wb, wsDup, "중복 (Duplicate)");
 
-  // Sheet 2: 파싱 오류
-  const errCols: ColSpec[] = [
-    { header: "구분", width: 14, align: "center" },
-    { header: "위치", width: 24 },
-    { header: "내용", width: 90 },
-  ];
+  // Sheet 2: 파싱 오류 (동일 컬럼 구조)
   const errRows: (string | number)[][] = [];
   if (batch.error_summary && batch.error_summary.trim()) {
-    errRows.push(["Batch Error", "—", batch.error_summary.trim()]);
+    errRows.push(["", "", "", "", "", "", "", `[Batch Error] ${batch.error_summary.trim()}`]);
   }
   const errorPattern = /(error|failed|오류|실패|skip)/i;
   rowLogs.forEach((r) => {
     if (r.action === "skipped_duplicate") return;
-    if (r.reason && errorPattern.test(r.reason) && r.action !== "skipped_existing") {
-      const loc = `${r.source_sheet ?? "?"}!Excel Row#${r.raw_row_no ?? "?"}`;
-      errRows.push(["Row Error", loc, r.reason]);
+    if (r.action === "skipped_existing") return;
+    if (r.reason && errorPattern.test(r.reason)) {
+      errRows.push([
+        r.source_sheet ?? "",
+        r.raw_row_no ?? "",
+        "",
+        r.source_no ?? "",
+        r.doc_base ?? "",
+        r.rev ?? "",
+        r.drawing_title ?? "",
+        r.reason,
+      ]);
     }
   });
-  const wsErr = buildSheet(`파싱 오류 (Parse Errors) — ${batch.filename}`, errCols, errRows);
+  const wsErr = buildSheet(`파싱 오류 (Parse Errors) — ${batch.filename}`, commonCols, errRows);
   XLSX.utils.book_append_sheet(wb, wsErr, "파싱 오류");
 
   // Filename
