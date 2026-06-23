@@ -121,7 +121,7 @@ export function useMdrImporter(onImported?: () => void) {
             skipped: 0,
             userId: user?.id ?? null,
           });
-          const res = await persistParsed(t.parsed!, undefined, logId);
+          const res = await persistParsed(t.parsed!, undefined, logId, t.file);
           if (logId) {
             await (supabase as any).from("mdr_import_logs")
               .update({ rows_inserted: res.inserted, rows_skipped: res.skipped })

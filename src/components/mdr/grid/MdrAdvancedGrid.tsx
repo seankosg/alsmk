@@ -16,7 +16,7 @@ import {
   type Header,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download, GripVertical, RotateCcw } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download, GripVertical, RotateCcw, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   DndContext,
   PointerSensor,
@@ -649,6 +655,95 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     }
   };
 
+  // Template 원본 파일 존재 여부 — 활성/비활성 결정
+  const [templateAvailable, setTemplateAvailable] = useState<boolean>(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: signed, error } = await supabase.storage
+          .from("mdr-templates")
+          .createSignedUrl(`${buildingCode}/template.xlsx`, 30);
+        if (!cancelled) setTemplateAvailable(!error && !!signed?.signedUrl);
+      } catch {
+        if (!cancelled) setTemplateAvailable(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [buildingCode]);
+
+  const exportTemplateXlsx = async () => {
+    try {
+      if (!data || !data.length) {
+        toast({ title: "Export 실패", description: "데이터가 없습니다.", variant: "destructive" });
+        return;
+      }
+      // 1) 원본 워크북 다운로드
+      const { data: blob, error: dErr } = await supabase.storage
+        .from("mdr-templates")
+        .download(`${buildingCode}/template.xlsx`);
+      if (dErr || !blob) {
+        toast({
+          title: "원본 양식 없음",
+          description: "이 건물에 저장된 임포트 원본이 없습니다. 다시 임포트해주세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const ab = await blob.arrayBuffer();
+
+      // 2) DB → MdrExportDrawing[] 매핑 (전체 데이터, 필터/정렬 무시)
+      const { exportFromTemplate } = await import("@/lib/mdr/exporter");
+      const drawings = (data as any[]).map((d) => {
+        const pg = (d.mdr_progress ?? []) as any[];
+        const progress: Record<string, boolean> = {};
+        for (const p of pg) {
+          if (p.is_done) progress[`${p.stage}-${Number(p.pct)}`] = true;
+        }
+        return {
+          sourceNo: d.source_no,
+          building: d.building_code,
+          itemNo: d.item_no ?? "",
+          discipline: d.discipline ?? "",
+          plantId: d.plant_id ?? "",
+          pbs: d.pbs ?? "",
+          fbs: d.fbs ?? "",
+          serNo: d.ser_no ?? "",
+          activityGroup: d.activity_group ?? "",
+          drawingTitle: d.drawing_title ?? "",
+          outOfScope: !!d.out_of_scope,
+          confirmedBy: d.confirmed_by ?? null,
+          ifrStartDate: d.ifr_start_date ?? null,
+          ifrIssueDate: d.ifr_issue_date ?? null,
+          ifcStartDate: d.ifc_start_date ?? null,
+          ifcIssueDate: d.ifc_issue_date ?? null,
+          documentClass: d.document_class ?? null,
+          docClassCode: d.doc_class_code ?? null,
+          stagePlanSd: d.stage_plan_sd ?? null,
+          stagePlanDd: d.stage_plan_dd ?? null,
+          stagePlanCd: d.stage_plan_cd ?? null,
+          rev: d.rev ?? "",
+          rawRowCells: d.raw_row_cells ?? null,
+          progress,
+        };
+      });
+
+      const out = exportFromTemplate(ab, drawings);
+      const fname = `mdr_template_${buildingCode}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: "Template Export 완료", description: `${drawings.length}건` });
+    } catch (e: any) {
+      toast({ title: "Export 실패", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  };
+
 
   if (isLoading) return <Card className="p-6 text-muted-foreground">로딩 중...</Card>;
   if (!rows.length) return <Card className="p-6 text-muted-foreground">데이터 없음</Card>;
@@ -693,9 +788,27 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           <MdrProgressIconLegend />
         </div>
 
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={exportFilteredXlsx} title="현재 필터/정렬 상태의 표시 컬럼을 .xlsx로 내보냅니다">
-          <Download className="mr-1 h-3.5 w-3.5" />Export view
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8 text-xs">
+              <Download className="mr-1 h-3.5 w-3.5" />Export<ChevronDown className="ml-1 h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={exportFilteredXlsx}>
+              <Download className="mr-2 h-3.5 w-3.5" />
+              Raw Data 내보내기
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={exportTemplateXlsx}
+              disabled={!templateAvailable}
+              title={templateAvailable ? "임포트한 엑셀 양식 그대로 내보냅니다" : "원본 양식이 저장된 임포트가 없습니다. 다시 임포트해주세요."}
+            >
+              <Download className="mr-2 h-3.5 w-3.5" />
+              Template로 내보내기
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Popover>
           <PopoverTrigger asChild>

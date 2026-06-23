@@ -24,6 +24,7 @@ export async function persistParsed(
   parsed: MdrParseResult,
   onLog?: (s: string) => void,
   importLogId?: string | null,
+  originalFile?: File | null,
 ): Promise<PersistResult> {
   const push = onLog ?? (() => {});
 
@@ -474,6 +475,23 @@ export async function persistParsed(
     drawing_count: newRows.length + revUpdates.length + skipped,
     done_count: 0,
   } as any);
+
+  // Template Export 용 원본 워크북 — building 당 1개만 유지 (덮어쓰기)
+  if (originalFile && parsed.building) {
+    try {
+      const path = `${parsed.building}/template.xlsx`;
+      const { error: upErr } = await supabase.storage
+        .from("mdr-templates")
+        .upload(path, originalFile, {
+          upsert: true,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+      if (upErr) console.warn("[mdr] template upload failed:", upErr.message);
+    } catch (e) {
+      console.warn("[mdr] template upload exception:", e);
+    }
+  }
 
   // 6) 행별 로그 저장
   if (importLogId && rowLogs.length) {
