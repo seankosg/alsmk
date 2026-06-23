@@ -62,7 +62,9 @@ export interface MdrDrawingRow {
   cd_p: number | null;
   cd_a: number | null;
   cd_d: number | null;
-  overall_pct: number;
+  overall_p: number;
+  overall_a: number;
+  overall_d: number;
   sdCells: Record<number, MdrMilestoneCell | null>;
   ddCells: Record<number, MdrMilestoneCell | null>;
   cdCells: Record<number, MdrMilestoneCell | null>;
