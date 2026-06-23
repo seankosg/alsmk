@@ -525,12 +525,7 @@ export function buildMdrColumns(
     { id: "sd_group", header: "SD", columns: buildStageTrioCols("sd", deltaCls) },
     { id: "dd_group", header: "DD", columns: buildStageTrioCols("dd", deltaCls) },
     { id: "cd_group", header: "CD", columns: buildStageTrioCols("cd", deltaCls) },
-    {
-      accessorKey: "overall_pct", header: "Overall%", size: 90,
-      cell: ({ getValue }) => <span className="text-right block tabular-nums font-semibold">{formatPct(getValue())}</span>,
-      filterFn: progressFilterFn,
-      meta: { filterType: "text" },
-    },
+    { id: "overall_group", header: "Overall", columns: buildStageTrioCols("overall", deltaCls) },
     // ===== 세부 마일스톤 컬럼들 (DD30/60/90/100, CD30/60/100 — 기본 숨김) =====
     ...sdDetailCols,
     ...ddDetailCols,
