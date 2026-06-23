@@ -158,9 +158,9 @@ export function actualPct(
   return clamp(sum, 0, 100);
 }
 
-/** Δ = Planned − Actual (양수 = 지연) */
+/** Δ = Actual − Planned (음수 = 지연, 양수 = 선행) */
 export function deltaPct(planned: number, actual: number): number {
-  return planned - actual;
+  return actual - planned;
 }
 
 /** 도면 단계별 계획/실적 — SD는 항상 계획·실적 100% (범위 안일 때) */
@@ -174,7 +174,7 @@ export function drawingStagePct(
   if (stage === "SD") return { planned: 100, actual: 100, delta: 0 };
   const planned = plannedPctAsOf(milestones, stage, asOf);
   const actual = actualPct(milestones, progress, stage, cells);
-  return { planned, actual, delta: planned - actual };
+  return { planned, actual, delta: actual - planned };
 }
 
 export interface DrawingScope {
