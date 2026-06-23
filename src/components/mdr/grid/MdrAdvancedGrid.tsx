@@ -655,6 +655,95 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     }
   };
 
+  // Template 원본 파일 존재 여부 — 활성/비활성 결정
+  const [templateAvailable, setTemplateAvailable] = useState<boolean>(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: signed, error } = await supabase.storage
+          .from("mdr-templates")
+          .createSignedUrl(`${buildingCode}/template.xlsx`, 30);
+        if (!cancelled) setTemplateAvailable(!error && !!signed?.signedUrl);
+      } catch {
+        if (!cancelled) setTemplateAvailable(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [buildingCode]);
+
+  const exportTemplateXlsx = async () => {
+    try {
+      if (!data || !data.length) {
+        toast({ title: "Export 실패", description: "데이터가 없습니다.", variant: "destructive" });
+        return;
+      }
+      // 1) 원본 워크북 다운로드
+      const { data: blob, error: dErr } = await supabase.storage
+        .from("mdr-templates")
+        .download(`${buildingCode}/template.xlsx`);
+      if (dErr || !blob) {
+        toast({
+          title: "원본 양식 없음",
+          description: "이 건물에 저장된 임포트 원본이 없습니다. 다시 임포트해주세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const ab = await blob.arrayBuffer();
+
+      // 2) DB → MdrExportDrawing[] 매핑 (전체 데이터, 필터/정렬 무시)
+      const { exportFromTemplate } = await import("@/lib/mdr/exporter");
+      const drawings = (data as any[]).map((d) => {
+        const pg = (d.mdr_progress ?? []) as any[];
+        const progress: Record<string, boolean> = {};
+        for (const p of pg) {
+          if (p.is_done) progress[`${p.stage}-${Number(p.pct)}`] = true;
+        }
+        return {
+          sourceNo: d.source_no,
+          building: d.building_code,
+          itemNo: d.item_no ?? "",
+          discipline: d.discipline ?? "",
+          plantId: d.plant_id ?? "",
+          pbs: d.pbs ?? "",
+          fbs: d.fbs ?? "",
+          serNo: d.ser_no ?? "",
+          activityGroup: d.activity_group ?? "",
+          drawingTitle: d.drawing_title ?? "",
+          outOfScope: !!d.out_of_scope,
+          confirmedBy: d.confirmed_by ?? null,
+          ifrStartDate: d.ifr_start_date ?? null,
+          ifrIssueDate: d.ifr_issue_date ?? null,
+          ifcStartDate: d.ifc_start_date ?? null,
+          ifcIssueDate: d.ifc_issue_date ?? null,
+          documentClass: d.document_class ?? null,
+          docClassCode: d.doc_class_code ?? null,
+          stagePlanSd: d.stage_plan_sd ?? null,
+          stagePlanDd: d.stage_plan_dd ?? null,
+          stagePlanCd: d.stage_plan_cd ?? null,
+          rev: d.rev ?? "",
+          rawRowCells: d.raw_row_cells ?? null,
+          progress,
+        };
+      });
+
+      const out = exportFromTemplate(ab, drawings);
+      const fname = `mdr_template_${buildingCode}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: "Template Export 완료", description: `${drawings.length}건` });
+    } catch (e: any) {
+      toast({ title: "Export 실패", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  };
+
 
   if (isLoading) return <Card className="p-6 text-muted-foreground">로딩 중...</Card>;
   if (!rows.length) return <Card className="p-6 text-muted-foreground">데이터 없음</Card>;
