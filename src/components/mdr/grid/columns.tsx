@@ -94,6 +94,7 @@ const naturalSort = (rowA: any, rowB: any, columnId: string) => {
 };
 
 type Stage = "sd" | "dd" | "cd";
+type TrioKey = Stage | "overall";
 
 function buildMilestoneCols(
   stage: Stage,
