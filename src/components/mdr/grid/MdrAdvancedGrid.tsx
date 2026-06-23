@@ -105,36 +105,44 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         planDate: x.plan_date ?? null,
       }));
 
-      // 그룹 셀의 actual(A) = 셀별 increment 합 (셀별 isDone 일 때).
-      // 셀 데이터가 없으면(레거시) 그룹 is_done × group increment 폴백.
+      // 그룹 셀의 actual(A) = 동일 stage 내 pct' ≤ pct 인 모든 완료 셀의 increment 합 (누계).
+      // 셀 데이터가 없으면(레거시) 그룹 단위 fallback (해당 pct 의 group increment).
       const buildCell = (stage: MdrStage, pct: number) => {
         const stageKey = stage === "SD" ? "sd" : stage === "DD" ? "dd" : "cd";
         if (!scope[stageKey]) return null;
         const m = ms.find((x: any) => x.stage === stage && x.pct === pct);
         if (!m) return null;
-        const groupCells = cellRows.filter((cc: any) => cc.stage === stage && cc.pct === pct);
-        const pgGroup = pgRows.filter((p: any) => p.stage === stage && p.pct === pct);
+        const stageCells = cellRows.filter((cc: any) => cc.stage === stage && cc.pct <= pct);
+        const stagePg = pgRows.filter((p: any) => p.stage === stage && p.pct <= pct);
         let aShow = 0;
         let actualDate: string | null = null;
-        if (groupCells.length) {
-          for (const cc of groupCells) {
-            const matched = pgGroup.find((p: any) => (p.subIdx ?? 0) === cc.subIdx && p.isDone);
+        if (stageCells.length) {
+          for (const cc of stageCells) {
+            const matched = stagePg.find(
+              (p: any) => p.pct === cc.pct && (p.subIdx ?? 0) === cc.subIdx && p.isDone,
+            );
             if (matched) {
               aShow += cc.incrementPct;
-              const raw = pgRaw.find((x: any) =>
-                x.stage === stage && x.pct === pct && Number(x.sub_idx ?? 0) === cc.subIdx && x.is_done,
-              );
-              const ad = raw?.actual_date ?? null;
-              if (ad && (!actualDate || ad > actualDate)) actualDate = ad;
+              // 현재 그룹(pct)의 actualDate 만 추적
+              if (cc.pct === pct) {
+                const raw = pgRaw.find((x: any) =>
+                  x.stage === stage && x.pct === pct && Number(x.sub_idx ?? 0) === cc.subIdx && x.is_done,
+                );
+                const ad = raw?.actual_date ?? null;
+                if (ad && (!actualDate || ad > actualDate)) actualDate = ad;
+              }
             }
           }
         } else {
-          // 레거시 폴백: 그룹 단위
-          const anyDone = pgGroup.find((p: any) => p.isDone);
-          if (anyDone) {
-            aShow = Number(m.increment_pct);
-            const raw = pgRaw.find((x: any) => x.stage === stage && x.pct === pct && x.is_done);
-            actualDate = raw?.actual_date ?? null;
+          // 레거시 폴백: 그룹 단위 누계
+          const stageMs = ms.filter((x: any) => x.stage === stage && x.pct <= pct);
+          for (const sm of stageMs) {
+            const anyDone = pgRows.find((p: any) => p.stage === stage && p.pct === sm.pct && p.isDone);
+            if (anyDone) aShow += Number(sm.increment_pct);
+            if (sm.pct === pct && anyDone) {
+              const raw = pgRaw.find((x: any) => x.stage === stage && x.pct === pct && x.is_done);
+              actualDate = raw?.actual_date ?? null;
+            }
           }
         }
         const pShow = drawingMilestonePlannedPct(msRows, stage, pct, asOf);
