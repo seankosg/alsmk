@@ -7,9 +7,17 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   loadMdrWeights,
   normalizeDiscipline,
+  FAFP_STAGE_WF,
   type MdrWfBundle,
   type StageCode,
 } from "./weights";
+
+/** Stage별 마일스톤 시퀀스 (DB 표준) */
+export const STAGE_MILESTONE_PCTS: Record<StageCode, number[]> = {
+  SD: [50, 100],
+  DD: [30, 60, 90, 100],
+  CD: [30, 60, 100],
+};
 
 const STAGES: StageCode[] = ["SD", "DD", "CD"];
 
