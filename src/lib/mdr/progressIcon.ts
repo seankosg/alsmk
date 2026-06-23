@@ -49,8 +49,9 @@ export const MDR_PIP_CLASS: Record<MdrMilestoneState, string> = {
   empty: "bg-transparent text-muted-foreground/40 border-border/40",
 };
 
-interface MsRow { stage: MdrStage; pct: number; plan_date: string | null }
-interface PgRow { stage: MdrStage; pct: number; is_done: boolean; actual_date: string | null }
+interface MsRow { stage: MdrStage; pct: number; plan_date: string | null; increment_pct?: number | string | null }
+interface PgRow { stage: MdrStage; pct: number; is_done: boolean; actual_date: string | null; sub_idx?: number | null }
+interface CellRow { stage: MdrStage; pct: number; subIdx: number; incrementPct: number }
 
 function classify(
   stage: MdrStage,
@@ -59,8 +60,10 @@ function classify(
   pg: PgRow | undefined,
   prevDone: boolean,
   asOf: string,
+  cellsDone?: boolean, // 셀 합 기반 done 판정
 ): MdrMilestoneState {
   if (!ms) return "empty";
+  if (cellsDone) return "done";
   if (pg?.is_done) return "done";
   if (ms.plan_date && ms.plan_date < asOf) return "delay";
   if (prevDone) return "wip";
