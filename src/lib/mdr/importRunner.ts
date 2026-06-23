@@ -417,6 +417,7 @@ export async function persistParsed(
           stage_plan_sd: r.stagePlanSd ?? null,
           stage_plan_dd: r.stagePlanDd ?? null,
           stage_plan_cd: r.stagePlanCd ?? null,
+          raw_row_cells: r.rawRowCells ?? null,
         } as any)
         .eq("id", ex.id);
     }
