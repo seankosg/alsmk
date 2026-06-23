@@ -209,7 +209,7 @@ function computeBlock(
         const sc = cell[stKey(st)];
         sc.drawingCount += 1;
         const planPct = planAtDate(dr.mdr_milestones, st, dataDate);
-        const actualPct = actualAtDate(dr.mdr_progress, st, dataDate);
+        const actualPct = actualAtDate(dr.mdr_milestone_cells, dr.mdr_progress, dr.mdr_milestones, st, dataDate);
         planSum[st] += planPct / 100;
         actualSum[st] += actualPct / 100;
         if (planPct > 0) sc.planCount += 1;
