@@ -574,7 +574,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           sd_p: "SD P", sd_a: "SD A", sd_d: "SD Δ",
           dd_p: "DD P", dd_a: "DD A", dd_d: "DD Δ",
           cd_p: "CD P", cd_a: "CD A", cd_d: "CD Δ",
-          overall_pct: "Overall%",
+          overall_p: "Overall P", overall_a: "Overall A", overall_d: "Overall Δ",
           stage_plan_sd: "SD목표완료일",
           stage_plan_dd: "DD목표완료일",
           stage_plan_cd: "CD목표완료일",
