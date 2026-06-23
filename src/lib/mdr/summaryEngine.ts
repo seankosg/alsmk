@@ -239,10 +239,15 @@ function computeBlock(
 
   // 블록 totals 평균화
   for (const st of STAGES) {
-    const n = totals[stKey(st)].drawingCount;
-    totals[stKey(st)].plan = n > 0 ? totals[stKey(st)].plan / n : 0;
-    totals[stKey(st)].actual = n > 0 ? totals[stKey(st)].actual / n : 0;
-    totals[stKey(st)].progress = totals[stKey(st)].actual;
+    const tot = totals[stKey(st)];
+    const n = tot.drawingCount;
+    tot.plan = n > 0 ? tot.plan / n : 0;
+    tot.actual = n > 0 ? tot.actual / n : 0;
+    tot.progress = tot.actual;
+    for (const mc of tot.milestones) {
+      mc.planRatio = n > 0 ? mc.planCount / n : 0;
+      mc.actualRatio = n > 0 ? mc.actualCount / n : 0;
+    }
   }
 
   let bpNum = 0, bpDen = 0;
