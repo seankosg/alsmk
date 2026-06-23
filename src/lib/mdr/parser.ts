@@ -55,6 +55,8 @@ export interface MdrParsedRow {
   milestones: MdrMilestoneDef[];
   /** 셀 단위 진행 — 그룹 OR 아닌 서브컬럼별 Y/N */
   progress: { stage: MdrStage; pct: number; subIdx: number; isDone: boolean }[];
+  /** 원본 엑셀 행의 셀 값 (헤더 → 값). 동일 양식 재내보내기에 사용. */
+  rawRowCells: Record<string, string | number | boolean | null>;
 }
 
 export interface MdrParsedSheet {
