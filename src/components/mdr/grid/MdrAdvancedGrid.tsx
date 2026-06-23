@@ -322,7 +322,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         return {
           p: pShow,
           a: aShow,
-          delta: pShow - aShow,
+          delta: aShow - pShow,
           planDate: m.plan_date ?? null,
           actualDate,
         };
