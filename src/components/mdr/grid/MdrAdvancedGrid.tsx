@@ -398,10 +398,11 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     return [...rows].sort((a, b) => cmp(a.discipline, b.discipline) || cmp(a.source_no, b.source_no));
   }, [rows]);
 
+  // Δ = Actual − Planned. 음수 = 공정지연(빨강), 양수 = 선행(파랑), 0 = 기본
   const deltaCls = (delta: number) => {
-    if (delta <= 0) return "text-green-600";
-    if (delta < threshold) return "text-yellow-500";
-    return "text-destructive font-semibold";
+    if (delta < 0) return "text-destructive font-semibold";
+    if (delta > 0) return "text-blue-600 dark:text-blue-400 font-semibold";
+    return "text-muted-foreground";
   };
 
   // 영속화 (rowSelection 제외) — 컬럼 빌드 전에 먼저 읽어 groupCollapsed 초기화에 사용
