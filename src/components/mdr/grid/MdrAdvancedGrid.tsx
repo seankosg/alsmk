@@ -917,8 +917,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
                             <th
                               key={header.id}
                               colSpan={header.colSpan}
-                              style={{ position: "sticky", top: 0, zIndex: 2, background: "hsl(var(--muted))" }}
-                              className="border-r border-b"
+                              style={{ position: "sticky", top: 0, zIndex: 3, background: "hsl(var(--primary) / 0.12)" }}
+                              className="border-r border-b border-primary/30"
                             />
                           );
                         }
