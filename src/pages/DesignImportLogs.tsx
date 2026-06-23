@@ -137,16 +137,19 @@ export default function DesignImportLogs() {
     setSheetFilter("all");
     setSearch("");
     setRenderLimit(500);
-    const { data, error } = await supabase
-      .from("mdr_import_row_logs" as never)
-      .select("id, source_sheet, raw_row_no, item_no, source_no, drawing_title, doc_base, action, reason")
-      .eq("import_log_id", batchId)
-      .order("raw_row_no", { ascending: true })
-      .limit(50000);
+
+    // RPC 사용: PostgREST 1000행 응답 제한을 우회해 전체 행 로그를 안정 정렬로 일괄 반환
+    const callRpc = () =>
+      (supabase as any).rpc("get_mdr_import_row_logs", { _import_log_id: batchId });
+
+    let { data, error } = await callRpc();
+    if (error) {
+      console.warn("get_mdr_import_row_logs 1차 실패, 재시도:", error.message);
+      ({ data, error } = await callRpc());
+    }
     if (error) {
       console.error(error);
       toast({ title: "행 로그 조회 실패", description: error.message, variant: "destructive" });
-      setRowLogs([]);
     } else {
       setRowLogs((data as RowLog[]) ?? []);
     }
