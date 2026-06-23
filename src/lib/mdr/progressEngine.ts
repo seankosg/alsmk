@@ -195,12 +195,13 @@ export function drawingOverall(
   asOf: string,
   weights: { sd?: number; dd?: number; cd?: number } = { sd: 1, dd: 1, cd: 1 },
   inScope?: DrawingScope,
+  cells?: MilestoneCellRow[],
 ) {
   const w = { sd: weights.sd ?? 1, dd: weights.dd ?? 1, cd: weights.cd ?? 1 };
   const scope: DrawingScope = inScope ?? { sd: true, dd: true, cd: true };
 
   const stageOf = (s: MdrStage) =>
-    drawingStagePct(milestones, progress, s, asOf);
+    drawingStagePct(milestones, progress, s, asOf, cells);
 
   const sd = scope.sd ? stageOf("SD") : { planned: null, actual: null, delta: null };
   const dd = scope.dd ? stageOf("DD") : { planned: null, actual: null, delta: null };
