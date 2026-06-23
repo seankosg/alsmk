@@ -179,8 +179,7 @@ export function buildMdrProgressIconCells(
 
       const pipPlanned = Math.max(0, plannedCum - prevPlannedCum);
       const pipActual = Math.max(0, actualCum - prevActualCum);
-      const pipTarget = Math.max(0, targetCum - (idx === 0 ? 0 : prevPlannedCum < 0 ? 0 : 0)) ||
-        (stageTotal > 0 ? (Number(ms?.increment_pct ?? 0) / stageTotal) * 100 : 0);
+      const pipTarget = stageTotal > 0 ? (Number(ms?.increment_pct ?? 0) / stageTotal) * 100 : 0;
 
       let state: MdrMilestoneState;
       if (!ms) {
