@@ -1467,6 +1467,7 @@ export type Database = {
           item_no: string
           raw_row_no: number
           reason: string
+          rev: string
           source_no: string
           source_sheet: string
         }[]
