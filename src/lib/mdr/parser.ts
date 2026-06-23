@@ -392,7 +392,7 @@ function parseSheet(
     );
     const serNo = serHeader ? (cellStr(ws, r, serHeader.col) || undefined) : undefined;
     const revRaw = findVal("REV", "REVISION");
-    const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "0";
+    const rev = (revRaw && revRaw.trim()) ? revRaw.trim().toUpperCase() : "A";
     // docBase: 4개 토큰을 항상 join. 누락 토큰은 빈 문자열로 유지(예: "JOB1--FBS3-SER9").
     // 4개 모두 누락이면 fallback으로 sheet+row 기반 키 생성(빌딩 내 UNIQUE 만족용).
     const PLACEHOLDER_RE = /^(tbd|tba|n\/a|na|미정|tbc|-)$/i;
