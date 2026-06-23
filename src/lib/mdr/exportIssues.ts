@@ -186,7 +186,7 @@ export function exportImportIssues(batch: BatchInfo, rowLogs: IssueRowLog[]) {
   rowLogs.forEach((r) => {
     if (r.action === "skipped_duplicate") return;
     if (r.reason && errorPattern.test(r.reason) && r.action !== "skipped_existing") {
-      const loc = `${r.source_sheet ?? "?"}!Row #${r.raw_row_no ?? "?"}`;
+      const loc = `${r.source_sheet ?? "?"}!Excel Row#${r.raw_row_no ?? "?"}`;
       errRows.push(["Row Error", loc, r.reason]);
     }
   });
