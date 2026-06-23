@@ -367,12 +367,20 @@ function parseSheet(
       pct: m.pct,
       incrementPct: m.incrementPct,
       planDate: m.planDate,
+      cells: m.cells.map((cc) => ({
+        subIdx: cc.subIdx,
+        incrementPct: cc.incrementPct,
+        planDate: cc.planDate,
+      })),
     }));
-    const progressAll = milestoneCols.map((m) => {
-      // 그룹 내 어느 서브컬럼이라도 Yes 면 완료로 간주
-      const isDone = m.cols.some((x) => isYes(cellStr(ws, r, x)));
-      return { stage: m.stage, pct: m.pct, isDone };
-    });
+    // 셀 단위 progress: 그룹 OR 아닌 서브컬럼별 Y/N (increment > 0 셀만)
+    const progressAll: { stage: MdrStage; pct: number; subIdx: number; isDone: boolean }[] = [];
+    for (const m of milestoneCols) {
+      for (const cc of m.cells) {
+        const isDone = isYes(cellStr(ws, r, cc.col));
+        progressAll.push({ stage: m.stage, pct: m.pct, subIdx: cc.subIdx, isDone });
+      }
+    }
 
     // 단계 범위(scope) 판정: 헤더 컬럼이 있으면 셀 값으로 결정.
     // 헤더 컬럼이 없으면 폴백으로 그 단계 마일스톤이 정의되어 있고 increment 합이 0 초과인지로 판정.
