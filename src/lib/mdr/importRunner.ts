@@ -98,19 +98,19 @@ export async function persistParsed(
     if (!existing) {
       plans.push({ row: r, action: "insert" });
       rowLogs.push({ ...baseLog(r), action: "inserted", reason: null });
-    } else if ((existing.rev ?? "0") === r.rev) {
+    } else if ((existing.rev ?? "A") === r.rev) {
       plans.push({ row: r, action: "skip_same_rev", existing });
       rowLogs.push({
         ...baseLog(r),
         action: "skipped_existing",
-        reason: `이미 존재 (Rev ${existing.rev ?? "0"})`,
+        reason: `이미 존재 (Rev ${existing.rev ?? "A"})`,
       });
     } else {
       plans.push({ row: r, action: "rev_update", existing });
       rowLogs.push({
         ...baseLog(r),
         action: "rev_updated",
-        reason: `Rev ${existing.rev ?? "0"} → ${r.rev}`,
+        reason: `Rev ${existing.rev ?? "A"} → ${r.rev}`,
       });
     }
   }
