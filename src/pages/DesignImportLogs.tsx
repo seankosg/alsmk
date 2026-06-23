@@ -458,6 +458,28 @@ export default function DesignImportLogs() {
               <Badge variant="outline" className={`text-xs ${ACTION_COLOR.rev_updated}`}>Rev 갱신 {counts.rev_updated}</Badge>
               <Badge variant="outline" className={`text-xs ${ACTION_COLOR.skipped_existing}`}>Existing {counts.skipped_existing}</Badge>
               <Badge variant="outline" className={`text-xs ${ACTION_COLOR.skipped_duplicate}`}>Duplicate {counts.skipped_duplicate}</Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto h-8 text-xs gap-1.5"
+                disabled={!selectedLog || rowsBusy}
+                onClick={() => {
+                  if (!selectedLog) return;
+                  exportImportIssues(
+                    {
+                      filename: selectedLog.filename,
+                      building_code: selectedLog.building_code,
+                      status: selectedLog.status,
+                      imported_at: selectedLog.imported_at,
+                      error_summary: selectedLog.error_summary,
+                    },
+                    rowLogs,
+                  );
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Excel 다운로드
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
