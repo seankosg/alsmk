@@ -69,7 +69,7 @@ export async function persistParsed(
     existing?: ExistingDrawing;
   }
   const rowLogs: RowLogEntry[] = [];
-  const seenDocBase = new Set<string>();
+  const seenDocBase = new Map<string, { row: number; sheet: string }>();
   const plans: RowPlan[] = [];
 
   const baseLog = (r: MdrParsedRow) => ({
@@ -84,16 +84,21 @@ export async function persistParsed(
   for (const r of allRows) {
     const existing = existingByDocBase.get(r.docBase);
 
-    if (seenDocBase.has(r.docBase)) {
+    const firstSeen = seenDocBase.get(r.docBase);
+    if (firstSeen) {
+      const origin = firstSeen.sheet === r.sourceSheet
+        ? `원본 Row #${firstSeen.row}`
+        : `원본 ${firstSeen.sheet}!Row #${firstSeen.row}`;
       plans.push({ row: r, action: "dup_in_file" });
       rowLogs.push({
         ...baseLog(r),
         action: "skipped_duplicate",
-        reason: "파일 내 중복 (Doc No.)",
+        reason: `파일 내 중복 (${origin})`,
       });
       continue;
     }
-    seenDocBase.add(r.docBase);
+    seenDocBase.set(r.docBase, { row: r.rawRowNo, sheet: r.sourceSheet });
+
 
     if (!existing) {
       plans.push({ row: r, action: "insert" });
