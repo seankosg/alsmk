@@ -196,7 +196,9 @@ function buildMilestoneCols(
       cell: ({ getValue }) => {
         const v = getValue() as number | null;
         if (v == null) return <span className="text-muted-foreground text-center block">-</span>;
-        return <span className={`text-right block tabular-nums ${deltaCls(v)}`}>{Math.round(v)}</span>;
+        const n = Math.round(v);
+        const txt = n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : "0";
+        return <span className={`text-right block tabular-nums ${deltaCls(v)}`}>{txt}</span>;
       },
     });
   }
@@ -285,7 +287,9 @@ function buildStageTrioCols(
       cell: ({ getValue }) => {
         const v = getValue() as number | null;
         if (v == null) return <span className="text-muted-foreground text-center block">-</span>;
-        return <span className={`text-right block tabular-nums ${deltaCls(v)}`}>{Math.round(v)}</span>;
+        const n = Math.round(v);
+        const txt = n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : "0";
+        return <span className={`text-right block tabular-nums ${deltaCls(v)}`}>{txt}</span>;
       },
     },
   ];
