@@ -216,16 +216,25 @@ export async function persistParsed(
         .eq("id", ex.id);
       if (uErr) throw uErr;
       await (supabase.from("mdr_milestones" as never) as any).delete().eq("drawing_id", ex.id);
+      await (supabase.from("mdr_milestone_cells" as never) as any).delete().eq("drawing_id", ex.id);
       await (supabase.from("mdr_progress" as never) as any).delete().eq("drawing_id", ex.id);
       const msIns = r.milestones.map((m) => ({
         drawing_id: ex.id, stage: m.stage, pct: m.pct,
         increment_pct: m.incrementPct, plan_date: m.planDate ?? null,
       }));
+      const cellsIns = r.milestones.flatMap((m) =>
+        (m.cells ?? []).map((cc) => ({
+          drawing_id: ex.id, stage: m.stage, pct: m.pct,
+          sub_idx: cc.subIdx, increment_pct: cc.incrementPct,
+          plan_date: cc.planDate ?? m.planDate ?? null,
+        })),
+      );
       const pgIns = r.progress.map((pr) => ({
-        drawing_id: ex.id, stage: pr.stage, pct: pr.pct,
+        drawing_id: ex.id, stage: pr.stage, pct: pr.pct, sub_idx: pr.subIdx,
         is_done: pr.stage === "SD" ? true : pr.isDone,
       }));
       if (msIns.length) await supabase.from("mdr_milestones" as never).insert(msIns as any);
+      if (cellsIns.length) await supabase.from("mdr_milestone_cells" as never).insert(cellsIns as any);
       if (pgIns.length) await supabase.from("mdr_progress" as never).insert(pgIns as any);
     }
   }
