@@ -16,7 +16,7 @@ import {
   type Header,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download, GripVertical, RotateCcw } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Settings2, Search, X, Download, GripVertical, RotateCcw, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   DndContext,
   PointerSensor,
