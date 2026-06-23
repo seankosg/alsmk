@@ -280,6 +280,7 @@ export async function persistParsed(
       stage_plan_cd: row.stagePlanCd ?? null,
       source_sheet: row.sourceSheet,
       import_log_id: importLogId ?? null,
+      raw_row_cells: row.rawRowCells ?? null,
     }));
     const { data, error } = await supabase
       .from("mdr_drawings" as never)
