@@ -608,8 +608,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           };
           return `SD:${cap(arr[0])}|DD:${summ(arr.slice(1, 5))}|CD:${summ(arr.slice(5, 8))}`;
         }
-        if (id === "overall_pct") return formatPct(value);
-        if (/^(sd|dd|cd)_(p|a|d)$/.test(id)) {
+        if (/^(sd|dd|cd|overall)_(p|a|d)$/.test(id)) {
           if (value == null) return "-";
           return Math.round(Number(value));
         }
