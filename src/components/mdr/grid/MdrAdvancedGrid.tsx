@@ -404,11 +404,12 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const table = useReactTable({
     data: sortedRows,
     columns,
-    state: { sorting, columnFilters, columnSizing, columnVisibility, rowSelection, globalFilter: debouncedGlobal },
+    state: { sorting, columnFilters, columnSizing, columnVisibility, columnOrder, rowSelection, globalFilter: debouncedGlobal },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder as any,
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
     getRowId: (r) => r.id,
