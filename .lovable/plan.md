@@ -1,94 +1,72 @@
-## 누락 엑셀 컬럼 전체 보존 — 구현 플랜
+## 목표
+1. 최초 Rev 기본값을 `"0"` → `"A"`로 통일 (코드 + 기존 데이터 1회 마이그레이션)
+2. 임포트 시 엑셀의 `REV. NO.` 컬럼 값을 그대로 신뢰하여 Latest Rev로 적용 (이미 동작 중인 로직 보강 및 명시화)
 
-선택: **옵션 3 (전체 보존)**. 매핑 누락된 12개 헤더를 `mdr_drawings`에 영구 저장하고, 그리드 표시 및 재임포트 왕복(round-trip) 호환성을 보장합니다.
+---
 
-### 1. 데이터베이스 마이그레이션
+## 1) 데이터 일괄 마이그레이션 (1회)
 
-`mdr_drawings`에 컬럼 추가 (모두 NULLABLE, 기존 행은 NULL):
+대상: 모든 `rev = '0'`인 기존 행을 `'A'`로 변경.
 
-| 컬럼 | 타입 | 출처 헤더 |
-|---|---|---|
-| `confirmed_by` | TEXT | `Confirmed By` |
-| `ifr_start_date` | DATE | `Plan Date > IFR/IFI > Start Date` |
-| `ifr_issue_date` | DATE | `Plan Date > IFR/IFI > Issue Date` |
-| `ifc_start_date` | DATE | `Plan Date > IFC > Start Date` |
-| `ifc_issue_date` | DATE | `Plan Date > IFC > Issue Date` |
-| `document_class` | TEXT | `Document Class` |
-| `doc_class_code` | TEXT | `문서분류체계 > 코드` |
-| `stage_plan_sd` | DATE | `SD Stage` 헤더의 통합 Plan 날짜 (행7) |
-| `stage_plan_dd` | DATE | `DD Stage` 헤더의 통합 Plan 날짜 |
-| `stage_plan_cd` | DATE | `CD Stage` 헤더의 통합 Plan 날짜 |
+```sql
+-- mdr_drawings: rev '0' → 'A', doc_no 재생성
+UPDATE public.mdr_drawings
+SET rev = 'A',
+    doc_no = doc_base || '-A'
+WHERE rev = '0' OR rev IS NULL;
 
-`TBD`/공백은 NULL 저장. 마이그레이션은 GRANT/RLS 변경 없음 (기존 정책 그대로 적용).
-
-### 2. `parser.ts`
-
-- `MdrParsedRow`에 위 10개 필드 추가 (모두 optional).
-- 헤더 탐지:
-  - `Confirmed By` / `Document Class` / `문서분류체계` / `코드` → `findVal()` 후보 확장.
-  - `Plan Date` 그룹: 행4 `Plan Date` 병합 셀 + 행5 `IFR/IFI` `IFC` + 행7 `Start Date`/`Issue Date` 4쌍을 좌→우 순서로 컬럼 인덱싱.
-  - `SD Stage`/`DD Stage`/`CD Stage`: 행4 헤더 텍스트 매칭 → 행7 셀의 날짜를 `stage_plan_*`으로 저장. (부수적으로 scope 컬럼 인식도 `"SD"|"SD STAGE"` 양쪽 허용으로 확장.)
-- `parseDate()` 재사용, 문자열 `TBD/-` 등은 undefined.
-
-### 3. `columnMap.ts`
-
-새 키 추가 (모두 `source: "original"`, `preserveOnReimport: true`):
-
-```ts
-confirmedBy:     { header: "Confirmed By",        source: "original", preserveOnReimport: true }
-ifrStart:        { header: "IFR/IFI Start Date",  source: "original", preserveOnReimport: true }
-ifrIssue:        { header: "IFR/IFI Issue Date",  source: "original", preserveOnReimport: true }
-ifcStart:        { header: "IFC Start Date",      source: "original", preserveOnReimport: true }
-ifcIssue:        { header: "IFC Issue Date",      source: "original", preserveOnReimport: true }
-documentClass:   { header: "Document Class",      source: "original", preserveOnReimport: true }
-docClassCode:    { header: "문서분류체계 코드",    source: "original", preserveOnReimport: true }
-stagePlanSd:     { header: "SD Stage Plan",       source: "app_generated", preserveOnReimport: true }
-stagePlanDd:     { header: "DD Stage Plan",       source: "app_generated", preserveOnReimport: true }
-stagePlanCd:     { header: "CD Stage Plan",       source: "app_generated", preserveOnReimport: true }
+-- mdr_drawing_revisions: 과거 스냅샷도 동일 처리 (현재 0건이지만 안전망)
+UPDATE public.mdr_drawing_revisions
+SET rev = 'A',
+    doc_no = doc_base || '-A'
+WHERE rev = '0' OR rev IS NULL;
 ```
 
-HEADER_ALIASES에 `"ifr/ifi start date"`, `"ifc start date"`, `"코드"` 등 변형 추가.
+확인: 마이그레이션 후 `SELECT count(*) FROM mdr_drawings WHERE rev='0'` → 0이어야 함.
 
-### 4. `importRunner.ts`
+현재 DB 상태: `mdr_drawings` 4,176건 모두 `rev='0'` (이전 임포트에서 REV.NO. 헤더 인식 실패로 기본값 적용된 결과). 이 데이터는 헤더 매핑 수정 전 임포트본이므로, 마이그레이션 후 실제 엑셀 재임포트 시 정상 Rev 값(A, B, …)으로 덮어쓰여짐.
 
-- INSERT/UPDATE payload에 새 10개 컬럼 매핑 (snake_case).
-- 변경 없는 행 식별 로직(`isUnchanged`)에 새 필드도 포함 → 진정한 변화만 update.
+---
 
-### 5. `exporter.ts`
+## 2) 코드 변경 (기본값 `"0"` → `"A"`)
 
-- 신규 컬럼이 템플릿에 이미 존재하면 값만 patch.
-- 없으면 우측 끝에 헤더 추가 후 값 작성 (Building/Item No 추가 로직과 동일 패턴).
-- 재임포트 시 `detectColumnKey`가 다시 인식하도록 헤더 텍스트 통일.
+### `src/lib/mdr/parser.ts`
+- L22 주석: `없으면 "0"` → `없으면 "A"`
+- L395: `const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "A";`
 
-### 6. 그리드 (`columns.tsx`, `MdrDrawingRow`)
+### `src/lib/mdr/importRunner.ts`
+기존 행의 rev 비교/표기에 쓰이는 fallback도 통일:
+- `(existing.rev ?? "0")` 출현 3개소 → `(existing.rev ?? "A")`
+- Rev 변경 스냅샷 payload의 `rev: ex.rev ?? "0"`, `doc_no: ...${ex.rev ?? "0"}` → `"A"`
 
-- `MdrDrawingRow` 인터페이스에 10개 필드 추가.
-- 신규 컬럼 정의 (기본 숨김 처리 가능하도록 `meta: { hideByDefault: true }` 추가 — 사용자가 컬럼 토글로 표시):
-  - `Confirmed By`, `Document Class`, `Doc Class Code` — 텍스트 필터
-  - `IFR Start/Issue`, `IFC Start/Issue`, `SD/DD/CD Plan` — 날짜 범위 필터
-- 기본 표시되는 컬럼 순서는 변경하지 않음 (오른쪽 끝에 추가).
+### 기타 표시 코드
+`rev ?? "0"` / `|| "0"` 패턴이 남아있는지 grid/exporter 등을 일괄 grep 후 동일하게 `"A"`로 변경.
 
-### 7. `useGridStatePersistence.ts`
+---
 
-- 신규 컬럼 ID가 저장된 visibility 상태와 충돌하지 않도록 기본 hidden 보장.
+## 3) 임포트 시 Rev 적용 로직 (이미 정상, 명시화만)
 
-### 8. 영향 없음 (확인)
+`importRunner.ts`의 동작을 다음과 같이 확정:
 
-- `progressEngine`, `summaryEngine`, `weights`, `mdr_progress`, `mdr_snapshots`, CPM, 메시징, 권한 정책 — 변경 없음.
-- 기존 행의 NULL 컬럼은 그리드에서 `-`로 표시.
+| 매칭 키 `(building_code, doc_base)` | 엑셀 Rev | 기존 Rev | 처리 |
+|---|---|---|---|
+| 신규 | (그대로) | — | **insert** — 엑셀 Rev = Latest |
+| 동일 | 같음 | 같음 | skip_same_rev (메타/마일스톤 재동기화) |
+| 동일 | 다름 (예: 엑셀 B, DB A) | 기존 | **rev_update** — 기존 행을 `mdr_drawing_revisions`로 이력 보관 → `mdr_drawings.rev`를 엑셀 값으로 덮어쓰기 (Latest = 엑셀) |
 
-### 9. 사용자 후속 작업
+→ "엑셀 우선" 원칙은 이미 코드에 반영되어 있음. base‑26(A→Z→AA) 비교 로직은 **불필요** (엑셀 값을 무조건 신뢰하므로 정렬/대소 비교 없음).
 
-1. 마이그레이션 자동 적용 후 **엑셀 재임포트** 1회 → 신규 10개 컬럼 일괄 채움.
-2. 그리드의 컬럼 토글 메뉴에서 원하는 신규 컬럼 표시.
+### 보강할 한 가지
+Rev 정규화: 엑셀 셀이 소문자(`a`)나 공백 포함(`A `)으로 들어올 수 있으므로 `parser.ts`에서 `rev = revRaw.trim().toUpperCase()` 적용 (숫자 Rev가 들어와도 그대로 보존, 대문자만 강제).
 
-### 변경 파일
+---
 
-- `supabase/migrations/<timestamp>_mdr_extended_columns.sql` (신규)
-- `src/lib/mdr/parser.ts`
-- `src/lib/mdr/columnMap.ts`
-- `src/lib/mdr/importRunner.ts`
-- `src/lib/mdr/exporter.ts`
-- `src/components/mdr/grid/columns.tsx`
-- `src/components/mdr/grid/useGridStatePersistence.ts` (필요 시)
-- `src/integrations/supabase/types.ts` (자동 재생성)
+## 변경 파일
+- `supabase/migrations/<new>.sql` — 데이터 UPDATE 1회
+- `src/lib/mdr/parser.ts` — 기본값 "A", toUpperCase 정규화
+- `src/lib/mdr/importRunner.ts` — fallback "0" → "A" 일괄 치환
+- (필요 시) `src/lib/mdr/exporter.ts`, `src/components/mdr/grid/columns.tsx` — 표시용 fallback 동일 치환
+
+## 범위 외 (변경하지 않음)
+- Rev 자동 증분, 단계‑Rev 매핑, base‑26 정렬/비교 로직 — 사용자 결정에 따라 도입하지 않음.
+- 헤더 매핑 보강(이전 단계 plan)은 별도 사안.
