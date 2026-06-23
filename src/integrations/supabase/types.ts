@@ -1454,6 +1454,20 @@ export type Database = {
         }
         Returns: string
       }
+      get_mdr_import_row_logs: {
+        Args: { _import_log_id: string }
+        Returns: {
+          action: string
+          doc_base: string
+          drawing_title: string
+          id: string
+          item_no: string
+          raw_row_no: number
+          reason: string
+          source_no: string
+          source_sheet: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
