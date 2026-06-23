@@ -272,17 +272,17 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         actualDate: x.actual_date ?? null,
       }));
 
-      const sd = drawingStagePct(ms, pgRows, "SD", asOf, cellRows);
-      const dd = drawingStagePct(ms, pgRows, "DD", asOf, cellRows);
-      const cd = drawingStagePct(ms, pgRows, "CD", asOf, cellRows);
-      const overall = drawingOverall(ms, pgRows, asOf, { sd: 1, dd: 1, cd: 1 }, scope, cellRows);
-
       const msRows = ms.map((x: any) => ({
         stage: x.stage,
         pct: Number(x.pct),
         incrementPct: Number(x.increment_pct),
         planDate: x.plan_date ?? null,
       }));
+
+      const sd = drawingStagePct(msRows, pgRows, "SD", asOf, cellRows);
+      const dd = drawingStagePct(msRows, pgRows, "DD", asOf, cellRows);
+      const cd = drawingStagePct(msRows, pgRows, "CD", asOf, cellRows);
+      const overall = drawingOverall(msRows, pgRows, asOf, { sd: 1, dd: 1, cd: 1 }, scope, cellRows);
 
       // 그룹 셀의 actual(A) = 동일 stage 내 pct' ≤ pct 인 모든 완료 셀의 increment 합 (누계).
       // 셀 데이터가 없으면(레거시) 그룹 단위 fallback (해당 pct 의 group increment).
@@ -386,7 +386,9 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         cd_p: scope.cd ? cd.planned : null,
         cd_a: scope.cd ? cd.actual : null,
         cd_d: scope.cd ? cd.delta : null,
-        overall_pct: overall.actual,
+        overall_p: overall.planned,
+        overall_a: overall.actual,
+        overall_d: overall.actual - overall.planned,
         sdCells,
         ddCells,
         cdCells,
@@ -572,7 +574,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           sd_p: "SD P", sd_a: "SD A", sd_d: "SD Δ",
           dd_p: "DD P", dd_a: "DD A", dd_d: "DD Δ",
           cd_p: "CD P", cd_a: "CD A", cd_d: "CD Δ",
-          overall_pct: "Overall%",
+          overall_p: "Overall P", overall_a: "Overall A", overall_d: "Overall Δ",
           stage_plan_sd: "SD목표완료일",
           stage_plan_dd: "DD목표완료일",
           stage_plan_cd: "CD목표완료일",
@@ -606,8 +608,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           };
           return `SD:${cap(arr[0])}|DD:${summ(arr.slice(1, 5))}|CD:${summ(arr.slice(5, 8))}`;
         }
-        if (id === "overall_pct") return formatPct(value);
-        if (/^(sd|dd|cd)_(p|a|d)$/.test(id)) {
+        if (/^(sd|dd|cd|overall)_(p|a|d)$/.test(id)) {
           if (value == null) return "-";
           return Math.round(Number(value));
         }

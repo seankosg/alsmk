@@ -62,7 +62,9 @@ export interface MdrDrawingRow {
   cd_p: number | null;
   cd_a: number | null;
   cd_d: number | null;
-  overall_pct: number;
+  overall_p: number;
+  overall_a: number;
+  overall_d: number;
   sdCells: Record<number, MdrMilestoneCell | null>;
   ddCells: Record<number, MdrMilestoneCell | null>;
   cdCells: Record<number, MdrMilestoneCell | null>;
@@ -92,6 +94,7 @@ const naturalSort = (rowA: any, rowB: any, columnId: string) => {
 };
 
 type Stage = "sd" | "dd" | "cd";
+type TrioKey = Stage | "overall";
 
 function buildMilestoneCols(
   stage: Stage,
@@ -227,7 +230,7 @@ export function getColumnGroupOf(leafId: string): keyof typeof STAGE_GROUP_LEAVE
 }
 
 function buildStageTrioCols(
-  stage: Stage,
+  stage: TrioKey,
   deltaCls: (delta: number) => string,
 ): ColumnDef<MdrDrawingRow>[] {
   const numericSort = (a: any, b: any, id: string) => {
@@ -522,12 +525,7 @@ export function buildMdrColumns(
     { id: "sd_group", header: "SD", columns: buildStageTrioCols("sd", deltaCls) },
     { id: "dd_group", header: "DD", columns: buildStageTrioCols("dd", deltaCls) },
     { id: "cd_group", header: "CD", columns: buildStageTrioCols("cd", deltaCls) },
-    {
-      accessorKey: "overall_pct", header: "Overall%", size: 90,
-      cell: ({ getValue }) => <span className="text-right block tabular-nums font-semibold">{formatPct(getValue())}</span>,
-      filterFn: progressFilterFn,
-      meta: { filterType: "text" },
-    },
+    { id: "overall_group", header: "Overall", columns: buildStageTrioCols("overall", deltaCls) },
     // ===== 세부 마일스톤 컬럼들 (DD30/60/90/100, CD30/60/100 — 기본 숨김) =====
     ...sdDetailCols,
     ...ddDetailCols,
