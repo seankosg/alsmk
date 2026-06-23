@@ -272,17 +272,17 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
         actualDate: x.actual_date ?? null,
       }));
 
-      const sd = drawingStagePct(ms, pgRows, "SD", asOf, cellRows);
-      const dd = drawingStagePct(ms, pgRows, "DD", asOf, cellRows);
-      const cd = drawingStagePct(ms, pgRows, "CD", asOf, cellRows);
-      const overall = drawingOverall(ms, pgRows, asOf, { sd: 1, dd: 1, cd: 1 }, scope, cellRows);
-
       const msRows = ms.map((x: any) => ({
         stage: x.stage,
         pct: Number(x.pct),
         incrementPct: Number(x.increment_pct),
         planDate: x.plan_date ?? null,
       }));
+
+      const sd = drawingStagePct(msRows, pgRows, "SD", asOf, cellRows);
+      const dd = drawingStagePct(msRows, pgRows, "DD", asOf, cellRows);
+      const cd = drawingStagePct(msRows, pgRows, "CD", asOf, cellRows);
+      const overall = drawingOverall(msRows, pgRows, asOf, { sd: 1, dd: 1, cd: 1 }, scope, cellRows);
 
       // 그룹 셀의 actual(A) = 동일 stage 내 pct' ≤ pct 인 모든 완료 셀의 increment 합 (누계).
       // 셀 데이터가 없으면(레거시) 그룹 단위 fallback (해당 pct 의 group increment).
