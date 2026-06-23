@@ -208,6 +208,7 @@ function parseSheet(
     cols: number[];           // 그룹에 속한 서브컬럼들
     incrementPct: number;     // 서브컬럼 증분 합
     planDate?: string;        // 서브컬럼 중 가장 늦은 plan_date
+    cells: { subIdx: number; col: number; incrementPct: number; planDate?: string }[];
   }
   const milestoneGroups: MilestoneGroup[] = [];
 
@@ -250,17 +251,24 @@ function parseSheet(
         end = k;
       }
       const cols: number[] = [];
+      const cells: { subIdx: number; col: number; incrementPct: number; planDate?: string }[] = [];
       let incrementPct = 0;
       let planDate: string | undefined;
+      let subIdx = 0;
       for (let x = start; x <= end; x++) {
         cols.push(x);
         const incRaw = cellStr(ws, incrementRow, x).replace("%", "").trim();
         const v = parseFloat(incRaw);
-        if (!isNaN(v)) incrementPct += v;
+        const cellInc = !isNaN(v) ? v : 0;
+        if (cellInc > 0) incrementPct += cellInc;
         const pd = parseDate(cellRaw(ws, planDateRow, x));
         if (pd && (!planDate || pd > planDate)) planDate = pd;
+        if (cellInc > 0) {
+          cells.push({ subIdx, col: x, incrementPct: cellInc, planDate: pd });
+          subIdx++;
+        }
       }
-      milestoneGroups.push({ stage, pct, cols, incrementPct, planDate });
+      milestoneGroups.push({ stage, pct, cols, incrementPct, planDate, cells });
       c = end + 1;
     } else {
       const headerText = headerTextAt(c);
@@ -279,6 +287,7 @@ function parseSheet(
     incrementPct: g.incrementPct,
     planDate: g.planDate,
     cols: g.cols,
+    cells: g.cells,
   }));
 
   // SD/DD/CD 단계 범위(scope) 컬럼 — headerRow에서 "SD"/"DD"/"CD" 또는 "SD Stage"/"DD Stage"/"CD Stage".
