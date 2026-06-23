@@ -788,9 +788,27 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           <MdrProgressIconLegend />
         </div>
 
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={exportFilteredXlsx} title="현재 필터/정렬 상태의 표시 컬럼을 .xlsx로 내보냅니다">
-          <Download className="mr-1 h-3.5 w-3.5" />Export view
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8 text-xs">
+              <Download className="mr-1 h-3.5 w-3.5" />Export<ChevronDown className="ml-1 h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={exportFilteredXlsx}>
+              <Download className="mr-2 h-3.5 w-3.5" />
+              Raw Data 내보내기
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={exportTemplateXlsx}
+              disabled={!templateAvailable}
+              title={templateAvailable ? "임포트한 엑셀 양식 그대로 내보냅니다" : "원본 양식이 저장된 임포트가 없습니다. 다시 임포트해주세요."}
+            >
+              <Download className="mr-2 h-3.5 w-3.5" />
+              Template로 내보내기
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Popover>
           <PopoverTrigger asChild>
