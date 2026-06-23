@@ -772,12 +772,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
                 onReorder={(activeId, overId) => {
                   if (activeId === overId) return;
                   if (activeId === "__select__" || overId === "__select__") return;
-                  const groupA = getColumnGroupOf(activeId);
-                  const groupO = getColumnGroupOf(overId);
-                  // 그룹 leaf 끼리는 같은 그룹 안에서만 reorder 허용
-                  if (groupA || groupO) {
-                    if (groupA !== groupO) return;
-                  }
+                  // 그룹 가드 제거: sanitizeColumnOrder 가 그룹 leaf 를 자동으로 인접 배치하므로
+                  // 1단/2단 간 자유 이동을 허용한다.
                   setColumnOrder((prev) => {
                     const base = prev.length ? prev : defaultLeafOrder;
                     const next = [...base];
