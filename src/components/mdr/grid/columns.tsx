@@ -209,19 +209,118 @@ export interface BuildMdrColumnsOptions {
   asOf: string;
 }
 
+/** 그룹별 leaf id (드래그 reorder 시 그룹 내 contiguous 유지에 사용) */
+export const STAGE_GROUP_LEAVES: Record<"sd_group" | "dd_group" | "cd_group", string[]> = {
+  sd_group: ["sd_p", "sd_a", "sd_d"],
+  dd_group: ["dd_p", "dd_a", "dd_d"],
+  cd_group: ["cd_p", "cd_a", "cd_d"],
+};
+
+/** leaf id → 그룹 id (그룹 외 leaf 는 undefined) */
+export function getColumnGroupOf(leafId: string): keyof typeof STAGE_GROUP_LEAVES | undefined {
+  for (const [g, leaves] of Object.entries(STAGE_GROUP_LEAVES) as [keyof typeof STAGE_GROUP_LEAVES, string[]][]) {
+    if (leaves.includes(leafId)) return g;
+  }
+  return undefined;
+}
+
+function buildStageTrioCols(
+  stage: Stage,
+  deltaCls: (delta: number) => string,
+): ColumnDef<MdrDrawingRow>[] {
+  const numericSort = (a: any, b: any, id: string) => {
+    const va = a.getValue(id);
+    const vb = b.getValue(id);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return Number(va) - Number(vb);
+  };
+  return [
+    {
+      id: `${stage}_p`,
+      accessorFn: (r) => (r as any)[`${stage}_p`],
+      header: "P",
+      size: 60,
+      enableSorting: true,
+      enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
+      filterFn: progressFilterFn,
+      meta: { filterType: "text" },
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        if (v == null) return <span className="text-muted-foreground text-center block">-</span>;
+        return <span className="text-right block tabular-nums text-muted-foreground">{Math.round(v)}</span>;
+      },
+    },
+    {
+      id: `${stage}_a`,
+      accessorFn: (r) => (r as any)[`${stage}_a`],
+      header: "A",
+      size: 60,
+      enableSorting: true,
+      enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
+      filterFn: progressFilterFn,
+      meta: { filterType: "text" },
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        if (v == null) return <span className="text-muted-foreground text-center block">-</span>;
+        return <span className="text-right block tabular-nums">{Math.round(v)}</span>;
+      },
+    },
+    {
+      id: `${stage}_d`,
+      accessorFn: (r) => (r as any)[`${stage}_d`],
+      header: "Δ",
+      size: 60,
+      enableSorting: true,
+      enableColumnFilter: true,
+      sortingFn: numericSort,
+      sortUndefined: "last",
+      filterFn: progressFilterFn,
+      meta: { filterType: "text" },
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        if (v == null) return <span className="text-muted-foreground text-center block">-</span>;
+        return <span className={`text-right block tabular-nums ${deltaCls(v)}`}>{Math.round(v)}</span>;
+      },
+    },
+  ];
+}
+
 export function buildMdrColumns(
   deltaCls: (delta: number) => string,
   opts: BuildMdrColumnsOptions,
 ): ColumnDef<MdrDrawingRow>[] {
-  const sdCols = buildMilestoneCols("sd", SD_PCTS, "sdCells", deltaCls);
-  const ddCols = buildMilestoneCols("dd", DD_PCTS, "ddCells", deltaCls);
-  const cdCols = buildMilestoneCols("cd", CD_PCTS, "cdCells", deltaCls);
+  // 세부 마일스톤 컬럼 (SD100, DD30/60/90/100, CD30/60/100 — 기본 숨김)
+  const sdDetailCols = buildMilestoneCols("sd", SD_PCTS, "sdCells", deltaCls);
+  const ddDetailCols = buildMilestoneCols("dd", DD_PCTS, "ddCells", deltaCls);
+  const cdDetailCols = buildMilestoneCols("cd", CD_PCTS, "cdCells", deltaCls);
 
   const { collapsed, onToggleGroup, asOf } = opts;
-  // 접힘 상태에 따라 너비 동적 보정: 펼침=230, dd접힘 -40, cd접힘 -40, 모두접힘 ≈110
   const progressIconSize =
     230 - (collapsed.dd ? 70 : 0) - (collapsed.cd ? 50 : 0);
 
+  const stagePlanColumn = (
+    key: "stage_plan_sd" | "stage_plan_dd" | "stage_plan_cd",
+    label: string,
+  ): ColumnDef<MdrDrawingRow> => ({
+    accessorKey: key,
+    id: key,
+    header: label,
+    size: 120,
+    enableSorting: true,
+    sortUndefined: "last",
+    cell: ({ getValue }) => {
+      const v = getValue() as string | null;
+      return <span className="text-center block tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
+    },
+    filterFn: dateRangeFilterFn,
+    meta: { filterType: "date-range" },
+  });
 
   return [
     {
@@ -266,8 +365,6 @@ export function buildMdrColumns(
         const v = (getValue() as string) ?? "-";
         const r = row.original;
         const rev = r.rev;
-        // doc_no = doc_base + "-" + rev; doc_base = plant-pbs-fbs-ser (4 segments)
-        // Rev 부분을 잘라낸 뒤 4개 토큰으로 split하여 누락 토큰만 붉게 표시.
         const base = r.doc_base ?? "";
         const tokens = base.split("-");
         const labels = ["Plant ID", "PBS", "FBS", "Ser No."];
@@ -413,27 +510,24 @@ export function buildMdrColumns(
       filterFn: multiSelectFilterFn,
       meta: { filterType: "multi-select", filterOptions: MARK_OPTIONS },
     },
-    ...sdCols,
-    ...ddCols,
-    ...cdCols,
-    {
-      accessorKey: "dd_pct", header: "DD%", size: 80,
-      cell: ({ getValue }) => <span className="text-right block tabular-nums">{formatPct(getValue())}</span>,
-      filterFn: progressFilterFn,
-      meta: { filterType: "text" },
-    },
-    {
-      accessorKey: "cd_pct", header: "CD%", size: 80,
-      cell: ({ getValue }) => <span className="text-right block tabular-nums">{formatPct(getValue())}</span>,
-      filterFn: progressFilterFn,
-      meta: { filterType: "text" },
-    },
+    // ===== 목표완료일 (단계 요약 트리오 직전, 기본 표시) =====
+    stagePlanColumn("stage_plan_sd", "SD목표완료일"),
+    stagePlanColumn("stage_plan_dd", "DD목표완료일"),
+    stagePlanColumn("stage_plan_cd", "CD목표완료일"),
+    // ===== 단계 요약 (그룹 헤더: SD/DD/CD → P|A|Δ) =====
+    { id: "sd_group", header: "SD", columns: buildStageTrioCols("sd", deltaCls) },
+    { id: "dd_group", header: "DD", columns: buildStageTrioCols("dd", deltaCls) },
+    { id: "cd_group", header: "CD", columns: buildStageTrioCols("cd", deltaCls) },
     {
       accessorKey: "overall_pct", header: "Overall%", size: 90,
       cell: ({ getValue }) => <span className="text-right block tabular-nums font-semibold">{formatPct(getValue())}</span>,
       filterFn: progressFilterFn,
       meta: { filterType: "text" },
     },
+    // ===== 세부 마일스톤 컬럼들 (DD30/60/90/100, CD30/60/100 — 기본 숨김) =====
+    ...sdDetailCols,
+    ...ddDetailCols,
+    ...cdDetailCols,
     {
       accessorKey: "plan_finish", header: "Plan Finish", size: 120,
       cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
@@ -449,7 +543,7 @@ export function buildMdrColumns(
       filterFn: dateRangeFilterFn,
       meta: { filterType: "date-range" },
     },
-    // ===== 부가 메타 컬럼 (기본 숨김, 컬럼 토글로 표시) =====
+    // ===== 부가 메타 (기본 숨김) =====
     {
       accessorKey: "confirmed_by", header: "Confirmed By", size: 110,
       cell: ({ getValue }) => <span>{(getValue() as string) ?? "-"}</span>,
@@ -467,33 +561,6 @@ export function buildMdrColumns(
       cell: ({ getValue }) => <span className="font-mono">{(getValue() as string) ?? "-"}</span>,
       filterFn: textFilterFn,
       meta: { filterType: "text" },
-    },
-    {
-      accessorKey: "stage_plan_sd", header: "SD Plan", size: 110,
-      cell: ({ getValue }) => {
-        const v = getValue() as string | null;
-        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
-      },
-      filterFn: dateRangeFilterFn,
-      meta: { filterType: "date-range" },
-    },
-    {
-      accessorKey: "stage_plan_dd", header: "DD Plan", size: 110,
-      cell: ({ getValue }) => {
-        const v = getValue() as string | null;
-        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
-      },
-      filterFn: dateRangeFilterFn,
-      meta: { filterType: "date-range" },
-    },
-    {
-      accessorKey: "stage_plan_cd", header: "CD Plan", size: 110,
-      cell: ({ getValue }) => {
-        const v = getValue() as string | null;
-        return <span className="tabular-nums">{v ? v.slice(0, 10) : "-"}</span>;
-      },
-      filterFn: dateRangeFilterFn,
-      meta: { filterType: "date-range" },
     },
     {
       accessorKey: "ifr_start_date", header: "IFR Start", size: 110,
@@ -535,3 +602,4 @@ export function buildMdrColumns(
 }
 
 export { ColumnFilterDropdown };
+
