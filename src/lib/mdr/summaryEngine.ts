@@ -348,8 +348,17 @@ async function fetchSummary(): Promise<MdrSummary> {
     blocks.push(computeBlock(building, list, wf, dataDate, meta));
   }
 
+  // 고정 Block 순서: General → SMP → HSM → CRM → Main Office → FAFP
+  const BUILDING_ORDER = ["GEN", "SMP&CCM", "HSM", "CRM", "MAIN_OFFICE", "FAFP"];
+  const orderIdx = (code: string) => {
+    const i = BUILDING_ORDER.indexOf(code.toUpperCase());
+    return i === -1 ? Number.POSITIVE_INFINITY : i;
+  };
   blocks.sort((a, b) => {
-    // 마스터 미등록 건물은 항상 맨 아래
+    const ai = orderIdx(a.building);
+    const bi = orderIdx(b.building);
+    if (ai !== bi) return ai - bi;
+    // 폴백: 기존 정렬 규칙
     if (a.inMaster !== b.inMaster) return a.inMaster ? -1 : 1;
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
     if (b.buildingWf !== a.buildingWf) return b.buildingWf - a.buildingWf;
