@@ -245,9 +245,37 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
     () => buildMdrColumns(deltaCls, { collapsed: groupCollapsed, onToggleGroup, asOf }),
     [threshold, groupCollapsed, asOf],
   );
-  const validColumnIds = useMemo(() => new Set(columns.map((c: any) => c.id ?? c.accessorKey).filter(Boolean)), [columns]);
 
-  // 옛 컬럼 ID 정리 (예: dd_30, cd_60 등 → 신규 dd_30_p/a/d 로 대체됨)
+  // 모든 컬럼 id (그룹/leaf 모두) — pruneById/Record 가 그룹 컬럼 id 도 보존하도록.
+  const validColumnIds = useMemo(() => {
+    const set = new Set<string>();
+    const walk = (defs: any[]) => {
+      for (const c of defs) {
+        const id = c.id ?? c.accessorKey;
+        if (id) set.add(id);
+        if (c.columns) walk(c.columns);
+      }
+    };
+    walk(columns as any[]);
+    return set;
+  }, [columns]);
+
+  // leaf 컬럼 id 의 기본 순서 (TanStack columnOrder 용)
+  const defaultLeafOrder = useMemo(() => {
+    const ids: string[] = [];
+    const walk = (defs: any[]) => {
+      for (const c of defs) {
+        if (c.columns) walk(c.columns);
+        else {
+          const id = c.id ?? c.accessorKey;
+          if (id) ids.push(id);
+        }
+      }
+    };
+    walk(columns as any[]);
+    return ids;
+  }, [columns]);
+
   const pruneById = <T extends { id: string }>(arr: T[]) => arr.filter((x) => validColumnIds.has(x.id));
   const pruneRecord = <T,>(rec: Record<string, T>) =>
     Object.fromEntries(Object.entries(rec).filter(([k]) => validColumnIds.has(k))) as Record<string, T>;
@@ -257,27 +285,38 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => pruneRecord(persisted.columnSizing));
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
     const cleaned = pruneRecord(persisted.columnVisibility);
-    // 최초 1회 기본값: mark 컬럼 + SD/DD/CD 세부 P/A/Δ 컬럼 + 부가 메타 컬럼은 숨김
+    // 최초 1회 기본값: mark 컬럼 + SD 단계 트리오 + 세부 마일스톤 P/A/Δ + 부가 메타 컬럼은 숨김
     const defaults: VisibilityState = {};
     if (!("sd_mark" in cleaned)) defaults.sd_mark = false;
     if (!("dd_mark" in cleaned)) defaults.dd_mark = false;
     if (!("cd_mark" in cleaned)) defaults.cd_mark = false;
+    // SD 단계 트리오 기본 숨김 (항상 100/100/0)
+    for (const id of ["sd_p", "sd_a", "sd_d"]) {
+      if (!(id in cleaned)) defaults[id] = false;
+    }
     const EXTRA_META = [
       "confirmed_by", "document_class", "doc_class_code",
-      "stage_plan_sd", "stage_plan_dd", "stage_plan_cd",
       "ifr_start_date", "ifr_issue_date", "ifc_start_date", "ifc_issue_date",
     ];
     for (const id of EXTRA_META) {
       if (!(id in cleaned)) defaults[id] = false;
     }
-    columns.forEach((c: any) => {
-      const id = c.id;
-      if (typeof id === "string" && /^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/.test(id) && !(id in cleaned)) {
+    for (const id of defaultLeafOrder) {
+      if (/^(sd|dd|cd)_\d+_(p|a|d|pd|ad)$/.test(id) && !(id in cleaned)) {
         defaults[id] = false;
       }
-    });
+    }
     return { ...defaults, ...cleaned };
   });
+  // 사용자별 컬럼 순서 (leaf id 만). 빈 배열이면 기본 순서 사용.
+  const [columnOrder, setColumnOrder] = useState<string[]>(() =>
+    sanitizeColumnOrder(persisted.columnOrder ?? [], defaultLeafOrder),
+  );
+  // 컬럼 정의가 바뀌면 (신규 컬럼 추가/제거) 순서 재정규화
+  useEffect(() => {
+    setColumnOrder((prev) => sanitizeColumnOrder(prev, defaultLeafOrder));
+  }, [defaultLeafOrder]);
+
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [globalFilter, setGlobalFilter] = useState("");
   const [debouncedGlobal, setDebouncedGlobal] = useState("");
@@ -288,8 +327,8 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
   }, [globalFilter]);
 
   useEffect(() => {
-    setPersisted({ sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed });
-  }, [sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed, setPersisted]);
+    setPersisted({ sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed, columnOrder });
+  }, [sorting, columnFilters, columnSizing, columnVisibility, groupCollapsed, columnOrder, setPersisted]);
 
   const table = useReactTable({
     data: sortedRows,
