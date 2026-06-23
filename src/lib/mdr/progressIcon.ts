@@ -79,13 +79,32 @@ export function buildMdrProgressIconCells(
   progress: PgRow[],
   asOf: string,
   scope?: { sd: boolean; dd: boolean; cd: boolean },
+  cells?: CellRow[],
 ): MdrProgressIconCells {
   const find = (stage: MdrStage, pct: number) => ({
     ms: milestones.find((m) => m.stage === stage && m.pct === pct),
-    pg: progress.find((p) => p.stage === stage && p.pct === pct),
+    pg: progress.find((p) => p.stage === stage && p.pct === pct && (p.sub_idx ?? 0) === 0),
+    pgs: progress.filter((p) => p.stage === stage && p.pct === pct),
   });
 
   const sc = scope ?? { sd: true, dd: true, cd: true };
+
+  // 셀 합 ≥ 그룹 합 일 때 done 판정
+  const groupCellsDone = (stage: MdrStage, pct: number): boolean => {
+    if (!cells || !cells.length) return false;
+    const groupCells = cells.filter((c) => c.stage === stage && c.pct === pct);
+    if (!groupCells.length) return false;
+    let sum = 0;
+    let target = 0;
+    for (const cc of groupCells) {
+      target += cc.incrementPct;
+      const matched = progress.find((p) =>
+        p.stage === stage && p.pct === pct && (p.sub_idx ?? 0) === cc.subIdx && p.is_done,
+      );
+      if (matched) sum += cc.incrementPct;
+    }
+    return target > 0 && sum + 1e-6 >= target;
+  };
 
   // SD: 100만, scope.sd 인 경우에만 done
   const sdFind = find("SD", 100);
@@ -101,16 +120,26 @@ export function buildMdrProgressIconCells(
   const buildSeq = (stage: MdrStage, pcts: readonly number[], initialPrevDone: boolean): MdrPipCell[] => {
     let prevDone = initialPrevDone;
     return pcts.map((p) => {
-      const { ms, pg } = find(stage, p);
-      const state = classify(stage, p, ms, pg, prevDone, asOf);
+      const { ms, pg, pgs } = find(stage, p);
+      const cellsDone = groupCellsDone(stage, p);
+      const state = classify(stage, p, ms, pg, prevDone, asOf, cellsDone);
       prevDone = state === "done";
+      // actualDate: 셀 단위 완료시 가장 늦은 actual_date
+      let actualDate: string | null = pg?.actual_date ?? null;
+      if (cellsDone) {
+        for (const pp of pgs) {
+          if (pp.is_done && pp.actual_date && (!actualDate || pp.actual_date > actualDate)) {
+            actualDate = pp.actual_date;
+          }
+        }
+      }
       return {
         stage,
         pct: p,
         label: `${stage}${p}`,
         state,
         planDate: ms?.plan_date ?? null,
-        actualDate: pg?.actual_date ?? null,
+        actualDate,
       };
     });
   };
