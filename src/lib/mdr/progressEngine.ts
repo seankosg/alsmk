@@ -169,10 +169,11 @@ export function drawingStagePct(
   progress: ProgressRow[],
   stage: MdrStage,
   asOf: string,
+  cells?: MilestoneCellRow[],
 ) {
   if (stage === "SD") return { planned: 100, actual: 100, delta: 0 };
   const planned = plannedPctAsOf(milestones, stage, asOf);
-  const actual = actualPct(milestones, progress, stage);
+  const actual = actualPct(milestones, progress, stage, cells);
   return { planned, actual, delta: planned - actual };
 }
 
