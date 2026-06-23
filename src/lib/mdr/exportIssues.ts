@@ -15,6 +15,7 @@ export interface IssueRowLog {
   source_no: string | null;
   drawing_title: string | null;
   doc_base: string | null;
+  rev: string | null;
   action: string;
   reason: string | null;
 }
