@@ -1,72 +1,59 @@
-## 목표
-1. 최초 Rev 기본값을 `"0"` → `"A"`로 통일 (코드 + 기존 데이터 1회 마이그레이션)
-2. 임포트 시 엑셀의 `REV. NO.` 컬럼 값을 그대로 신뢰하여 Latest Rev로 적용 (이미 동작 중인 로직 보강 및 명시화)
+## 문제 요약
 
----
+업로드 엑셀(`02_SMP_CCM_MDR_progress-6.xlsx`)의 ARCH/STR/MECH/ELEC 시트는 헤더가 2행 구조입니다.
 
-## 1) 데이터 일괄 마이그레이션 (1회)
+- row 4: `NO. | DISCIPLINE | DWG. NO (병합) | … | ACTIVITY GROUP | DRAWING TITLE | SD Stage | DD Stage | CD Stage | SD50% | SD100% | …`
+- row 5 (서브헤더): `(공백)(공백) | PLANT ID | PBS | FBS | SER. NO. | REV. NO. | … | SD50% | SD100% | DD30% | …`
 
-대상: 모든 `rev = '0'`인 기존 행을 `'A'`로 변경.
+`DWG. NO` 셀이 C4:G4로 가로 병합되어 있어 PLANT ID/PBS/FBS/SER.NO./REV.NO.의 row 4 셀이 전부 빈값입니다. 현재 `parser.ts`는 비‑마일스톤 컬럼에서 row 4 텍스트만 읽어 헤더 키를 매핑하므로 이 5개 컬럼이 모두 누락 → 4토큰 모두 missing → fallback 발동 → `__UNKNOWN__-ARCH-8-A`, `…-9-A`처럼 행 번호 기반 Doc. No.가 만들어집니다.
 
-```sql
--- mdr_drawings: rev '0' → 'A', doc_no 재생성
-UPDATE public.mdr_drawings
-SET rev = 'A',
-    doc_no = doc_base || '-A'
-WHERE rev = '0' OR rev IS NULL;
+## 수정 범위
 
--- mdr_drawing_revisions: 과거 스냅샷도 동일 처리 (현재 0건이지만 안전망)
-UPDATE public.mdr_drawing_revisions
-SET rev = 'A',
-    doc_no = doc_base || '-A'
-WHERE rev = '0' OR rev IS NULL;
-```
+`src/lib/mdr/parser.ts` 단 한 파일.
 
-확인: 마이그레이션 후 `SELECT count(*) FROM mdr_drawings WHERE rev='0'` → 0이어야 함.
+### 변경 1 — 헤더 텍스트를 row 4 + row 5 결합으로 인식
 
-현재 DB 상태: `mdr_drawings` 4,176건 모두 `rev='0'` (이전 임포트에서 REV.NO. 헤더 인식 실패로 기본값 적용된 결과). 이 데이터는 헤더 매핑 수정 전 임포트본이므로, 마이그레이션 후 실제 엑셀 재임포트 시 정상 Rev 값(A, B, …)으로 덮어쓰여짐.
+비‑마일스톤(else) 분기(L243~247)에서 헤더 텍스트를 다음 우선순위로 결정:
 
----
+1. `cellStr(ws, headerRow, c)` (row 4)
+2. 비었거나 `detectColumnKey` 결과가 null이면 `cellStr(ws, milestoneLabelRow, c)` (row 5)
 
-## 2) 코드 변경 (기본값 `"0"` → `"A"`)
+`detectColumnKey`로 키가 잡힌 텍스트(또는 식별성 키워드)를 우선 보존하여 `headers` 배열에 push합니다. 이때 row 5 텍스트가 마일스톤 패턴(`SD50%` 등)일 가능성은 milestone 분기에서 이미 걸러지므로 안전.
 
-### `src/lib/mdr/parser.ts`
-- L22 주석: `없으면 "0"` → `없으면 "A"`
-- L395: `const rev = (revRaw && revRaw.trim()) ? revRaw.trim() : "A";`
+### 변경 2 — `isIdentHeader` 도 row 4 ∪ row 5 기준
 
-### `src/lib/mdr/importRunner.ts`
-기존 행의 rev 비교/표기에 쓰이는 fallback도 통일:
-- `(existing.rev ?? "0")` 출현 3개소 → `(existing.rev ?? "A")`
-- Rev 변경 스냅샷 payload의 `rev: ex.rev ?? "0"`, `doc_no: ...${ex.rev ?? "0"}` → `"A"`
+마일스톤 그룹의 경계 판정 함수도 두 행 텍스트를 합쳐 평가하도록 보강. (예: row 4 빈값 + row 5 "PLANT ID" → 식별 헤더로 인정, 마일스톤 그룹이 식별 컬럼을 흡수하지 않도록 보호)
 
-### 기타 표시 코드
-`rev ?? "0"` / `|| "0"` 패턴이 남아있는지 grid/exporter 등을 일괄 grep 후 동일하게 `"A"`로 변경.
+### 변경 3 — `serHeader` / `findVal` 매칭은 그대로 유지
 
----
+`headers` 배열의 `text` 필드에 row 5 서브헤더가 들어오면 기존 정규식(`/^\s*ser\.?\s*no\.?\s*$/i`)과 `findVal("Plant ID","PLANT","JOB")`, `findVal("PBS",…)`, `findVal("FBS",…)`, `findVal("REV","REVISION")` 호출이 자동으로 정상 매칭됩니다. 별도 수정 없음.
 
-## 3) 임포트 시 Rev 적용 로직 (이미 정상, 명시화만)
+### 변경 4 — DISCIPLINE 컬럼은 row 4 텍스트 그대로 사용
 
-`importRunner.ts`의 동작을 다음과 같이 확정:
+row 4의 `DISCIPLINE`(B열)은 이미 인식되므로 영향 없음. 행 값(`AR`, `ST` 등)은 정상 추출됩니다.
 
-| 매칭 키 `(building_code, doc_base)` | 엑셀 Rev | 기존 Rev | 처리 |
-|---|---|---|---|
-| 신규 | (그대로) | — | **insert** — 엑셀 Rev = Latest |
-| 동일 | 같음 | 같음 | skip_same_rev (메타/마일스톤 재동기화) |
-| 동일 | 다름 (예: 엑셀 B, DB A) | 기존 | **rev_update** — 기존 행을 `mdr_drawing_revisions`로 이력 보관 → `mdr_drawings.rev`를 엑셀 값으로 덮어쓰기 (Latest = 엑셀) |
+## 영향 / 검증 시나리오
 
-→ "엑셀 우선" 원칙은 이미 코드에 반영되어 있음. base‑26(A→Z→AA) 비교 로직은 **불필요** (엑셀 값을 무조건 신뢰하므로 정렬/대소 비교 없음).
+| 시트 | 기대 Doc. No. (row 8 기준) |
+|---|---|
+| ARCH | `L2Z1-800-EA100-1-B` |
+| ARCH | `L2Z1-800-EA100-2-A` (row 9) |
+| ARCH | `L2Z1-800-EA100-3-A` (row 10) |
 
-### 보강할 한 가지
-Rev 정규화: 엑셀 셀이 소문자(`a`)나 공백 포함(`A `)으로 들어올 수 있으므로 `parser.ts`에서 `rev = revRaw.trim().toUpperCase()` 적용 (숫자 Rev가 들어와도 그대로 보존, 대문자만 강제).
+REV.NO.가 빈 셀인 행(예: row 11)은 기존 기본값 `"A"`로 채워져 `L2Z1-800-EA100-11-A` 형태가 됩니다.
 
----
+## 회귀 방지
+
+- 단일 헤더 행만 있는 구버전 시트(예: GEN 파일 등)는 row 4에 PLANT ID 등이 직접 있으므로 변경 1의 1순위에서 그대로 잡힙니다.
+- row 5에 마일스톤 라벨이 있는 컬럼은 milestone 분기로 먼저 처리되어 헤더 배열에 들어가지 않으므로 충돌 없음.
+- 동일 시리즈 파일(`02_…-2~-6.xlsx`)은 헤더 구조가 동일하여 일괄 해결됩니다.
 
 ## 변경 파일
-- `supabase/migrations/<new>.sql` — 데이터 UPDATE 1회
-- `src/lib/mdr/parser.ts` — 기본값 "A", toUpperCase 정규화
-- `src/lib/mdr/importRunner.ts` — fallback "0" → "A" 일괄 치환
-- (필요 시) `src/lib/mdr/exporter.ts`, `src/components/mdr/grid/columns.tsx` — 표시용 fallback 동일 치환
 
-## 범위 외 (변경하지 않음)
-- Rev 자동 증분, 단계‑Rev 매핑, base‑26 정렬/비교 로직 — 사용자 결정에 따라 도입하지 않음.
-- 헤더 매핑 보강(이전 단계 plan)은 별도 사안.
+- `src/lib/mdr/parser.ts` — 헤더 인식 로직(L207~248) 보강만 수행.
+
+## 범위 외
+
+- DB 마이그레이션 없음 (Doc. No.는 임포트 시점에 새로 생성됨).
+- `columnMap.ts` 별칭 추가 불필요 (이미 `ser. no.` 등 포함).
+- 기 임포트된 4,176건의 `__UNKNOWN__-…` 데이터는 새 헤더 인식으로 **재임포트**해야 정상 Doc. No.로 덮어써집니다. 필요 시 기존 `__UNKNOWN__` 행 일괄 삭제 마이그레이션을 별도 항목으로 추가할 수 있습니다(승인 시 추가 안내).
