@@ -284,7 +284,7 @@ export function buildMdrColumns(
                   </span>
                 ))}
                 <span className="text-muted-foreground">-</span>
-                <span>{rev ?? "0"}</span>
+                <span>{rev ?? "A"}</span>
               </span>
             ) : (
               <span
@@ -294,7 +294,7 @@ export function buildMdrColumns(
                 {v}
               </span>
             )}
-            {rev && rev !== "0" && (
+            {rev && rev !== "A" && (
               <span className="text-[10px] px-1 rounded bg-primary/15 text-primary">Rev {rev}</span>
             )}
           </span>
