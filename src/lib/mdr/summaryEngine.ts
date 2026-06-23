@@ -274,9 +274,9 @@ function computeBlock(
       building,
       discipline: "—",
       drawingCount: 0,
-      sd: emptyCell(),
-      dd: emptyCell(),
-      cd: emptyCell(),
+      sd: emptyCell("SD"),
+      dd: emptyCell("DD"),
+      cd: emptyCell("CD"),
       discProgress: 0,
     });
   }
