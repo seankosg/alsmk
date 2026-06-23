@@ -14,6 +14,7 @@ interface RowLogEntry {
   source_no: string | null;
   drawing_title: string | null;
   doc_base: string | null;
+  rev: string | null;
   action: "inserted" | "skipped_duplicate" | "skipped_existing" | "rev_updated";
   reason: string | null;
 }
@@ -79,6 +80,7 @@ export async function persistParsed(
     source_no: r.sourceNo,
     drawing_title: r.drawingTitle ?? null,
     doc_base: r.docBase,
+    rev: r.rev ?? null,
   });
 
   for (const r of allRows) {

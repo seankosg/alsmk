@@ -15,6 +15,7 @@ export interface IssueRowLog {
   source_no: string | null;
   drawing_title: string | null;
   doc_base: string | null;
+  rev: string | null;
   action: string;
   reason: string | null;
 }
@@ -149,9 +150,10 @@ export function exportImportIssues(batch: BatchInfo, rowLogs: IssueRowLog[]) {
     });
 
   const dupCols: ColSpec[] = [
-    { header: "Row #", width: 8, align: "right", type: "n" },
+    { header: "Excel Row#", width: 12, align: "right", type: "n" },
     { header: "Sheet", width: 14, align: "center" },
     { header: "Doc No (base)", width: 34 },
+    { header: "Rev", width: 8, align: "center" },
     { header: "Item No", width: 24 },
     { header: "Source No", width: 12, align: "right" },
     { header: "Title", width: 60 },
@@ -161,6 +163,7 @@ export function exportImportIssues(batch: BatchInfo, rowLogs: IssueRowLog[]) {
     r.raw_row_no ?? "",
     r.source_sheet ?? "",
     r.doc_base ?? "",
+    r.rev ?? "",
     r.item_no ?? "",
     r.source_no ?? "",
     r.drawing_title ?? "",
@@ -183,7 +186,7 @@ export function exportImportIssues(batch: BatchInfo, rowLogs: IssueRowLog[]) {
   rowLogs.forEach((r) => {
     if (r.action === "skipped_duplicate") return;
     if (r.reason && errorPattern.test(r.reason) && r.action !== "skipped_existing") {
-      const loc = `${r.source_sheet ?? "?"}!Row #${r.raw_row_no ?? "?"}`;
+      const loc = `${r.source_sheet ?? "?"}!Excel Row#${r.raw_row_no ?? "?"}`;
       errRows.push(["Row Error", loc, r.reason]);
     }
   });
