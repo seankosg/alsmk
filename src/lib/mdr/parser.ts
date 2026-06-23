@@ -202,13 +202,22 @@ function parseSheet(
   }
   const milestoneGroups: MilestoneGroup[] = [];
 
+  // 식별 헤더 텍스트: row 4 (headerRow) ∪ row 5 (milestoneLabelRow) 결합.
+  // 일부 파일(SMP&CCM 등)은 row 4 "DWG. NO" 가로병합 + row 5 서브헤더(PLANT ID/PBS/FBS/SER.NO./REV.NO.) 구조.
+  const headerTextAt = (col: number): string => {
+    const t4 = cellStr(ws, headerRow, col);
+    if (t4) return t4;
+    return milestoneLabelRow !== headerRow ? cellStr(ws, milestoneLabelRow, col) : "";
+  };
+
   // 병합셀(merge)로 라벨이 가로로 확장된 경우 시작셀(왼쪽-위)에만 라벨이 존재.
-  // headerRow 에 식별성 헤더 텍스트가 있는 컬럼은 마일스톤 그룹의 경계로 사용.
-  const isIdentHeader = (c: number): boolean => {
-    const t = cellStr(ws, headerRow, c);
+  // headerRow 또는 서브헤더(row5)에 식별성 헤더 텍스트가 있는 컬럼은 마일스톤 그룹의 경계로 사용.
+  const isIdentHeader = (col: number): boolean => {
+    const t = headerTextAt(col);
     if (!t) return false;
-    // 식별 헤더만 경계로 인정 (DISCIPLINE/Plant ID/PBS/FBS/SER.NO./Activity Group/Drawing Title 등, 구버전 헤더 포함)
-    return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note|confirmed|weight|plan\s*date|document\s*class|문서분류|부서별/i.test(t);
+    // 서브헤더가 마일스톤 라벨(SD50% 등)인 경우는 식별 헤더가 아님
+    if (MILESTONE_RE.test(t)) return false;
+    return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note|confirmed|weight|plan\s*date|document\s*class|문서분류|부서별|rev/i.test(t);
   };
 
   let c = noCol;
@@ -241,8 +250,10 @@ function parseSheet(
       milestoneGroups.push({ stage, pct, cols, incrementPct, planDate });
       c = end + 1;
     } else {
-      const headerText = cellStr(ws, headerRow, c);
-      if (headerText) headers.push({ col: c, key: detectColumnKey(headerText), text: headerText });
+      const headerText = headerTextAt(c);
+      if (headerText && !MILESTONE_RE.test(headerText)) {
+        headers.push({ col: c, key: detectColumnKey(headerText), text: headerText });
+      }
       c++;
     }
   }
