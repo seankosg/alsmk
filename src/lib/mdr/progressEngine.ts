@@ -121,17 +121,39 @@ export function drawingMilestonePlannedPct(
   return clamp(acc, 0, 100);
 }
 
-/** 실적률 — step 함수 (완료된 마일스톤 증분의 합) */
+/** 실적률 — step 함수 (완료된 마일스톤 증분의 합)
+ *  - cells(셀 단위 증분)가 제공되면 (stage,pct,subIdx) 정확 매칭으로 합산 → 사용자 직관과 일치.
+ *  - 미제공 시 그룹 단위 호환 모드: 어느 셀이라도 isDone 이면 그룹 increment 합산.
+ */
 export function actualPct(
   milestones: MilestoneRow[],
   progress: ProgressRow[],
   stage: MdrStage,
+  cells?: MilestoneCellRow[],
 ): number {
+  // 셀 단위 모드
+  if (cells && cells.length) {
+    let sum = 0;
+    for (const cc of cells) {
+      if (cc.stage !== stage) continue;
+      const matched = progress.find((p) =>
+        p.stage === stage && p.pct === cc.pct && (p.subIdx ?? 0) === cc.subIdx && p.isDone
+      );
+      if (matched) sum += cc.incrementPct;
+    }
+    return clamp(sum, 0, 100);
+  }
+  // 그룹 단위 호환 모드 (셀 데이터 없음)
   const incMap = new Map<number, number>();
   for (const m of milestones) if (m.stage === stage) incMap.set(m.pct, m.incrementPct);
-  let sum = 0;
+  const doneByPct = new Map<number, boolean>();
   for (const p of progress) {
-    if (p.stage === stage && p.isDone) sum += incMap.get(p.pct) ?? 0;
+    if (p.stage !== stage) continue;
+    if (p.isDone) doneByPct.set(p.pct, true);
+  }
+  let sum = 0;
+  for (const [pct, inc] of incMap.entries()) {
+    if (doneByPct.get(pct)) sum += inc;
   }
   return clamp(sum, 0, 100);
 }
