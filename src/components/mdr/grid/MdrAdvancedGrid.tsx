@@ -21,9 +21,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { drawingStagePct, drawingMilestonePlannedPct, drawingOverall } from "@/lib/mdr/progressEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
@@ -419,25 +418,48 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
           <Download className="mr-1 h-3.5 w-3.5" />Export view
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Popover>
+          <PopoverTrigger asChild>
             <Button size="sm" variant="outline" className="h-8 text-xs"><Settings2 className="mr-1 h-3.5 w-3.5" />Columns</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="max-h-80 overflow-auto">
-            <DropdownMenuLabel className="text-xs">컬럼 표시</DropdownMenuLabel>
-            <DropdownMenuSeparator />
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-60 p-2 max-h-96 overflow-auto">
+            <div className="flex items-center justify-between px-1 pb-1">
+              <span className="text-xs font-medium text-muted-foreground">컬럼 표시</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground hover:underline"
+                  onClick={() => table.getAllLeafColumns().filter((c) => c.id !== "__select__").forEach((c) => c.toggleVisibility(true))}
+                >
+                  전체
+                </button>
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground hover:underline"
+                  onClick={() => table.getAllLeafColumns().filter((c) => c.id !== "__select__").forEach((c) => c.toggleVisibility(false))}
+                >
+                  해제
+                </button>
+              </div>
+            </div>
+            <div className="my-1 h-px bg-border" />
             {table.getAllLeafColumns().filter((c) => c.id !== "__select__").map((col) => (
-              <DropdownMenuCheckboxItem
+              <label
                 key={col.id}
-                checked={col.getIsVisible()}
-                onCheckedChange={(v) => col.toggleVisibility(!!v)}
-                className="text-xs"
+                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs hover:bg-muted/50"
               >
-                {typeof col.columnDef.header === "string" ? col.columnDef.header : col.id}
-              </DropdownMenuCheckboxItem>
+                <Checkbox
+                  checked={col.getIsVisible()}
+                  onCheckedChange={(v) => col.toggleVisibility(!!v)}
+                  className="h-3.5 w-3.5"
+                />
+                <span className="flex-1 truncate">
+                  {typeof col.columnDef.header === "string" ? col.columnDef.header : col.id}
+                </span>
+              </label>
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <TopHorizontalScrollbar targetRef={tableRef} width={totalWidth} />
