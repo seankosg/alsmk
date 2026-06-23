@@ -171,9 +171,8 @@ export function buildMdrProgressIconCells(
     let prevActualCum = 0;
     let prevDone = prevStageDoneFlag;
 
-    return pcts.map((p, idx) => {
+    return pcts.map((p) => {
       const ms = findMs(stage, p);
-      const targetCum = stageTotal > 0 ? (stageTargetUpTo(stage, p) / stageTotal) * 100 : 0;
       const actualCum = stageTotal > 0 ? (stageActualUpTo(stage, p) / stageTotal) * 100 : 0;
       const plannedCum = ms ? drawingMilestonePlannedPct(msNorm, stage, p, asOf) : prevPlannedCum;
 
