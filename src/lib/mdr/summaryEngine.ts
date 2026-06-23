@@ -7,9 +7,17 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   loadMdrWeights,
   normalizeDiscipline,
+  FAFP_STAGE_WF,
   type MdrWfBundle,
   type StageCode,
 } from "./weights";
+
+/** Stage별 마일스톤 시퀀스 (DB 표준) */
+export const STAGE_MILESTONE_PCTS: Record<StageCode, number[]> = {
+  SD: [50, 100],
+  DD: [30, 60, 90, 100],
+  CD: [30, 60, 100],
+};
 
 const STAGES: StageCode[] = ["SD", "DD", "CD"];
 
@@ -32,11 +40,25 @@ interface RawDrawing {
  *  progress: 호환용 — actual과 동일 (% 컬럼 표시는 후속 정의)
  *  drawingCount: 해당 stage에 마일스톤(계획)이 존재하는 도면 수
  */
+export interface MilestoneCell {
+  pct: number;
+  planCount: number;   // plan_date ≤ D 도면 수
+  actualCount: number; // is_done & actual_date ≤ D 도면 수 (해당 마일스톤에 도달)
+  planRatio: number;   // planCount / N (N = stage in-scope 도면 수)
+  actualRatio: number;
+}
+
 export interface StageCell {
   plan: number;
   actual: number;
   progress: number;
   drawingCount: number;
+  /** stage에서 최소 1개 마일스톤 plan_date ≤ D 인 도면 수 (엑셀 SD/DD/CD Plan) */
+  planCount: number;
+  /** stage에서 최소 1개 마일스톤 완료(actual ≤ D & is_done) 인 도면 수 (엑셀 Actual) */
+  actualCount: number;
+  /** 마일스톤별 누적 진척 */
+  milestones: MilestoneCell[];
 }
 
 export interface DiscCell {
@@ -71,8 +93,16 @@ export interface MdrSummary {
   dataDate: string; // YYYY-MM-DD
 }
 
-function emptyCell(): StageCell {
-  return { plan: 0, actual: 0, progress: 0, drawingCount: 0 };
+function emptyCell(stage?: StageCode): StageCell {
+  const milestones: MilestoneCell[] = stage
+    ? STAGE_MILESTONE_PCTS[stage].map((p) => ({
+        pct: p, planCount: 0, actualCount: 0, planRatio: 0, actualRatio: 0,
+      }))
+    : [];
+  return {
+    plan: 0, actual: 0, progress: 0, drawingCount: 0,
+    planCount: 0, actualCount: 0, milestones,
+  };
 }
 
 /** 조회일 D 이전(포함) 마일스톤 중 최대 pct → 계획 진도율(0~100). */
@@ -140,12 +170,12 @@ function computeBlock(
   }
 
   const cells: DiscCell[] = [];
-  const totals = { sd: emptyCell(), dd: emptyCell(), cd: emptyCell() };
+  const totals = { sd: emptyCell("SD"), dd: emptyCell("DD"), cd: emptyCell("CD") };
 
   for (const [disc, list] of byDisc.entries()) {
     const cell: DiscCell = {
       building, discipline: disc, drawingCount: list.length,
-      sd: emptyCell(), dd: emptyCell(), cd: emptyCell(), discProgress: 0,
+      sd: emptyCell("SD"), dd: emptyCell("DD"), cd: emptyCell("CD"), discProgress: 0,
     };
     // stage별 누적
     const planSum: Record<StageCode, number> = { SD: 0, DD: 0, CD: 0 };
@@ -154,29 +184,53 @@ function computeBlock(
     for (const dr of list) {
       for (const st of STAGES) {
         if (!isInScope(dr, st)) continue;
-        cell[stKey(st)].drawingCount += 1;
-        planSum[st] += planAtDate(dr.mdr_milestones, st, dataDate) / 100;
-        actualSum[st] += actualAtDate(dr.mdr_progress, st, dataDate) / 100;
+        const sc = cell[stKey(st)];
+        sc.drawingCount += 1;
+        const planPct = planAtDate(dr.mdr_milestones, st, dataDate);
+        const actualPct = actualAtDate(dr.mdr_progress, st, dataDate);
+        planSum[st] += planPct / 100;
+        actualSum[st] += actualPct / 100;
+        if (planPct > 0) sc.planCount += 1;
+        if (actualPct > 0) sc.actualCount += 1;
+        // 마일스톤별 카운트 (planPct ≥ M → 해당 마일스톤 plan_date ≤ D, 동일 논리 actual)
+        for (const mc of sc.milestones) {
+          if (planPct >= mc.pct) mc.planCount += 1;
+          if (actualPct >= mc.pct) mc.actualCount += 1;
+        }
       }
     }
 
     for (const st of STAGES) {
-      const n = cell[stKey(st)].drawingCount;
-      cell[stKey(st)].plan = n > 0 ? planSum[st] / n : 0;
-      cell[stKey(st)].actual = n > 0 ? actualSum[st] / n : 0;
-      cell[stKey(st)].progress = cell[stKey(st)].actual;
+      const sc = cell[stKey(st)];
+      const n = sc.drawingCount;
+      sc.plan = n > 0 ? planSum[st] / n : 0;
+      sc.actual = n > 0 ? actualSum[st] / n : 0;
+      sc.progress = sc.actual;
+      for (const mc of sc.milestones) {
+        mc.planRatio = n > 0 ? mc.planCount / n : 0;
+        mc.actualRatio = n > 0 ? mc.actualCount / n : 0;
+      }
       // 블록 합계 누적
-      totals[stKey(st)].drawingCount += n;
-      totals[stKey(st)].plan += planSum[st];   // 합산 후 나눔
-      totals[stKey(st)].actual += actualSum[st];
+      const tot = totals[stKey(st)];
+      tot.drawingCount += n;
+      tot.plan += planSum[st];
+      tot.actual += actualSum[st];
+      tot.planCount += sc.planCount;
+      tot.actualCount += sc.actualCount;
+      for (let i = 0; i < tot.milestones.length; i++) {
+        tot.milestones[i].planCount += sc.milestones[i].planCount;
+        tot.milestones[i].actualCount += sc.milestones[i].actualCount;
+      }
     }
 
     // Discipline progress = stage WF 가중평균 (실적 기준)
+    // FAFP(소방)는 전용 Stage WF(SD 0 / DD 50 / CD 50)
+    const stageWf = disc === "FAFP" ? FAFP_STAGE_WF : wf.stage;
     let dpNum = 0, dpDen = 0;
     for (const st of STAGES) {
-      if (cell[stKey(st)].drawingCount > 0) {
-        dpNum += cell[stKey(st)].actual * wf.stage[st];
-        dpDen += wf.stage[st];
+      if (cell[stKey(st)].drawingCount > 0 && stageWf[st] > 0) {
+        dpNum += cell[stKey(st)].actual * stageWf[st];
+        dpDen += stageWf[st];
       }
     }
     cell.discProgress = dpDen > 0 ? dpNum / dpDen : 0;
@@ -185,10 +239,15 @@ function computeBlock(
 
   // 블록 totals 평균화
   for (const st of STAGES) {
-    const n = totals[stKey(st)].drawingCount;
-    totals[stKey(st)].plan = n > 0 ? totals[stKey(st)].plan / n : 0;
-    totals[stKey(st)].actual = n > 0 ? totals[stKey(st)].actual / n : 0;
-    totals[stKey(st)].progress = totals[stKey(st)].actual;
+    const tot = totals[stKey(st)];
+    const n = tot.drawingCount;
+    tot.plan = n > 0 ? tot.plan / n : 0;
+    tot.actual = n > 0 ? tot.actual / n : 0;
+    tot.progress = tot.actual;
+    for (const mc of tot.milestones) {
+      mc.planRatio = n > 0 ? mc.planCount / n : 0;
+      mc.actualRatio = n > 0 ? mc.actualCount / n : 0;
+    }
   }
 
   let bpNum = 0, bpDen = 0;
@@ -215,9 +274,9 @@ function computeBlock(
       building,
       discipline: "—",
       drawingCount: 0,
-      sd: emptyCell(),
-      dd: emptyCell(),
-      cd: emptyCell(),
+      sd: emptyCell("SD"),
+      dd: emptyCell("DD"),
+      cd: emptyCell("CD"),
       discProgress: 0,
     });
   }

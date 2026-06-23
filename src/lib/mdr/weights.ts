@@ -14,6 +14,13 @@ export const DEFAULT_STAGE_WF: Record<StageCode, number> = {
   CD: 0.4,
 };
 
+/** FAFP(소방) 전용 Stage WF — 소방은 SD 없음, DD/CD 50:50 (엑셀 Notes 2.1) */
+export const FAFP_STAGE_WF: Record<StageCode, number> = {
+  SD: 0,
+  DD: 0.5,
+  CD: 0.5,
+};
+
 /** Discipline 가중치 — ARCH + STR + MECH + FAFP + ELEC + CIVIL = 1.0 (CIVIL은 0) */
 export const DEFAULT_DISCIPLINE_WF: Record<string, number> = {
   ARCH: 0.45,
