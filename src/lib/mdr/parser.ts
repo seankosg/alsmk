@@ -19,7 +19,7 @@ export interface MdrParsedRow {
   pbs?: string;
   fbs?: string;
   serNo?: string;
-  rev: string;                  // 리비전 (없으면 "0")
+  rev: string;                  // 리비전 (없으면 "A", 알파벳 오름차순: A→B→…→Z→AA→AB)
   /** 자연키. 누락 토큰은 빈 문자열로 join. 4개 모두 누락이면 fallback 적용. */
   docBase: string;
   docNo: string;                // docBase + "-" + rev (표시용)
