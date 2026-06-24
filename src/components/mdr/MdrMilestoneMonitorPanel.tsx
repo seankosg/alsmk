@@ -165,51 +165,64 @@ export function MdrMilestoneMonitorPanel() {
         <table className="w-full text-[11px] border-collapse">
           <thead>
             {/* 1단: Stage */}
-            <tr className="border-b bg-muted/30">
+            <tr className="border-b">
               <th rowSpan={3} className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
               <th rowSpan={3} className="text-left px-2 py-1 border-r">Disc.</th>
               <th rowSpan={3} className="text-center px-2 py-1 border-r">DWG</th>
-              {headers?.map(({ stage, ms }) => (
-                <th
-                  key={`s-${stage}`}
-                  colSpan={Math.max(1, ms.length) * 3}
-                  className="text-center px-2 py-1 border-l font-semibold"
-                >
-                  {stage}
-                </th>
-              ))}
+              {headers?.map(({ stage, ms }) => {
+                const th = STAGE_THEME[stage];
+                return (
+                  <th
+                    key={`s-${stage}`}
+                    colSpan={Math.max(1, ms.length) * 3}
+                    className={`text-center px-2 py-1.5 border-l border-r font-bold tracking-wider ${th.head} ${th.border}`}
+                  >
+                    {stage}
+                  </th>
+                );
+              })}
             </tr>
             {/* 2단: 마일스톤 plan_date (+ 라벨 캡션) */}
             <tr className="border-b">
-              {headers?.flatMap(({ stage, ms }) =>
-                ms.length === 0 ? (
-                  <th key={`empty-${stage}`} colSpan={3} className="text-center px-2 py-0.5 border-l text-muted-foreground text-[10px]">
+              {headers?.flatMap(({ stage, ms }) => {
+                const th = STAGE_THEME[stage];
+                return ms.length === 0 ? (
+                  <th key={`empty-${stage}`} colSpan={3} className={`text-center px-2 py-0.5 border-l text-muted-foreground text-[10px] ${th.sub}`}>
                     —
                   </th>
-                ) : ms.map((m) => (
-                  <th key={`ms-${stage}-${m.pct}-${m.planDate}`} colSpan={3} className="text-center px-1 py-0.5 border-l text-[10px]">
+                ) : ms.map((m, i) => (
+                  <th
+                    key={`ms-${stage}-${m.pct}-${m.planDate}`}
+                    colSpan={3}
+                    className={`text-center px-1 py-1 border-l text-[10px] ${th.sub} ${i === ms.length - 1 ? "border-r " + th.border : ""}`}
+                  >
                     <div className="flex flex-col items-center leading-tight">
                       {m.label && (
-                        <span className="text-[9px] text-muted-foreground italic">{m.label}</span>
+                        <span className={`text-[9px] italic ${th.text}`}>{m.label}</span>
                       )}
-                      <span className="tabular-nums">{m.planDate ?? "—"}</span>
+                      <span className={`tabular-nums font-medium ${th.text}`}>{fmtDate(m.planDate)}</span>
                       <span className="text-[9px] text-muted-foreground">{stage}{m.pct}%</span>
                     </div>
                   </th>
-                ))
-              )}
+                ));
+              })}
             </tr>
             {/* 3단: P / A / Δ */}
             <tr className="border-b-2 text-muted-foreground">
               {headers?.flatMap(({ stage, ms }) => {
+                const th = STAGE_THEME[stage];
                 const list = ms.length === 0 ? [{ pct: 0, planDate: null as string | null }] : ms;
-                return list.flatMap((m) => [
-                  <th key={`p-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 border-l font-normal">P</th>,
-                  <th key={`a-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 font-normal">A</th>,
-                  <th key={`d-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 font-normal">Δ</th>,
-                ]);
+                return list.flatMap((m, i) => {
+                  const last = i === list.length - 1;
+                  return [
+                    <th key={`p-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 border-l font-normal ${th.sub}`}>P</th>,
+                    <th key={`a-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-normal ${th.sub}`}>A</th>,
+                    <th key={`d-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-normal ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ</th>,
+                  ];
+                });
               })}
             </tr>
+
 
           </thead>
           <tbody>
