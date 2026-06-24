@@ -226,6 +226,9 @@ export async function saveSnapshot(matrix: MonitorMatrix): Promise<void> {
           actual_pct: cell.actual,
           delta_pct: cell.delta,
           drawing_count: cell.drawingCount,
+          drawing_count_sd: r.drawingCountSD,
+          drawing_count_dd: r.drawingCountDD,
+          drawing_count_cd: r.drawingCountCD,
           computed_at: new Date().toISOString(),
         });
       }
