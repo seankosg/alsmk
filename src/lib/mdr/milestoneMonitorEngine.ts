@@ -36,6 +36,9 @@ export interface MonitorDiscRow {
   building: string;
   discipline: string;
   drawingCount: number;
+  drawingCountSD: number;
+  drawingCountDD: number;
+  drawingCountCD: number;
   cells: Map<string, MonitorCell>; // key = `${stage}|${pct}|${planDate ?? ''}`
 }
 
