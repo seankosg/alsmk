@@ -1,87 +1,52 @@
-## 문제 재정의
+## 배경
 
-현재 오류는 단순히 `DD60` 예시 하나가 아니라, **세부 마일스톤 pip(DD30/DD60/DD90/DD100/CD...)별 아이콘 판정에서 아직 계획일이 도래하지 않은 pip가 `delay` 로 표시되는 문제**입니다.
+- 엑셀(`02_SMP_CCM_MDR_progress-10.xlsx`, ARCH 시트, No.1 도면 `L2Z1-800-EA100-001-B`) 및 DB 확인 결과 **DD 단계 누적 실적 = 50%** 가 정확합니다.
+  - DD30(4 sub, weight 5/5/10/10): 4/4 완료 → 30
+  - DD60(4 sub, weight 5/5/10/10): sub_idx 0,1,2 완료 → +20
+  - 누계 = 50, 엑셀 `DD Progress` 셀(0.5)과 일치
+- 그런데 그리드 **'DD A'(또는 'DD60 A')** 셀이 0%로 표시됩니다.
+- 코드(`actualPct`, `buildCell`) 로직만으로는 50이 나와야 하므로, 표시 단계의 데이터 흐름에 회귀가 있는 것으로 추정됩니다.
 
-정확한 판정 기준은 다음이어야 합니다.
+## 진단 (Step 1)
 
-```text
-1) 해당 pip가 자체 완료 목표까지 실적을 채웠으면 done
-2) 해당 pip의 계획일이 지났고, 누적 A가 누적 P보다 낮으면 delay
-3) 해당 pip의 계획일이 아직 미래이면 delay 금지
-4) 미래 pip에 실적이 있으면 wip, 실적이 없으면 planned
-```
+1. Playwright로 `/design` → SMP&CCM → ARCH 탭 → No.1 행을 캡처해 실제 화면값을 확인합니다.
+2. 동시에 브라우저 콘솔에 `window.__mdrDebugRow = row` 임시 노출 또는 React DevTools 없이 확인 가능하도록 `MdrAdvancedGrid.tsx`의 row 매핑 직후 다음을 임시 로그합니다(진단 후 제거).
+   - `console.debug('[mdr] row', d.source_no, { ddActual: dd.actual, ddCells, cellRowsLen: cellRows.length, pgRowsLen: pgRows.length });`
+3. 이를 통해 다음 중 어느 경우인지 분기합니다.
+   - (A) `dd.actual = 50`인데 컬럼 렌더링 단계에서 0 표시 → `columns.tsx`의 accessor / 정렬 / 필터 회귀
+   - (B) `dd.actual = 0` → `actualPct()` 또는 `cellRows/pgRows` 정규화 회귀
+   - (C) `cellRows.length = 0` 또는 `pgRows.length = 0` → Supabase 중첩 select 실패(`mdr_milestone_cells(*), mdr_progress(*)`) 또는 RLS
 
-## 원인
+## 수정 (Step 2 — 진단 결과에 따라 분기)
 
-`src/lib/mdr/progressIcon.ts` 의 현재 로직은 `drawingMilestonePlannedPct()` 가 만든 **일일 보간 계획값**(`pipPlanned`)이 0보다 크면 해당 pip에 “계획이 진입했다”고 보고 있습니다.
+### (A) 컬럼 렌더링 회귀인 경우
+- `src/components/mdr/grid/columns.tsx` `dd_a` accessor (`(r as any)['dd_a']`)가 0이 아닌 값을 받는지 확인.
+- `Math.round` / null 처리 / 0과 null 혼동(예: `??` vs `||`) 회귀를 수정.
 
-이 때문에 실제 `planDate` 는 미래인데도, 직전 마일스톤~현재 마일스톤 사이 보간값이 조금이라도 발생하면 `delay` 로 분류됩니다.
+### (B) `actualPct()` 회귀인 경우
+- `src/lib/mdr/progressEngine.ts` `actualPct()` 의 cells/progress 매칭 키 (`stage`, `pct`, `subIdx`, `isDone`) 정규화 확인.
+- `Number(x.sub_idx ?? 0)` vs `null` 비교 회귀 수정.
 
-## 수정 계획
+### (C) 데이터 fetch 회귀인 경우
+- `src/components/mdr/grid/MdrAdvancedGrid.tsx`의 `.select("*, mdr_milestones(*), mdr_milestone_cells(*), mdr_progress(*)")` 응답을 확인.
+- 누락 시 select 문자열 재작성 또는 별도 query 분리.
 
-### 1. `progressIcon.ts` 판정 기준 변경
+## 검증 (Step 3)
 
-`buildSeq()` 내부에서 각 pip마다 다음 값을 명확히 계산합니다.
+1. 진단 로그 제거.
+2. Playwright 재실행 — No.1 행의 `DD A` 셀이 **50** 으로 표시되는지 스크린샷으로 검증.
+3. 기존 `progressIcon.test.ts` 외 `progressEngine.test.ts` (또는 동일 파일)에 다음 시나리오 회귀 테스트 추가:
+   - DD30 4/4 완료 + DD60 3/4 완료 + DD90/100 미완료 → `actualPct(... "DD" ...) === 50`
+   - 같은 데이터로 `drawingStagePct(..., "DD", ...)`의 `actual === 50`, `delta === actual − planned`
+4. 변경 없는 다른 행(예: ARCH No.2, MECH 등)의 `DD A` 값이 그대로 유지되는지 sampling 확인.
 
-- `pipDue`: `asOf >= ms.plan_date`
-- `plannedCum`: 현재 기준 누적 계획률
-- `actualCum`: 현재 기준 누적 실적률
-- `pipTarget`: 해당 pip 자체 목표 increment
+## 변경 예정 파일
 
-판정은 아래 순서로 고정합니다.
+- (진단) `src/components/mdr/grid/MdrAdvancedGrid.tsx` — 임시 디버그 로그 후 제거
+- (수정 대상) 위 (A)/(B)/(C) 중 한 곳
+- (검증) `src/lib/mdr/progressEngine.test.ts` 신규 또는 보강
 
-```text
-if milestone 없음                         → empty
-else if pipActual >= pipTarget             → done
-else if pipDue && actualCum < plannedCum    → delay
-else if actualCum > previousActualCum       → wip
-else if pipDue                              → wip 또는 planned
-else                                        → planned
-```
+## 범위 외 (이번 수정에서 다루지 않음)
 
-핵심은 **`pipDue === false` 인 경우 절대 `delay` 가 나오지 않게 하는 것**입니다.
-
-### 2. tooltip 근거 강화
-
-각 아이콘 tooltip 에 다음 근거가 보이도록 유지/보강합니다.
-
-- `P / A` 누적값
-- `plan MM-DD`
-- `delay` 인 경우에만 `overdue Nd`
-
-### 3. 회귀 테스트 추가
-
-`src/lib/mdr/progressIcon.test.ts` 를 추가해 여러 도면 케이스를 직접 검증합니다.
-
-테스트 대상:
-
-1. `DD30` 완료 → `done`
-2. `DD60` 계획일 지남 + 누적 P > 누적 A → `delay`
-3. `DD90` 계획일 미래 + 실적 없음 → `planned`
-4. `DD100` 계획일 미래 + 실적 없음 → `planned`
-5. 계획일 미래지만 보간 P가 일부 생기는 케이스 → `planned`, 절대 `delay` 아님
-6. 계획일 미래 + 실적 일부 존재 → `wip`, 절대 `delay` 아님
-7. 계획일 지남 + 누적 A가 누적 P 이상 → `wip` 또는 `done`, `delay` 아님
-8. `CD` scope 제외 → `empty`
-9. 셀 데이터 없는 레거시 진행 데이터 → 기존 그룹 완료 호환 유지
-10. `summarizeGroupState()` 우선순위 → delay 포함 시 group delay 유지
-
-### 4. 검증
-
-수정 후 아래 테스트를 실행해 확인합니다.
-
-```bash
-bunx vitest run src/lib/mdr/progressIcon.test.ts
-```
-
-필요하면 `/design` 화면에서 SMP&CCM / ARCH 첫 행을 확인해:
-
-- `DD60`: 지연 조건이면 `delay`
-- `DD90` 이후 미래 계획: `planned`
-
-으로 보이는지 검증합니다.
-
-## 변경 파일
-
-- `src/lib/mdr/progressIcon.ts`
-- `src/lib/mdr/progressIcon.test.ts`
+- Progress Icon 아이콘 색상 분류(`progressIcon.ts`) — 이미 이전 라운드에서 수정 완료, 본 이슈는 **그리드 Actual 컬럼 표시값** 한정.
+- 엑셀 import 로직 — DB에 이미 50%가 정확히 들어있어 import는 정상.
