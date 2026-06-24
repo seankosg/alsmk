@@ -350,18 +350,6 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
 
       const progressIconCells = buildMdrProgressIconCells(ms, pgRaw, asOf, scope, cellRows);
 
-      // [TEMP DIAG] DD A 표시 회귀 진단용 — 확인 후 제거 예정
-      if (d.discipline === "AR" && String(d.source_no) === "1" && d.building_code === "SMP&CCM") {
-        // eslint-disable-next-line no-console
-        console.debug("[mdr-diag] SMP&CCM/AR/No.1", JSON.stringify({
-          ddActual: dd.actual,
-          ddPlanned: dd.planned,
-          ddDelta: dd.delta,
-          ddCells,
-          cellRowsLen: cellRows.length,
-          pgRowsLen: pgRows.length,
-        }));
-      }
 
       return {
         id: d.id,
