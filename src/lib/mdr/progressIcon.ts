@@ -1,13 +1,13 @@
 /**
  * MDR Progress Icon — 세부 마일스톤별 누적 P/A 비교 기반 분류
- * - done   : 해당 pip가 자체적으로 완료(누적 increment 채움)
- * - delay  : asOf 가 이 pip 의 계획 구간에 진입했고 (per-pip planned > actual)
- * - wip    : asOf 가 진입했고 일부 실적이 있는 경우 (planned ≈ actual 또는 actual > 0)
- * - planned: 아직 이 pip 구간 미진입
+ * - done   : 누적 A가 해당 pip 목표 누적률을 채움
+ * - delay  : 누적 P가 해당 pip 구간에 도래했고, 누적 A가 누적 P보다 낮음
+ * - wip    : 해당 pip 구간에 실적이 일부 있음
+ * - planned: 누적 P가 아직 해당 pip 구간에 도래하지 않음
  * - empty  : 단계 비범위 또는 마일스톤 미정의
  */
 import type { MdrStage } from "./parser";
-import { drawingMilestonePlannedPct } from "./progressEngine";
+import { plannedPctAsOf } from "./progressEngine";
 
 export type MdrMilestoneState = "done" | "wip" | "delay" | "planned" | "empty";
 
@@ -22,6 +22,8 @@ export interface MdrPipCell {
   plannedPct?: number;
   /** 누적 실적률 (단계 합 100 기준) */
   actualPct?: number;
+  /** 누적 P가 이 pip 구간에 도달했는지 여부 */
+  planArrived?: boolean;
 }
 
 export interface MdrProgressIconCells {
@@ -161,39 +163,40 @@ export function buildMdrProgressIconCells(
     actualPct: sc.sd ? (sdTarget > 0 ? Math.min(100, (sdActual / sdTarget) * 100) : 100) : 0,
   };
 
-  const buildSeq = (stage: MdrStage, pcts: readonly number[], prevStageDoneFlag: boolean): MdrPipCell[] => {
-    // 각 pip 의 누적 P / A 를 미리 계산
+  const buildSeq = (stage: MdrStage, pcts: readonly number[]): MdrPipCell[] => {
+    // 단계 전체의 누적 P / A 를 각 pip 목표 누적률과 비교한다.
     const stageTotal = msNorm
       .filter((m) => m.stage === stage)
       .reduce((s, m) => s + m.incrementPct, 0);
+    const stagePlannedCum = stageTotal > 0
+      ? Math.min(100, (plannedPctAsOf(msNorm, stage, asOf) / stageTotal) * 100)
+      : 0;
 
-    let prevPlannedCum = 0; // 단계 합 100 기준 (drawingMilestonePlannedPct 가 0~100 반환)
-    let prevActualCum = 0;
-    let prevDone = prevStageDoneFlag;
+    let prevTargetCum = 0;
 
     return pcts.map((p) => {
       const ms = findMs(stage, p);
       const actualCum = stageTotal > 0 ? (stageActualUpTo(stage, p) / stageTotal) * 100 : 0;
-      const plannedCum = ms ? drawingMilestonePlannedPct(msNorm, stage, p, asOf) : prevPlannedCum;
-
-      const pipPlanned = Math.max(0, plannedCum - prevPlannedCum);
-      const pipActual = Math.max(0, actualCum - prevActualCum);
+      const targetCum = stageTotal > 0 ? (stageTargetUpTo(stage, p) / stageTotal) * 100 : 0;
       const pipTarget = stageTotal > 0 ? (Number(ms?.increment_pct ?? 0) / stageTotal) * 100 : 0;
+      const pipActual = Math.max(0, Math.min(actualCum, targetCum) - prevTargetCum);
+      const planArrived = stagePlannedCum > prevTargetCum + EPS;
+      const plannedForDisplay = ms ? Math.min(stagePlannedCum, targetCum) : prevTargetCum;
+      const actualForDisplay = ms ? Math.min(actualCum, targetCum) : prevTargetCum;
 
       let state: MdrMilestoneState;
       if (!ms) {
         state = "empty";
-      } else if (pipActual + EPS >= pipTarget && pipTarget > 0) {
+      } else if (actualCum + EPS >= targetCum && pipTarget > 0) {
         state = "done";
-      } else if (pipPlanned > EPS) {
-        // asOf 가 이 pip 구간에 진입함
-        if (pipPlanned > pipActual + EPS) state = "delay";
-        else state = pipActual > EPS ? "wip" : "delay";
+      } else if (planArrived && stagePlannedCum > actualCum + EPS) {
+        state = "delay";
+      } else if (pipActual > EPS) {
+        state = "wip";
+      } else if (planArrived) {
+        state = "wip";
       } else {
-        // pip 구간 미진입
-        if (pipActual > EPS) state = "wip";
-        else if (prevDone) state = "wip";
-        else state = "planned";
+        state = "planned";
       }
 
       const cell: MdrPipCell = {
@@ -203,13 +206,12 @@ export function buildMdrProgressIconCells(
         state,
         planDate: ms?.plan_date ?? null,
         actualDate: latestActualDate(stage, p),
-        plannedPct: plannedCum,
-        actualPct: actualCum,
+        plannedPct: plannedForDisplay,
+        actualPct: actualForDisplay,
+        planArrived,
       };
 
-      prevPlannedCum = plannedCum;
-      prevActualCum = actualCum;
-      prevDone = state === "done";
+      prevTargetCum = targetCum;
       return cell;
     });
   };
@@ -220,11 +222,11 @@ export function buildMdrProgressIconCells(
       state: "empty" as MdrMilestoneState,
       planDate: null, actualDate: null,
       plannedPct: 0, actualPct: 0,
+      planArrived: false,
     }));
 
-  const dd = sc.dd ? buildSeq("DD", DD_PIP_PCTS, sc.sd) : buildEmpty("DD", DD_PIP_PCTS);
-  const dd100Done = sc.dd && dd[dd.length - 1]?.state === "done";
-  const cd = sc.cd ? buildSeq("CD", CD_PIP_PCTS, dd100Done) : buildEmpty("CD", CD_PIP_PCTS);
+  const dd = sc.dd ? buildSeq("DD", DD_PIP_PCTS) : buildEmpty("DD", DD_PIP_PCTS);
+  const cd = sc.cd ? buildSeq("CD", CD_PIP_PCTS) : buildEmpty("CD", CD_PIP_PCTS);
 
   return { sd, dd, cd };
 }

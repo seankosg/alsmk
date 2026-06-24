@@ -1,76 +1,87 @@
-## Progress Icon 세부 마일스톤 기준 수정 계획
+## 문제 재정의
 
-### 문제
-현재 `src/lib/mdr/progressIcon.ts` 의 `buildMdrProgressIconCells()` 는 각 마일스톤 그룹(예: DD60) 자체의 완료 여부만 보고 `done / delay / planned` 를 판단합니다.
+현재 오류는 단순히 `DD60` 예시 하나가 아니라, **세부 마일스톤 pip(DD30/DD60/DD90/DD100/CD...)별 아이콘 판정에서 아직 계획일이 도래하지 않은 pip가 `delay` 로 표시되는 문제**입니다.
 
-하지만 MDR progress icon은 사용자가 말씀하신 것처럼 **공정실제진행율의 누적 위치**를 기준으로 표시되어야 합니다.
-
-예: SMP&CCM / ARCH / No.1
-- 계획: DD30 완료, DD60 기준 계획 약 57%
-- 실적: DD60 누적 50%
-- 따라서 DD30은 완료, **DD60은 지연**, DD90은 아직 planned/empty 성격이어야 함
-- 현재는 DD60 그룹 자체 셀들이 모두 완료된 것으로 판정되어 DD60이 `done`, 다음 DD90이 `delay` 로 밀려 표시됨
-
-### 수정 방향
-Progress Icon 상태를 “그룹별 단순 완료”가 아니라 **세부 마일스톤의 누적 계획률(P)과 누적 실적률(A)** 로 판정하도록 변경합니다.
-
-각 pip(DD30, DD60, DD90, DD100, CD30...) 별로 다음 값을 계산합니다.
+정확한 판정 기준은 다음이어야 합니다.
 
 ```text
-누적 계획률 P = 해당 세부 마일스톤까지의 planned %
-누적 실적률 A = 해당 세부 마일스톤까지 완료된 실제 increment 합계
+1) 해당 pip가 자체 완료 목표까지 실적을 채웠으면 done
+2) 해당 pip의 계획일이 지났고, 누적 A가 누적 P보다 낮으면 delay
+3) 해당 pip의 계획일이 아직 미래이면 delay 금지
+4) 미래 pip에 실적이 있으면 wip, 실적이 없으면 planned
 ```
 
-상태 판정:
+## 원인
+
+`src/lib/mdr/progressIcon.ts` 의 현재 로직은 `drawingMilestonePlannedPct()` 가 만든 **일일 보간 계획값**(`pipPlanned`)이 0보다 크면 해당 pip에 “계획이 진입했다”고 보고 있습니다.
+
+이 때문에 실제 `planDate` 는 미래인데도, 직전 마일스톤~현재 마일스톤 사이 보간값이 조금이라도 발생하면 `delay` 로 분류됩니다.
+
+## 수정 계획
+
+### 1. `progressIcon.ts` 판정 기준 변경
+
+`buildSeq()` 내부에서 각 pip마다 다음 값을 명확히 계산합니다.
+
+- `pipDue`: `asOf >= ms.plan_date`
+- `plannedCum`: 현재 기준 누적 계획률
+- `actualCum`: 현재 기준 누적 실적률
+- `pipTarget`: 해당 pip 자체 목표 increment
+
+판정은 아래 순서로 고정합니다.
+
 ```text
-1) 해당 단계/마일스톤이 없거나 scope 밖이면 empty
-2) A >= pip 기준 누적 목표율이면 done
-3) P > A 이고 asOf 기준 그 pip 계획 구간에 진입했으면 delay
-4) 직전 pip가 done이고 현재 pip가 진행 중이면 wip
-5) 그 외 planned
+if milestone 없음                         → empty
+else if pipActual >= pipTarget             → done
+else if pipDue && actualCum < plannedCum    → delay
+else if actualCum > previousActualCum       → wip
+else if pipDue                              → wip 또는 planned
+else                                        → planned
 ```
 
-### 구현 상세
+핵심은 **`pipDue === false` 인 경우 절대 `delay` 가 나오지 않게 하는 것**입니다.
 
-#### 1) `progressIcon.ts` 로직 재작성
-- 기존 `classify()` 와 `groupCellsDone()` 중심 로직을 누적 기준으로 교체합니다.
-- `cells` 가 있으면 `mdr_milestone_cells` 의 `incrementPct` 단위로 누적 실적(A)을 계산합니다.
-- `cells` 가 없는 레거시 데이터는 기존 `mdr_progress` 그룹 단위 완료 여부로 fallback 합니다.
-- 각 pip마다:
-  - `targetActual`: 해당 pct까지의 누적 increment 합
-  - `actualToPct`: 해당 pct까지 완료된 increment 합
-  - `plannedToPct`: `drawingMilestonePlannedPct()` 로 계산한 해당 pct 기준 계획률
-  - `state`: 위 판정식으로 결정
+### 2. tooltip 근거 강화
 
-#### 2) No.1 케이스 기대 결과
-SMP&CCM / ARCH / `L2Z1-800-EA100-001-B`
-- SD: done
-- DD30: done
-- DD60: delay (계획 약 57, 실적 50)
-- DD90: planned 또는 아직 비활성에 가까운 상태
-- DD100: planned
-- CD: planned/empty 성격
+각 아이콘 tooltip 에 다음 근거가 보이도록 유지/보강합니다.
 
-즉, 화면처럼 “DD60 done + DD90 delay”가 아니라 **DD60 자체가 delay** 로 표시되도록 수정합니다.
+- `P / A` 누적값
+- `plan MM-DD`
+- `delay` 인 경우에만 `overdue Nd`
 
-#### 3) Tooltip 개선
-가능하면 tooltip에도 pip별 판정 근거가 보이도록 다음 정보를 추가합니다.
-```text
-DD60: Delay (P 57 / A 50, plan 06-26)
+### 3. 회귀 테스트 추가
+
+`src/lib/mdr/progressIcon.test.ts` 를 추가해 여러 도면 케이스를 직접 검증합니다.
+
+테스트 대상:
+
+1. `DD30` 완료 → `done`
+2. `DD60` 계획일 지남 + 누적 P > 누적 A → `delay`
+3. `DD90` 계획일 미래 + 실적 없음 → `planned`
+4. `DD100` 계획일 미래 + 실적 없음 → `planned`
+5. 계획일 미래지만 보간 P가 일부 생기는 케이스 → `planned`, 절대 `delay` 아님
+6. 계획일 미래 + 실적 일부 존재 → `wip`, 절대 `delay` 아님
+7. 계획일 지남 + 누적 A가 누적 P 이상 → `wip` 또는 `done`, `delay` 아님
+8. `CD` scope 제외 → `empty`
+9. 셀 데이터 없는 레거시 진행 데이터 → 기존 그룹 완료 호환 유지
+10. `summarizeGroupState()` 우선순위 → delay 포함 시 group delay 유지
+
+### 4. 검증
+
+수정 후 아래 테스트를 실행해 확인합니다.
+
+```bash
+bunx vitest run src/lib/mdr/progressIcon.test.ts
 ```
-기존 tooltip의 actual/plan 날짜 표시는 유지하되, P/A 값을 함께 보여 문제 확인이 쉬워지게 합니다.
 
-#### 4) 호출부 유지
-`MdrAdvancedGrid.tsx` 의 호출부는 이미 필요한 데이터(`ms`, `pgRaw`, `asOf`, `scope`, `cellRows`)를 전달하고 있으므로 큰 변경 없이 유지합니다.
-필요하면 `progressIcon.ts` 내부 타입만 확장합니다.
+필요하면 `/design` 화면에서 SMP&CCM / ARCH 첫 행을 확인해:
 
-### 검증
-- SMP&CCM > ARCH > No.1 의 Progress icon이 DD60 지연으로 표시되는지 확인
-- 같은 행의 단계별 DD-P/DD-A 값과 Progress icon 상태가 일치하는지 확인
-- DD60이 100% 완료된 행은 DD60 done으로 유지되는지 확인
-- 아직 계획일 전인 pip는 delay가 아니라 planned/wip로 표시되는지 확인
-- 범위 밖 단계는 empty로 유지되는지 확인
+- `DD60`: 지연 조건이면 `delay`
+- `DD90` 이후 미래 계획: `planned`
 
-### 변경 파일
+으로 보이는지 검증합니다.
+
+## 변경 파일
+
 - `src/lib/mdr/progressIcon.ts`
-- 필요 시 `src/components/mdr/grid/MdrProgressIconCell.tsx` tooltip 표시만 보조 수정
+- `src/lib/mdr/progressIcon.test.ts`
