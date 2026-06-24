@@ -350,6 +350,7 @@ export function MdrAdvancedGrid({ buildingCode, asOf, threshold, sheetName }: Pr
 
       const progressIconCells = buildMdrProgressIconCells(ms, pgRaw, asOf, scope, cellRows);
 
+
       return {
         id: d.id,
         source_no: d.source_no,
