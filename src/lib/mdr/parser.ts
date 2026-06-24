@@ -8,6 +8,7 @@ export interface MdrMilestoneCellDef {
   subIdx: number;        // 그룹 내 0-based 인덱스
   incrementPct: number;  // 셀 단위 증분 (헤더 2행의 그 셀)
   planDate?: string;     // 셀 단위 plan_date (없으면 그룹 plan_date 사용)
+  label?: string;        // STR DD 처럼 row 5 라벨이 있는 경우 보존 (Information / STR Analysis / Drawings)
 }
 
 export interface MdrMilestoneDef {
@@ -15,8 +16,18 @@ export interface MdrMilestoneDef {
   pct: number;          // 30, 60, 90, 100
   incrementPct: number; // 그룹 합 (mdr_milestones.increment_pct 호환)
   planDate?: string;    // ISO YYYY-MM-DD — 그룹의 가장 늦은 plan_date
+  label?: string;       // STR DD 처럼 row 5 라벨이 있는 경우 (Information / STR Analysis / Drawings)
   cells: MdrMilestoneCellDef[]; // 그룹 내 모든 서브컬럼
 }
+
+/** 라벨이 없는 N개 그룹을 cumulative pct 로 매핑 */
+const STAGE_UNLABELED_PCTS: Record<number, number[]> = {
+  1: [100],
+  2: [50, 100],
+  3: [30, 60, 100],
+  4: [30, 60, 90, 100],
+};
+
 
 export interface MdrParsedRow {
   sourceNo: string;             // 원본 A열
