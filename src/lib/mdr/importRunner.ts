@@ -229,8 +229,10 @@ export async function persistParsed(
           drawing_id: ex.id, stage: m.stage, pct: m.pct,
           sub_idx: cc.subIdx, increment_pct: cc.incrementPct,
           plan_date: cc.planDate ?? m.planDate ?? null,
+          label: cc.label ?? m.label ?? null,
         })),
       );
+
       const pgIns = r.progress.map((pr) => ({
         drawing_id: ex.id, stage: pr.stage, pct: pr.pct, sub_idx: pr.subIdx,
         is_done: pr.stage === "SD" ? true : pr.isDone,
@@ -350,9 +352,11 @@ export async function persistParsed(
           drawing_id: id, stage: m.stage, pct: m.pct,
           sub_idx: cc.subIdx, increment_pct: cc.incrementPct,
           plan_date: cc.planDate ?? m.planDate ?? null,
+          label: cc.label ?? m.label ?? null,
         });
       }
     }
+
     for (const p of row.progress) {
       progressPayloads.push({
         drawing_id: id, stage: p.stage, pct: p.pct, sub_idx: p.subIdx,
@@ -438,8 +442,10 @@ export async function persistParsed(
             drawing_id: id, stage: m.stage, pct: m.pct,
             sub_idx: cc.subIdx, increment_pct: cc.incrementPct,
             plan_date: cc.planDate ?? m.planDate ?? null,
+            label: cc.label ?? m.label ?? null,
           });
         }
+
       }
       for (const pr of r.progress) {
         pgResync.push({

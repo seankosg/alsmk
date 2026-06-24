@@ -1,4 +1,6 @@
 import type { MdrStage } from "./parser";
+import { enforceSequential } from "./stageFlow";
+
 
 export interface MilestoneRow {
   stage: MdrStage;
@@ -131,12 +133,13 @@ export function actualPct(
   stage: MdrStage,
   cells?: MilestoneCellRow[],
 ): number {
-  // 셀 단위 모드
+  // 셀 단위 모드 — 단계 흐름 순차 가드 적용
   if (cells && cells.length) {
+    const guarded = enforceSequential(progress as ProgressRow[], cells as { stage: MdrStage; pct: number; subIdx: number; incrementPct: number }[]);
     let sum = 0;
     for (const cc of cells) {
       if (cc.stage !== stage) continue;
-      const matched = progress.find((p) =>
+      const matched = guarded.find((p) =>
         p.stage === stage && p.pct === cc.pct && (p.subIdx ?? 0) === cc.subIdx && p.isDone
       );
       if (matched) sum += cc.incrementPct;
@@ -157,6 +160,43 @@ export function actualPct(
   }
   return clamp(sum, 0, 100);
 }
+
+/**
+ * 특정 (stage,pct) 마일스톤까지의 누적 실적%.
+ * - 순차 가드 적용 후 (stage,pct) 이하의 완료 셀 increment 합산.
+ * - SD 는 항상 100.
+ */
+export function actualPctUpTo(
+  milestones: MilestoneRow[],
+  progress: ProgressRow[],
+  stage: MdrStage,
+  pct: number,
+  cells?: MilestoneCellRow[],
+): number {
+  if (stage === "SD") return 100;
+  if (!cells || !cells.length) {
+    // 폴백: 그룹 단위 — 동일 stage 의 pct ≤ 인자 완료 합
+    const incMap = new Map<number, number>();
+    for (const m of milestones) if (m.stage === stage && m.pct <= pct) incMap.set(m.pct, m.incrementPct);
+    let sum = 0;
+    for (const p of progress) {
+      if (p.stage !== stage || !p.isDone) continue;
+      if (p.pct <= pct && incMap.has(p.pct)) sum += incMap.get(p.pct) ?? 0;
+    }
+    return clamp(sum, 0, 100);
+  }
+  const guarded = enforceSequential(progress, cells as { stage: MdrStage; pct: number; subIdx: number; incrementPct: number }[]);
+  let sum = 0;
+  for (const cc of cells) {
+    if (cc.stage !== stage || cc.pct > pct) continue;
+    const matched = guarded.find((p) =>
+      p.stage === stage && p.pct === cc.pct && (p.subIdx ?? 0) === cc.subIdx && p.isDone
+    );
+    if (matched) sum += cc.incrementPct;
+  }
+  return clamp(sum, 0, 100);
+}
+
 
 /** Δ = Actual − Planned (음수 = 지연, 양수 = 선행) */
 export function deltaPct(planned: number, actual: number): number {

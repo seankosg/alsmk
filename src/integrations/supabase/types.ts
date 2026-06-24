@@ -744,6 +744,7 @@ export type Database = {
           drawing_id: string
           id: string
           increment_pct: number
+          label: string | null
           pct: number
           plan_date: string | null
           stage: string
@@ -754,6 +755,7 @@ export type Database = {
           drawing_id: string
           id?: string
           increment_pct?: number
+          label?: string | null
           pct: number
           plan_date?: string | null
           stage: string
@@ -764,6 +766,7 @@ export type Database = {
           drawing_id?: string
           id?: string
           increment_pct?: number
+          label?: string | null
           pct?: number
           plan_date?: string | null
           stage?: string
@@ -778,6 +781,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mdr_milestone_snapshots: {
+        Row: {
+          actual_pct: number
+          as_of: string
+          building: string
+          computed_at: string
+          delta_pct: number
+          discipline: string
+          drawing_count: number
+          id: string
+          label: string | null
+          pct: number
+          plan_date: string | null
+          plan_pct: number
+          stage: string
+        }
+        Insert: {
+          actual_pct?: number
+          as_of: string
+          building: string
+          computed_at?: string
+          delta_pct?: number
+          discipline: string
+          drawing_count?: number
+          id?: string
+          label?: string | null
+          pct: number
+          plan_date?: string | null
+          plan_pct?: number
+          stage: string
+        }
+        Update: {
+          actual_pct?: number
+          as_of?: string
+          building?: string
+          computed_at?: string
+          delta_pct?: number
+          discipline?: string
+          drawing_count?: number
+          id?: string
+          label?: string | null
+          pct?: number
+          plan_date?: string | null
+          plan_pct?: number
+          stage?: string
+        }
+        Relationships: []
       }
       mdr_milestones: {
         Row: {

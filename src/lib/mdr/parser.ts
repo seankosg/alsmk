@@ -8,6 +8,7 @@ export interface MdrMilestoneCellDef {
   subIdx: number;        // 그룹 내 0-based 인덱스
   incrementPct: number;  // 셀 단위 증분 (헤더 2행의 그 셀)
   planDate?: string;     // 셀 단위 plan_date (없으면 그룹 plan_date 사용)
+  label?: string;        // STR DD 처럼 row 5 라벨이 있는 경우 보존 (Information / STR Analysis / Drawings)
 }
 
 export interface MdrMilestoneDef {
@@ -15,8 +16,18 @@ export interface MdrMilestoneDef {
   pct: number;          // 30, 60, 90, 100
   incrementPct: number; // 그룹 합 (mdr_milestones.increment_pct 호환)
   planDate?: string;    // ISO YYYY-MM-DD — 그룹의 가장 늦은 plan_date
+  label?: string;       // STR DD 처럼 row 5 라벨이 있는 경우 (Information / STR Analysis / Drawings)
   cells: MdrMilestoneCellDef[]; // 그룹 내 모든 서브컬럼
 }
+
+/** 라벨이 없는 N개 그룹을 cumulative pct 로 매핑 */
+const STAGE_UNLABELED_PCTS: Record<number, number[]> = {
+  1: [100],
+  2: [50, 100],
+  3: [30, 60, 100],
+  4: [30, 60, 90, 100],
+};
+
 
 export interface MdrParsedRow {
   sourceNo: string;             // 원본 A열
@@ -207,10 +218,11 @@ function parseSheet(
   interface MilestoneGroup {
     stage: MdrStage;
     pct: number;
+    label?: string;
     cols: number[];           // 그룹에 속한 서브컬럼들
     incrementPct: number;     // 서브컬럼 증분 합
     planDate?: string;        // 서브컬럼 중 가장 늦은 plan_date
-    cells: { subIdx: number; col: number; incrementPct: number; planDate?: string }[];
+    cells: { subIdx: number; col: number; incrementPct: number; planDate?: string; label?: string }[];
   }
   const milestoneGroups: MilestoneGroup[] = [];
 
@@ -218,22 +230,46 @@ function parseSheet(
   // 일부 파일(SMP&CCM 등)은 row 4 "DWG. NO" 가로병합 + row 5 서브헤더(PLANT ID/PBS/FBS/SER.NO./REV.NO.) 구조.
   const headerTextAt = (col: number): string => {
     const t5 = milestoneLabelRow !== headerRow ? cellStr(ws, milestoneLabelRow, col) : "";
-    // 서브헤더(row5) 우선: 병합된 그룹헤더(예: "DWG. NO") 아래의 실제 식별 헤더(PLANT ID 등)를 잡기 위함.
-    // 단, row5가 마일스톤 라벨이면 row4로 폴백.
     if (t5 && !MILESTONE_RE.test(t5)) return t5;
     const t4 = cellStr(ws, headerRow, col);
     if (t4) return t4;
     return t5;
   };
 
-  // 병합셀(merge)로 라벨이 가로로 확장된 경우 시작셀(왼쪽-위)에만 라벨이 존재.
-  // headerRow 또는 서브헤더(row5)에 식별성 헤더 텍스트가 있는 컬럼은 마일스톤 그룹의 경계로 사용.
   const isIdentHeader = (col: number): boolean => {
     const t = headerTextAt(col);
     if (!t) return false;
-    // 서브헤더가 마일스톤 라벨(SD50% 등)인 경우는 식별 헤더가 아님
     if (MILESTONE_RE.test(t)) return false;
     return detectColumnKey(t) !== null || /discipline|plant|pbs|fbs|ser\.?\s*no|job|area|function|serial|activity|drawing|title|remark|status|note|confirmed|weight|plan\s*date|document\s*class|문서분류|부서별|rev/i.test(t);
+  };
+
+  // row 4 에서 단계 영역(SD/DD/CD) 시작 컬럼 탐지.
+  // - "Schematic Design" / "Design Development" / "Construction Documentation" 텍스트로 매핑.
+  // - 또는 단일 토큰 "SD"/"DD"/"CD" 가 마일스톤 라벨 영역의 첫 컬럼에 등장하는 경우도 포함.
+  const STAGE_ROW4_RE = /(schematic\s*design|design\s*development|construction\s*documentation)/i;
+  const stageRegions: { stage: MdrStage; start: number; end: number }[] = [];
+  {
+    const rawMarks: { stage: MdrStage; col: number }[] = [];
+    for (let cc = noCol; cc <= maxCol; cc++) {
+      const t4 = cellStr(ws, headerRow, cc).trim();
+      if (!t4) continue;
+      const mm = t4.match(STAGE_ROW4_RE);
+      if (mm) {
+        const w = mm[1].toLowerCase();
+        const stage: MdrStage = w.startsWith("sch") ? "SD" : w.startsWith("des") ? "DD" : "CD";
+        rawMarks.push({ stage, col: cc });
+      }
+    }
+    rawMarks.sort((a, b) => a.col - b.col);
+    for (let i = 0; i < rawMarks.length; i++) {
+      const start = rawMarks[i].col;
+      const end = i + 1 < rawMarks.length ? rawMarks[i + 1].col - 1 : maxCol;
+      stageRegions.push({ stage: rawMarks[i].stage, start, end });
+    }
+  }
+  const stageAt = (col: number): MdrStage | null => {
+    for (const r of stageRegions) if (col >= r.start && col <= r.end) return r.stage;
+    return null;
   };
 
   let c = noCol;
@@ -245,7 +281,6 @@ function parseSheet(
       const pct = parseInt(m[2], 10);
       const start = c;
       let end = c;
-      // 다음 라벨 / 식별 헤더 직전까지 동일 그룹
       for (let k = c + 1; k <= maxCol; k++) {
         const nextLabel = cellStr(ws, milestoneLabelRow, k);
         if (nextLabel && MILESTONE_RE.test(nextLabel)) break;
@@ -253,7 +288,7 @@ function parseSheet(
         end = k;
       }
       const cols: number[] = [];
-      const cells: { subIdx: number; col: number; incrementPct: number; planDate?: string }[] = [];
+      const cells: { subIdx: number; col: number; incrementPct: number; planDate?: string; label?: string }[] = [];
       let incrementPct = 0;
       let planDate: string | undefined;
       let subIdx = 0;
@@ -281,16 +316,82 @@ function parseSheet(
     }
   }
 
+  // ── STR DD 스타일 보강 ─────────────────────────────────────────────────────
+  // row 4 가 "Design Development" / "Schematic Design" / "Construction Documentation"
+  // 으로 표시된 단계 영역인데 그 안에 MILESTONE_RE 로 잡힌 그룹이 0개인 경우,
+  // row 5 의 라벨(예: Information / STR Analysis / Drawings)로 그룹화.
+  // 단, "Progress" 라벨은 제외. cumulative pct 는 STAGE_UNLABELED_PCTS 매핑.
+  for (const region of stageRegions) {
+    const insideMs = milestoneGroups.filter((g) => g.cols.some((x) => x >= region.start && x <= region.end));
+    if (insideMs.length > 0) continue;
+    // row 5 라벨 토큰 추출
+    const labelCols: { label: string; start: number; end: number; cols: number[] }[] = [];
+    let curLabel: string | null = null;
+    let curStart = -1;
+    let curCols: number[] = [];
+    const isProgressLabel = (s: string) => /^\s*progress\s*$/i.test(s);
+    const flush = (endCol: number) => {
+      if (curLabel && !isProgressLabel(curLabel) && curCols.length > 0) {
+        labelCols.push({ label: curLabel, start: curStart, end: endCol, cols: [...curCols] });
+      }
+      curLabel = null; curStart = -1; curCols = [];
+    };
+    for (let cc = region.start; cc <= region.end; cc++) {
+      // 식별 헤더(예: REV) 가 region 내에 들어오는 경우 — 비정상이지만 안전하게 끊는다
+      if (isIdentHeader(cc)) { flush(cc - 1); continue; }
+      const t = cellStr(ws, milestoneLabelRow, cc).trim();
+      if (t) {
+        flush(cc - 1);
+        curLabel = t;
+        curStart = cc;
+        curCols = [cc];
+      } else if (curLabel) {
+        curCols.push(cc);
+      }
+    }
+    flush(region.end);
+    if (labelCols.length === 0) continue;
+    const pcts = STAGE_UNLABELED_PCTS[labelCols.length] ?? labelCols.map((_, i) => Math.round(((i + 1) / labelCols.length) * 100));
+    labelCols.forEach((grp, gi) => {
+      const cells: { subIdx: number; col: number; incrementPct: number; planDate?: string; label?: string }[] = [];
+      let incrementPct = 0;
+      let planDate: string | undefined;
+      let subIdx = 0;
+      for (const x of grp.cols) {
+        const incRaw = cellStr(ws, incrementRow, x).replace("%", "").trim();
+        const v = parseFloat(incRaw);
+        const cellInc = !isNaN(v) ? v : 0;
+        if (cellInc <= 0) continue;
+        incrementPct += cellInc;
+        const pd = parseDate(cellRaw(ws, planDateRow, x));
+        if (pd && (!planDate || pd > planDate)) planDate = pd;
+        cells.push({ subIdx, col: x, incrementPct: cellInc, planDate: pd, label: grp.label });
+        subIdx++;
+      }
+      if (cells.length === 0) return;
+      milestoneGroups.push({
+        stage: region.stage, pct: pcts[gi], label: grp.label,
+        cols: grp.cols, incrementPct, planDate, cells,
+      });
+    });
+  }
+
   // 행 진행도 계산용으로 호환 형태 유지
-  const milestoneCols = milestoneGroups.map((g) => ({
-    col: g.cols[0],
-    stage: g.stage,
-    pct: g.pct,
-    incrementPct: g.incrementPct,
-    planDate: g.planDate,
-    cols: g.cols,
-    cells: g.cells,
-  }));
+  const milestoneCols = milestoneGroups
+    .slice()
+    .sort((a, b) => (a.cols[0] ?? 0) - (b.cols[0] ?? 0))
+    .map((g) => ({
+      col: g.cols[0],
+      stage: g.stage,
+      pct: g.pct,
+      label: g.label,
+      incrementPct: g.incrementPct,
+      planDate: g.planDate,
+      cols: g.cols,
+      cells: g.cells,
+    }));
+
+
 
   // SD/DD/CD 단계 범위(scope) 컬럼 — headerRow에서 "SD"/"DD"/"CD" 또는 "SD Stage"/"DD Stage"/"CD Stage".
   // 마일스톤 라벨(SD50%, DD30% 등)과 구분하기 위해 % 미포함만 인식.
@@ -373,12 +474,15 @@ function parseSheet(
       pct: m.pct,
       incrementPct: m.incrementPct,
       planDate: m.planDate,
+      label: m.label,
       cells: m.cells.map((cc) => ({
         subIdx: cc.subIdx,
         incrementPct: cc.incrementPct,
         planDate: cc.planDate,
+        label: cc.label,
       })),
     }));
+
     // 셀 단위 progress: 그룹 OR 아닌 서브컬럼별 Y/N (increment > 0 셀만)
     const progressAll: { stage: MdrStage; pct: number; subIdx: number; isDone: boolean }[] = [];
     for (const m of milestoneCols) {
