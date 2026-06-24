@@ -132,9 +132,14 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
 
   const rows: MonitorDiscRow[] = [];
   for (const g of groupMap.values()) {
+    const cntSD = g.drawings.filter((d) => isInScope(d, "SD")).length;
+    const cntDD = g.drawings.filter((d) => isInScope(d, "DD")).length;
+    const cntCD = g.drawings.filter((d) => isInScope(d, "CD")).length;
     const row: MonitorDiscRow = {
       building: g.building, discipline: g.discipline,
-      drawingCount: g.drawings.length, cells: new Map(),
+      drawingCount: g.drawings.length,
+      drawingCountSD: cntSD, drawingCountDD: cntDD, drawingCountCD: cntCD,
+      cells: new Map(),
     };
     // 각 마일스톤 key 별로 P/A 평균
     for (const stage of STAGES) {
