@@ -2,6 +2,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { History } from "lucide-react";
 import { MdrSummaryPanel } from "@/components/mdr/MdrSummaryPanel";
+import { MdrMilestoneMonitorPanel } from "@/components/mdr/MdrMilestoneMonitorPanel";
+
 
 export default function DesignSummary() {
   const { isAdminOrPm, loading } = useAuth();
@@ -15,6 +17,8 @@ export default function DesignSummary() {
         Design Summary
       </h1>
       <MdrSummaryPanel />
+      <MdrMilestoneMonitorPanel />
     </div>
   );
 }
+
