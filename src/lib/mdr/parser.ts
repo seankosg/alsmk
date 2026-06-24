@@ -474,12 +474,15 @@ function parseSheet(
       pct: m.pct,
       incrementPct: m.incrementPct,
       planDate: m.planDate,
+      label: m.label,
       cells: m.cells.map((cc) => ({
         subIdx: cc.subIdx,
         incrementPct: cc.incrementPct,
         planDate: cc.planDate,
+        label: cc.label,
       })),
     }));
+
     // 셀 단위 progress: 그룹 OR 아닌 서브컬럼별 Y/N (increment > 0 셀만)
     const progressAll: { stage: MdrStage; pct: number; subIdx: number; isDone: boolean }[] = [];
     for (const m of milestoneCols) {
