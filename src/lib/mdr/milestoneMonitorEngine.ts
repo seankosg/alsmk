@@ -91,7 +91,34 @@ async function loadDrawings(): Promise<RawDrawing[]> {
     const chunk = ((data as unknown) as RawDrawing[]) ?? [];
     rows.push(...chunk);
     if (chunk.length < PAGE) break;
+}
+
+/** Block × Discipline 별 in-scope 도면 개수(전체/SD/DD/CD) 라이브 집계 */
+async function fetchDrawingCountsByGroup(): Promise<Map<string, { total: number; sd: number; dd: number; cd: number }>> {
+  const PAGE = 1000;
+  const map = new Map<string, { total: number; sd: number; dd: number; cd: number }>();
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("mdr_drawings" as never)
+      .select("building_code, discipline, in_scope_sd, in_scope_dd, in_scope_cd")
+      .eq("out_of_scope", false)
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    const chunk = ((data as unknown) as { building_code: string | null; discipline: string | null; in_scope_sd: boolean | null; in_scope_dd: boolean | null; in_scope_cd: boolean | null }[]) ?? [];
+    for (const r of chunk) {
+      if (!r.building_code) continue;
+      const k = `${r.building_code}||${normalizeDiscipline(r.discipline)}`;
+      const v = map.get(k) ?? { total: 0, sd: 0, dd: 0, cd: 0 };
+      v.total += 1;
+      if (r.in_scope_sd) v.sd += 1;
+      if (r.in_scope_dd) v.dd += 1;
+      if (r.in_scope_cd) v.cd += 1;
+      map.set(k, v);
+    }
+    if (chunk.length < PAGE) break;
   }
+  return map;
+}
   return rows;
 }
 
