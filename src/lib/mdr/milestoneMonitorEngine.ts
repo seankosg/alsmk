@@ -91,6 +91,8 @@ async function loadDrawings(): Promise<RawDrawing[]> {
     const chunk = ((data as unknown) as RawDrawing[]) ?? [];
     rows.push(...chunk);
     if (chunk.length < PAGE) break;
+  }
+  return rows;
 }
 
 /** Block × Discipline 별 in-scope 도면 개수(전체/SD/DD/CD) 라이브 집계 */
