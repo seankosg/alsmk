@@ -85,12 +85,18 @@ describe("buildMdrProgressIconCells", () => {
   });
 
   it("미래 pip에 실적이 일부 있으면 delay가 아니라 wip이다", () => {
+    const splitDd90Cells = baseCells.flatMap((c) => {
+      if (c.stage === "DD" && c.pct === 90) {
+        return [cell("DD", 90, 0, 10), cell("DD", 90, 1, 23)];
+      }
+      return [c];
+    });
     const result = build("2026-06-23", [
       done("DD", 30),
       done("DD", 60, 0),
       done("DD", 60, 1),
       done("DD", 90, 0),
-    ]);
+    ], undefined, baseMilestones, splitDd90Cells);
 
     expect(result.dd[2].planArrived).toBe(false);
     expect(result.dd[2].state).toBe("wip");
@@ -107,8 +113,8 @@ describe("buildMdrProgressIconCells", () => {
     expect(result.dd[1].actualPct ?? 0).toBeGreaterThanOrEqual(result.dd[1].plannedPct ?? 0);
   });
 
-  it("P가 DD30 이전이면 DD30도 planned로 남긴다", () => {
-    const result = build("2026-06-04", []);
+  it("P가 DD30 구간에 아직 도달하지 않았으면 DD30도 planned로 남긴다", () => {
+    const result = build("2026-06-01", []);
 
     expect(result.dd[0].planArrived).toBe(false);
     expect(result.dd[0].state).toBe("planned");
