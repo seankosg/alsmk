@@ -119,8 +119,6 @@ async function fetchDrawingCountsByGroup(): Promise<Map<string, { total: number;
   }
   return map;
 }
-  return rows;
-}
 
 /** 컴퓨팅: 도면들 → Block×Discipline 매트릭스 */
 export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix {
