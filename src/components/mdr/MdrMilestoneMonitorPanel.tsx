@@ -53,11 +53,11 @@ function fmtDate(iso: string | null | undefined): string {
   return `${m[3]}-${mon}-${yy}`;
 }
 
-// 스테이지별 헤더 색상 (시인성)
+// 스테이지별 헤더 색상 (검정 텍스트 대비를 위해 채도 높은 파스텔 배경)
 const STAGE_THEME: Record<MdrStage, { head: string; sub: string; border: string; text: string }> = {
-  SD: { head: "bg-sky-500/25 text-sky-100",     sub: "bg-sky-500/10",     border: "border-sky-500/40",     text: "text-sky-200" },
-  DD: { head: "bg-amber-500/25 text-amber-100", sub: "bg-amber-500/10",   border: "border-amber-500/40",   text: "text-amber-200" },
-  CD: { head: "bg-emerald-500/25 text-emerald-100", sub: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-200" },
+  SD: { head: "bg-sky-300",     sub: "bg-sky-100",     border: "border-sky-500",     text: "text-black" },
+  DD: { head: "bg-amber-300",   sub: "bg-amber-100",   border: "border-amber-500",   text: "text-black" },
+  CD: { head: "bg-emerald-300", sub: "bg-emerald-100", border: "border-emerald-500", text: "text-black" },
 };
 
 export function MdrMilestoneMonitorPanel() {
