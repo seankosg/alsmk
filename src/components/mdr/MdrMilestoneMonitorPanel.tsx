@@ -185,16 +185,15 @@ export function MdrMilestoneMonitorPanel() {
             {/* 3단: P / A / Δ */}
             <tr className="border-b-2 text-muted-foreground">
               {headers?.flatMap(({ stage, ms }) => {
-                const list = ms.length === 0 ? [{ pct: 0, planDate: null, label: null, stage }] : ms;
-                return list.map((m) => (
-                  <>
-                    <th key={`p-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 border-l font-normal">P</th>
-                    <th key={`a-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 font-normal">A</th>
-                    <th key={`d-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 font-normal">Δ</th>
-                  </>
-                ));
+                const list = ms.length === 0 ? [{ pct: 0, planDate: null as string | null }] : ms;
+                return list.flatMap((m) => [
+                  <th key={`p-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 border-l font-normal">P</th>,
+                  <th key={`a-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 font-normal">A</th>,
+                  <th key={`d-${stage}-${m.pct}-${m.planDate}`} className="text-center px-1 py-0.5 font-normal">Δ</th>,
+                ]);
               })}
             </tr>
+
           </thead>
           <tbody>
             {matrix.rows.map((row, ri) => {
