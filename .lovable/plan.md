@@ -1,37 +1,17 @@
-
 ## 변경 요약
 
-1. **헤더 글자색 시인성 개선** — 스테이지 헤더(SD/DD/CD)와 2단(날짜·라벨)·3단(P/A/Δ)의 텍스트를 `text-black font-bold`로 통일. 배경(스카이/앰버/에메랄드 톤)은 유지하되 채도를 약간 올려 검정 텍스트와 대비 확보.
+**원인**: SD/DD/CD 단계별 도면 개수 컬럼(`drawing_count_sd/dd/cd`)을 마이그레이션으로 추가했지만, 기존 snapshot 행들은 DEFAULT 0 으로 채워져 패널에 0이 표시됨. [신규 계산]을 누르면 정확히 재계산되지만, 매번 사용자가 누르도록 의존하지 않고 **로드 시점에 항상 라이브 카운트로 보정**되도록 변경.
 
-2. **좌측 DWG 컬럼 2단 구조화**
-   - 1단(헤더): `Total DWG`
-   - 2단(헤더 보조): `SD / DD / CD` 라벨
-   - 본문(각 Block×Disc 행): 해당 행에서 Raw Data의 `in_scope_sd / in_scope_dd / in_scope_cd` 가 `true`("O")인 도면 개수를 각각 표시 (`12 / 10 / 8` 형태 또는 3-column subgrid)
-
-## 기술 변경
+## 수정
 
 ### `src/lib/mdr/milestoneMonitorEngine.ts`
-- `MonitorDiscRow` 에 `drawingCountSD / drawingCountDD / drawingCountCD: number` 추가.
-- `buildMatrix()` 에서 그룹 도면 순회 시 `isInScope(d, "SD"|"DD"|"CD")` 카운트하여 세팅.
-- `saveSnapshot()` 에 `drawing_count_sd / dd / cd` 컬럼 포함.
-- `loadLatestSnapshot()` 에서 해당 컬럼 복원 (모든 행이 동일 값이므로 첫 행 값 사용).
+- `loadLatestSnapshot()` 끝부분에 헬퍼 호출 추가:
+  - 별도 함수 `fetchDrawingCountsByGroup()` 신설 → `mdr_drawings` 에서 `out_of_scope=false` 도면을 `id, building_code, discipline, in_scope_sd/dd/cd` 만 선택해 페이지네이션 로드 후, `(building, normalizeDiscipline(discipline))` 키로 SD/DD/CD true 개수와 totalDrawings 집계.
+  - snapshot 로드된 각 `MonitorDiscRow` 의 `drawingCountSD/DD/CD` 와 `drawingCount` 를 이 라이브 집계 값으로 **덮어쓰기**(저장된 0 무시).
+  - 매핑 안 되는 행은 0 그대로 유지.
 
-### DB 마이그레이션 (`mdr_milestone_snapshots`)
-```sql
-ALTER TABLE public.mdr_milestone_snapshots
-  ADD COLUMN drawing_count_sd integer NOT NULL DEFAULT 0,
-  ADD COLUMN drawing_count_dd integer NOT NULL DEFAULT 0,
-  ADD COLUMN drawing_count_cd integer NOT NULL DEFAULT 0;
-```
-
-### `src/components/mdr/MdrMilestoneMonitorPanel.tsx`
-- `STAGE_THEME` 재구성: `head`(배경) 진하게 + 텍스트는 모두 `text-black font-bold` 적용. 2단/3단도 `text-black font-semibold` 로 통일.
-- 1단 헤더 `<th rowSpan={3}>DWG</th>` 제거. 대신:
-  - 1단: `<th rowSpan={2} colSpan={3}>Total DWG</th>`
-  - 2단: `<th>SD</th><th>DD</th><th>CD</th>` (3단의 P/A/Δ 행은 DWG 영역에 대해 비움 또는 `rowSpan` 처리)
-- 본문 행: 기존 단일 `DWG` 셀을 3개 셀(`drawingCountSD/DD/CD`)로 분리, `tabular-nums text-center`.
-- 헤더 구조 재정렬: Block/Disc 도 `rowSpan={3}` 그대로 유지, DWG 만 2단 구조.
+이렇게 하면 사용자가 [신규 계산]을 누르지 않아도 패널 진입 즉시 SD/DD/CD 개수가 올바르게 노출됩니다. `computeMatrix` 결과(snapshot 저장 경로)는 그대로 정확하므로 추가 변경 불필요.
 
 ### 검증
 - `npm run build` (tsgo)
-- Playwright 로 `/design` 진입 후 "신규 계산" 클릭하여 스냅샷 저장 → 새로고침 후 SD/DD/CD 개수가 표시되는지 스크린샷.
+- `/design/summary` 진입 → 좌측 DWG 컬럼 SD/DD/CD 가 실제 raw 도면 O 개수(예: HSM ARCH = 13/258/259)와 일치하는지 확인.
