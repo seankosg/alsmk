@@ -53,11 +53,11 @@ function fmtDate(iso: string | null | undefined): string {
   return `${m[3]}-${mon}-${yy}`;
 }
 
-// 스테이지별 헤더 색상 (시인성)
+// 스테이지별 헤더 색상 (검정 텍스트 대비를 위해 채도 높은 파스텔 배경)
 const STAGE_THEME: Record<MdrStage, { head: string; sub: string; border: string; text: string }> = {
-  SD: { head: "bg-sky-500/25 text-sky-100",     sub: "bg-sky-500/10",     border: "border-sky-500/40",     text: "text-sky-200" },
-  DD: { head: "bg-amber-500/25 text-amber-100", sub: "bg-amber-500/10",   border: "border-amber-500/40",   text: "text-amber-200" },
-  CD: { head: "bg-emerald-500/25 text-emerald-100", sub: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-200" },
+  SD: { head: "bg-sky-300",     sub: "bg-sky-100",     border: "border-sky-500",     text: "text-black" },
+  DD: { head: "bg-amber-300",   sub: "bg-amber-100",   border: "border-amber-500",   text: "text-black" },
+  CD: { head: "bg-emerald-300", sub: "bg-emerald-100", border: "border-emerald-500", text: "text-black" },
 };
 
 export function MdrMilestoneMonitorPanel() {
@@ -164,26 +164,40 @@ export function MdrMilestoneMonitorPanel() {
       <div className="overflow-x-auto">
         <table className="w-full text-[11px] border-collapse">
           <thead>
-            {/* 1단: Stage */}
+            {/* 1단: Stage + Total DWG (colSpan=3) */}
             <tr className="border-b">
               <th rowSpan={3} className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
               <th rowSpan={3} className="text-left px-2 py-1 border-r">Disc.</th>
-              <th rowSpan={3} className="text-center px-2 py-1 border-r">DWG</th>
+              <th colSpan={3} className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider">
+                Total DWG
+              </th>
               {headers?.map(({ stage, ms }) => {
                 const th = STAGE_THEME[stage];
                 return (
                   <th
                     key={`s-${stage}`}
                     colSpan={Math.max(1, ms.length) * 3}
-                    className={`text-center px-2 py-1.5 border-l border-r font-bold tracking-wider ${th.head} ${th.border}`}
+                    className={`text-center px-2 py-1.5 border-l border-r font-bold tracking-wider text-black ${th.head} ${th.border}`}
                   >
                     {stage}
                   </th>
                 );
               })}
             </tr>
-            {/* 2단: 마일스톤 plan_date (+ 라벨 캡션) */}
+            {/* 2단: DWG 단계 라벨(SD/DD/CD) + 마일스톤 plan_date */}
             <tr className="border-b">
+              {(["SD","DD","CD"] as MdrStage[]).map((s, i) => {
+                const th = STAGE_THEME[s];
+                return (
+                  <th
+                    key={`dwgh-${s}`}
+                    rowSpan={2}
+                    className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${i === 2 ? "border-r" : ""}`}
+                  >
+                    {s}
+                  </th>
+                );
+              })}
               {headers?.flatMap(({ stage, ms }) => {
                 const th = STAGE_THEME[stage];
                 return ms.length === 0 ? (
@@ -198,26 +212,26 @@ export function MdrMilestoneMonitorPanel() {
                   >
                     <div className="flex flex-col items-center leading-tight">
                       {m.label && (
-                        <span className={`text-[9px] italic ${th.text}`}>{m.label}</span>
+                        <span className={`text-[9px] italic font-bold ${th.text}`}>{m.label}</span>
                       )}
-                      <span className={`tabular-nums font-medium ${th.text}`}>{fmtDate(m.planDate)}</span>
-                      <span className="text-[9px] text-muted-foreground">{stage}{m.pct}%</span>
+                      <span className={`tabular-nums font-bold ${th.text}`}>{fmtDate(m.planDate)}</span>
+                      <span className={`text-[9px] font-semibold ${th.text}`}>{stage}{m.pct}%</span>
                     </div>
                   </th>
                 ));
               })}
             </tr>
-            {/* 3단: P / A / Δ */}
-            <tr className="border-b-2 text-muted-foreground">
+            {/* 3단: P / A / Δ (DWG 영역은 위 행에서 rowSpan=2 로 채워짐) */}
+            <tr className="border-b-2">
               {headers?.flatMap(({ stage, ms }) => {
                 const th = STAGE_THEME[stage];
                 const list = ms.length === 0 ? [{ pct: 0, planDate: null as string | null }] : ms;
                 return list.flatMap((m, i) => {
                   const last = i === list.length - 1;
                   return [
-                    <th key={`p-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 border-l font-normal ${th.sub}`}>P</th>,
-                    <th key={`a-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-normal ${th.sub}`}>A</th>,
-                    <th key={`d-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-normal ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ</th>,
+                    <th key={`p-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P</th>,
+                    <th key={`a-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A</th>,
+                    <th key={`d-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ</th>,
                   ];
                 });
               })}
@@ -238,7 +252,9 @@ export function MdrMilestoneMonitorPanel() {
                     </td>
                   )}
                   <td className="px-2 py-0.5 border-r">{row.discipline}</td>
-                  <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCount}</td>
+                  <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
+                  <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
+                  <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
                   {headers?.flatMap(({ stage, ms }) => {
                     if (ms.length === 0) {
                       return [<td key={`empty-${stage}-${ri}`} colSpan={3} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>];
