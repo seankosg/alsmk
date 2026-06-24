@@ -300,6 +300,20 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
     row.drawingCountCD = Math.max(row.drawingCountCD, Number(r.drawing_count_cd) || 0);
     rowMap.set(rk, row);
   }
+
+  // 라이브 카운트로 항상 보정 (snapshot 누락/오래된 값 무시)
+  const live = await fetchDrawingCountsByGroup();
+  for (const row of rowMap.values()) {
+    const k = `${row.building}||${row.discipline}`;
+    const c = live.get(k);
+    if (c) {
+      row.drawingCount = c.total;
+      row.drawingCountSD = c.sd;
+      row.drawingCountDD = c.dd;
+      row.drawingCountCD = c.cd;
+    }
+  }
+
   for (const stage of STAGES) milestonesByStage[stage].sort(sortMs);
   return {
     asOf: latest,
