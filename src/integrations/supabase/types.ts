@@ -791,6 +791,9 @@ export type Database = {
           delta_pct: number
           discipline: string
           drawing_count: number
+          drawing_count_cd: number
+          drawing_count_dd: number
+          drawing_count_sd: number
           id: string
           label: string | null
           pct: number
@@ -806,6 +809,9 @@ export type Database = {
           delta_pct?: number
           discipline: string
           drawing_count?: number
+          drawing_count_cd?: number
+          drawing_count_dd?: number
+          drawing_count_sd?: number
           id?: string
           label?: string | null
           pct: number
@@ -821,6 +827,9 @@ export type Database = {
           delta_pct?: number
           discipline?: string
           drawing_count?: number
+          drawing_count_cd?: number
+          drawing_count_dd?: number
+          drawing_count_sd?: number
           id?: string
           label?: string | null
           pct?: number
