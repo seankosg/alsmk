@@ -95,6 +95,33 @@ async function loadDrawings(): Promise<RawDrawing[]> {
   return rows;
 }
 
+/** Block × Discipline 별 in-scope 도면 개수(전체/SD/DD/CD) 라이브 집계 */
+async function fetchDrawingCountsByGroup(): Promise<Map<string, { total: number; sd: number; dd: number; cd: number }>> {
+  const PAGE = 1000;
+  const map = new Map<string, { total: number; sd: number; dd: number; cd: number }>();
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("mdr_drawings" as never)
+      .select("building_code, discipline, in_scope_sd, in_scope_dd, in_scope_cd")
+      .eq("out_of_scope", false)
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    const chunk = ((data as unknown) as { building_code: string | null; discipline: string | null; in_scope_sd: boolean | null; in_scope_dd: boolean | null; in_scope_cd: boolean | null }[]) ?? [];
+    for (const r of chunk) {
+      if (!r.building_code) continue;
+      const k = `${r.building_code}||${normalizeDiscipline(r.discipline)}`;
+      const v = map.get(k) ?? { total: 0, sd: 0, dd: 0, cd: 0 };
+      v.total += 1;
+      if (r.in_scope_sd) v.sd += 1;
+      if (r.in_scope_dd) v.dd += 1;
+      if (r.in_scope_cd) v.cd += 1;
+      map.set(k, v);
+    }
+    if (chunk.length < PAGE) break;
+  }
+  return map;
+}
+
 /** 컴퓨팅: 도면들 → Block×Discipline 매트릭스 */
 export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix {
   // 1) 도면별 (stage,pct,planDate) 마일스톤 키 수집
@@ -300,6 +327,20 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
     row.drawingCountCD = Math.max(row.drawingCountCD, Number(r.drawing_count_cd) || 0);
     rowMap.set(rk, row);
   }
+
+  // 라이브 카운트로 항상 보정 (snapshot 누락/오래된 값 무시)
+  const live = await fetchDrawingCountsByGroup();
+  for (const row of rowMap.values()) {
+    const k = `${row.building}||${row.discipline}`;
+    const c = live.get(k);
+    if (c) {
+      row.drawingCount = c.total;
+      row.drawingCountSD = c.sd;
+      row.drawingCountDD = c.dd;
+      row.drawingCountCD = c.cd;
+    }
+  }
+
   for (const stage of STAGES) milestonesByStage[stage].sort(sortMs);
   return {
     asOf: latest,
