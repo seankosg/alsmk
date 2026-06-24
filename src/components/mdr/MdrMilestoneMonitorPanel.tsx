@@ -252,7 +252,9 @@ export function MdrMilestoneMonitorPanel() {
                     </td>
                   )}
                   <td className="px-2 py-0.5 border-r">{row.discipline}</td>
-                  <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCount}</td>
+                  <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
+                  <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
+                  <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
                   {headers?.flatMap(({ stage, ms }) => {
                     if (ms.length === 0) {
                       return [<td key={`empty-${stage}-${ri}`} colSpan={3} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>];
