@@ -1,4 +1,6 @@
 import type { MdrStage } from "./parser";
+import { enforceSequential } from "./stageFlow";
+
 
 export interface MilestoneRow {
   stage: MdrStage;
