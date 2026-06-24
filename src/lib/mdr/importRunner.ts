@@ -442,8 +442,10 @@ export async function persistParsed(
             drawing_id: id, stage: m.stage, pct: m.pct,
             sub_idx: cc.subIdx, increment_pct: cc.incrementPct,
             plan_date: cc.planDate ?? m.planDate ?? null,
+            label: cc.label ?? m.label ?? null,
           });
         }
+
       }
       for (const pr of r.progress) {
         pgResync.push({
