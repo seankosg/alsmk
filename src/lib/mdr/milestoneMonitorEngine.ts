@@ -265,7 +265,7 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
   if (!latest) return null;
   const { data, error } = await supabase
     .from("mdr_milestone_snapshots" as never)
-    .select("as_of, building, discipline, stage, pct, label, plan_date, plan_pct, actual_pct, delta_pct, drawing_count")
+    .select("as_of, building, discipline, stage, pct, label, plan_date, plan_pct, actual_pct, delta_pct, drawing_count, drawing_count_sd, drawing_count_dd, drawing_count_cd")
     .eq("as_of", latest);
   if (error) throw error;
   const list = ((data as unknown) as any[]) ?? [];
@@ -283,8 +283,10 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
       milestonesByStage[stage].push({ stage, pct: r.pct, planDate: r.plan_date ?? null, label: r.label ?? null });
     }
     const rk = `${r.building}||${r.discipline}`;
-    const row = rowMap.get(rk) ?? {
-      building: r.building, discipline: r.discipline, drawingCount: 0, cells: new Map<string, MonitorCell>(),
+    const row: MonitorDiscRow = rowMap.get(rk) ?? {
+      building: r.building, discipline: r.discipline,
+      drawingCount: 0, drawingCountSD: 0, drawingCountDD: 0, drawingCountCD: 0,
+      cells: new Map<string, MonitorCell>(),
     };
     row.cells.set(k, {
       plan: Number(r.plan_pct) || 0,
@@ -293,6 +295,9 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
       drawingCount: Number(r.drawing_count) || 0,
     });
     row.drawingCount = Math.max(row.drawingCount, Number(r.drawing_count) || 0);
+    row.drawingCountSD = Math.max(row.drawingCountSD, Number(r.drawing_count_sd) || 0);
+    row.drawingCountDD = Math.max(row.drawingCountDD, Number(r.drawing_count_dd) || 0);
+    row.drawingCountCD = Math.max(row.drawingCountCD, Number(r.drawing_count_cd) || 0);
     rowMap.set(rk, row);
   }
   for (const stage of STAGES) milestonesByStage[stage].sort(sortMs);
