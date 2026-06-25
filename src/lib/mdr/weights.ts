@@ -128,6 +128,8 @@ export function normalizeDiscipline(raw: string | null | undefined): string {
   if (up === "ST" || up.startsWith("STR")) return "STR";
   if (up === "ME" || up.startsWith("MECH")) return "MECH";
   if (up === "EL" || up.startsWith("ELEC")) return "ELEC";
+  if (up === "TEL" || up.startsWith("TEL")) return "TEL";
+  if (up === "HV" || up.startsWith("HV")) return "HV";
   if (up === "CV" || up.startsWith("CIVIL")) return "CIVIL";
   // FP / FA: 신규 세부 코드
   if (up === "FP" || up.startsWith("FP")) return "FP";
