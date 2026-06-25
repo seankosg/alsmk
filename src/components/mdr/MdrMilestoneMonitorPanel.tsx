@@ -4,7 +4,7 @@
  *  - Overall Progress: 각 단계의 마지막(최대 pct) 마일스톤 P/A/Δ
  *  - SD/DD/CD 마일스톤 컬럼: 단계별 토글 (기본 접힘)
  */
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   saveSnapshot,
   type MonitorMatrix,
   type MonitorMilestoneKey,
+  type MonitorDiscRow,
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
@@ -98,6 +99,26 @@ function deltaClass(n: number | null | undefined): string {
 
 function mkKey(stage: MdrStage, pct: number, planDate: string | null): string {
   return `${stage}|${pct}|${planDate ?? ""}`;
+}
+
+function weightedAvg(
+  parts: Array<{ val: number | null | undefined; weight: number }>,
+  weighted: boolean,
+): number | null {
+  let num = 0;
+  let den = 0;
+  for (const { val, weight } of parts) {
+    if (val == null || !isFinite(val)) continue;
+    const w = weighted ? Math.max(0, weight) : 1;
+    if (w <= 0) continue;
+    num += val * w;
+    den += w;
+  }
+  return den > 0 ? num / den : null;
+}
+
+function getStageCount(r: MonitorDiscRow, s: MdrStage): number {
+  return s === "SD" ? r.drawingCountSD : s === "DD" ? r.drawingCountDD : r.drawingCountCD;
 }
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -255,6 +276,70 @@ export function MdrMilestoneMonitorPanel() {
     () => (matrix ? Array.from(new Set(matrix.rows.map((r) => r.building))) : []),
     [matrix],
   );
+
+  // 합계행 렌더러 (건물별 / 전체) — WF 토글 반영(ON=도면수 가중평균, OFF=단순평균)
+  const renderAggRow = (label: string, rows: MonitorDiscRow[], variant: "building" | "grand") => {
+    const sdSum = rows.reduce((a, r) => a + r.drawingCountSD, 0);
+    const ddSum = rows.reduce((a, r) => a + r.drawingCountDD, 0);
+    const cdSum = rows.reduce((a, r) => a + r.drawingCountCD, 0);
+    const bgCls =
+      variant === "grand"
+        ? "bg-orange-200/80 dark:bg-orange-900/50 font-bold"
+        : "bg-orange-100/80 dark:bg-orange-900/30 font-semibold";
+    const borderCls = variant === "grand" ? "border-t-2 border-b-2 border-orange-500/70" : "border-b-2 border-orange-400/60";
+    return (
+      <tr key={`agg-${variant}-${label}`} className={`${bgCls} ${borderCls}`}>
+        <td colSpan={3} className="px-2 py-1 sticky left-0 border-r text-[11px] bg-inherit">
+          {variant === "grand" ? "전체 합계" : `${label} 합계`}
+        </td>
+        <td className="text-center px-2 py-1 border-l tabular-nums">{sdSum}</td>
+        <td className="text-center px-2 py-1 tabular-nums">{ddSum}</td>
+        <td className="text-center px-2 py-1 border-r tabular-nums">{cdSum}</td>
+        {STAGES.map((s, si) => {
+          const last = si === 2;
+          const lm = lastMsByStage[s];
+          const parts = rows.map((r) => {
+            const sw = r.stageW?.[s];
+            const lc = lm ? r.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
+            const src = wfEnabled ? sw : lc;
+            return { plan: src?.plan ?? null, actual: src?.actual ?? null, weight: getStageCount(r, s) };
+          });
+          const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
+          const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
+          const delta = plan != null && actual != null ? actual - plan : null;
+          return [
+            <td key={`agg-op-p-${s}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
+            <td key={`agg-op-a-${s}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
+            <td key={`agg-op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+          ];
+        })}
+        {headers?.flatMap(({ stage, ms }) => {
+          if (!expanded[stage]) {
+            return [<td key={`agg-col-${stage}`} className="text-center px-1 py-1 border-l border-r text-muted-foreground">…</td>];
+          }
+          if (ms.length === 0) {
+            return [<td key={`agg-empty-${stage}`} colSpan={3} className="text-center px-1 py-1 border-l border-r text-muted-foreground">—</td>];
+          }
+          return ms.flatMap((m, mi) => {
+            const last = mi === ms.length - 1;
+            const parts = rows.map((r) => {
+              const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+              return { plan: c?.plan ?? null, actual: c?.actual ?? null, weight: getStageCount(r, stage) };
+            });
+            const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
+            const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
+            const delta = plan != null && actual != null ? actual - plan : null;
+            return [
+              <td key={`agg-p-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
+              <td key={`agg-a-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
+              <td key={`agg-d-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+            ];
+          });
+        })}
+      </tr>
+    );
+  };
+
 
   if (loading) {
     return (
@@ -449,8 +534,10 @@ export function MdrMilestoneMonitorPanel() {
               const prevTeam = prev ? (TEAM_OF_DISCIPLINE[normalizeDiscipline(prev.discipline)] ?? "—") : null;
               const showTeam = !prev || prev.building !== row.building || prevTeam !== rowTeam;
               const teamRowSpan = displayRows.filter((r) => r.building === row.building && (TEAM_OF_DISCIPLINE[normalizeDiscipline(r.discipline)] ?? "—") === rowTeam).length;
+              const isLastOfBuilding = !displayRows[ri + 1] || displayRows[ri + 1].building !== row.building;
               return (
-                <tr key={`${row.building}-${row.discipline}`} className="border-b hover:bg-muted/20">
+                <Fragment key={`${row.building}-${row.discipline}`}>
+                <tr className="border-b hover:bg-muted/20">
                   {showBlock && (
                     <td rowSpan={blockRowSpan} className="px-2 py-0.5 sticky left-0 bg-background font-semibold border-r align-top">
                       {row.building}
@@ -513,8 +600,11 @@ export function MdrMilestoneMonitorPanel() {
                     });
                   })}
                 </tr>
+                {isLastOfBuilding && renderAggRow(row.building, displayRows.filter((r) => r.building === row.building), "building")}
+                </Fragment>
               );
             })}
+            {displayRows.length > 0 && renderAggRow("전체", displayRows, "grand")}
           </tbody>
         </table>
       </div>
