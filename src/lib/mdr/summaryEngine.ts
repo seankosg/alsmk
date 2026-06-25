@@ -498,7 +498,73 @@ export function useMdrSummary() {
   });
 }
 
+
+// ===================== 필터링 / 재집계 =====================
+
+export interface SummaryFilter {
+  building?: string; // 'all' or building code
+  team?: string;     // 'all' or TeamCode
+  discipline?: string; // 'all' or discipline code (ARCH/CIVIL/STR/MECH/FP/ELEC/FA)
+}
+
+/**
+ * 이미 계산된 summary를 클라이언트 측에서 필터링하고 Block/Team 소계를 재계산.
+ */
+export function filterSummary(summary: MdrSummary, f: SummaryFilter): MdrSummary {
+  const fb = f.building && f.building !== "all" ? f.building : null;
+  const ft = f.team && f.team !== "all" ? (f.team as TeamCode) : null;
+  const fd = f.discipline && f.discipline !== "all" ? f.discipline : null;
+  // Discipline 필터가 있으면 Team도 자동 제약
+  const effectiveTeam = fd ? (TEAM_OF_DISCIPLINE[fd] ?? ft) : ft;
+
+  const blocks: BlockSummary[] = [];
+  for (const b of summary.blocks) {
+    if (fb && b.building !== fb) continue;
+
+    const filteredCells = b.cells.filter((c) => {
+      if (fd && c.discipline !== fd) return false;
+      if (effectiveTeam && TEAM_OF_DISCIPLINE[c.discipline] !== effectiveTeam) return false;
+      return true;
+    });
+
+    // Team 재구성
+    const teams = buildTeams(filteredCells, summary.wf);
+
+    // Block totals 재계산
+    const totals = {
+      sd: aggregateStage("SD", filteredCells.map((c) => c.sd)),
+      dd: aggregateStage("DD", filteredCells.map((c) => c.dd)),
+      cd: aggregateStage("CD", filteredCells.map((c) => c.cd)),
+    };
+
+    // Block progress 재계산 (Team WF 가중)
+    let bpNum = 0, bpDen = 0;
+    for (const t of teams) {
+      const w = summary.wf.discipline[t.team] ?? 0;
+      if (t.drawingCount > 0 && w > 0) {
+        bpNum += t.teamProgress * w;
+        bpDen += w;
+      }
+    }
+    const blockProgress = bpDen > 0 ? bpNum / bpDen : b.blockProgress;
+    const drawingCount = filteredCells.reduce((a, c) => a + c.drawingCount, 0);
+
+    blocks.push({
+      ...b,
+      cells: filteredCells,
+      teams,
+      totals,
+      blockProgress,
+      drawingCount,
+      hasDrawings: drawingCount > 0,
+    });
+  }
+
+  return { ...summary, blocks };
+}
+
 // ===================== 보조 셀렉터 =====================
+
 
 export interface DisciplineRollup {
   discipline: string;
