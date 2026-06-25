@@ -381,7 +381,7 @@ export function MdrMilestoneMonitorPanel() {
       </div>
 
       <div className="text-[10px] text-muted-foreground">
-        ※ Overall Progress = 각 단계 마지막(최대 pct) 마일스톤의 P/A/Δ. 발행 이정표(IFR/IFA, IFC)는 별도 영역 추후 표시.
+        ※ Overall Progress — WF 적용: Summary 산식(plan_date·actual_date ≤ 기준일 기준 도면 평균). WF 미적용: 각 단계 마지막 마일스톤의 P/A/Δ(일할 보간). 토글로 전환 (기본 WF 적용). 신규 계산 후 정확 반영.
       </div>
     </Card>
   );
