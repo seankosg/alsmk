@@ -356,12 +356,10 @@ export function MdrMilestoneMonitorPanel() {
             CD: { plan: null, actual: null, delta: null },
           };
           for (const s of STAGES) {
-            const lm = lastMsByStage[s];
+            // stage 대표값은 WF 토글과 무관하게 항상 Summary 산식(row.stageW)을 사용
             const parts = rows.map((r) => {
               const sw = r.stageW?.[s];
-              const lc = lm ? r.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
-              const src = wfEnabled ? sw : lc;
-              return { plan: src?.plan ?? null, actual: src?.actual ?? null, weight: getStageCount(r, s) };
+              return { plan: sw?.plan ?? null, actual: sw?.actual ?? null, weight: getStageCount(r, s) };
             });
             const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
             const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
