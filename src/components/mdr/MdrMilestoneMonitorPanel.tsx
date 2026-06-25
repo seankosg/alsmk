@@ -23,6 +23,62 @@ import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilter
 import { normalizeDiscipline, TEAM_OF_DISCIPLINE } from "@/lib/mdr/weights";
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
+const COL_WIDTHS_KEY = "mdr.monitor.columnWidths";
+const DEFAULT_COL_W = 56;
+const MIN_COL_W = 32;
+const MAX_COL_W = 240;
+
+type ColWidths = Record<string, number>;
+
+function ResizeHandle({
+  colKey,
+  setWidths,
+}: {
+  colKey: string;
+  setWidths: React.Dispatch<React.SetStateAction<ColWidths>>;
+}) {
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    let startW = DEFAULT_COL_W;
+    setWidths((prev) => {
+      startW = prev[colKey] ?? DEFAULT_COL_W;
+      return prev;
+    });
+    const move = (ev: MouseEvent) => {
+      const next = Math.max(MIN_COL_W, Math.min(MAX_COL_W, startW + (ev.clientX - startX)));
+      setWidths((p) => ({ ...p, [colKey]: next }));
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+  const onDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setWidths((p) => {
+      const n = { ...p };
+      delete n[colKey];
+      return n;
+    });
+  };
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      onDoubleClick={onDoubleClick}
+      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-primary/50 active:bg-primary/70 z-10"
+      title="드래그하여 너비 조절 · 더블클릭으로 기본값(56px) 복원"
+    />
+  );
+}
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
