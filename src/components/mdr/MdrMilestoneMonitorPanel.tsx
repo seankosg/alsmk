@@ -83,6 +83,13 @@ function ResizeHandle({
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
+/** 건물 고정 정렬 순서: 공장동(GEN→SMP&CCM→HSM→CRM→FAFP) → 사무동(MAIN_OFFICE) */
+const BUILDING_ORDER: string[] = ["GEN", "SMP&CCM", "HSM", "CRM", "FAFP", "MAIN_OFFICE"];
+/** 공장동 분류 */
+const FACTORY_BUILDINGS = new Set(["GEN", "SMP&CCM", "HSM", "CRM", "FAFP"]);
+/** 공장동 마지막 건물 (이 건물 소계 직후 공장동 합계행 삽입) */
+const LAST_FACTORY_BUILDING = "FAFP";
+
 function fmtPct(n: number | null | undefined): string {
   if (n === null || n === undefined || !isFinite(n)) return "—";
   return `${n.toFixed(1)}%`;
@@ -255,15 +262,16 @@ export function MdrMilestoneMonitorPanel() {
       }
       return true;
     });
-    // 안정 정렬: building, team, discipline 순
-    const buildingOrder = new Map<string, number>();
-    matrix.rows.forEach((r) => {
-      if (!buildingOrder.has(r.building)) buildingOrder.set(r.building, buildingOrder.size);
-    });
+    // 안정 정렬: 고정 건물 순서, team, discipline
+    const buildingRank = (b: string) => {
+      const i = BUILDING_ORDER.indexOf(b);
+      return i === -1 ? BUILDING_ORDER.length : i;
+    };
     return [...filtered].sort((a, b) => {
-      const ba = buildingOrder.get(a.building) ?? 0;
-      const bb = buildingOrder.get(b.building) ?? 0;
+      const ba = buildingRank(a.building);
+      const bb = buildingRank(b.building);
       if (ba !== bb) return ba - bb;
+      if (a.building !== b.building) return a.building.localeCompare(b.building);
       const ta = TEAM_OF_DISCIPLINE[normalizeDiscipline(a.discipline)] ?? "ZZZ";
       const tb = TEAM_OF_DISCIPLINE[normalizeDiscipline(b.discipline)] ?? "ZZZ";
       if (ta !== tb) return ta.localeCompare(tb);
