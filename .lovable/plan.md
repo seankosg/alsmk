@@ -1,45 +1,23 @@
-## 원인 분석
+## 문제
 
-### 영향 범위
-`mdr_milestone_cells` 에 **SD 단계 합계가 100% 초과(180%)** 인 도면이 다음 disc에 존재:
+마일스톤 모니터링 패널 Overall Progress(WF 적용)에서 일부 STR 행의 **SD 계획이 50%** 로 표시됨.
 
-| Building | Discipline | 전체 도면 | 비정상 도면 |
-|---|---|---:|---:|
-| CRM | STR | 396 | **22** |
-| SMP&CCM | STR | 220 | **17** |
-| HSM | STR - STEEL | 99 | **8** |
+- 영향 행: `CRM/STR`, `HSM/STR`, `SMP&CCM/STR`
+- 원인: 해당 STR 도면들의 SD `pct=100` 마일스톤 `plan_date = 2026-07-17` (기준일 2026-06-25보다 미래).
+- `milestoneMonitorEngine.buildMatrix` 의 `stageW` SD 계획 산식이 **"plan_date ≤ asOf 의 최대 pct"** 를 쓰기 때문에 미도래 100% 마일스톤을 제외하고 50% 만 누적 → 50% 표시.
 
-→ 합 **47개 도면** 만 비정상이지만, 같은 disc 행 평균 산식에 들어가 P=50.0% A=180.0% +130% 로 표시됨.
+반면 Raw Data / Summary 패널은 `drawingMilestonePlannedPct` 를 사용 → **SD 는 항상 100%** 로 처리. 두 화면이 다른 산식을 쓰는 불일치.
 
-### 도면 1건의 실제 SD cells 예시 (drawing_id=`04fe12c0…`)
+## 해결
 
-```
-stage  pct  sub  inc   plan_date
-SD     50   0    50    2026-04-15   ← 정상
-SD    100   0    50    2026-04-30   ← 정상 (여기까지 합 100)
-SD    100   1    20    2026-05-22   ← 비정상 추가
-SD    100   2    5     2026-05-29   ← 비정상 추가
-SD    100   3    7     2026-06-05
-SD    100   4~9  8×7   …            ← 비정상 추가 (총 +80%)
-```
+`src/lib/mdr/milestoneMonitorEngine.ts` `buildMatrix` 의 `stageW` 계산을 Raw/Summary 와 동일하게 맞춤.
 
-정상 SD 단계는 `pct=50, sub=0` + `pct=100, sub=0` 두 cell(합 100%)이어야 하는데, **`pct=100`의 `sub_idx≥1` cells 가 추가로 들어가서 합계가 180%** 가 됨.
+1. **SD 단계 계획**: `planPct = 100` 으로 고정 (in-scope 인 모든 도면).
+2. DD/CD 단계 계획·실적, SD 실적은 기존 산식 유지.
+3. per-milestone 셀(plan/actual) 산식은 이미 `drawingMilestonePlannedPct`(SD=100) 사용 중이므로 변경 없음.
 
-### 추정 원인
-임포트 단계(`mdrParser` / `mdr_milestone_cells` 적재 로직)에서 STR 계열 일부 도면이 **SD/DD/CD 셀 분류 시 다른 단계의 셀이 SD 에 중복 적재**된 것으로 보임. 47개 도면만 영향 — 임포트 행 단위에서 stage 컬럼 판정이 잘못된 케이스.
+수정 후 사용자에게 패널의 **[신규 계산]** 버튼을 눌러 스냅샷을 갱신하도록 안내. (이미 저장된 snapshot 행의 `stage_plan_pct=50` 은 재계산 시 100 으로 덮어써짐.)
 
-## 해결 옵션
+## 변경 파일
 
-### A. (권장) 비정상 cells 삭제로 즉시 정정
-`mdr_milestone_cells` 에서 SD/DD/CD 단계별 **누적 합이 100을 초과하는 도면**의 `sub_idx ≥ 1, pct=100` cells 를 삭제. 같은 패턴이 DD/CD 에도 있을 수 있으므로 모든 stage 점검.
-
-**위험:** 정상적으로 `pct=100, sub_idx≥1` 을 사용하는 케이스가 있다면 정상 데이터 손실 가능. 따라서 **합 100 초과 조건이 충족된 (drawing, stage) 만** 대상으로 한정.
-
-### B. 데이터 정리 + 임포트 로직 가드 추가
-A 에 더해, `mdrParser` 에서 `(drawing, stage)` 단위 increment 합 > 100 이면 import_log 에 경고를 남기고 cells 적재를 건너뛰는 가드 추가. 차후 재발 방지.
-
-### C. 임포트 원본(Excel) 검증
-DB 정정 전에 원본 시트를 사용자가 점검할 수 있도록 영향 도면 id 목록을 CSV 로 제공 → 사용자가 재임포트 결정.
-
-## 권장 다음 단계
-**옵션 A 의 정정 마이그레이션을 실행**하면 화면 표시가 즉시 정상화됨. B 의 가드 추가는 후속 작업으로 분리. 진행 여부를 선택해 주세요.
+- `src/lib/mdr/milestoneMonitorEngine.ts` — `buildMatrix` 내 SD stageW 계획 분기 1줄 추가.
