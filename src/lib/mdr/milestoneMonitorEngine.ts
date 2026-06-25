@@ -26,10 +26,12 @@ export interface MonitorMilestoneKey {
 }
 
 export interface MonitorCell {
-  plan: number;     // 0~100
-  actual: number;   // 0~100
-  delta: number;    // actual - plan
+  plan: number;             // 0~100
+  actual: number | null;    // 0~100, null = 기준일 미도래
+  delta: number | null;     // actual - plan, null = A 가 null 일 때
   drawingCount: number;
+  /** 동일 단계 내 이전 마일스톤 A 대비 같거나 감소 → 역진행/정체 경고 */
+  warn?: boolean;
 }
 
 /** WF(가중) 적용 모드용 단계별 P/A — Summary 산식(planAtDate / actualAtDate)으로 도면 평균 */
