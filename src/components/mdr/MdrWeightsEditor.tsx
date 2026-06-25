@@ -8,8 +8,9 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import {
   DEFAULT_BUILDING_WF,
-  DEFAULT_DISCIPLINE_WF,
+  DEFAULT_TEAM_WF,
   DEFAULT_STAGE_WF,
+  TEAMS,
   loadMdrWeights,
   type StageCode,
 } from "@/lib/mdr/weights";
