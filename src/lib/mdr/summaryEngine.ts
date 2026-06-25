@@ -586,7 +586,7 @@ export function selectDisciplineRollup(summary: MdrSummary): DisciplineRollup[] 
       map.set(c.discipline, cur);
     }
   }
-  const ORDER = ["ARCH", "STR", "MECH", "ELEC", "FAFP", "CIVIL"];
+  const ORDER = ["ARCH", "STR", "MECH", "ELEC", "TEL", "HV", "FAFP", "CIVIL"];
   return Array.from(map.entries())
     .map(([discipline, v]) => ({
       discipline,
