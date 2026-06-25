@@ -32,6 +32,13 @@ export interface MonitorCell {
   drawingCount: number;
 }
 
+/** WF(가중) 적용 모드용 단계별 P/A — Summary 산식(planAtDate / actualAtDate)으로 도면 평균 */
+export interface MonitorStageW {
+  plan: number;   // 0~100
+  actual: number; // 0~100
+  delta: number;
+}
+
 export interface MonitorDiscRow {
   building: string;
   discipline: string;
@@ -40,6 +47,8 @@ export interface MonitorDiscRow {
   drawingCountDD: number;
   drawingCountCD: number;
   cells: Map<string, MonitorCell>; // key = `${stage}|${pct}|${planDate ?? ''}`
+  /** WF 적용 모드 — 단계별 (Summary 산식). 스냅샷에 없으면 fallback 으로 last-milestone 값을 채움. */
+  stageW: Record<MdrStage, MonitorStageW>;
 }
 
 export interface MonitorMatrix {
