@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { RefreshCw, Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -18,6 +19,8 @@ import {
   type MonitorMilestoneKey,
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
+
+const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
@@ -61,6 +64,17 @@ export function MdrMilestoneMonitorPanel() {
   const [loading, setLoading] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
   const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: false, CD: false });
+  const [wfEnabled, setWfEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem(WF_STORAGE_KEY);
+    return v === null ? true : v === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(WF_STORAGE_KEY, wfEnabled ? "1" : "0");
+    }
+  }, [wfEnabled]);
 
   const toggleStage = (s: MdrStage) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
@@ -148,7 +162,18 @@ export function MdrMilestoneMonitorPanel() {
             P=계획·A=실적·Δ=차이 · 단계 순차 강제(SD→DD→CD) 적용 · 기준일 일할 계산 · 단계 헤더 클릭 시 마일스톤 펼치기/접기
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className={`flex items-center gap-2 px-2 py-1 rounded border text-[11px] ${
+              wfEnabled ? "border-primary/40 bg-primary/5" : "border-muted bg-muted/30"
+            }`}
+            title="WF 적용: Overall Progress 를 Summary 와 동일한 산식(단계별 도면 평균)으로 표시"
+          >
+            <span className={`font-semibold ${wfEnabled ? "text-primary" : "text-muted-foreground"}`}>
+              WF {wfEnabled ? "적용" : "미적용"}
+            </span>
+            <Switch checked={wfEnabled} onCheckedChange={setWfEnabled} aria-label="WF 적용 토글" />
+          </div>
           <label className="text-xs text-muted-foreground">기준일</label>
           <Input
             type="date"
@@ -302,12 +327,16 @@ export function MdrMilestoneMonitorPanel() {
                   <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
                   <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
                   <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
-                  {/* Overall Progress 본문 */}
+                  {/* Overall Progress 본문 — WF ON 이면 Summary 산식(row.stageW), OFF 면 last-milestone cell */}
                   {STAGES.map((s, si) => {
                     const last = si === 2;
                     const lm = lastMsByStage[s];
-                    const cell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
-                    if (!cell) {
+                    const lastCell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
+                    const sw = row.stageW?.[s];
+                    const useSrc = wfEnabled
+                      ? (sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null)
+                      : (lastCell ? { plan: lastCell.plan, actual: lastCell.actual, delta: lastCell.delta } : null);
+                    if (!useSrc) {
                       return [
                         <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
                         <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
@@ -315,9 +344,9 @@ export function MdrMilestoneMonitorPanel() {
                       ];
                     }
                     return [
-                      <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(cell.plan)}</td>,
-                      <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(cell.actual)}</td>,
-                      <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(cell.delta)}</td>,
+                      <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(useSrc.plan)}</td>,
+                      <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(useSrc.actual)}</td>,
+                      <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(useSrc.delta)}</td>,
                     ];
                   })}
                   {headers?.flatMap(({ stage, ms }) => {
@@ -352,7 +381,7 @@ export function MdrMilestoneMonitorPanel() {
       </div>
 
       <div className="text-[10px] text-muted-foreground">
-        ※ Overall Progress = 각 단계 마지막(최대 pct) 마일스톤의 P/A/Δ. 발행 이정표(IFR/IFA, IFC)는 별도 영역 추후 표시.
+        ※ Overall Progress — WF 적용: Summary 산식(plan_date·actual_date ≤ 기준일 기준 도면 평균). WF 미적용: 각 단계 마지막 마일스톤의 P/A/Δ(일할 보간). 토글로 전환 (기본 WF 적용). 신규 계산 후 정확 반영.
       </div>
     </Card>
   );
