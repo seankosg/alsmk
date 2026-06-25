@@ -420,9 +420,9 @@ export function MdrMilestoneMonitorPanel() {
                       const cell = row.cells.get(mkKey(stage, m.pct, m.planDate));
                       if (!cell) {
                         return [
-                          <td key={`p-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
-                          <td key={`a-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
-                          <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
+                          <td key={`p-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 border-l text-muted-foreground w-14">—</td>,
+                          <td key={`a-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground w-14">—</td>,
+                          <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 text-muted-foreground w-14 ${last ? "border-r" : ""}`}>—</td>,
                         ];
                       }
                       const warnCls = cell.warn ? "bg-pink-500/25 dark:bg-pink-500/30" : "";
