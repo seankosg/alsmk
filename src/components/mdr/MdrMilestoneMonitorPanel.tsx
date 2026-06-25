@@ -429,5 +429,6 @@ export function MdrMilestoneMonitorPanel() {
         <div>※ <span className="inline-block w-3 h-3 align-middle bg-pink-500/25 dark:bg-pink-500/30 border border-pink-500/40" /> 핑크 = 동일 단계 직전 마일스톤 대비 A 가 같거나 감소 → 역진행/정체 경고.</div>
       </div>
     </Card>
+    </div>
   );
 }
