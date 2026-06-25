@@ -557,7 +557,11 @@ export function MdrMilestoneMonitorPanel() {
             </tr>
             {/* 3단 */}
             <tr className="border-b-2">
-              {/* Overall Progress P/A/Δ */}
+              {/* Overall P/A/Δ (Stage WF 합성) */}
+              <th key="op-p-OVERALL" style={colStyle(`op-OVERALL-P`)} className="relative text-center px-1 py-0.5 border-l font-bold text-black bg-slate-200">P<ResizeHandle colKey={`op-OVERALL-P`} setWidths={setColumnWidths} /></th>
+              <th key="op-a-OVERALL" style={colStyle(`op-OVERALL-A`)} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">A<ResizeHandle colKey={`op-OVERALL-A`} setWidths={setColumnWidths} /></th>
+              <th key="op-d-OVERALL" style={colStyle(`op-OVERALL-D`)} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">Δ<ResizeHandle colKey={`op-OVERALL-D`} setWidths={setColumnWidths} /></th>
+              {/* SD/DD/CD Stage P/A/Δ */}
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
