@@ -64,6 +64,17 @@ export function MdrMilestoneMonitorPanel() {
   const [loading, setLoading] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
   const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: false, CD: false });
+  const [wfEnabled, setWfEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem(WF_STORAGE_KEY);
+    return v === null ? true : v === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(WF_STORAGE_KEY, wfEnabled ? "1" : "0");
+    }
+  }, [wfEnabled]);
 
   const toggleStage = (s: MdrStage) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
