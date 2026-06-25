@@ -59,7 +59,7 @@ export function MdrSummaryFilterBar({ buildings, value, onChange }: Props) {
             <TabsList className="h-8 flex-wrap">
               <TabsTrigger value="all" className="h-6 px-2 text-xs">All</TabsTrigger>
               {buildings.map((b) => (
-                <TabsTrigger key={b} value={b} className="h-6 px-2 text-xs">{b}</TabsTrigger>
+                <TabsTrigger key={b} value={b} className="h-6 px-2 text-xs">{b === "GEN" ? "GENERAL" : b}</TabsTrigger>
               ))}
             </TabsList>
           </Tabs>

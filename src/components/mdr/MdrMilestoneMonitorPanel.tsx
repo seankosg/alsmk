@@ -21,7 +21,7 @@ import {
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
-import { normalizeDiscipline, TEAM_OF_DISCIPLINE, DEFAULT_STAGE_WF } from "@/lib/mdr/weights";
+import { normalizeDiscipline, TEAM_OF_DISCIPLINE, DEFAULT_STAGE_WF, TEAMS } from "@/lib/mdr/weights";
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 const COL_WIDTHS_KEY = "mdr.monitor.columnWidths";
@@ -83,12 +83,15 @@ function ResizeHandle({
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
-/** 건물 고정 정렬 순서: 공장동(GEN→SMP&CCM→HSM→CRM→FAFP) → 사무동(MAIN_OFFICE) */
-const BUILDING_ORDER: string[] = ["GEN", "SMP&CCM", "HSM", "CRM", "FAFP", "MAIN_OFFICE"];
+/** 건물 고정 정렬 순서: 공장동(GEN→SMP&CCM→HSM→CRM) → 사무동(MAIN_OFFICE) → FAFP */
+const BUILDING_ORDER: string[] = ["GEN", "SMP&CCM", "HSM", "CRM", "MAIN_OFFICE", "FAFP"];
 /** 공장동 분류 */
 const FACTORY_BUILDINGS = new Set(["GEN", "SMP&CCM", "HSM", "CRM", "FAFP"]);
 /** 공장동 마지막 건물 (이 건물 소계 직후 공장동 합계행 삽입) */
 const LAST_FACTORY_BUILDING = "FAFP";
+
+/** Block 표시 라벨: 내부 코드 GEN → "GENERAL"로 표기. 그 외는 코드 그대로. */
+const displayBuilding = (code: string): string => (code === "GEN" ? "GENERAL" : code);
 
 function fmtPct(n: number | null | undefined): string {
   if (n === null || n === undefined || !isFinite(n)) return "—";
@@ -292,9 +295,15 @@ export function MdrMilestoneMonitorPanel() {
       const bb = buildingRank(b.building);
       if (ba !== bb) return ba - bb;
       if (a.building !== b.building) return a.building.localeCompare(b.building);
-      const ta = TEAM_OF_DISCIPLINE[normalizeDiscipline(a.discipline)] ?? "ZZZ";
-      const tb = TEAM_OF_DISCIPLINE[normalizeDiscipline(b.discipline)] ?? "ZZZ";
-      if (ta !== tb) return ta.localeCompare(tb);
+      const ta = TEAM_OF_DISCIPLINE[normalizeDiscipline(a.discipline)] ?? "—";
+      const tb = TEAM_OF_DISCIPLINE[normalizeDiscipline(b.discipline)] ?? "—";
+      const teamRank = (t: string) => {
+        const i = (TEAMS as readonly string[]).indexOf(t);
+        return i === -1 ? TEAMS.length : i;
+      };
+      const tra = teamRank(ta);
+      const trb = teamRank(tb);
+      if (tra !== trb) return tra - trb;
       return a.discipline.localeCompare(b.discipline);
     });
   }, [matrix, filter.building, filter.team, filter.discipline]);
@@ -621,7 +630,7 @@ export function MdrMilestoneMonitorPanel() {
                 <tr className="border-b hover:bg-muted/20">
                   {showBlock && (
                     <td rowSpan={blockRowSpan} className="px-2 py-0.5 sticky left-0 bg-background font-semibold border-r align-top">
-                      {row.building}
+                      {displayBuilding(row.building)}
                     </td>
                   )}
                   {showTeam && (
@@ -700,7 +709,7 @@ export function MdrMilestoneMonitorPanel() {
                     });
                   })}
                 </tr>
-                {isLastOfBuilding && renderAggRow(row.building, displayRows.filter((r) => r.building === row.building), "building")}
+                {isLastOfBuilding && renderAggRow(displayBuilding(row.building), displayRows.filter((r) => r.building === row.building), "building")}
                 {isLastOfBuilding && row.building === lastFactoryBuilding && factoryRows.length > 0 && (
                   renderAggRow("공장동", factoryRows, "factory")
                 )}
