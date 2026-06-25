@@ -14,7 +14,6 @@ import { RefreshCw, Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   computeMatrix,
-  loadLatestSnapshot,
   saveSnapshot,
   type MonitorMatrix,
   type MonitorMilestoneKey,
