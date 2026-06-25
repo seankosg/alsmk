@@ -176,8 +176,70 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
       drawingCount: g.drawings.length,
       drawingCountSD: cntSD, drawingCountDD: cntDD, drawingCountCD: cntCD,
       cells: new Map(),
+      stageW: { SD: { plan: 0, actual: 0, delta: 0 }, DD: { plan: 0, actual: 0, delta: 0 }, CD: { plan: 0, actual: 0, delta: 0 } },
     };
-    // 각 마일스톤 key 별로 P/A 평균
+    // WF(Summary 산식) 단계별 누적 — 도면 평균
+    const stagePlanSum: Record<MdrStage, number> = { SD: 0, DD: 0, CD: 0 };
+    const stageActualSum: Record<MdrStage, number> = { SD: 0, DD: 0, CD: 0 };
+    const stageN: Record<MdrStage, number> = { SD: 0, DD: 0, CD: 0 };
+
+    // 각 마일스톤 key 별로 P/A 평균 + Summary 산식(단계 step) 누적
+    for (const d of g.drawings) {
+      const milestones: MilestoneRow[] = (d.mdr_milestones ?? []).map((m) => ({
+        stage: m.stage, pct: m.pct, incrementPct: Number(m.increment_pct) || 0,
+        planDate: m.plan_date ?? null,
+      }));
+      const cells: MilestoneCellRow[] = (d.mdr_milestone_cells ?? []).map((c) => ({
+        stage: c.stage, pct: c.pct, subIdx: c.sub_idx,
+        incrementPct: Number(c.increment_pct) || 0, planDate: c.plan_date,
+      }));
+      const progress: ProgressRow[] = (d.mdr_progress ?? []).map((p) => ({
+        stage: p.stage, pct: p.pct, subIdx: p.sub_idx ?? 0,
+        isDone: !!p.is_done, actualDate: p.actual_date,
+      }));
+      for (const stage of STAGES) {
+        if (!isInScope(d, stage)) continue;
+        stageN[stage] += 1;
+        // Summary planAtDate: plan_date ≤ asOf 의 최대 pct
+        let planPct = 0;
+        for (const m of d.mdr_milestones ?? []) {
+          if (m.stage !== stage || !m.plan_date) continue;
+          if (m.plan_date > asOf) continue;
+          if (m.pct > planPct) planPct = m.pct;
+        }
+        // Summary actualAtDate: actual_date ≤ asOf & is_done 의 cell increment 합
+        let actualPct = 0;
+        if (d.mdr_milestone_cells && d.mdr_milestone_cells.length) {
+          for (const cc of d.mdr_milestone_cells) {
+            if (cc.stage !== stage) continue;
+            const matched = (d.mdr_progress ?? []).find((p) =>
+              p.stage === stage && p.pct === cc.pct && (p.sub_idx ?? 0) === cc.sub_idx
+              && p.is_done && (!p.actual_date || p.actual_date <= asOf),
+            );
+            if (matched) actualPct += Number(cc.increment_pct) || 0;
+          }
+        } else {
+          // 폴백: 그룹 단위
+          let m = 0;
+          for (const p of d.mdr_progress ?? []) {
+            if (p.stage !== stage || !p.is_done) continue;
+            if (p.actual_date && p.actual_date > asOf) continue;
+            if (p.pct > m) m = p.pct;
+          }
+          actualPct = m;
+        }
+        stagePlanSum[stage] += planPct;
+        stageActualSum[stage] += actualPct;
+      }
+    }
+    for (const stage of STAGES) {
+      const n = stageN[stage];
+      const plan = n > 0 ? stagePlanSum[stage] / n : 0;
+      const actual = n > 0 ? stageActualSum[stage] / n : 0;
+      row.stageW[stage] = { plan, actual, delta: actual - plan };
+    }
+
+    // 기존 per-milestone 셀 P/A (interpolated, 도면 단순평균) — 유지
     for (const stage of STAGES) {
       for (const ms of milestonesByStage[stage]) {
         const matching = g.drawings.filter((d) =>
