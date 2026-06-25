@@ -1,18 +1,14 @@
 /**
  * 마일스톤 모니터링 패널.
- *  - 1단: SD / DD / CD (stage colSpan)
- *  - 2단: 마일스톤 plan_date 컬럼 (각 셀당 colSpan=3, STR DD 의 경우 라벨 캡션 부기)
- *  - 3단: P(계획) / A(실적) / Δ(차이)
- *  - 행: Block × Discipline
- *  - [신규 계산] 버튼: 전체 재계산 + snapshot upsert
- *  - 기본 로드: 최신 snapshot 그대로 표시 (없으면 즉시 계산)
- *  - 우측: IFR/IFA, IFC 발행 이정표(읽기 전용, 향후 확장)
+ *  - Total DWG: SD/DD/CD 도면 합
+ *  - Overall Progress: 각 단계의 마지막(최대 pct) 마일스톤 P/A/Δ
+ *  - SD/DD/CD 마일스톤 컬럼: 단계별 토글 (기본 접힘)
  */
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   computeMatrix,
@@ -53,7 +49,6 @@ function fmtDate(iso: string | null | undefined): string {
   return `${m[3]}-${mon}-${yy}`;
 }
 
-// 스테이지별 헤더 색상 (검정 텍스트 대비를 위해 채도 높은 파스텔 배경)
 const STAGE_THEME: Record<MdrStage, { head: string; sub: string; border: string; text: string }> = {
   SD: { head: "bg-sky-300",     sub: "bg-sky-100",     border: "border-sky-500",     text: "text-black" },
   DD: { head: "bg-amber-300",   sub: "bg-amber-100",   border: "border-amber-500",   text: "text-black" },
@@ -65,8 +60,10 @@ export function MdrMilestoneMonitorPanel() {
   const [matrix, setMatrix] = useState<MonitorMatrix | null>(null);
   const [loading, setLoading] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
+  const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: false, CD: false });
 
-  // 초기 로드 — 최신 snapshot 표시
+  const toggleStage = (s: MdrStage) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -78,7 +75,6 @@ export function MdrMilestoneMonitorPanel() {
           setMatrix(snap);
           setAsOf(snap.asOf);
         } else {
-          // snapshot 없음 → 즉시 계산
           const today = new Date().toISOString().slice(0, 10);
           const m = await computeMatrix(today);
           if (cancelled) return;
@@ -108,14 +104,20 @@ export function MdrMilestoneMonitorPanel() {
     }
   };
 
-  // 컬럼 헤더 메모
   const headers = useMemo(() => {
     if (!matrix) return null;
-    const stageMs: { stage: MdrStage; ms: MonitorMilestoneKey[] }[] = STAGES.map((s) => ({
-      stage: s, ms: matrix.milestonesByStage[s] ?? [],
-    }));
-    return stageMs;
+    return STAGES.map((s) => ({ stage: s, ms: matrix.milestonesByStage[s] ?? [] }));
   }, [matrix]);
+
+  // 단계별 "마지막 마일스톤" — Overall Progress 산출 키
+  const lastMsByStage = useMemo(() => {
+    const map: Record<MdrStage, MonitorMilestoneKey | null> = { SD: null, DD: null, CD: null };
+    if (!headers) return map;
+    headers.forEach(({ stage, ms }) => {
+      map[stage] = ms.length ? ms[ms.length - 1] : null;
+    });
+    return map;
+  }, [headers]);
 
   if (loading) {
     return (
@@ -143,7 +145,7 @@ export function MdrMilestoneMonitorPanel() {
         <div>
           <h3 className="font-semibold text-sm">마일스톤 모니터링 — Block × Discipline × Milestone</h3>
           <div className="text-[10px] text-muted-foreground">
-            P=계획·A=실적·Δ=차이 · 단계 순차 강제(SD→DD→CD) 적용 · 기준일 일할 계산
+            P=계획·A=실적·Δ=차이 · 단계 순차 강제(SD→DD→CD) 적용 · 기준일 일할 계산 · 단계 헤더 클릭 시 마일스톤 펼치기/접기
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -164,27 +166,37 @@ export function MdrMilestoneMonitorPanel() {
       <div className="overflow-x-auto">
         <table className="w-full text-[11px] border-collapse">
           <thead>
-            {/* 1단: Stage + Total DWG (colSpan=3) */}
+            {/* 1단 */}
             <tr className="border-b">
               <th rowSpan={3} className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
               <th rowSpan={3} className="text-left px-2 py-1 border-r">Disc.</th>
               <th colSpan={3} className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider">
                 Total DWG
               </th>
+              <th colSpan={9} className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider">
+                Overall Progress
+              </th>
               {headers?.map(({ stage, ms }) => {
                 const th = STAGE_THEME[stage];
+                const isOpen = expanded[stage];
+                const cols = isOpen ? Math.max(1, ms.length) * 3 : 1;
                 return (
                   <th
                     key={`s-${stage}`}
-                    colSpan={Math.max(1, ms.length) * 3}
-                    className={`text-center px-2 py-1.5 border-l border-r font-bold tracking-wider text-black ${th.head} ${th.border}`}
+                    colSpan={cols}
+                    onClick={() => toggleStage(stage)}
+                    className={`text-center px-2 py-1.5 border-l border-r font-bold tracking-wider text-black cursor-pointer select-none hover:brightness-95 ${th.head} ${th.border}`}
+                    title={isOpen ? "클릭하여 접기" : "클릭하여 펼치기"}
                   >
-                    {stage}
+                    <span className="inline-flex items-center gap-1">
+                      {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      {stage}
+                    </span>
                   </th>
                 );
               })}
             </tr>
-            {/* 2단: DWG 단계 라벨(SD/DD/CD) + 마일스톤 plan_date */}
+            {/* 2단 */}
             <tr className="border-b">
               {(["SD","DD","CD"] as MdrStage[]).map((s, i) => {
                 const th = STAGE_THEME[s];
@@ -198,10 +210,36 @@ export function MdrMilestoneMonitorPanel() {
                   </th>
                 );
               })}
+              {/* Overall Progress 2단: SD/DD/CD */}
+              {STAGES.map((s, i) => {
+                const th = STAGE_THEME[s];
+                return (
+                  <th
+                    key={`op-h-${s}`}
+                    colSpan={3}
+                    className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${i === 2 ? "border-r" : ""}`}
+                  >
+                    {s}
+                  </th>
+                );
+              })}
               {headers?.flatMap(({ stage, ms }) => {
                 const th = STAGE_THEME[stage];
+                if (!expanded[stage]) {
+                  return [
+                    <th
+                      key={`collapsed-${stage}`}
+                      rowSpan={2}
+                      onClick={() => toggleStage(stage)}
+                      className={`text-center px-1 py-0.5 border-l border-r text-[10px] text-muted-foreground cursor-pointer ${th.sub} ${th.border}`}
+                      title="펼치기"
+                    >
+                      …
+                    </th>
+                  ];
+                }
                 return ms.length === 0 ? (
-                  <th key={`empty-${stage}`} colSpan={3} className={`text-center px-2 py-0.5 border-l text-muted-foreground text-[10px] ${th.sub}`}>
+                  <th key={`empty-${stage}`} colSpan={3} className={`text-center px-2 py-0.5 border-l border-r text-muted-foreground text-[10px] ${th.sub}`}>
                     —
                   </th>
                 ) : ms.map((m, i) => (
@@ -221,9 +259,20 @@ export function MdrMilestoneMonitorPanel() {
                 ));
               })}
             </tr>
-            {/* 3단: P / A / Δ (DWG 영역은 위 행에서 rowSpan=2 로 채워짐) */}
+            {/* 3단 */}
             <tr className="border-b-2">
+              {/* Overall Progress P/A/Δ */}
+              {STAGES.map((s, i) => {
+                const th = STAGE_THEME[s];
+                const last = i === 2;
+                return [
+                  <th key={`op-p-${s}`} className={`text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P</th>,
+                  <th key={`op-a-${s}`} className={`text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A</th>,
+                  <th key={`op-d-${s}`} className={`text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r" : ""}`}>Δ</th>,
+                ];
+              })}
               {headers?.flatMap(({ stage, ms }) => {
+                if (!expanded[stage]) return [];
                 const th = STAGE_THEME[stage];
                 const list = ms.length === 0 ? [{ pct: 0, planDate: null as string | null }] : ms;
                 return list.flatMap((m, i) => {
@@ -236,8 +285,6 @@ export function MdrMilestoneMonitorPanel() {
                 });
               })}
             </tr>
-
-
           </thead>
           <tbody>
             {matrix.rows.map((row, ri) => {
@@ -255,23 +302,45 @@ export function MdrMilestoneMonitorPanel() {
                   <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
                   <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
                   <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
-                  {headers?.flatMap(({ stage, ms }) => {
-                    if (ms.length === 0) {
-                      return [<td key={`empty-${stage}-${ri}`} colSpan={3} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>];
+                  {/* Overall Progress 본문 */}
+                  {STAGES.map((s, si) => {
+                    const last = si === 2;
+                    const lm = lastMsByStage[s];
+                    const cell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
+                    if (!cell) {
+                      return [
+                        <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
+                        <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
+                        <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
+                      ];
                     }
-                    return ms.flatMap((m) => {
+                    return [
+                      <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(cell.plan)}</td>,
+                      <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(cell.actual)}</td>,
+                      <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(cell.delta)}</td>,
+                    ];
+                  })}
+                  {headers?.flatMap(({ stage, ms }) => {
+                    if (!expanded[stage]) {
+                      return [<td key={`col-${stage}-${ri}`} className="text-center px-1 py-0.5 border-l border-r text-muted-foreground">…</td>];
+                    }
+                    if (ms.length === 0) {
+                      return [<td key={`empty-${stage}-${ri}`} colSpan={3} className="text-center px-1 py-0.5 border-l border-r text-muted-foreground">—</td>];
+                    }
+                    return ms.flatMap((m, mi) => {
+                      const last = mi === ms.length - 1;
                       const cell = row.cells.get(mkKey(stage, m.pct, m.planDate));
                       if (!cell) {
                         return [
                           <td key={`p-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
                           <td key={`a-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
-                          <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
+                          <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
                         ];
                       }
                       return [
                         <td key={`p-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(cell.plan)}</td>,
                         <td key={`a-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(cell.actual)}</td>,
-                        <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)}`}>{fmtDelta(cell.delta)}</td>,
+                        <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(cell.delta)}</td>,
                       ];
                     });
                   })}
@@ -283,8 +352,7 @@ export function MdrMilestoneMonitorPanel() {
       </div>
 
       <div className="text-[10px] text-muted-foreground">
-        ※ 발행 이정표(IFR/IFA, IFC)는 별도 영역에서 추후 표시 예정. 도면 단계 흐름:
-        SD → DD → CD → IFR/IFA → IFC (선행 미완료 시 후행 진척 무시).
+        ※ Overall Progress = 각 단계 마지막(최대 pct) 마일스톤의 P/A/Δ. 발행 이정표(IFR/IFA, IFC)는 별도 영역 추후 표시.
       </div>
     </Card>
   );
