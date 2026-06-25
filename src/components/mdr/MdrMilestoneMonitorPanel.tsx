@@ -403,9 +403,9 @@ export function MdrMilestoneMonitorPanel() {
                       ];
                     }
                     return [
-                      <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(useSrc.plan)}</td>,
-                      <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(useSrc.actual)}</td>,
-                      <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(useSrc.delta)}</td>,
+                      <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums w-14">{fmtPct(useSrc.plan)}</td>,
+                      <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 tabular-nums w-14">{fmtPct(useSrc.actual)}</td>,
+                      <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums w-14 ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(useSrc.delta)}</td>,
                     ];
                   })}
                   {headers?.flatMap(({ stage, ms }) => {
