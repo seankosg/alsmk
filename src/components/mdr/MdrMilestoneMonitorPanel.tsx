@@ -600,8 +600,11 @@ export function MdrMilestoneMonitorPanel() {
                     });
                   })}
                 </tr>
+                {isLastOfBuilding && renderAggRow(row.building, displayRows.filter((r) => r.building === row.building), "building")}
+                </Fragment>
               );
             })}
+            {displayRows.length > 0 && renderAggRow("전체", displayRows, "grand")}
           </tbody>
         </table>
       </div>
