@@ -267,13 +267,33 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
           aSum += actualPctUpTo(milestones, progress, stage, ms.pct, cells);
         }
         const n = matching.length;
-        const plan = pSum / n, actual = aSum / n;
+        const plan = pSum / n;
+        // 기준일 미도래(마일스톤 planDate > asOf) → A=Null, Δ=Null
+        const future = !!(ms.planDate && ms.planDate > asOf);
+        const actual: number | null = future ? null : aSum / n;
+        const delta: number | null = actual === null ? null : actual - plan;
         row.cells.set(mkKey(stage, ms.pct, ms.planDate), {
-          plan, actual, delta: actual - plan, drawingCount: n,
+          plan, actual, delta, drawingCount: n,
         });
       }
     }
     rows.push(row);
+  }
+
+  // 역진행/정체 경고 플래그 — 행별, 단계별 마일스톤 순서 기준
+  for (const row of rows) {
+    for (const stage of STAGES) {
+      let prevA: number | null = null;
+      for (const ms of milestonesByStage[stage]) {
+        const cell = row.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        if (!cell) continue;
+        const currA = cell.actual;
+        if (prevA !== null && prevA > 0 && currA !== null && currA <= prevA) {
+          cell.warn = true;
+        }
+        if (currA !== null) prevA = currA;
+      }
+    }
   }
 
   // 정렬: 건물(고정 순서) → discipline 표준 순서
