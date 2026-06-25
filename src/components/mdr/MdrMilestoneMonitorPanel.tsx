@@ -5,6 +5,7 @@
  *  - SD/DD/CD 마일스톤 컬럼: 단계별 토글 (기본 접힘)
  */
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ import {
   type MonitorMilestoneKey,
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
+import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
+import { normalizeDiscipline, TEAM_OF_DISCIPLINE } from "@/lib/mdr/weights";
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 
@@ -78,6 +81,20 @@ export function MdrMilestoneMonitorPanel() {
 
   const toggleStage = (s: MdrStage) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
+  // 필터 — URL 동기화 (?b, ?t, ?d)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter: SummaryFilterState = {
+    building: searchParams.get("b") ?? "all",
+    team: searchParams.get("t") ?? "all",
+    discipline: searchParams.get("d") ?? "all",
+  };
+  const setFilter = (next: SummaryFilterState) => {
+    const sp = new URLSearchParams(searchParams);
+    const apply = (k: string, v: string) => { if (v === "all") sp.delete(k); else sp.set(k, v); };
+    apply("b", next.building); apply("t", next.team); apply("d", next.discipline);
+    setSearchParams(sp, { replace: true });
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -133,6 +150,26 @@ export function MdrMilestoneMonitorPanel() {
     return map;
   }, [headers]);
 
+  // 필터 적용된 행
+  const displayRows = useMemo(() => {
+    if (!matrix) return [];
+    return matrix.rows.filter((r) => {
+      if (filter.building !== "all" && r.building !== filter.building) return false;
+      const disc = normalizeDiscipline(r.discipline);
+      if (filter.discipline !== "all" && disc !== filter.discipline) return false;
+      if (filter.team !== "all") {
+        const team = TEAM_OF_DISCIPLINE[disc];
+        if (team !== filter.team) return false;
+      }
+      return true;
+    });
+  }, [matrix, filter.building, filter.team, filter.discipline]);
+
+  const buildings = useMemo(
+    () => (matrix ? Array.from(new Set(matrix.rows.map((r) => r.building))) : []),
+    [matrix],
+  );
+
   if (loading) {
     return (
       <Card className="p-6 flex items-center gap-2 text-muted-foreground">
@@ -154,6 +191,8 @@ export function MdrMilestoneMonitorPanel() {
   }
 
   return (
+    <div className="space-y-3">
+    <MdrSummaryFilterBar buildings={buildings} value={filter} onChange={setFilter} />
     <Card className="p-3 space-y-2">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -312,10 +351,13 @@ export function MdrMilestoneMonitorPanel() {
             </tr>
           </thead>
           <tbody>
-            {matrix.rows.map((row, ri) => {
-              const prev = ri > 0 ? matrix.rows[ri - 1] : null;
+            {displayRows.length === 0 && (
+              <tr><td colSpan={99} className="text-center px-2 py-4 text-muted-foreground text-[11px]">필터 조건에 해당하는 행이 없습니다.</td></tr>
+            )}
+            {displayRows.map((row, ri) => {
+              const prev = ri > 0 ? displayRows[ri - 1] : null;
               const showBlock = !prev || prev.building !== row.building;
-              const blockRowSpan = matrix.rows.filter((r) => r.building === row.building).length;
+              const blockRowSpan = displayRows.filter((r) => r.building === row.building).length;
               return (
                 <tr key={`${row.building}-${row.discipline}`} className="border-b hover:bg-muted/20">
                   {showBlock && (
@@ -387,5 +429,6 @@ export function MdrMilestoneMonitorPanel() {
         <div>※ <span className="inline-block w-3 h-3 align-middle bg-pink-500/25 dark:bg-pink-500/30 border border-pink-500/40" /> 핑크 = 동일 단계 직전 마일스톤 대비 A 가 같거나 감소 → 역진행/정체 경고.</div>
       </div>
     </Card>
+    </div>
   );
 }
