@@ -240,6 +240,7 @@ export function MdrMilestoneMonitorPanel() {
             {/* 1단 */}
             <tr className="border-b">
               <th rowSpan={3} className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
+              <th rowSpan={3} className="text-left px-2 py-1 border-r">Team</th>
               <th rowSpan={3} className="text-left px-2 py-1 border-r">Disc.</th>
               <th colSpan={3} className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider">
                 Total DWG
