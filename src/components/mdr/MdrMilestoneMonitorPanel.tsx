@@ -83,6 +83,13 @@ function ResizeHandle({
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
+/** 건물 고정 정렬 순서: 공장동(GEN→SMP&CCM→HSM→CRM→FAFP) → 사무동(MAIN_OFFICE) */
+const BUILDING_ORDER: string[] = ["GEN", "SMP&CCM", "HSM", "CRM", "FAFP", "MAIN_OFFICE"];
+/** 공장동 분류 */
+const FACTORY_BUILDINGS = new Set(["GEN", "SMP&CCM", "HSM", "CRM", "FAFP"]);
+/** 공장동 마지막 건물 (이 건물 소계 직후 공장동 합계행 삽입) */
+const LAST_FACTORY_BUILDING = "FAFP";
+
 function fmtPct(n: number | null | undefined): string {
   if (n === null || n === undefined || !isFinite(n)) return "—";
   return `${n.toFixed(1)}%`;
@@ -255,21 +262,34 @@ export function MdrMilestoneMonitorPanel() {
       }
       return true;
     });
-    // 안정 정렬: building, team, discipline 순
-    const buildingOrder = new Map<string, number>();
-    matrix.rows.forEach((r) => {
-      if (!buildingOrder.has(r.building)) buildingOrder.set(r.building, buildingOrder.size);
-    });
+    // 안정 정렬: 고정 건물 순서, team, discipline
+    const buildingRank = (b: string) => {
+      const i = BUILDING_ORDER.indexOf(b);
+      return i === -1 ? BUILDING_ORDER.length : i;
+    };
     return [...filtered].sort((a, b) => {
-      const ba = buildingOrder.get(a.building) ?? 0;
-      const bb = buildingOrder.get(b.building) ?? 0;
+      const ba = buildingRank(a.building);
+      const bb = buildingRank(b.building);
       if (ba !== bb) return ba - bb;
+      if (a.building !== b.building) return a.building.localeCompare(b.building);
       const ta = TEAM_OF_DISCIPLINE[normalizeDiscipline(a.discipline)] ?? "ZZZ";
       const tb = TEAM_OF_DISCIPLINE[normalizeDiscipline(b.discipline)] ?? "ZZZ";
       if (ta !== tb) return ta.localeCompare(tb);
       return a.discipline.localeCompare(b.discipline);
     });
   }, [matrix, filter.building, filter.team, filter.discipline]);
+
+  // 공장동 행 모음 + 마지막 공장동 건물 (공장동 합계행 삽입 위치 판정)
+  const factoryRows = useMemo(
+    () => displayRows.filter((r) => FACTORY_BUILDINGS.has(r.building)),
+    [displayRows],
+  );
+  const lastFactoryBuilding = useMemo(() => {
+    for (let i = factoryRows.length - 1; i >= 0; i--) return factoryRows[i].building;
+    return null;
+  }, [factoryRows]);
+
+
 
 
   const buildings = useMemo(
@@ -278,19 +298,32 @@ export function MdrMilestoneMonitorPanel() {
   );
 
   // 합계행 렌더러 (건물별 / 전체) — WF 토글 반영(ON=도면수 가중평균, OFF=단순평균)
-  const renderAggRow = (label: string, rows: MonitorDiscRow[], variant: "building" | "grand") => {
+  const renderAggRow = (
+    label: string,
+    rows: MonitorDiscRow[],
+    variant: "building" | "factory" | "grand",
+  ) => {
     const sdSum = rows.reduce((a, r) => a + r.drawingCountSD, 0);
     const ddSum = rows.reduce((a, r) => a + r.drawingCountDD, 0);
     const cdSum = rows.reduce((a, r) => a + r.drawingCountCD, 0);
     const bgCls =
       variant === "grand"
-        ? "bg-orange-200/80 dark:bg-orange-900/50 font-bold"
+        ? "bg-orange-300/80 dark:bg-orange-900/60 font-bold"
+        : variant === "factory"
+        ? "bg-orange-200/80 dark:bg-orange-900/45 font-semibold"
         : "bg-orange-100/80 dark:bg-orange-900/30 font-semibold";
-    const borderCls = variant === "grand" ? "border-t-2 border-b-2 border-orange-500/70" : "border-b-2 border-orange-400/60";
+    const borderCls =
+      variant === "grand"
+        ? "border-t-2 border-b-2 border-orange-600/80"
+        : variant === "factory"
+        ? "border-t border-b-2 border-orange-500/70"
+        : "border-b-2 border-orange-400/60";
+    const displayLabel =
+      variant === "grand" ? "프로젝트 전체" : variant === "factory" ? "공장동 합계" : `${label} 합계`;
     return (
       <tr key={`agg-${variant}-${label}`} className={`${bgCls} ${borderCls}`}>
         <td colSpan={3} className="px-2 py-1 sticky left-0 border-r text-[11px] bg-inherit">
-          {variant === "grand" ? "전체 합계" : `${label} 합계`}
+          {displayLabel}
         </td>
         <td className="text-center px-2 py-1 border-l tabular-nums">{sdSum}</td>
         <td className="text-center px-2 py-1 tabular-nums">{ddSum}</td>
@@ -601,10 +634,13 @@ export function MdrMilestoneMonitorPanel() {
                   })}
                 </tr>
                 {isLastOfBuilding && renderAggRow(row.building, displayRows.filter((r) => r.building === row.building), "building")}
+                {isLastOfBuilding && row.building === lastFactoryBuilding && factoryRows.length > 0 && (
+                  renderAggRow("공장동", factoryRows, "factory")
+                )}
                 </Fragment>
               );
             })}
-            {displayRows.length > 0 && renderAggRow("전체", displayRows, "grand")}
+            {displayRows.length > 0 && renderAggRow("프로젝트 전체", displayRows, "grand")}
           </tbody>
         </table>
       </div>
