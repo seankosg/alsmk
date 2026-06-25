@@ -462,8 +462,8 @@ export function MdrMilestoneMonitorPanel() {
               <th colSpan={3} className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider">
                 Total DWG
               </th>
-              <th colSpan={9} className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider">
-                Overall Progress
+              <th colSpan={12} className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider">
+                Progress Status
               </th>
               {headers?.map(({ stage, ms }) => {
                 const th = STAGE_THEME[stage];
