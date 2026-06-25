@@ -128,6 +128,26 @@ function getStageCount(r: MonitorDiscRow, s: MdrStage): number {
   return s === "SD" ? r.drawingCountSD : s === "DD" ? r.drawingCountDD : r.drawingCountCD;
 }
 
+/** SD/DD/CD 단계값을 합성해 Overall P/A/Δ 산출. WF ON → DEFAULT_STAGE_WF 가중평균, OFF → 단순평균. null 단계는 가중치에서 제외. */
+function overallFromStages(
+  triples: Partial<Record<MdrStage, { plan: number | null | undefined; actual: number | null | undefined } | null | undefined>>,
+  weighted: boolean,
+): { plan: number | null; actual: number | null; delta: number | null } {
+  let pNum = 0, pDen = 0, aNum = 0, aDen = 0;
+  for (const s of STAGES) {
+    const v = triples[s];
+    if (!v) continue;
+    const w = weighted ? (DEFAULT_STAGE_WF[s] ?? 0) : 1;
+    if (w <= 0) continue;
+    if (v.plan != null && isFinite(v.plan as number)) { pNum += (v.plan as number) * w; pDen += w; }
+    if (v.actual != null && isFinite(v.actual as number)) { aNum += (v.actual as number) * w; aDen += w; }
+  }
+  const plan = pDen > 0 ? pNum / pDen : null;
+  const actual = aDen > 0 ? aNum / aDen : null;
+  const delta = plan != null && actual != null ? actual - plan : null;
+  return { plan, actual, delta };
+}
+
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
