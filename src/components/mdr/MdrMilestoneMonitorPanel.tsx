@@ -350,9 +350,9 @@ export function MdrMilestoneMonitorPanel() {
                 return list.flatMap((m, i) => {
                   const last = i === list.length - 1;
                   return [
-                    <th key={`p-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P</th>,
-                    <th key={`a-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A</th>,
-                    <th key={`d-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ</th>,
+                    <th key={`p-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 border-l font-bold text-black w-14 ${th.sub}`}>P</th>,
+                    <th key={`a-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-bold text-black w-14 ${th.sub}`}>A</th>,
+                    <th key={`d-${stage}-${m.pct}-${m.planDate}`} className={`text-center px-1 py-0.5 font-bold text-black w-14 ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ</th>,
                   ];
                 });
               })}
