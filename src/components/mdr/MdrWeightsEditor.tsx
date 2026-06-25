@@ -8,8 +8,9 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import {
   DEFAULT_BUILDING_WF,
-  DEFAULT_DISCIPLINE_WF,
+  DEFAULT_TEAM_WF,
   DEFAULT_STAGE_WF,
+  TEAMS,
   loadMdrWeights,
   type StageCode,
 } from "@/lib/mdr/weights";
@@ -39,9 +40,9 @@ export function MdrWeightsEditor() {
     for (const s of ["SD", "DD", "CD"] as StageCode[]) {
       rows.push({ scope: "stage", key: s, value: wf.stage[s] });
     }
-    const discKeys = new Set([...Object.keys(DEFAULT_DISCIPLINE_WF), ...Object.keys(wf.discipline)]);
-    for (const d of discKeys) {
-      rows.push({ scope: "discipline", key: d, value: wf.discipline[d] ?? 0 });
+    // Team WF만 노출 (DB는 discipline 컬럼에 TEAMS 키로 저장)
+    for (const t of TEAMS) {
+      rows.push({ scope: "discipline", key: t, value: wf.discipline[t] ?? 0 });
     }
     const bldKeys = new Set([...Object.keys(DEFAULT_BUILDING_WF), ...Object.keys(wf.building)]);
     for (const b of bldKeys) {
@@ -87,7 +88,7 @@ export function MdrWeightsEditor() {
   const resetDefaults = () => {
     const rows: DraftRow[] = [];
     for (const s of ["SD", "DD", "CD"] as StageCode[]) rows.push({ scope: "stage", key: s, value: DEFAULT_STAGE_WF[s] });
-    for (const [d, v] of Object.entries(DEFAULT_DISCIPLINE_WF)) rows.push({ scope: "discipline", key: d, value: v });
+    for (const t of TEAMS) rows.push({ scope: "discipline", key: t, value: DEFAULT_TEAM_WF[t] });
     for (const [b, v] of Object.entries(DEFAULT_BUILDING_WF)) rows.push({ scope: "building", key: b, value: v });
     setDraft(rows);
     toast.info("기본값으로 되돌렸습니다. 저장 버튼을 눌러 반영하세요.");
@@ -129,7 +130,7 @@ export function MdrWeightsEditor() {
           onChange={(k, v) => updateValue("stage", k, v)}
         />
         <WfCard
-          title="Discipline WF"
+          title="Team WF (Arch/Civil/STR/Mech/Elec)"
           sumLabel={discSum}
           rows={discRows}
           onChange={(k, v) => updateValue("discipline", k, v)}

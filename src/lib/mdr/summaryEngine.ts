@@ -8,6 +8,10 @@ import {
   loadMdrWeights,
   normalizeDiscipline,
   FAFP_STAGE_WF,
+  TEAMS,
+  TEAM_OF_DISCIPLINE,
+  DISCIPLINES_BY_TEAM,
+  type TeamCode,
   type MdrWfBundle,
   type StageCode,
 } from "./weights";
@@ -72,10 +76,23 @@ export interface DiscCell {
   discProgress: number;
 }
 
+export interface TeamCell {
+  team: TeamCode;
+  drawingCount: number;
+  sd: StageCell;
+  dd: StageCell;
+  cd: StageCell;
+  teamProgress: number;
+  disciplines: DiscCell[];
+}
+
 export interface BlockSummary {
   building: string;
   drawingCount: number;
+  /** Discipline 플랫 리스트 (DesignDashboard 등 호환용) */
   cells: DiscCell[];
+  /** Team 단위 중첩 구조 (SUMMARY 표용) */
+  teams: TeamCell[];
   blockProgress: number;
   buildingWf: number;
   contributesToOverall: boolean;
@@ -272,21 +289,11 @@ function computeBlock(
     }
   }
 
-  let bpNum = 0, bpDen = 0;
-  for (const c of cells) {
-    const w = wf.discipline[c.discipline] ?? 0;
-    if (c.drawingCount > 0 && w > 0) {
-      bpNum += c.discProgress * w;
-      bpDen += w;
-    }
-  }
-  const blockProgress = bpDen > 0 ? bpNum / bpDen : 0;
-  const buildingWf = wf.building[building] ?? 0;
-
-  const ORDER = ["ARCH", "STR", "MECH", "ELEC", "FAFP", "CIVIL"];
+  // Discipline 정렬
+  const DISC_ORDER = ["ARCH", "CIVIL", "STR", "MECH", "FP", "ELEC", "FA", "FAFP"];
   cells.sort((a, b) => {
-    const ai = ORDER.indexOf(a.discipline);
-    const bi = ORDER.indexOf(b.discipline);
+    const ai = DISC_ORDER.indexOf(a.discipline);
+    const bi = DISC_ORDER.indexOf(b.discipline);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
@@ -303,10 +310,26 @@ function computeBlock(
     });
   }
 
+  // === Team 집계 ===
+  const teams: TeamCell[] = buildTeams(cells, wf);
+
+  // Block 진척률 = Team WF 가중 평균 (DB의 discipline row가 Team WF로 사용됨)
+  let bpNum = 0, bpDen = 0;
+  for (const t of teams) {
+    const w = wf.discipline[t.team] ?? 0;
+    if (t.drawingCount > 0 && w > 0) {
+      bpNum += t.teamProgress * w;
+      bpDen += w;
+    }
+  }
+  const blockProgress = bpDen > 0 ? bpNum / bpDen : 0;
+  const buildingWf = wf.building[building] ?? 0;
+
   return {
     building,
     drawingCount: drawings.length,
     cells,
+    teams,
     blockProgress,
     buildingWf,
     contributesToOverall: buildingWf > 0 && drawings.length > 0,
@@ -315,6 +338,71 @@ function computeBlock(
     hasDrawings: drawings.length > 0,
     sortOrder: meta.sortOrder,
   };
+}
+
+/** Discipline 셀들을 Team 단위로 묶어 TeamCell[] 생성 */
+function buildTeams(cells: DiscCell[], wf: MdrWfBundle): TeamCell[] {
+  const out: TeamCell[] = [];
+  for (const team of TEAMS) {
+    const members = cells.filter((c) => TEAM_OF_DISCIPLINE[c.discipline] === team);
+    if (members.length === 0) continue;
+
+    // Team Stage = 소속 Discipline 셀들의 도면 수 가중 합 → 평균
+    const sd = aggregateStage("SD", members.map((m) => m.sd));
+    const dd = aggregateStage("DD", members.map((m) => m.dd));
+    const cd = aggregateStage("CD", members.map((m) => m.cd));
+    const drawingCount = members.reduce((a, m) => a + m.drawingCount, 0);
+
+    // Team progress: stage WF 가중 평균. FP/FA는 FAFP_STAGE_WF, 그 외는 일반 stage WF.
+    const usesFafpWf = members.every((m) => m.discipline === "FP" || m.discipline === "FA");
+    const stageWf = usesFafpWf ? FAFP_STAGE_WF : wf.stage;
+    let num = 0, den = 0;
+    for (const st of STAGES) {
+      const sc = st === "SD" ? sd : st === "DD" ? dd : cd;
+      if (sc.drawingCount > 0 && stageWf[st] > 0) {
+        num += sc.actual * stageWf[st];
+        den += stageWf[st];
+      }
+    }
+    const teamProgress = den > 0 ? num / den : 0;
+
+    // Discipline 순서 고정
+    const ordered = [...members].sort((a, b) => {
+      const order = DISCIPLINES_BY_TEAM[team];
+      const ai = order.indexOf(a.discipline);
+      const bi = order.indexOf(b.discipline);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    out.push({ team, drawingCount, sd, dd, cd, teamProgress, disciplines: ordered });
+  }
+  return out;
+}
+
+/** 도면 수 가중 평균으로 Stage 셀 합산 */
+function aggregateStage(stage: StageCode, list: StageCell[]): StageCell {
+  const acc = emptyCell(stage);
+  let planSum = 0, actualSum = 0;
+  for (const sc of list) {
+    acc.drawingCount += sc.drawingCount;
+    acc.planCount += sc.planCount;
+    acc.actualCount += sc.actualCount;
+    planSum += sc.plan * sc.drawingCount;
+    actualSum += sc.actual * sc.drawingCount;
+    for (let i = 0; i < acc.milestones.length && i < sc.milestones.length; i++) {
+      acc.milestones[i].planCount += sc.milestones[i].planCount;
+      acc.milestones[i].actualCount += sc.milestones[i].actualCount;
+    }
+  }
+  const n = acc.drawingCount;
+  acc.plan = n > 0 ? planSum / n : 0;
+  acc.actual = n > 0 ? actualSum / n : 0;
+  acc.progress = acc.actual;
+  for (const mc of acc.milestones) {
+    mc.planRatio = n > 0 ? mc.planCount / n : 0;
+    mc.actualRatio = n > 0 ? mc.actualCount / n : 0;
+  }
+  return acc;
 }
 
 
@@ -410,7 +498,73 @@ export function useMdrSummary() {
   });
 }
 
+
+// ===================== 필터링 / 재집계 =====================
+
+export interface SummaryFilter {
+  building?: string; // 'all' or building code
+  team?: string;     // 'all' or TeamCode
+  discipline?: string; // 'all' or discipline code (ARCH/CIVIL/STR/MECH/FP/ELEC/FA)
+}
+
+/**
+ * 이미 계산된 summary를 클라이언트 측에서 필터링하고 Block/Team 소계를 재계산.
+ */
+export function filterSummary(summary: MdrSummary, f: SummaryFilter): MdrSummary {
+  const fb = f.building && f.building !== "all" ? f.building : null;
+  const ft = f.team && f.team !== "all" ? (f.team as TeamCode) : null;
+  const fd = f.discipline && f.discipline !== "all" ? f.discipline : null;
+  // Discipline 필터가 있으면 Team도 자동 제약
+  const effectiveTeam = fd ? (TEAM_OF_DISCIPLINE[fd] ?? ft) : ft;
+
+  const blocks: BlockSummary[] = [];
+  for (const b of summary.blocks) {
+    if (fb && b.building !== fb) continue;
+
+    const filteredCells = b.cells.filter((c) => {
+      if (fd && c.discipline !== fd) return false;
+      if (effectiveTeam && TEAM_OF_DISCIPLINE[c.discipline] !== effectiveTeam) return false;
+      return true;
+    });
+
+    // Team 재구성
+    const teams = buildTeams(filteredCells, summary.wf);
+
+    // Block totals 재계산
+    const totals = {
+      sd: aggregateStage("SD", filteredCells.map((c) => c.sd)),
+      dd: aggregateStage("DD", filteredCells.map((c) => c.dd)),
+      cd: aggregateStage("CD", filteredCells.map((c) => c.cd)),
+    };
+
+    // Block progress 재계산 (Team WF 가중)
+    let bpNum = 0, bpDen = 0;
+    for (const t of teams) {
+      const w = summary.wf.discipline[t.team] ?? 0;
+      if (t.drawingCount > 0 && w > 0) {
+        bpNum += t.teamProgress * w;
+        bpDen += w;
+      }
+    }
+    const blockProgress = bpDen > 0 ? bpNum / bpDen : b.blockProgress;
+    const drawingCount = filteredCells.reduce((a, c) => a + c.drawingCount, 0);
+
+    blocks.push({
+      ...b,
+      cells: filteredCells,
+      teams,
+      totals,
+      blockProgress,
+      drawingCount,
+      hasDrawings: drawingCount > 0,
+    });
+  }
+
+  return { ...summary, blocks };
+}
+
 // ===================== 보조 셀렉터 =====================
+
 
 export interface DisciplineRollup {
   discipline: string;

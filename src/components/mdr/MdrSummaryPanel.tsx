@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useMdrSummary, STAGE_MILESTONE_PCTS } from "@/lib/mdr/summaryEngine";
-import type { BlockSummary, StageCell, MilestoneCell } from "@/lib/mdr/summaryEngine";
-import type { StageCode } from "@/lib/mdr/weights";
+import { useMdrSummary, STAGE_MILESTONE_PCTS, filterSummary } from "@/lib/mdr/summaryEngine";
+import type { BlockSummary, StageCell, MilestoneCell, TeamCell } from "@/lib/mdr/summaryEngine";
+import { TEAM_LABEL, type StageCode } from "@/lib/mdr/weights";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Settings2, ChevronDown, ChevronRight } from "lucide-react";
@@ -18,6 +19,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
 
 function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
@@ -97,7 +99,7 @@ function StageGroup({
   );
 }
 
-function BlockRow({
+function BlockRows({
   block,
   expanded,
 }: {
@@ -113,16 +115,26 @@ function BlockRow({
   } else if (dim) {
     badge = { label: "합산 제외", className: "text-[10px] w-fit" };
   }
-  return (
-    <>
-      {block.cells.map((c, idx) => (
+
+  // 행 수 계산: 각 팀의 discipline 개수 합 + 팀 소계 행 1개씩 + Block Sub-total 1
+  const blockRowSpan =
+    block.teams.reduce((a, t) => a + t.disciplines.length + 1, 0) + 1;
+
+  const out: JSX.Element[] = [];
+  let isFirstRow = true;
+
+  for (const team of block.teams) {
+    const teamRowSpan = team.disciplines.length + 1; // disciplines + team sub-total
+
+    team.disciplines.forEach((c, dIdx) => {
+      out.push(
         <tr
-          key={`${block.building}-${c.discipline}-${idx}`}
+          key={`${block.building}-${team.team}-${c.discipline}`}
           className={`border-b hover:bg-muted/30 ${dim ? "opacity-50" : ""}`}
         >
-          {idx === 0 && (
+          {isFirstRow && (
             <td
-              rowSpan={block.cells.length + 1}
+              rowSpan={blockRowSpan}
               className="px-2 py-0.5 sticky left-0 bg-background font-semibold align-top border-r"
             >
               <div className="flex flex-col gap-0.5">
@@ -135,10 +147,18 @@ function BlockRow({
               </div>
             </td>
           )}
+          {dIdx === 0 && (
+            <td
+              rowSpan={teamRowSpan}
+              className="px-2 py-0.5 font-medium align-top border-r bg-muted/10"
+            >
+              {TEAM_LABEL[team.team]}
+            </td>
+          )}
           <td className="px-2 py-0.5">
             <span className="inline-flex items-center gap-1">
               {c.discipline}
-              {c.discipline === "FAFP" && (
+              {(c.discipline === "FP" || c.discipline === "FA") && (
                 <TooltipProvider delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -161,22 +181,58 @@ function BlockRow({
           <td className="text-center px-2 py-0.5 border-l font-medium tabular-nums">
             {c.drawingCount > 0 ? pct(c.discProgress) : "-"}
           </td>
-        </tr>
-      ))}
-      <tr className={`border-b-2 bg-muted/40 ${dim ? "opacity-50" : ""}`}>
-        <td className="px-2 py-0.5 text-[11px] font-semibold">Sub-total</td>
+        </tr>,
+      );
+      isFirstRow = false;
+    });
+
+    // Team sub-total row
+    out.push(
+      <tr key={`${block.building}-${team.team}-subtotal`} className={`border-b bg-muted/20 ${dim ? "opacity-50" : ""}`}>
+        <td className="px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+          {TEAM_LABEL[team.team]} 소계
+        </td>
         <td className="text-center px-2 py-0.5 tabular-nums">
-          {block.drawingCount > 0 ? block.drawingCount : "-"}
+          {team.drawingCount > 0 ? team.drawingCount : "-"}
         </td>
-        <StageGroup stage="SD" cell={block.totals.sd} expanded={expanded.SD} />
-        <StageGroup stage="DD" cell={block.totals.dd} expanded={expanded.DD} />
-        <StageGroup stage="CD" cell={block.totals.cd} expanded={expanded.CD} />
-        <td className="text-center px-2 py-0.5 border-l font-bold tabular-nums text-primary">
-          {block.drawingCount > 0 ? pct(block.blockProgress) : "-"}
+        <StageGroup stage="SD" cell={team.sd} expanded={expanded.SD} />
+        <StageGroup stage="DD" cell={team.dd} expanded={expanded.DD} />
+        <StageGroup stage="CD" cell={team.cd} expanded={expanded.CD} />
+        <td className="text-center px-2 py-0.5 border-l font-semibold tabular-nums text-primary">
+          {team.drawingCount > 0 ? pct(team.teamProgress) : "-"}
         </td>
-      </tr>
-    </>
+      </tr>,
+    );
+  }
+
+  // 팀이 비어있으면 빈 행 1개 (Block 셀 + placeholder)
+  if (block.teams.length === 0) {
+    out.push(
+      <tr key={`${block.building}-empty`} className="border-b opacity-50">
+        <td className="px-2 py-0.5 sticky left-0 bg-background font-semibold border-r">{block.building}</td>
+        <td className="px-2 py-0.5 text-muted-foreground" colSpan={3 + 9 + 1}>도면 없음</td>
+      </tr>,
+    );
+    return out;
+  }
+
+  // Block Sub-total
+  out.push(
+    <tr key={`${block.building}-blocksubtotal`} className={`border-b-2 bg-muted/40 ${dim ? "opacity-50" : ""}`}>
+      <td className="px-2 py-0.5 text-[11px] font-bold" colSpan={2}>Block 합계</td>
+      <td className="text-center px-2 py-0.5 tabular-nums">
+        {block.drawingCount > 0 ? block.drawingCount : "-"}
+      </td>
+      <StageGroup stage="SD" cell={block.totals.sd} expanded={expanded.SD} />
+      <StageGroup stage="DD" cell={block.totals.dd} expanded={expanded.DD} />
+      <StageGroup stage="CD" cell={block.totals.cd} expanded={expanded.CD} />
+      <td className="text-center px-2 py-0.5 border-l font-bold tabular-nums text-primary">
+        {block.drawingCount > 0 ? pct(block.blockProgress) : "-"}
+      </td>
+    </tr>,
   );
+
+  return out;
 }
 
 function StageHeader({
@@ -206,7 +262,7 @@ function StageHeader({
 }
 
 export function MdrSummaryPanel() {
-  const { data: summary, isLoading } = useMdrSummary();
+  const { data: rawSummary, isLoading } = useMdrSummary();
   const [expanded, setExpanded] = useState<Record<StageCode, boolean>>({
     SD: false,
     DD: false,
@@ -214,8 +270,36 @@ export function MdrSummaryPanel() {
   });
   const toggle = (s: StageCode) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
+  // 필터 상태 — URL 파라미터와 동기화
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter: SummaryFilterState = {
+    building: searchParams.get("b") ?? "all",
+    team: searchParams.get("t") ?? "all",
+    discipline: searchParams.get("d") ?? "all",
+  };
+  const setFilter = (next: SummaryFilterState) => {
+    const sp = new URLSearchParams(searchParams);
+    const apply = (k: string, v: string, def: string) => {
+      if (v === def) sp.delete(k); else sp.set(k, v);
+    };
+    apply("b", next.building, "all");
+    apply("t", next.team, "all");
+    apply("d", next.discipline, "all");
+    setSearchParams(sp, { replace: true });
+  };
+
+  const summary = useMemo(
+    () => (rawSummary ? filterSummary(rawSummary, filter) : null),
+    [rawSummary, filter.building, filter.team, filter.discipline],
+  );
+
+  const buildings = useMemo(
+    () => (rawSummary?.blocks ?? []).map((b) => b.building),
+    [rawSummary],
+  );
+
   if (isLoading) return <div className="text-muted-foreground p-6">SUMMARY 계산 중...</div>;
-  if (!summary || summary.blocks.length === 0) {
+  if (!rawSummary || rawSummary.blocks.length === 0) {
     return (
       <Card className="p-8 text-center text-muted-foreground">
         Raw Data가 없습니다. 먼저 MDR 엑셀을 임포트하세요.
@@ -241,11 +325,17 @@ export function MdrSummaryPanel() {
 
   return (
     <div className="space-y-3">
+      <MdrSummaryFilterBar
+        buildings={buildings}
+        value={filter}
+        onChange={setFilter}
+      />
+
       <Card className="p-3">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold text-sm">Block × Discipline × Stage 매트릭스</h3>
+          <h3 className="font-semibold text-sm">Block × Team × Discipline × Stage 매트릭스</h3>
           <div className="text-[10px] text-muted-foreground">
-            기준일: <span className="tabular-nums">{summary.dataDate}</span> · Plan/Actual은 도면 수(비율)
+            기준일: <span className="tabular-nums">{rawSummary.dataDate}</span> · Plan/Actual은 도면 수(비율)
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -253,12 +343,13 @@ export function MdrSummaryPanel() {
             <thead>
               <tr className="border-b">
                 <th rowSpan={2} className="text-left px-2 py-0.5 sticky left-0 bg-background border-r">Block</th>
+                <th rowSpan={2} className="text-left px-2 py-0.5 border-r">Team</th>
                 <th rowSpan={2} className="text-left px-2 py-0.5">Disc.</th>
                 <th rowSpan={2} className="text-center px-2 py-0.5">DWG</th>
                 <StageHeader stage="SD" expanded={expanded.SD} onToggle={() => toggle("SD")} />
                 <StageHeader stage="DD" expanded={expanded.DD} onToggle={() => toggle("DD")} />
                 <StageHeader stage="CD" expanded={expanded.CD} onToggle={() => toggle("CD")} />
-                <th rowSpan={2} className="text-center px-2 py-0.5 border-l">Disc. Progress</th>
+                <th rowSpan={2} className="text-center px-2 py-0.5 border-l">Progress</th>
               </tr>
               <tr className="border-b text-muted-foreground">
                 {renderStageSubHeaders("SD")}
@@ -267,8 +358,8 @@ export function MdrSummaryPanel() {
               </tr>
             </thead>
             <tbody>
-              {summary.blocks.map((b) => (
-                <BlockRow key={b.building} block={b} expanded={expanded} />
+              {(summary?.blocks ?? []).map((b) => (
+                <BlockRows key={b.building} block={b} expanded={expanded} />
               ))}
             </tbody>
           </table>
@@ -283,7 +374,7 @@ export function MdrSummaryPanel() {
               <ChevronDown className="h-3 w-3 transition-transform data-[state=open]:rotate-180" />
               <span>Weight Factor 참조</span>
               <span className="hidden sm:inline tabular-nums">
-                · Stage SD/DD/CD {pct(summary.wf.stage.SD)}/{pct(summary.wf.stage.DD)}/{pct(summary.wf.stage.CD)} · FAFP 전용 0%/50%/50%
+                · Stage SD/DD/CD {pct(rawSummary.wf.stage.SD)}/{pct(rawSummary.wf.stage.DD)}/{pct(rawSummary.wf.stage.CD)} · FAFP(FP/FA) 전용 0%/50%/50%
               </span>
             </CollapsibleTrigger>
             <Button variant="ghost" size="sm" asChild className="h-7 text-xs">
@@ -297,26 +388,26 @@ export function MdrSummaryPanel() {
                 {(["SD", "DD", "CD"] as const).map((s) => (
                   <div key={s} className="flex justify-between border-b py-0.5">
                     <span>{s}</span>
-                    <span className="tabular-nums">{pct(summary.wf.stage[s])}</span>
+                    <span className="tabular-nums">{pct(rawSummary.wf.stage[s])}</span>
                   </div>
                 ))}
                 <div className="flex justify-between border-b py-0.5 text-[10px] text-muted-foreground italic">
-                  <span>FAFP 전용</span>
+                  <span>FAFP(FP/FA) 전용</span>
                   <span className="tabular-nums">0% / 50% / 50%</span>
                 </div>
               </div>
               <div>
-                <div className="font-medium text-muted-foreground mb-1">Discipline WF</div>
-                {Object.entries(summary.wf.discipline).map(([d, w]) => (
-                  <div key={d} className="flex justify-between border-b py-0.5">
-                    <span>{d}</span>
-                    <span className="tabular-nums">{pct(w)}</span>
+                <div className="font-medium text-muted-foreground mb-1">Team WF</div>
+                {(["ARCH", "CIVIL", "STR", "MECH", "ELEC"] as const).map((t) => (
+                  <div key={t} className="flex justify-between border-b py-0.5">
+                    <span>{TEAM_LABEL[t]}</span>
+                    <span className="tabular-nums">{pct(rawSummary.wf.discipline[t] ?? 0)}</span>
                   </div>
                 ))}
               </div>
               <div>
                 <div className="font-medium text-muted-foreground mb-1">Building WF</div>
-                {Object.entries(summary.wf.building).map(([b, w]) => (
+                {Object.entries(rawSummary.wf.building).map(([b, w]) => (
                   <div key={b} className="flex justify-between border-b py-0.5">
                     <span>{b}</span>
                     <span className="tabular-nums">{pct(w)}</span>
