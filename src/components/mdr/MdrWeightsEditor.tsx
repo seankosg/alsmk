@@ -40,9 +40,9 @@ export function MdrWeightsEditor() {
     for (const s of ["SD", "DD", "CD"] as StageCode[]) {
       rows.push({ scope: "stage", key: s, value: wf.stage[s] });
     }
-    const discKeys = new Set([...Object.keys(DEFAULT_DISCIPLINE_WF), ...Object.keys(wf.discipline)]);
-    for (const d of discKeys) {
-      rows.push({ scope: "discipline", key: d, value: wf.discipline[d] ?? 0 });
+    // Team WF만 노출 (DB는 discipline 컬럼에 TEAMS 키로 저장)
+    for (const t of TEAMS) {
+      rows.push({ scope: "discipline", key: t, value: wf.discipline[t] ?? 0 });
     }
     const bldKeys = new Set([...Object.keys(DEFAULT_BUILDING_WF), ...Object.keys(wf.building)]);
     for (const b of bldKeys) {
