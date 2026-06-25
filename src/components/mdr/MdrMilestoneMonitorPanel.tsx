@@ -142,10 +142,10 @@ export function MdrMilestoneMonitorPanel() {
     return map;
   }, [headers]);
 
-  // 필터 적용된 행
+  // 필터 적용된 행 (building → team → discipline 정렬)
   const displayRows = useMemo(() => {
     if (!matrix) return [];
-    return matrix.rows.filter((r) => {
+    const filtered = matrix.rows.filter((r) => {
       if (filter.building !== "all" && r.building !== filter.building) return false;
       const disc = normalizeDiscipline(r.discipline);
       if (filter.discipline !== "all" && disc !== filter.discipline) return false;
@@ -155,7 +155,22 @@ export function MdrMilestoneMonitorPanel() {
       }
       return true;
     });
+    // 안정 정렬: building, team, discipline 순
+    const buildingOrder = new Map<string, number>();
+    matrix.rows.forEach((r) => {
+      if (!buildingOrder.has(r.building)) buildingOrder.set(r.building, buildingOrder.size);
+    });
+    return [...filtered].sort((a, b) => {
+      const ba = buildingOrder.get(a.building) ?? 0;
+      const bb = buildingOrder.get(b.building) ?? 0;
+      if (ba !== bb) return ba - bb;
+      const ta = TEAM_OF_DISCIPLINE[normalizeDiscipline(a.discipline)] ?? "ZZZ";
+      const tb = TEAM_OF_DISCIPLINE[normalizeDiscipline(b.discipline)] ?? "ZZZ";
+      if (ta !== tb) return ta.localeCompare(tb);
+      return a.discipline.localeCompare(b.discipline);
+    });
   }, [matrix, filter.building, filter.team, filter.discipline]);
+
 
   const buildings = useMemo(
     () => (matrix ? Array.from(new Set(matrix.rows.map((r) => r.building))) : []),
