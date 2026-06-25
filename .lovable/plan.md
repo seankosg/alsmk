@@ -1,17 +1,32 @@
-## 변경 요약
+## 마일스톤 모니터링 테이블 개선 계획
 
-**원인**: SD/DD/CD 단계별 도면 개수 컬럼(`drawing_count_sd/dd/cd`)을 마이그레이션으로 추가했지만, 기존 snapshot 행들은 DEFAULT 0 으로 채워져 패널에 0이 표시됨. [신규 계산]을 누르면 정확히 재계산되지만, 매번 사용자가 누르도록 의존하지 않고 **로드 시점에 항상 라이브 카운트로 보정**되도록 변경.
+### 1. Overall Progress 컬럼 추가
+Total DWG 우측에 신규 컬럼 그룹 삽입:
+- **1단**: `Overall Progress` (colSpan=9, 회색 계열 강조 배경)
+- **2단**: `SD` / `DD` / `CD` (각 colSpan=3, 단계별 파스텔 배경 — 기존 STAGE_THEME 재사용)
+- **3단**: `P` / `A` / `Δ`
 
-## 수정
+**값 산출 규칙** (사용자 확정):
+> 기준일(asOf) 기준으로 각 단계의 **마지막(최대 pct) 마일스톤**의 P/A/Δ 값을 그대로 표시.
 
-### `src/lib/mdr/milestoneMonitorEngine.ts`
-- `loadLatestSnapshot()` 끝부분에 헬퍼 호출 추가:
-  - 별도 함수 `fetchDrawingCountsByGroup()` 신설 → `mdr_drawings` 에서 `out_of_scope=false` 도면을 `id, building_code, discipline, in_scope_sd/dd/cd` 만 선택해 페이지네이션 로드 후, `(building, normalizeDiscipline(discipline))` 키로 SD/DD/CD true 개수와 totalDrawings 집계.
-  - snapshot 로드된 각 `MonitorDiscRow` 의 `drawingCountSD/DD/CD` 와 `drawingCount` 를 이 라이브 집계 값으로 **덮어쓰기**(저장된 0 무시).
-  - 매핑 안 되는 행은 0 그대로 유지.
+구현:
+- `MdrMilestoneMonitorPanel.tsx` 내부에서 기존 `headers` (이미 stage별 milestone 정렬됨) 의 마지막 항목 키로 `row.cells.get(mkKey(stage, lastMs.pct, lastMs.planDate))` 조회 → cell 없거나 마일스톤 없으면 `—`.
+- 별도 엔진/DB 변경 없음 (이미 매트릭스에 모든 값 존재).
 
-이렇게 하면 사용자가 [신규 계산]을 누르지 않아도 패널 진입 즉시 SD/DD/CD 개수가 올바르게 노출됩니다. `computeMatrix` 결과(snapshot 저장 경로)는 그대로 정확하므로 추가 변경 불필요.
+### 2. SD / DD / CD 단계별 접기/펼치기
+- `useState<Record<MdrStage, boolean>>` 로 단계별 collapsed 상태 관리, **기본값: 모두 접힘**.
+- 1단 stage 헤더 셀(SD/DD/CD)을 클릭 가능하게 만들고 `ChevronRight`/`ChevronDown` 아이콘 표시.
+- **접힘 상태**:
+  - 1단: stage 헤더는 그대로(colSpan=1, 좁게 표시 `▶ SD`)
+  - 2단/3단: 해당 stage의 마일스톤 컬럼 전부 숨김 → 단일 placeholder 셀(`…`) 또는 완전 생략
+  - 본문: 해당 stage 셀들 미렌더
+- **펼침 상태**: 현재와 동일하게 마일스톤별 P/A/Δ 표시.
+- Overall Progress 컬럼은 접기 영향 없음(항상 표시) — 접힘 상태에서도 단계별 요약을 볼 수 있게 함.
 
-### 검증
-- `npm run build` (tsgo)
-- `/design/summary` 진입 → 좌측 DWG 컬럼 SD/DD/CD 가 실제 raw 도면 O 개수(예: HSM ARCH = 13/258/259)와 일치하는지 확인.
+### 3. 영향 파일
+- `src/components/mdr/MdrMilestoneMonitorPanel.tsx` (단일 파일 수정, presentation only)
+
+### 4. 검증
+- `/design/summary` 진입 → 기본 SD/DD/CD 모두 접힘 + Overall Progress 컬럼만 P/A/Δ 표시 확인
+- 각 stage 헤더 클릭 시 해당 단계 마일스톤 컬럼 펼침/접힘 토글 정상 동작
+- Overall Progress 값이 각 stage 마지막 마일스톤 P/A/Δ와 일치하는지 한 행 샘플 확인
