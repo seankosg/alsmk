@@ -1,5 +1,5 @@
 /**
- * 마일스톤 모니터링 — Block × Discipline 행, Stage × 마일스톤 × {P,A,Δ} 컬럼.
+ * Design Progress Status (설계진도율) — Block × Discipline 행, Stage × 마일스톤 × {P,A,Δ} 컬럼.
  * 도면별 cell-level 계획(`drawingMilestonePlannedPct`) 과 실적(`actualPctUpTo`) 을
  * 도면 가중평균(mdr_weights 없는 경우 단순평균)으로 집계.
  *

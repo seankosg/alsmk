@@ -1,5 +1,5 @@
 /**
- * 마일스톤 모니터링 패널.
+ * Progress 패널 (설계진도율).
  *  - Total DWG: SD/DD/CD 도면 합
  *  - Overall Progress: 각 단계의 마지막(최대 pct) 마일스톤 P/A/Δ
  *  - SD/DD/CD 마일스톤 컬럼: 단계별 토글 (기본 접힘)
@@ -232,7 +232,7 @@ export function MdrMilestoneMonitorPanel() {
         setMatrix(m);
         setAsOf(today);
       } catch (e: any) {
-        toast.error(`마일스톤 모니터링 로드 실패: ${e?.message ?? e}`);
+        toast.error(`설계진도율 로드 실패: ${e?.message ?? e}`);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -414,7 +414,7 @@ export function MdrMilestoneMonitorPanel() {
   if (loading) {
     return (
       <Card className="p-6 flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> 마일스톤 모니터링 로드 중…
+        <Loader2 className="h-4 w-4 animate-spin" /> 설계진도율 로드 중…
       </Card>
     );
   }
@@ -437,7 +437,7 @@ export function MdrMilestoneMonitorPanel() {
     <Card className="p-3 space-y-2">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="font-semibold text-sm">마일스톤 모니터링 — Block × Discipline × Milestone</h3>
+          <h3 className="font-semibold text-sm">Design Progress Status</h3>
           <div className="text-[10px] text-muted-foreground">
             P=계획·A=실적·Δ=차이 · 단계 순차 강제(SD→DD→CD) 적용 · 기준일 일할 계산 · 단계 헤더 클릭 시 마일스톤 펼치기/접기
           </div>
