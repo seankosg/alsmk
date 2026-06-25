@@ -55,6 +55,8 @@ export const TEAM_OF_DISCIPLINE: Record<string, TeamCode> = {
   MECH: "MECH",
   FP: "MECH",
   ELEC: "ELEC",
+  TEL: "ELEC",
+  HV: "ELEC",
   FA: "ELEC",
 };
 
@@ -64,7 +66,7 @@ export const DISCIPLINES_BY_TEAM: Record<TeamCode, string[]> = {
   CIVIL: ["CIVIL"],
   STR: ["STR"],
   MECH: ["MECH", "FP"],
-  ELEC: ["ELEC", "FA"],
+  ELEC: ["ELEC", "TEL", "HV", "FA"],
 };
 
 export function teamOfDiscipline(disc: string): TeamCode | null {
@@ -126,6 +128,8 @@ export function normalizeDiscipline(raw: string | null | undefined): string {
   if (up === "ST" || up.startsWith("STR")) return "STR";
   if (up === "ME" || up.startsWith("MECH")) return "MECH";
   if (up === "EL" || up.startsWith("ELEC")) return "ELEC";
+  if (up === "TEL" || up.startsWith("TEL")) return "TEL";
+  if (up === "HV" || up.startsWith("HV")) return "HV";
   if (up === "CV" || up.startsWith("CIVIL")) return "CIVIL";
   // FP / FA: 신규 세부 코드
   if (up === "FP" || up.startsWith("FP")) return "FP";

@@ -290,7 +290,7 @@ function computeBlock(
   }
 
   // Discipline 정렬
-  const DISC_ORDER = ["ARCH", "CIVIL", "STR", "MECH", "FP", "ELEC", "FA", "FAFP"];
+  const DISC_ORDER = ["ARCH", "CIVIL", "STR", "MECH", "FP", "ELEC", "TEL", "HV", "FA", "FAFP"];
   cells.sort((a, b) => {
     const ai = DISC_ORDER.indexOf(a.discipline);
     const bi = DISC_ORDER.indexOf(b.discipline);
@@ -586,7 +586,7 @@ export function selectDisciplineRollup(summary: MdrSummary): DisciplineRollup[] 
       map.set(c.discipline, cur);
     }
   }
-  const ORDER = ["ARCH", "STR", "MECH", "ELEC", "FAFP", "CIVIL"];
+  const ORDER = ["ARCH", "STR", "MECH", "ELEC", "TEL", "HV", "FAFP", "CIVIL"];
   return Array.from(map.entries())
     .map(([discipline, v]) => ({
       discipline,
