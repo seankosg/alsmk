@@ -1,32 +1,51 @@
-## 마일스톤 모니터링 테이블 개선 계획
+## 목표
 
-### 1. Overall Progress 컬럼 추가
-Total DWG 우측에 신규 컬럼 그룹 삽입:
-- **1단**: `Overall Progress` (colSpan=9, 회색 계열 강조 배경)
-- **2단**: `SD` / `DD` / `CD` (각 colSpan=3, 단계별 파스텔 배경 — 기존 STAGE_THEME 재사용)
-- **3단**: `P` / `A` / `Δ`
+Monitor 패널 진도율에 Summary와 동일한 WF(가중치) 로직을 적용하고, 상단에 **"WF 적용 / 미적용" 토글 버튼**을 추가합니다. 기본값은 **WF 적용**.
 
-**값 산출 규칙** (사용자 확정):
-> 기준일(asOf) 기준으로 각 단계의 **마지막(최대 pct) 마일스톤**의 P/A/Δ 값을 그대로 표시.
+향후 Summary 테이블의 중복 기능 통합을 위한 첫 단계입니다.
 
-구현:
-- `MdrMilestoneMonitorPanel.tsx` 내부에서 기존 `headers` (이미 stage별 milestone 정렬됨) 의 마지막 항목 키로 `row.cells.get(mkKey(stage, lastMs.pct, lastMs.planDate))` 조회 → cell 없거나 마일스톤 없으면 `—`.
-- 별도 엔진/DB 변경 없음 (이미 매트릭스에 모든 값 존재).
+---
 
-### 2. SD / DD / CD 단계별 접기/펼치기
-- `useState<Record<MdrStage, boolean>>` 로 단계별 collapsed 상태 관리, **기본값: 모두 접힘**.
-- 1단 stage 헤더 셀(SD/DD/CD)을 클릭 가능하게 만들고 `ChevronRight`/`ChevronDown` 아이콘 표시.
-- **접힘 상태**:
-  - 1단: stage 헤더는 그대로(colSpan=1, 좁게 표시 `▶ SD`)
-  - 2단/3단: 해당 stage의 마일스톤 컬럼 전부 숨김 → 단일 placeholder 셀(`…`) 또는 완전 생략
-  - 본문: 해당 stage 셀들 미렌더
-- **펼침 상태**: 현재와 동일하게 마일스톤별 P/A/Δ 표시.
-- Overall Progress 컬럼은 접기 영향 없음(항상 표시) — 접힘 상태에서도 단계별 요약을 볼 수 있게 함.
+## 변경 사항
 
-### 3. 영향 파일
-- `src/components/mdr/MdrMilestoneMonitorPanel.tsx` (단일 파일 수정, presentation only)
+### 1. `src/lib/mdr/milestoneMonitorEngine.ts`
 
-### 4. 검증
-- `/design/summary` 진입 → 기본 SD/DD/CD 모두 접힘 + Overall Progress 컬럼만 P/A/Δ 표시 확인
-- 각 stage 헤더 클릭 시 해당 단계 마일스톤 컬럼 펼침/접힘 토글 정상 동작
-- Overall Progress 값이 각 stage 마지막 마일스톤 P/A/Δ와 일치하는지 한 행 샘플 확인
+기존 `MonitorCell { plan, actual, delta }` 는 **도면 단순평균** 값 (= WF 미적용). 여기에 가중치 적용 값을 추가로 계산해 함께 저장합니다.
+
+- `MonitorCell` 확장:
+  - `plan`, `actual`, `delta` (기존 단순평균 — 미적용 모드용, 유지)
+  - `planW`, `actualW`, `deltaW` (신규 — WF 적용 모드용)
+- WF 로드: `loadMdrWeights()` 호출. FAFP discipline은 `FAFP_STAGE_WF`, 그 외는 `wf.stage` 사용 (Summary와 동일).
+- WF 적용 계산 단위:
+  - **마일스톤 셀(stage,pct,planDate)** 의 P/A 자체는 도면 단순평균이지만, Overall Progress의 SD/DD/CD P/A는 `wf.stage` 가중평균으로 산출.
+  - row의 Total/Overall은 추후 통합 시 building·discipline WF로 확장 가능하도록 row 구조에 `discProgressW` (해당 row discipline 가중 진도율) 필드 추가.
+- `MonitorMatrix`에 `wf: MdrWfBundle` 포함 → UI에서 모드 전환 시 재계산용.
+- snapshot 저장(`mdr_milestone_snapshots`)은 기존 단순평균 값만 저장 (스키마 변경 없음). WF 적용 값은 클라이언트에서 즉시 계산 가능하므로 컬럼 추가 불요.
+
+### 2. `src/components/mdr/MdrMilestoneMonitorPanel.tsx`
+
+- 상단 툴바에 **WF 토글 버튼** 추가:
+  - shadcn `Switch` + 라벨 "WF 적용" (좌측 정렬, asOf 컨트롤 옆)
+  - `useState<boolean>(true)` (기본 적용)
+  - localStorage에 사용자 선택 영속화 (`mdr.monitor.wfEnabled`)
+- 표시 분기:
+  - WF 적용 ON → cell의 `planW/actualW/deltaW`
+  - WF 적용 OFF → 기존 `plan/actual/delta`
+- Overall Progress 컬럼의 SD/DD/CD P/A 값도 동일 분기 적용.
+- 토글 상태에 따라 헤더에 **`WF 적용`** / **`WF 미적용`** 배지 표시 (색상 구분).
+
+### 3. 검증
+
+`/design/summary`에서:
+1. 토글 ON(기본) → Monitor의 Overall Progress P/A가 Summary 테이블 Stage 합계와 근접하게 일치하는지 확인.
+2. 토글 OFF → 기존(도면 단순평균) 값으로 변하는지 확인.
+3. localStorage에 값 영속화 후 새로고침 시 유지되는지 확인.
+
+---
+
+## 변경 파일
+
+- `src/lib/mdr/milestoneMonitorEngine.ts` (셀 구조 확장 + WF 가중 계산 추가)
+- `src/components/mdr/MdrMilestoneMonitorPanel.tsx` (토글 UI + 표시 분기)
+
+DB/마이그레이션 변경 없음. Summary 통합 작업은 후속 단계에서 진행.
