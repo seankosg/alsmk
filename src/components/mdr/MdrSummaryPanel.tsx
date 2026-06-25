@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useMdrSummary, STAGE_MILESTONE_PCTS, filterSummary } from "@/lib/mdr/summaryEngine";
+import { useMdrSummary, STAGE_MILESTONE_PCTS } from "@/lib/mdr/summaryEngine";
 import type { BlockSummary, StageCell, MilestoneCell, TeamCell } from "@/lib/mdr/summaryEngine";
 import { TEAM_LABEL, type StageCode } from "@/lib/mdr/weights";
 import { Link } from "react-router-dom";
@@ -19,7 +18,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
 
 function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
