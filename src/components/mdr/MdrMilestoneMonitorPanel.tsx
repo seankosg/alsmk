@@ -24,17 +24,17 @@ const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
-function fmtPct(n: number): string {
-  if (!isFinite(n)) return "—";
+function fmtPct(n: number | null | undefined): string {
+  if (n === null || n === undefined || !isFinite(n)) return "—";
   return `${n.toFixed(1)}%`;
 }
-function fmtDelta(n: number): string {
-  if (!isFinite(n)) return "—";
+function fmtDelta(n: number | null | undefined): string {
+  if (n === null || n === undefined || !isFinite(n)) return "—";
   const v = n.toFixed(1);
   return n > 0 ? `+${v}%` : `${v}%`;
 }
-function deltaClass(n: number): string {
-  if (!isFinite(n) || Math.abs(n) < 0.05) return "text-muted-foreground";
+function deltaClass(n: number | null | undefined): string {
+  if (n === null || n === undefined || !isFinite(n) || Math.abs(n) < 0.05) return "text-muted-foreground";
   return n < 0 ? "text-destructive" : "text-primary";
 }
 
