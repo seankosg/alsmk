@@ -1,51 +1,26 @@
-## 목표
-
-Monitor 패널 진도율에 Summary와 동일한 WF(가중치) 로직을 적용하고, 상단에 **"WF 적용 / 미적용" 토글 버튼**을 추가합니다. 기본값은 **WF 적용**.
-
-향후 Summary 테이블의 중복 기능 통합을 위한 첫 단계입니다.
-
----
-
 ## 변경 사항
 
-### 1. `src/lib/mdr/milestoneMonitorEngine.ts`
+### 1. 미도래 마일스톤 A=Null 처리 (마일스톤 셀만)
+**파일**: `src/lib/mdr/milestoneMonitorEngine.ts`
+- `buildMatrix()` 의 마일스톤별 셀 계산부에서, 해당 마일스톤의 `plan_date > asOf` 인 도면들은 A 합산 대상에서 제외하는 대신, **셀 단위 A** 자체를 `null` 로 표시한다.
+- 판정 기준: 마일스톤(stage+code)의 도면별 plan_date 가 **모두** asOf 보다 미래이면 `actual = null`, `delta = null`. (도면 중 일부만 도래/미도래인 경우는 도래분만 평균 → 기존 로직 유지)
+- `MonitorCell` 타입에 `actual: number | null`, `delta: number | null` 허용.
+- WF/비WF 양쪽 모두 동일 규칙 적용.
+- Overall Progress 컬럼은 영향 없음 (요청 범위 외).
 
-기존 `MonitorCell { plan, actual, delta }` 는 **도면 단순평균** 값 (= WF 미적용). 여기에 가중치 적용 값을 추가로 계산해 함께 저장합니다.
+### 2. 역진행/정체 경고 (핑크 배경)
+**파일**: `src/lib/mdr/milestoneMonitorEngine.ts`, `src/components/mdr/MdrMilestoneMonitorPanel.tsx`
+- 행별로 stage(SD/DD/CD) 내 마일스톤을 코드/순서대로 정렬해 **이전 마일스톤 A** 와 비교.
+- 조건: `prevA !== null && prevA > 0 && currA !== null && currA <= prevA` → `warn: true` 플래그.
+- 첫 마일스톤, prevA가 null/0인 경우, currA가 null인 경우는 경고 없음.
+- `MonitorCell` 에 `warn?: boolean` 추가.
+- 패널 렌더링에서 `warn` 인 셀에 핑크 배경 클래스 적용 (예: `bg-pink-500/20 dark:bg-pink-500/25`). A 셀과 Δ 셀 모두 적용.
 
-- `MonitorCell` 확장:
-  - `plan`, `actual`, `delta` (기존 단순평균 — 미적용 모드용, 유지)
-  - `planW`, `actualW`, `deltaW` (신규 — WF 적용 모드용)
-- WF 로드: `loadMdrWeights()` 호출. FAFP discipline은 `FAFP_STAGE_WF`, 그 외는 `wf.stage` 사용 (Summary와 동일).
-- WF 적용 계산 단위:
-  - **마일스톤 셀(stage,pct,planDate)** 의 P/A 자체는 도면 단순평균이지만, Overall Progress의 SD/DD/CD P/A는 `wf.stage` 가중평균으로 산출.
-  - row의 Total/Overall은 추후 통합 시 building·discipline WF로 확장 가능하도록 row 구조에 `discProgressW` (해당 row discipline 가중 진도율) 필드 추가.
-- `MonitorMatrix`에 `wf: MdrWfBundle` 포함 → UI에서 모드 전환 시 재계산용.
-- snapshot 저장(`mdr_milestone_snapshots`)은 기존 단순평균 값만 저장 (스키마 변경 없음). WF 적용 값은 클라이언트에서 즉시 계산 가능하므로 컬럼 추가 불요.
+### 3. UI 표시
+- Null A/Δ 값은 `—` 로 표시 (기존 미입력 표시와 동일 톤).
+- 푸터 안내에 "기준일 미도래 마일스톤의 A는 표시하지 않음", "이전 마일스톤 대비 A가 같거나 감소하면 핑크 경고" 항목 추가.
 
-### 2. `src/components/mdr/MdrMilestoneMonitorPanel.tsx`
-
-- 상단 툴바에 **WF 토글 버튼** 추가:
-  - shadcn `Switch` + 라벨 "WF 적용" (좌측 정렬, asOf 컨트롤 옆)
-  - `useState<boolean>(true)` (기본 적용)
-  - localStorage에 사용자 선택 영속화 (`mdr.monitor.wfEnabled`)
-- 표시 분기:
-  - WF 적용 ON → cell의 `planW/actualW/deltaW`
-  - WF 적용 OFF → 기존 `plan/actual/delta`
-- Overall Progress 컬럼의 SD/DD/CD P/A 값도 동일 분기 적용.
-- 토글 상태에 따라 헤더에 **`WF 적용`** / **`WF 미적용`** 배지 표시 (색상 구분).
-
-### 3. 검증
-
-`/design/summary`에서:
-1. 토글 ON(기본) → Monitor의 Overall Progress P/A가 Summary 테이블 Stage 합계와 근접하게 일치하는지 확인.
-2. 토글 OFF → 기존(도면 단순평균) 값으로 변하는지 확인.
-3. localStorage에 값 영속화 후 새로고침 시 유지되는지 확인.
-
----
-
-## 변경 파일
-
-- `src/lib/mdr/milestoneMonitorEngine.ts` (셀 구조 확장 + WF 가중 계산 추가)
-- `src/components/mdr/MdrMilestoneMonitorPanel.tsx` (토글 UI + 표시 분기)
-
-DB/마이그레이션 변경 없음. Summary 통합 작업은 후속 단계에서 진행.
+### 검증
+- `/design/summary` 모니터 패널에서 미래 plan_date 마일스톤 컬럼 A=`—` 확인.
+- 동일 stage 내 이전 ms A=50, 현재 ms A=40 인 행에서 핑크 하이라이트 확인.
+- WF 토글 ON/OFF 모두 동일 동작 확인.
