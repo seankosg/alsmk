@@ -134,6 +134,29 @@ export function MdrMilestoneMonitorPanel() {
     }
   }, [wfEnabled]);
 
+  // P/A/Δ 컬럼 너비 (localStorage 영속)
+  const [columnWidths, setColumnWidths] = useState<ColWidths>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(COL_WIDTHS_KEY);
+      return raw ? (JSON.parse(raw) as ColWidths) : {};
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(columnWidths));
+    } catch {
+      // ignore quota errors
+    }
+  }, [columnWidths]);
+  const colStyle = (k: string): React.CSSProperties => {
+    const w = columnWidths[k] ?? DEFAULT_COL_W;
+    return { width: w, minWidth: w, maxWidth: w };
+  };
+
   const toggleStage = (s: MdrStage) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
   // 필터 — URL 동기화 (?b, ?t, ?d)
