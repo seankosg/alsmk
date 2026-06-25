@@ -338,9 +338,9 @@ export function MdrMilestoneMonitorPanel() {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
                 return [
-                  <th key={`op-p-${s}`} className={`text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P</th>,
-                  <th key={`op-a-${s}`} className={`text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A</th>,
-                  <th key={`op-d-${s}`} className={`text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r" : ""}`}>Δ</th>,
+                  <th key={`op-p-${s}`} className={`text-center px-1 py-0.5 border-l font-bold text-black w-14 ${th.sub}`}>P</th>,
+                  <th key={`op-a-${s}`} className={`text-center px-1 py-0.5 font-bold text-black w-14 ${th.sub}`}>A</th>,
+                  <th key={`op-d-${s}`} className={`text-center px-1 py-0.5 font-bold text-black w-14 ${th.sub} ${last ? "border-r" : ""}`}>Δ</th>,
                 ];
               })}
               {headers?.flatMap(({ stage, ms }) => {
