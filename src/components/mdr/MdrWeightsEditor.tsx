@@ -130,7 +130,7 @@ export function MdrWeightsEditor() {
           onChange={(k, v) => updateValue("stage", k, v)}
         />
         <WfCard
-          title="Discipline WF"
+          title="Team WF (Arch/Civil/STR/Mech/Elec)"
           sumLabel={discSum}
           rows={discRows}
           onChange={(k, v) => updateValue("discipline", k, v)}
