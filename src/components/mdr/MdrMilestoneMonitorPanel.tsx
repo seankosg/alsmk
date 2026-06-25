@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { RefreshCw, Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -18,6 +19,8 @@ import {
   type MonitorMilestoneKey,
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
+
+const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
