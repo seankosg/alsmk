@@ -381,8 +381,10 @@ export function MdrMilestoneMonitorPanel() {
         </table>
       </div>
 
-      <div className="text-[10px] text-muted-foreground">
-        ※ Overall Progress — WF 적용: Summary 산식(plan_date·actual_date ≤ 기준일 기준 도면 평균). WF 미적용: 각 단계 마지막 마일스톤의 P/A/Δ(일할 보간). 토글로 전환 (기본 WF 적용). 신규 계산 후 정확 반영.
+      <div className="text-[10px] text-muted-foreground space-y-0.5">
+        <div>※ Overall Progress — WF 적용: Summary 산식(plan_date·actual_date ≤ 기준일 기준 도면 평균). WF 미적용: 각 단계 마지막 마일스톤의 P/A/Δ(일할 보간). 토글로 전환 (기본 WF 적용).</div>
+        <div>※ 기준일 미도래(planDate &gt; 기준일) 마일스톤의 A/Δ 는 표시하지 않습니다(—).</div>
+        <div>※ <span className="inline-block w-3 h-3 align-middle bg-pink-500/25 dark:bg-pink-500/30 border border-pink-500/40" /> 핑크 = 동일 단계 직전 마일스톤 대비 A 가 같거나 감소 → 역진행/정체 경고.</div>
       </div>
     </Card>
   );
