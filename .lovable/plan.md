@@ -1,48 +1,87 @@
-## 문제 원인
+## 목표
+1. SUMMARY 매트릭스를 **Block → Team(5개) → Discipline** 3단계 구조로 재편
+2. 테이블 상단에 SHAW CMS Defect Progress 스타일의 **탭형 필터 툴바**(건물별 / 팀별 / Discipline별) 추가
 
-`MDR Import History → Import Row Details` 화면이 2156행 중 1000행만 보여주는 것은 **PostgREST의 응답 최대 행수 제한(기본 1000)** 때문입니다.
+---
 
-- DB의 `get_mdr_import_row_logs` RPC 자체는 LIMIT이 없고 모든 행을 반환합니다.
-- 그러나 클라이언트가 `supabase.rpc(...)` 한 번 호출로 받아올 때 PostgREST가 응답을 1000행으로 잘라냅니다 (서버 설정값, 사용자가 변경 불가).
-- 그래서 화면 우측 상단에 "1,000 / 1,000건"으로 표시되고 나머지 1156행은 누락됩니다.
+## Part A: 3단계 계층 (Block → Team → Discipline)
 
-도면 수가 늘어날수록 손실 폭이 커지므로 한 번 호출로 모두 받는 방식은 한계가 있습니다.
+### Team(5개) ↔ Discipline 매핑
+| Team | 소속 Discipline |
+|------|-----------------|
+| **Arch**  | ARCH |
+| **Civil** | CIVIL |
+| **STR**   | STR |
+| **Mech**  | MECH, FP |
+| **Elec**  | ELEC, FA |
 
-## 해결 방법
+- FAFP는 **FP(Mech) / FA(Elec)** 으로 분리. 기존 `FAFP` 입력은 마이그레이션 기간 동안 FP로 폴백.
+- `FAFP_STAGE_WF`(SD 0 / DD 50 / CD 50)는 FP/FA Discipline에 한해 적용.
 
-`src/pages/DesignImportLogs.tsx`의 `loadRowLogs(batchId)`를 **`.range()` 기반 페이지네이션 루프**로 바꿉니다. 한 번에 1000행씩 받아 누적하고, 반환 행 수가 페이지 크기보다 작으면 종료합니다.
+### 1. `src/lib/mdr/weights.ts`
+- `TEAMS = ["ARCH","CIVIL","STR","MECH","ELEC"] as const`
+- `TEAM_OF_DISCIPLINE`: `{ARCH:"ARCH", CIVIL:"CIVIL", STR:"STR", MECH:"MECH", FP:"MECH", ELEC:"ELEC", FA:"ELEC"}`
+- `DEFAULT_TEAM_WF`: `{ARCH:0.45, CIVIL:0, STR:0.25, MECH:0.19, ELEC:0.11}` (사용자가 admin에서 조정)
+- `normalizeDiscipline()`: `FP`, `FA` 신규 코드 처리. `FAFP`/`FIRE` → `FP`로 폴백.
 
-```ts
-const PAGE = 1000;
-const all: RowLog[] = [];
-let from = 0;
-while (true) {
-  const { data, error } = await (supabase as any)
-    .rpc("get_mdr_import_row_logs", { _import_log_id: batchId })
-    .range(from, from + PAGE - 1);
-  if (error) throw error;
-  const chunk = (data as RowLog[]) ?? [];
-  all.push(...chunk);
-  if (chunk.length < PAGE) break;
-  from += PAGE;
-  if (from > 200_000) break; // 안전 가드
-}
-setRowLogs(all);
+### 2. `src/lib/mdr/summaryEngine.ts`
+- 신규 인터페이스 `TeamCell { team; drawingCount; sd/dd/cd; teamProgress; disciplines: DiscCell[] }`
+- `BlockSummary.cells` → `BlockSummary.teams: TeamCell[]` (Discipline은 Team 내부에 중첩)
+- `computeBlock()`: Discipline 그룹 → Team 매핑 후 재집계. Team Stage 평균 = 도면 수 가중. `teamProgress` = stage WF 가중 평균. `blockProgress` = **Team WF** 가중 평균.
+- `selectDisciplineRollup` → `selectTeamRollup`.
+
+### 3. `src/components/mdr/MdrSummaryPanel.tsx`
+- 표 구조: `Block | Team | Discipline | DWG | SD... | DD... | CD... | Disc% | Team%`
+- Block은 Team 행 전체, Team은 Discipline 행 전체에 `rowSpan`.
+- Team 정렬: `ARCH→CIVIL→STR→MECH→ELEC`.
+- 소계: Team Sub-total + Block Sub-total 2단계.
+
+### 4. `src/components/mdr/MdrWeightsEditor.tsx`
+- Discipline WF 편집 UI → **Team WF** 5개 입력으로 교체.
+
+---
+
+## Part B: 탭형 필터 툴바 (SHAW Defect Progress 스타일)
+
+### UI 구조
+SUMMARY 테이블 카드 **위**에 별도 Card(`p-3`)로 툴바를 배치. 각 그룹은 `ToolbarGroup`(라벨 + 컨트롤)으로 감싸고 `Tabs`/`TabsList`/`TabsTrigger`(`h-8`/`h-6 px-2 text-xs`)로 탭 UI 구현.
+
+```
+┌─ [Building]  [All] [GEN] [SMP&CCM] [HSM] [CRM] [MAIN_OFFICE]
+│  [Team]      [All] [Arch] [Civil] [STR] [Mech] [Elec]
+│  [Discipline][All] [ARCH] [CIVIL] [STR] [MECH] [FP] [ELEC] [FA]
+│  [초기화 ↻]
+└────────────────────────────────────────────────────
 ```
 
-- RPC가 `RETURNS TABLE`이라 `.range()`가 PostgREST에서 정상 동작합니다 (서버 측 ORDER BY가 이미 안정 정렬).
-- 1회 실패시 재시도 로직은 페이지 단위로 유지(첫 페이지 실패만 한 번 재시도).
-- 로딩 중에는 기존처럼 `rowsBusy` 유지, 사용자는 한 번의 스피너만 봄.
+### 동작
+- **건물 필터**: 선택 시 해당 Block 1개만 표시. `All`은 전체.
+- **팀 필터**: 선택 시 해당 Team 행만 표시(소속 Discipline 포함). Block 행은 유지하되 다른 Team 행은 숨김.
+- **Discipline 필터**: 선택 시 해당 Discipline 행만 표시. 단, 선택된 Discipline이 속한 Team만 자동으로 잠금 표시.
+- 3개 필터는 **AND 조합**.
+- 모든 필터 상태는 URL 쿼리 파라미터(`?b=CRM&t=MECH&d=FP`)와 동기화 → 새로고침/공유 가능.
+- 필터가 적용되면 Sub-total/blockProgress는 **필터 후 데이터 기준으로 재계산**(원본 summary는 불변, 클라이언트 측 필터링 후 동일 집계 함수 재호출).
+- `초기화` 버튼으로 모든 필터를 `all`로 리셋.
 
-## 그 외 확인 / 부수 작업
+### 컴포넌트
+- 신규 `src/components/mdr/MdrSummaryFilterBar.tsx` — 위 툴바 컴포넌트.
+- `MdrSummaryPanel`에서 필터 상태를 보유하고 `useMdrSummary()` 결과에 클라이언트 측 필터/재집계 적용.
 
-- `fetchBatchScope`(롤백용)는 이미 `.limit(50000)`를 지정하고 있지만, 동일하게 PostgREST 제한에 걸릴 수 있습니다. 안전을 위해 같은 패턴의 `.range()` 페이지네이션으로 변경 (rollback 시 누락 방지).
-- UI 상단의 "X / Y건" 카운터는 그대로 `rowLogs.length` 기반이라 자동으로 정확해집니다.
-- 서버/마이그레이션 변경 없음 (RPC는 그대로 사용).
+### 재집계 헬퍼
+`summaryEngine.ts`에 `filterAndRecompute(summary, {building, team, discipline})` 헬퍼 추가:
+- 원본 `rawDrawings`가 아닌 이미 계산된 `summary.blocks`를 입력으로 받아 필터 후 Block/Team 소계만 재계산(Stage 평균은 도면 수 가중으로 재계산).
+- 또는 단순하게 React에서 행만 숨기고 소계를 다시 계산하는 방식(성능 충분).
+
+---
+
+## DB / 데이터
+- 스키마 변경 **없음**.
+- `mdr_drawings.discipline`에 `FP`/`FA` 신규 값 등장 가능 → `normalizeDiscipline`이 처리.
+- `mdr_weights` row(`discipline=ARCH/STR/MECH/ELEC/CIVIL`)는 그대로 Team WF로 사용. `FAFP` row는 숨김.
 
 ## 검증
-
-1. `/design/import/logs?batch=<CRM 배치 id>` 진입 → 상단 카운터가 `2,156 / 2,156건`으로 표시되는지 확인.
-2. 필터/검색이 전체 2156행에 대해 동작하는지 확인.
-3. HSM(1005+4) 등 1000 초과 배치도 동일하게 정상 표시되는지 확인.
-4. 1000행 이하 배치(GEN 37, FAFP 83 등)는 페이지네이션이 1회만 돌고 종료되는지 확인.
+1. 빌드 통과.
+2. SUMMARY 화면이 5개 Team으로 그룹된 3단계 표로 렌더링.
+3. 툴바에서 Building/Team/Discipline 탭 클릭 시 해당 행만 표시되고 Sub-total이 재계산.
+4. URL 파라미터 동기화 확인(공유 링크로 동일 필터 복원).
+5. `초기화` 버튼이 모든 필터를 리셋.
