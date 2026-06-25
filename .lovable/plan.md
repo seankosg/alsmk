@@ -1,30 +1,30 @@
-## 변경 목적
-`MdrSummaryFilterBar`(Building/Team/Discipline 탭 필터)를 **SUMMARY 테이블에서 떼어내** 마일스톤 모니터링 테이블에 적용한다. SUMMARY 패널은 필터 도입 이전 상태로 원복.
+## 문제
+마일스톤 모니터링 테이블의 Building 필터/행에 `MAIN_OFFICE` 하나만 표시됨.
 
-## 작업 범위
+## 원인
+`MdrMilestoneMonitorPanel` 초기 로드 로직이 **snapshot 우선** 방식인데, 현재 `mdr_milestone_snapshots` 테이블에 `MAIN_OFFICE/MECH` 행 하나만 저장되어 있음. 다른 건물(CRM/HSM/SMP&CCM/GEN/FAFP)은 mdr_drawings 에는 존재하지만 snapshot 에 없어서 표시되지 않음.
 
-### 1. `src/components/mdr/MdrSummaryPanel.tsx`
-- `MdrSummaryFilterBar` import/렌더/필터 상태/`filterSummary` 호출 등 필터 관련 코드 전부 제거.
-- 전체 데이터(`useMdrSummary` 결과) 그대로 3-level(Block→Team→Discipline) 렌더.
-- URL 파라미터 `?b=&t=&d=` 읽기 코드 제거.
+```ts
+// 현재 동작 (milestoneMonitorEngine.ts loadLatestSnapshot)
+//  → 가장 최신 as_of 행들만 가져옴 → 부분 snapshot 이면 나머지 건물 누락
+```
 
-### 2. `src/components/mdr/MdrMilestoneMonitorPanel.tsx`
-- `MdrSummaryFilterBar` import 후 카드 헤더(타이틀/툴바) 바로 위 또는 아래에 렌더.
-- `useState<SummaryFilterState>` 로 필터 상태 보유 + `useSearchParams` 로 `?b=&t=&d=` 동기화 (deep-link).
-- `buildings` prop = `matrix.buildings` (또는 `Array.from(new Set(matrix.rows.map(r=>r.building)))`).
-- **필터 적용**: 렌더 전에 `matrix.rows`를 다음 조건으로 필터링.
-  - `filter.building !== 'all'` → `row.building === filter.building`
-  - `filter.team !== 'all'` → `TEAM_OF_DISCIPLINE[normalizeDiscipline(row.discipline)] === filter.team`
-  - `filter.discipline !== 'all'` → `normalizeDiscipline(row.discipline) === filter.discipline`
-  - 모두 AND.
-- 필터링된 `displayRows` 기준으로 `blockRowSpan` (동일 building 카운트) 재계산.
-- `headers`/`lastMsByStage`/`expanded` 등 마일스톤 컬럼 로직은 변경 없음 (모든 마일스톤 열은 유지).
-- 결과가 0행이면 "필터 조건에 해당하는 행이 없습니다." placeholder 표시.
+## 해결책 (요약)
+초기 로드 시 **항상 라이브 `computeMatrix(today)` 호출**로 단순화. snapshot 은 [신규 계산] 버튼으로 저장된 결과의 "캐시"가 아니라, 라이브 매트릭스로 즉시 갱신되도록 한다. 부분 snapshot 으로 인한 누락 가능성을 원천 제거.
 
-### 3. (선택) FAFP 행 처리
-- DB에 잔존하는 원본 `FAFP` discipline 행은 `normalizeDiscipline` 후에도 `FAFP`로 유지될 수 있음 → Team 필터(Mech/Elec) 적용 시 매칭되지 않아 숨겨짐. 이 동작이 기본이며 별도 처리하지 않음 (FAFP는 신규 임포트 시 FP/FA로 분리되도록 이미 normalize에서 처리됨).
+### 변경 파일
+**`src/components/mdr/MdrMilestoneMonitorPanel.tsx`**
+- 초기 `useEffect`에서 `loadLatestSnapshot()` 대신 `computeMatrix(today)` 를 호출.
+- snapshot 의 `as_of` 표시 의도는 유지: 라이브 계산이 끝나면 그 결과의 `asOf` 를 그대로 사용.
+- 신규 계산 버튼 동작은 그대로(라이브 계산 + saveSnapshot).
+- 도면이 0개일 때만 빈 카드 표시.
+
+이 단순화로 사용자가 별도 [신규 계산] 클릭 없이도 페이지 진입 시 모든 건물이 정상 표시됨.
+
+## 대안 (참고만)
+- `loadLatestSnapshot()` 후 `mdr_drawings` 의 distinct buildings 개수와 비교해서 부족하면 자동 재계산. → 복잡, 효과는 동일.
+- snapshot 테이블의 stale 행 삭제. → 일회성, 같은 문제 재발 가능.
 
 ## 기술 메모
-- `MdrSummaryFilterBar.tsx` / `weights.ts` 변경 없음 (재사용).
-- 모니터링의 snapshot 저장/재계산 로직 영향 없음. 필터는 클라이언트 표시 전용.
-- URL 키는 SUMMARY에서 쓰던 `b/t/d` 그대로 사용 (페이지 내 동일 키 재사용으로 충돌 없음).
+- `computeMatrix` 는 mdr_drawings + milestones/cells/progress 를 페이지네이션으로 전부 로드 후 메모리에서 집계. 데이터량(~4000 도면)에서 1-2초 수준이라 초기 로드에 적합.
+- snapshot 저장 로직(`saveSnapshot`) 자체는 보존 — 명시적 신규 계산 시 캐시로 유지.
