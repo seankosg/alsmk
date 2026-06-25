@@ -24,17 +24,17 @@ const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
-function fmtPct(n: number): string {
-  if (!isFinite(n)) return "—";
+function fmtPct(n: number | null | undefined): string {
+  if (n === null || n === undefined || !isFinite(n)) return "—";
   return `${n.toFixed(1)}%`;
 }
-function fmtDelta(n: number): string {
-  if (!isFinite(n)) return "—";
+function fmtDelta(n: number | null | undefined): string {
+  if (n === null || n === undefined || !isFinite(n)) return "—";
   const v = n.toFixed(1);
   return n > 0 ? `+${v}%` : `${v}%`;
 }
-function deltaClass(n: number): string {
-  if (!isFinite(n) || Math.abs(n) < 0.05) return "text-muted-foreground";
+function deltaClass(n: number | null | undefined): string {
+  if (n === null || n === undefined || !isFinite(n) || Math.abs(n) < 0.05) return "text-muted-foreground";
   return n < 0 ? "text-destructive" : "text-primary";
 }
 
@@ -366,10 +366,11 @@ export function MdrMilestoneMonitorPanel() {
                           <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
                         ];
                       }
+                      const warnCls = cell.warn ? "bg-pink-500/25 dark:bg-pink-500/30" : "";
                       return [
                         <td key={`p-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(cell.plan)}</td>,
-                        <td key={`a-${stage}-${m.pct}-${m.planDate}-${ri}`} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(cell.actual)}</td>,
-                        <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(cell.delta)}</td>,
+                        <td key={`a-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${warnCls}`} title={cell.warn ? "이전 마일스톤 대비 실적이 같거나 감소 — 역진행/정체 경고" : undefined}>{fmtPct(cell.actual)}</td>,
+                        <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)} ${warnCls} ${last ? "border-r" : ""}`}>{fmtDelta(cell.delta)}</td>,
                       ];
                     });
                   })}
@@ -380,8 +381,10 @@ export function MdrMilestoneMonitorPanel() {
         </table>
       </div>
 
-      <div className="text-[10px] text-muted-foreground">
-        ※ Overall Progress — WF 적용: Summary 산식(plan_date·actual_date ≤ 기준일 기준 도면 평균). WF 미적용: 각 단계 마지막 마일스톤의 P/A/Δ(일할 보간). 토글로 전환 (기본 WF 적용). 신규 계산 후 정확 반영.
+      <div className="text-[10px] text-muted-foreground space-y-0.5">
+        <div>※ Overall Progress — WF 적용: Summary 산식(plan_date·actual_date ≤ 기준일 기준 도면 평균). WF 미적용: 각 단계 마지막 마일스톤의 P/A/Δ(일할 보간). 토글로 전환 (기본 WF 적용).</div>
+        <div>※ 기준일 미도래(planDate &gt; 기준일) 마일스톤의 A/Δ 는 표시하지 않습니다(—).</div>
+        <div>※ <span className="inline-block w-3 h-3 align-middle bg-pink-500/25 dark:bg-pink-500/30 border border-pink-500/40" /> 핑크 = 동일 단계 직전 마일스톤 대비 A 가 같거나 감소 → 역진행/정체 경고.</div>
       </div>
     </Card>
   );

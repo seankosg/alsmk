@@ -26,10 +26,12 @@ export interface MonitorMilestoneKey {
 }
 
 export interface MonitorCell {
-  plan: number;     // 0~100
-  actual: number;   // 0~100
-  delta: number;    // actual - plan
+  plan: number;             // 0~100
+  actual: number | null;    // 0~100, null = 기준일 미도래
+  delta: number | null;     // actual - plan, null = A 가 null 일 때
   drawingCount: number;
+  /** 동일 단계 내 이전 마일스톤 A 대비 같거나 감소 → 역진행/정체 경고 */
+  warn?: boolean;
 }
 
 /** WF(가중) 적용 모드용 단계별 P/A — Summary 산식(planAtDate / actualAtDate)으로 도면 평균 */
@@ -265,13 +267,33 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
           aSum += actualPctUpTo(milestones, progress, stage, ms.pct, cells);
         }
         const n = matching.length;
-        const plan = pSum / n, actual = aSum / n;
+        const plan = pSum / n;
+        // 기준일 미도래(마일스톤 planDate > asOf) → A=Null, Δ=Null
+        const future = !!(ms.planDate && ms.planDate > asOf);
+        const actual: number | null = future ? null : aSum / n;
+        const delta: number | null = actual === null ? null : actual - plan;
         row.cells.set(mkKey(stage, ms.pct, ms.planDate), {
-          plan, actual, delta: actual - plan, drawingCount: n,
+          plan, actual, delta, drawingCount: n,
         });
       }
     }
     rows.push(row);
+  }
+
+  // 역진행/정체 경고 플래그 — 행별, 단계별 마일스톤 순서 기준
+  for (const row of rows) {
+    for (const stage of STAGES) {
+      let prevA: number | null = null;
+      for (const ms of milestonesByStage[stage]) {
+        const cell = row.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        if (!cell) continue;
+        const currA = cell.actual;
+        if (prevA !== null && prevA > 0 && currA !== null && currA <= prevA) {
+          cell.warn = true;
+        }
+        if (currA !== null) prevA = currA;
+      }
+    }
   }
 
   // 정렬: 건물(고정 순서) → discipline 표준 순서
@@ -391,8 +413,8 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
     };
     row.cells.set(k, {
       plan: Number(r.plan_pct) || 0,
-      actual: Number(r.actual_pct) || 0,
-      delta: Number(r.delta_pct) || 0,
+      actual: r.actual_pct == null ? null : Number(r.actual_pct),
+      delta: r.delta_pct == null ? null : Number(r.delta_pct),
       drawingCount: Number(r.drawing_count) || 0,
     });
     if (r.stage_plan_pct != null || r.stage_actual_pct != null) {
@@ -421,6 +443,28 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
   }
 
   for (const stage of STAGES) milestonesByStage[stage].sort(sortMs);
+
+  // 미도래(planDate > asOf) 셀 A/Δ → null 정규화 + 역진행/정체 warn 재계산
+  for (const row of rowMap.values()) {
+    for (const stage of STAGES) {
+      let prevA: number | null = null;
+      for (const ms of milestonesByStage[stage]) {
+        const cell = row.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        if (!cell) continue;
+        if (ms.planDate && ms.planDate > latest) {
+          cell.actual = null;
+          cell.delta = null;
+        }
+        cell.warn = false;
+        const currA = cell.actual;
+        if (prevA !== null && prevA > 0 && currA !== null && currA <= prevA) {
+          cell.warn = true;
+        }
+        if (currA !== null) prevA = currA;
+      }
+    }
+  }
+
   return {
     asOf: latest,
     milestonesByStage,
