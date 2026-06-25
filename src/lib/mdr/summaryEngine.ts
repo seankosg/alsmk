@@ -8,6 +8,10 @@ import {
   loadMdrWeights,
   normalizeDiscipline,
   FAFP_STAGE_WF,
+  TEAMS,
+  TEAM_OF_DISCIPLINE,
+  DISCIPLINES_BY_TEAM,
+  type TeamCode,
   type MdrWfBundle,
   type StageCode,
 } from "./weights";
