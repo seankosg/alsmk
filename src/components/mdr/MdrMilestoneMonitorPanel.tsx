@@ -534,8 +534,10 @@ export function MdrMilestoneMonitorPanel() {
               const prevTeam = prev ? (TEAM_OF_DISCIPLINE[normalizeDiscipline(prev.discipline)] ?? "—") : null;
               const showTeam = !prev || prev.building !== row.building || prevTeam !== rowTeam;
               const teamRowSpan = displayRows.filter((r) => r.building === row.building && (TEAM_OF_DISCIPLINE[normalizeDiscipline(r.discipline)] ?? "—") === rowTeam).length;
+              const isLastOfBuilding = !displayRows[ri + 1] || displayRows[ri + 1].building !== row.building;
               return (
-                <tr key={`${row.building}-${row.discipline}`} className="border-b hover:bg-muted/20">
+                <Fragment key={`${row.building}-${row.discipline}`}>
+                <tr className="border-b hover:bg-muted/20">
                   {showBlock && (
                     <td rowSpan={blockRowSpan} className="px-2 py-0.5 sticky left-0 bg-background font-semibold border-r align-top">
                       {row.building}
