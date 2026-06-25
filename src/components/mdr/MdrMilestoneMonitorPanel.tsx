@@ -162,7 +162,18 @@ export function MdrMilestoneMonitorPanel() {
             P=계획·A=실적·Δ=차이 · 단계 순차 강제(SD→DD→CD) 적용 · 기준일 일할 계산 · 단계 헤더 클릭 시 마일스톤 펼치기/접기
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className={`flex items-center gap-2 px-2 py-1 rounded border text-[11px] ${
+              wfEnabled ? "border-primary/40 bg-primary/5" : "border-muted bg-muted/30"
+            }`}
+            title="WF 적용: Overall Progress 를 Summary 와 동일한 산식(단계별 도면 평균)으로 표시"
+          >
+            <span className={`font-semibold ${wfEnabled ? "text-primary" : "text-muted-foreground"}`}>
+              WF {wfEnabled ? "적용" : "미적용"}
+            </span>
+            <Switch checked={wfEnabled} onCheckedChange={setWfEnabled} aria-label="WF 적용 토글" />
+          </div>
           <label className="text-xs text-muted-foreground">기준일</label>
           <Input
             type="date"
