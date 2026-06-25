@@ -279,6 +279,18 @@ export function MdrMilestoneMonitorPanel() {
     });
   }, [matrix, filter.building, filter.team, filter.discipline]);
 
+  // 공장동 행 모음 + 마지막 공장동 건물 (공장동 합계행 삽입 위치 판정)
+  const factoryRows = useMemo(
+    () => displayRows.filter((r) => FACTORY_BUILDINGS.has(r.building)),
+    [displayRows],
+  );
+  const lastFactoryBuilding = useMemo(() => {
+    for (let i = factoryRows.length - 1; i >= 0; i--) return factoryRows[i].building;
+    return null;
+  }, [factoryRows]);
+
+
+
 
   const buildings = useMemo(
     () => (matrix ? Array.from(new Set(matrix.rows.map((r) => r.building))) : []),
