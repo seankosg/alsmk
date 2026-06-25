@@ -150,6 +150,26 @@ export function MdrMilestoneMonitorPanel() {
     return map;
   }, [headers]);
 
+  // 필터 적용된 행
+  const displayRows = useMemo(() => {
+    if (!matrix) return [];
+    return matrix.rows.filter((r) => {
+      if (filter.building !== "all" && r.building !== filter.building) return false;
+      const disc = normalizeDiscipline(r.discipline);
+      if (filter.discipline !== "all" && disc !== filter.discipline) return false;
+      if (filter.team !== "all") {
+        const team = TEAM_OF_DISCIPLINE[disc];
+        if (team !== filter.team) return false;
+      }
+      return true;
+    });
+  }, [matrix, filter.building, filter.team, filter.discipline]);
+
+  const buildings = useMemo(
+    () => (matrix ? Array.from(new Set(matrix.rows.map((r) => r.building))) : []),
+    [matrix],
+  );
+
   if (loading) {
     return (
       <Card className="p-6 flex items-center gap-2 text-muted-foreground">
