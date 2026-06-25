@@ -1,20 +1,27 @@
-## 문제
-[신규 계산] 클릭 시 `재계산 실패: null value in column "actual_pct" of relation "mdr_milestone_snapshots" violates not-null constraint` 오류 발생.
+## 목표
+마일스톤 모니터링 테이블의 Block과 Disc. 컬럼 사이에 **Team** 컬럼을 추가하여 3단 계층(Block → Team → Disc.)으로 표시.
 
-## 원인
-- `mdr_milestone_snapshots.actual_pct` (및 `delta_pct`) 컬럼이 `NOT NULL` 제약.
-- 그러나 셀의 `actual`/`delta` 는 **기준일 이후의 미래 마일스톤**(planDate > asOf)인 경우 `null` 로 계산됨 (UI 에서 "-" 표시 용도).
-- `saveSnapshot` 이 이 null 값을 그대로 insert → not-null 제약 위반.
+## 매핑
+`TEAM_OF_DISCIPLINE` 사용 (예: ARCH→Arch, STR→Civil, MECH/HV→Mech, ELEC/TEL→Elec, FP/FA→FAFP). 정규화는 기존 `normalizeDiscipline` 활용.
 
-## 해결책
-DB 컬럼 `actual_pct`, `delta_pct` 를 nullable 로 변경 (의미상 "아직 평가하지 않음" = null 이 자연스러움). `loadLatestSnapshot` 에는 이미 null 처리 코드가 있으므로 추가 코드 변경 불필요.
+## 변경 파일
+**`src/components/mdr/MdrMilestoneMonitorPanel.tsx`**
 
-### 마이그레이션
-```sql
-ALTER TABLE public.mdr_milestone_snapshots
-  ALTER COLUMN actual_pct DROP NOT NULL,
-  ALTER COLUMN delta_pct  DROP NOT NULL;
-```
+### 1. 데이터 정렬
+`displayRows` 를 building → team → discipline 순으로 정렬되도록 보장 (현재 building → discipline). 같은 building 내에서 team 으로 그룹핑이 시각적으로 연속되어야 rowSpan 이 자연스러움.
 
-## 대안 (선택 안함)
-- `saveSnapshot` 에서 null → 0 치환: 미래 마일스톤이 "0% 실적" 으로 잘못 기록되어 스냅샷 재로드 시 의미 왜곡됨.
+### 2. 헤더
+- `<th rowSpan={3}>Block</th>` 다음에 `<th rowSpan={3} className="text-left px-2 py-1 border-r">Team</th>` 추가.
+
+### 3. 본문 셀
+- 현재 `showBlock` + `blockRowSpan` 패턴과 동일하게 `showTeam` + `teamRowSpan` 도입.
+- `showTeam` = 이전 행과 비교해 building 이 바뀌었거나 team 이 바뀐 경우 true.
+- `teamRowSpan` = 같은 (building, team) 행 개수.
+- `<td rowSpan={teamRowSpan} className="px-2 py-0.5 border-r align-top text-xs font-medium">{team}</td>` 렌더.
+
+### 4. colSpan 보정
+빈 행 메시지의 `colSpan={99}` 는 그대로 유효(과대 지정이라 OK).
+
+## 기술 메모
+- 필터(`filter.t`)로 team 단일 선택 시에도 Team 컬럼은 표시(일관성).
+- `MdrSummaryPanel` 등 다른 패널은 변경 없음.
