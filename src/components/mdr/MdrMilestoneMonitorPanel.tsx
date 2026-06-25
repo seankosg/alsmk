@@ -348,24 +348,43 @@ export function MdrMilestoneMonitorPanel() {
         <td className="text-center px-2 py-1 border-l tabular-nums">{sdSum}</td>
         <td className="text-center px-2 py-1 tabular-nums">{ddSum}</td>
         <td className="text-center px-2 py-1 border-r tabular-nums">{cdSum}</td>
-        {STAGES.map((s, si) => {
-          const last = si === 2;
-          const lm = lastMsByStage[s];
-          const parts = rows.map((r) => {
-            const sw = r.stageW?.[s];
-            const lc = lm ? r.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
-            const src = wfEnabled ? sw : lc;
-            return { plan: src?.plan ?? null, actual: src?.actual ?? null, weight: getStageCount(r, s) };
-          });
-          const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
-          const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
-          const delta = plan != null && actual != null ? actual - plan : null;
+        {(() => {
+          // 단계별 집계값 선계산 (Overall 합성에도 재사용)
+          const stageVals: Record<MdrStage, { plan: number | null; actual: number | null; delta: number | null }> = {
+            SD: { plan: null, actual: null, delta: null },
+            DD: { plan: null, actual: null, delta: null },
+            CD: { plan: null, actual: null, delta: null },
+          };
+          for (const s of STAGES) {
+            const lm = lastMsByStage[s];
+            const parts = rows.map((r) => {
+              const sw = r.stageW?.[s];
+              const lc = lm ? r.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
+              const src = wfEnabled ? sw : lc;
+              return { plan: src?.plan ?? null, actual: src?.actual ?? null, weight: getStageCount(r, s) };
+            });
+            const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
+            const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
+            stageVals[s] = { plan, actual, delta: plan != null && actual != null ? actual - plan : null };
+          }
+          const overall = overallFromStages(stageVals, wfEnabled);
           return [
-            <td key={`agg-op-p-${s}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
-            <td key={`agg-op-a-${s}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
-            <td key={`agg-op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+            // Overall 3셀
+            <td key="agg-op-p-OVERALL" style={colStyle(`op-OVERALL-P`)} className="text-center px-1 py-1 border-l tabular-nums bg-slate-100/60 dark:bg-slate-800/40">{fmtPct(overall.plan)}</td>,
+            <td key="agg-op-a-OVERALL" style={colStyle(`op-OVERALL-A`)} className="text-center px-1 py-1 tabular-nums bg-slate-100/60 dark:bg-slate-800/40">{fmtPct(overall.actual)}</td>,
+            <td key="agg-op-d-OVERALL" style={colStyle(`op-OVERALL-D`)} className={`text-center px-1 py-1 tabular-nums bg-slate-100/60 dark:bg-slate-800/40 ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
+            // SD/DD/CD Stage 셀
+            ...STAGES.flatMap((s, si) => {
+              const last = si === 2;
+              const { plan, actual, delta } = stageVals[s];
+              return [
+                <td key={`agg-op-p-${s}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
+                <td key={`agg-op-a-${s}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
+                <td key={`agg-op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+              ];
+            }),
           ];
-        })}
+        })()}
         {headers?.flatMap(({ stage, ms }) => {
           if (!expanded[stage]) {
             return [<td key={`agg-col-${stage}`} className="text-center px-1 py-1 border-l border-r text-muted-foreground">…</td>];
