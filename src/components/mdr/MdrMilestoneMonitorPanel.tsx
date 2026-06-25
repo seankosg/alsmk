@@ -81,6 +81,20 @@ export function MdrMilestoneMonitorPanel() {
 
   const toggleStage = (s: MdrStage) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
+  // 필터 — URL 동기화 (?b, ?t, ?d)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter: SummaryFilterState = {
+    building: searchParams.get("b") ?? "all",
+    team: searchParams.get("t") ?? "all",
+    discipline: searchParams.get("d") ?? "all",
+  };
+  const setFilter = (next: SummaryFilterState) => {
+    const sp = new URLSearchParams(searchParams);
+    const apply = (k: string, v: string) => { if (v === "all") sp.delete(k); else sp.set(k, v); };
+    apply("b", next.building); apply("t", next.team); apply("d", next.discipline);
+    setSearchParams(sp, { replace: true });
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
