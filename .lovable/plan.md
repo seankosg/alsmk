@@ -1,29 +1,45 @@
-## 변경 사항
+## 원인 분석
 
-### 1. TEL, HV 를 ELEC 팀에 매핑 (사용자 명시)
-**`src/lib/mdr/weights.ts`**
+### 영향 범위
+`mdr_milestone_cells` 에 **SD 단계 합계가 100% 초과(180%)** 인 도면이 다음 disc에 존재:
 
-- `TEAM_OF_DISCIPLINE` 에 `TEL: "ELEC"`, `HV: "ELEC"` 추가.
-- `DISCIPLINES_BY_TEAM.ELEC` 를 `["ELEC", "TEL", "HV", "FA"]` 로 확장 (표시 순서).
-- `normalizeDiscipline` 에 명시적 케이스 추가:
-  - `TEL`, `HV` 는 그대로 통과시키되 분기를 명시(가독성).
-  - (참고) 기존 raw 데이터에 `HV`/`TEL` 그대로 존재 — `mdr_drawings` 에서 확인됨.
+| Building | Discipline | 전체 도면 | 비정상 도면 |
+|---|---|---:|---:|
+| CRM | STR | 396 | **22** |
+| SMP&CCM | STR | 220 | **17** |
+| HSM | STR - STEEL | 99 | **8** |
 
-### 2. Summary 와 Monitor 의 데이터 소스 일치
-두 엔진 모두 이미 `mdr_drawings` (out_of_scope=false) + `mdr_milestones/cells/progress` 를 같은 쿼리 패턴으로 로드. 그러나 표시 결과가 달라 보이는 원인은:
+→ 합 **47개 도면** 만 비정상이지만, 같은 disc 행 평균 산식에 들어가 P=50.0% A=180.0% +130% 로 표시됨.
 
-- Summary 의 `DISC_ORDER` 와 `DISCIPLINES_BY_TEAM` 가 `HV`/`TEL` 을 모르기 때문에 해당 도면이 어떤 팀에도 매칭되지 않아 누락되거나, "ETC" 로 빠짐.
-- Monitor 는 normalize 된 모든 discipline 을 그대로 행으로 렌더 → HV/TEL 행이 보이지만 팀 컬럼이 "—".
+### 도면 1건의 실제 SD cells 예시 (drawing_id=`04fe12c0…`)
 
-→ 위 #1 매핑 추가만으로 양쪽 결과가 같은 도면 모집단·같은 팀 매핑을 사용하게 됨.
+```
+stage  pct  sub  inc   plan_date
+SD     50   0    50    2026-04-15   ← 정상
+SD    100   0    50    2026-04-30   ← 정상 (여기까지 합 100)
+SD    100   1    20    2026-05-22   ← 비정상 추가
+SD    100   2    5     2026-05-29   ← 비정상 추가
+SD    100   3    7     2026-06-05
+SD    100   4~9  8×7   …            ← 비정상 추가 (총 +80%)
+```
 
-**`src/lib/mdr/summaryEngine.ts`**
-- `DISC_ORDER` 에 `TEL`, `HV` 포함: `["ARCH", "CIVIL", "STR", "MECH", "FP", "ELEC", "TEL", "HV", "FA", "FAFP"]`.
-- (필요 시) `ORDER` 보조 배열에도 추가.
+정상 SD 단계는 `pct=50, sub=0` + `pct=100, sub=0` 두 cell(합 100%)이어야 하는데, **`pct=100`의 `sub_idx≥1` cells 가 추가로 들어가서 합계가 180%** 가 됨.
 
-### 3. 검증
-변경 후 Summary 의 ELEC 팀 그룹과 Monitor 의 ELEC 팀 rowSpan 묶음이 동일한 도면 수를 표시해야 함.
+### 추정 원인
+임포트 단계(`mdrParser` / `mdr_milestone_cells` 적재 로직)에서 STR 계열 일부 도면이 **SD/DD/CD 셀 분류 시 다른 단계의 셀이 SD 에 중복 적재**된 것으로 보임. 47개 도면만 영향 — 임포트 행 단위에서 stage 컬럼 판정이 잘못된 케이스.
 
-## 변경하지 않는 것
-- DB 스키마, 가중치 테이블 — TEL/HV 도 ELEC 팀 WF(0.11) 를 공유.
-- mdr_weights audit/로직.
+## 해결 옵션
+
+### A. (권장) 비정상 cells 삭제로 즉시 정정
+`mdr_milestone_cells` 에서 SD/DD/CD 단계별 **누적 합이 100을 초과하는 도면**의 `sub_idx ≥ 1, pct=100` cells 를 삭제. 같은 패턴이 DD/CD 에도 있을 수 있으므로 모든 stage 점검.
+
+**위험:** 정상적으로 `pct=100, sub_idx≥1` 을 사용하는 케이스가 있다면 정상 데이터 손실 가능. 따라서 **합 100 초과 조건이 충족된 (drawing, stage) 만** 대상으로 한정.
+
+### B. 데이터 정리 + 임포트 로직 가드 추가
+A 에 더해, `mdrParser` 에서 `(drawing, stage)` 단위 increment 합 > 100 이면 import_log 에 경고를 남기고 cells 적재를 건너뛰는 가드 추가. 차후 재발 방지.
+
+### C. 임포트 원본(Excel) 검증
+DB 정정 전에 원본 시트를 사용자가 점검할 수 있도록 영향 도면 id 목록을 CSV 로 제공 → 사용자가 재임포트 결정.
+
+## 권장 다음 단계
+**옵션 A 의 정정 마이그레이션을 실행**하면 화면 표시가 즉시 정상화됨. B 의 가드 추가는 후속 작업으로 분리. 진행 여부를 선택해 주세요.
