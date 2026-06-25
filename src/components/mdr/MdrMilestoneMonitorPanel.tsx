@@ -4,7 +4,7 @@
  *  - Overall Progress: 각 단계의 마지막(최대 pct) 마일스톤 P/A/Δ
  *  - SD/DD/CD 마일스톤 컬럼: 단계별 토글 (기본 접힘)
  */
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   saveSnapshot,
   type MonitorMatrix,
   type MonitorMilestoneKey,
+  type MonitorDiscRow,
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
@@ -98,6 +99,26 @@ function deltaClass(n: number | null | undefined): string {
 
 function mkKey(stage: MdrStage, pct: number, planDate: string | null): string {
   return `${stage}|${pct}|${planDate ?? ""}`;
+}
+
+function weightedAvg(
+  parts: Array<{ val: number | null | undefined; weight: number }>,
+  weighted: boolean,
+): number | null {
+  let num = 0;
+  let den = 0;
+  for (const { val, weight } of parts) {
+    if (val == null || !isFinite(val)) continue;
+    const w = weighted ? Math.max(0, weight) : 1;
+    if (w <= 0) continue;
+    num += val * w;
+    den += w;
+  }
+  return den > 0 ? num / den : null;
+}
+
+function getStageCount(r: MonitorDiscRow, s: MdrStage): number {
+  return s === "SD" ? r.drawingCountSD : s === "DD" ? r.drawingCountDD : r.drawingCountCD;
 }
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
