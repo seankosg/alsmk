@@ -1,23 +1,42 @@
-## 문제
+## 목표
+마일스톤 모니터링 테이블의 P/A/Δ 컬럼에 드래그 핸들을 추가하고, 사용자가 조절한 너비를 localStorage에 저장하여 다음 접속 시 그대로 복원.
 
-마일스톤 모니터링 패널 Overall Progress(WF 적용)에서 일부 STR 행의 **SD 계획이 50%** 로 표시됨.
+## 구현 내용
 
-- 영향 행: `CRM/STR`, `HSM/STR`, `SMP&CCM/STR`
-- 원인: 해당 STR 도면들의 SD `pct=100` 마일스톤 `plan_date = 2026-07-17` (기준일 2026-06-25보다 미래).
-- `milestoneMonitorEngine.buildMatrix` 의 `stageW` SD 계획 산식이 **"plan_date ≤ asOf 의 최대 pct"** 를 쓰기 때문에 미도래 100% 마일스톤을 제외하고 50% 만 누적 → 50% 표시.
+### 1) 너비 상태 관리 (`MdrMilestoneMonitorPanel.tsx`)
+- 새 state: `columnWidths: Record<string, number>` — 키별 px 너비 저장
+- localStorage 키: `mdr.monitor.columnWidths`
+- 초기값: 저장된 값 로드 → 없으면 기본 56px
+- 변경 시 localStorage 즉시 저장 (`useEffect`)
 
-반면 Raw Data / Summary 패널은 `drawingMilestonePlannedPct` 를 사용 → **SD 는 항상 100%** 로 처리. 두 화면이 다른 산식을 쓰는 불일치.
+### 2) 컬럼 키 체계
+각 P/A/Δ 셀에 안정적 키 부여:
+- Overall Progress: `op-{stage}-{P|A|D}` (예: `op-SD-P`)
+- 마일스톤별: `ms-{stage}-{pct}-{planDate}-{P|A|D}`
 
-## 해결
+### 3) 드래그 핸들 컴포넌트
+3단 헤더 `<th>` 우측에 `<div>` 핸들 추가:
+- 절대 위치, 우측 끝 4px 너비, `cursor-col-resize`
+- `onMouseDown` → `mousemove` 리스너로 delta 계산 → 너비 업데이트
+- `mouseup` 시 리스너 해제 및 저장
+- 더블클릭 → 해당 키 삭제 (기본 56px 복원)
+- 최소 32px, 최대 200px 제한
 
-`src/lib/mdr/milestoneMonitorEngine.ts` `buildMatrix` 의 `stageW` 계산을 Raw/Summary 와 동일하게 맞춤.
+### 4) 너비 적용
+- 기존 `w-14` (Tailwind 클래스) 제거
+- 3단 헤더 + 본문 데이터 셀(있음/없음 모두) `<th>`, `<td>` 에 `style={{ width: getWidth(key), minWidth: getWidth(key) }}` 적용
+- 헤더 `<th>` 는 `relative` 클래스로 핸들 absolute 기준점 확보
 
-1. **SD 단계 계획**: `planPct = 100` 으로 고정 (in-scope 인 모든 도면).
-2. DD/CD 단계 계획·실적, SD 실적은 기존 산식 유지.
-3. per-milestone 셀(plan/actual) 산식은 이미 `drawingMilestonePlannedPct`(SD=100) 사용 중이므로 변경 없음.
-
-수정 후 사용자에게 패널의 **[신규 계산]** 버튼을 눌러 스냅샷을 갱신하도록 안내. (이미 저장된 snapshot 행의 `stage_plan_pct=50` 은 재계산 시 100 으로 덮어써짐.)
+### 5) 동작 영향 범위
+- 1단/2단 헤더는 `colSpan` 기반이라 자동으로 너비 합산됨 — 별도 수정 불필요
+- 본문 셀 6군데(있음/없음 × Overall/마일스톤) 모두 동일한 키로 너비 참조
 
 ## 변경 파일
+- `src/components/mdr/MdrMilestoneMonitorPanel.tsx` 만 수정
 
-- `src/lib/mdr/milestoneMonitorEngine.ts` — `buildMatrix` 내 SD stageW 계획 분기 1줄 추가.
+## 사용자 경험
+- 핸들 위에 마우스 → 좌우 화살표 커서
+- 드래그 → 실시간 너비 변경
+- 떼면 자동 저장 (toast 없음, 조용히 저장)
+- 더블클릭 → 해당 컬럼 기본 너비(56px) 복원
+- 새로고침/재접속 시에도 너비 유지
