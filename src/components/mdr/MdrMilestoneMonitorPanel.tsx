@@ -21,7 +21,7 @@ import {
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
-import { normalizeDiscipline, TEAM_OF_DISCIPLINE } from "@/lib/mdr/weights";
+import { normalizeDiscipline, TEAM_OF_DISCIPLINE, DEFAULT_STAGE_WF } from "@/lib/mdr/weights";
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 const COL_WIDTHS_KEY = "mdr.monitor.columnWidths";
