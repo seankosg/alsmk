@@ -5,6 +5,7 @@
  *  - SD/DD/CD 마일스톤 컬럼: 단계별 토글 (기본 접힘)
  */
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ import {
   type MonitorMilestoneKey,
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
+import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
+import { normalizeDiscipline, TEAM_OF_DISCIPLINE } from "@/lib/mdr/weights";
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 
