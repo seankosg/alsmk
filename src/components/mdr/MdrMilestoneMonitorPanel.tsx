@@ -21,7 +21,7 @@ import {
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
-import { normalizeDiscipline, TEAM_OF_DISCIPLINE } from "@/lib/mdr/weights";
+import { normalizeDiscipline, TEAM_OF_DISCIPLINE, DEFAULT_STAGE_WF } from "@/lib/mdr/weights";
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 const COL_WIDTHS_KEY = "mdr.monitor.columnWidths";
@@ -126,6 +126,26 @@ function weightedAvg(
 
 function getStageCount(r: MonitorDiscRow, s: MdrStage): number {
   return s === "SD" ? r.drawingCountSD : s === "DD" ? r.drawingCountDD : r.drawingCountCD;
+}
+
+/** SD/DD/CD 단계값을 합성해 Overall P/A/Δ 산출. WF ON → DEFAULT_STAGE_WF 가중평균, OFF → 단순평균. null 단계는 가중치에서 제외. */
+function overallFromStages(
+  triples: Partial<Record<MdrStage, { plan: number | null | undefined; actual: number | null | undefined } | null | undefined>>,
+  weighted: boolean,
+): { plan: number | null; actual: number | null; delta: number | null } {
+  let pNum = 0, pDen = 0, aNum = 0, aDen = 0;
+  for (const s of STAGES) {
+    const v = triples[s];
+    if (!v) continue;
+    const w = weighted ? (DEFAULT_STAGE_WF[s] ?? 0) : 1;
+    if (w <= 0) continue;
+    if (v.plan != null && isFinite(v.plan as number)) { pNum += (v.plan as number) * w; pDen += w; }
+    if (v.actual != null && isFinite(v.actual as number)) { aNum += (v.actual as number) * w; aDen += w; }
+  }
+  const plan = pDen > 0 ? pNum / pDen : null;
+  const actual = aDen > 0 ? aNum / aDen : null;
+  const delta = plan != null && actual != null ? actual - plan : null;
+  return { plan, actual, delta };
 }
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -328,24 +348,43 @@ export function MdrMilestoneMonitorPanel() {
         <td className="text-center px-2 py-1 border-l tabular-nums">{sdSum}</td>
         <td className="text-center px-2 py-1 tabular-nums">{ddSum}</td>
         <td className="text-center px-2 py-1 border-r tabular-nums">{cdSum}</td>
-        {STAGES.map((s, si) => {
-          const last = si === 2;
-          const lm = lastMsByStage[s];
-          const parts = rows.map((r) => {
-            const sw = r.stageW?.[s];
-            const lc = lm ? r.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
-            const src = wfEnabled ? sw : lc;
-            return { plan: src?.plan ?? null, actual: src?.actual ?? null, weight: getStageCount(r, s) };
-          });
-          const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
-          const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
-          const delta = plan != null && actual != null ? actual - plan : null;
+        {(() => {
+          // 단계별 집계값 선계산 (Overall 합성에도 재사용)
+          const stageVals: Record<MdrStage, { plan: number | null; actual: number | null; delta: number | null }> = {
+            SD: { plan: null, actual: null, delta: null },
+            DD: { plan: null, actual: null, delta: null },
+            CD: { plan: null, actual: null, delta: null },
+          };
+          for (const s of STAGES) {
+            const lm = lastMsByStage[s];
+            const parts = rows.map((r) => {
+              const sw = r.stageW?.[s];
+              const lc = lm ? r.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
+              const src = wfEnabled ? sw : lc;
+              return { plan: src?.plan ?? null, actual: src?.actual ?? null, weight: getStageCount(r, s) };
+            });
+            const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
+            const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
+            stageVals[s] = { plan, actual, delta: plan != null && actual != null ? actual - plan : null };
+          }
+          const overall = overallFromStages(stageVals, wfEnabled);
           return [
-            <td key={`agg-op-p-${s}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
-            <td key={`agg-op-a-${s}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
-            <td key={`agg-op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+            // Overall 3셀
+            <td key="agg-op-p-OVERALL" style={colStyle(`op-OVERALL-P`)} className="text-center px-1 py-1 border-l tabular-nums bg-slate-100/60 dark:bg-slate-800/40">{fmtPct(overall.plan)}</td>,
+            <td key="agg-op-a-OVERALL" style={colStyle(`op-OVERALL-A`)} className="text-center px-1 py-1 tabular-nums bg-slate-100/60 dark:bg-slate-800/40">{fmtPct(overall.actual)}</td>,
+            <td key="agg-op-d-OVERALL" style={colStyle(`op-OVERALL-D`)} className={`text-center px-1 py-1 tabular-nums bg-slate-100/60 dark:bg-slate-800/40 ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
+            // SD/DD/CD Stage 셀
+            ...STAGES.flatMap((s, si) => {
+              const last = si === 2;
+              const { plan, actual, delta } = stageVals[s];
+              return [
+                <td key={`agg-op-p-${s}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
+                <td key={`agg-op-a-${s}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
+                <td key={`agg-op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+              ];
+            }),
           ];
-        })}
+        })()}
         {headers?.flatMap(({ stage, ms }) => {
           if (!expanded[stage]) {
             return [<td key={`agg-col-${stage}`} className="text-center px-1 py-1 border-l border-r text-muted-foreground">…</td>];
@@ -442,8 +481,8 @@ export function MdrMilestoneMonitorPanel() {
               <th colSpan={3} className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider">
                 Total DWG
               </th>
-              <th colSpan={9} className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider">
-                Overall Progress
+              <th colSpan={12} className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider">
+                Progress Status
               </th>
               {headers?.map(({ stage, ms }) => {
                 const th = STAGE_THEME[stage];
@@ -479,7 +518,14 @@ export function MdrMilestoneMonitorPanel() {
                   </th>
                 );
               })}
-              {/* Overall Progress 2단: SD/DD/CD */}
+              {/* Progress Status 2단: Overall / SD Stage / DD Stage / CD Stage */}
+              <th
+                key="op-h-OVERALL"
+                colSpan={3}
+                className="text-center px-2 py-1 border-l text-black font-bold bg-slate-200"
+              >
+                Overall
+              </th>
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 return (
@@ -488,7 +534,7 @@ export function MdrMilestoneMonitorPanel() {
                     colSpan={3}
                     className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${i === 2 ? "border-r" : ""}`}
                   >
-                    {s}
+                    {s} Stage
                   </th>
                 );
               })}
@@ -530,7 +576,11 @@ export function MdrMilestoneMonitorPanel() {
             </tr>
             {/* 3단 */}
             <tr className="border-b-2">
-              {/* Overall Progress P/A/Δ */}
+              {/* Overall P/A/Δ (Stage WF 합성) */}
+              <th key="op-p-OVERALL" style={colStyle(`op-OVERALL-P`)} className="relative text-center px-1 py-0.5 border-l font-bold text-black bg-slate-200">P<ResizeHandle colKey={`op-OVERALL-P`} setWidths={setColumnWidths} /></th>
+              <th key="op-a-OVERALL" style={colStyle(`op-OVERALL-A`)} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">A<ResizeHandle colKey={`op-OVERALL-A`} setWidths={setColumnWidths} /></th>
+              <th key="op-d-OVERALL" style={colStyle(`op-OVERALL-D`)} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">Δ<ResizeHandle colKey={`op-OVERALL-D`} setWidths={setColumnWidths} /></th>
+              {/* SD/DD/CD Stage P/A/Δ */}
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
@@ -585,28 +635,51 @@ export function MdrMilestoneMonitorPanel() {
                   <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
                   <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
                   <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
-                  {/* Overall Progress 본문 — WF ON 이면 Summary 산식(row.stageW), OFF 면 last-milestone cell */}
-                  {STAGES.map((s, si) => {
-                    const last = si === 2;
-                    const lm = lastMsByStage[s];
-                    const lastCell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
-                    const sw = row.stageW?.[s];
-                    const useSrc = wfEnabled
-                      ? (sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null)
-                      : (lastCell ? { plan: lastCell.plan, actual: lastCell.actual, delta: lastCell.delta } : null);
-                    if (!useSrc) {
-                      return [
-                        <td key={`op-p-${s}-${ri}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
-                        <td key={`op-a-${s}-${ri}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
-                        <td key={`op-d-${s}-${ri}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
-                      ];
+                  {/* Progress Status 본문 — Overall + SD/DD/CD Stage. WF ON → row.stageW(Summary 산식), OFF → 마지막 마일스톤 cell */}
+                  {(() => {
+                    const stageSrc: Record<MdrStage, { plan: number | null; actual: number | null; delta: number | null } | null> = {
+                      SD: null, DD: null, CD: null,
+                    };
+                    for (const s of STAGES) {
+                      const lm = lastMsByStage[s];
+                      const lastCell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
+                      const sw = row.stageW?.[s];
+                      stageSrc[s] = wfEnabled
+                        ? (sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null)
+                        : (lastCell ? { plan: lastCell.plan, actual: lastCell.actual, delta: lastCell.delta } : null);
                     }
-                    return [
-                      <td key={`op-p-${s}-${ri}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(useSrc.plan)}</td>,
-                      <td key={`op-a-${s}-${ri}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(useSrc.actual)}</td>,
-                      <td key={`op-d-${s}-${ri}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(useSrc.delta)}</td>,
+                    const overall = overallFromStages(stageSrc, wfEnabled);
+                    const overallEmpty = overall.plan == null && overall.actual == null;
+                    const cells: JSX.Element[] = [
+                      overallEmpty
+                        ? <td key={`op-p-OVERALL-${ri}`} style={colStyle(`op-OVERALL-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground bg-slate-100/40 dark:bg-slate-800/30">—</td>
+                        : <td key={`op-p-OVERALL-${ri}`} style={colStyle(`op-OVERALL-P`)} className="text-center px-1 py-0.5 border-l tabular-nums bg-slate-100/40 dark:bg-slate-800/30">{fmtPct(overall.plan)}</td>,
+                      overallEmpty
+                        ? <td key={`op-a-OVERALL-${ri}`} style={colStyle(`op-OVERALL-A`)} className="text-center px-1 py-0.5 text-muted-foreground bg-slate-100/40 dark:bg-slate-800/30">—</td>
+                        : <td key={`op-a-OVERALL-${ri}`} style={colStyle(`op-OVERALL-A`)} className="text-center px-1 py-0.5 tabular-nums bg-slate-100/40 dark:bg-slate-800/30">{fmtPct(overall.actual)}</td>,
+                      overallEmpty
+                        ? <td key={`op-d-OVERALL-${ri}`} style={colStyle(`op-OVERALL-D`)} className="text-center px-1 py-0.5 text-muted-foreground bg-slate-100/40 dark:bg-slate-800/30">—</td>
+                        : <td key={`op-d-OVERALL-${ri}`} style={colStyle(`op-OVERALL-D`)} className={`text-center px-1 py-0.5 tabular-nums bg-slate-100/40 dark:bg-slate-800/30 ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
                     ];
-                  })}
+                    STAGES.forEach((s, si) => {
+                      const last = si === 2;
+                      const useSrc = stageSrc[s];
+                      if (!useSrc) {
+                        cells.push(
+                          <td key={`op-p-${s}-${ri}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
+                          <td key={`op-a-${s}-${ri}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
+                          <td key={`op-d-${s}-${ri}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
+                        );
+                      } else {
+                        cells.push(
+                          <td key={`op-p-${s}-${ri}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(useSrc.plan)}</td>,
+                          <td key={`op-a-${s}-${ri}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(useSrc.actual)}</td>,
+                          <td key={`op-d-${s}-${ri}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(useSrc.delta)}</td>,
+                        );
+                      }
+                    });
+                    return cells;
+                  })()}
                   {headers?.flatMap(({ stage, ms }) => {
                     if (!expanded[stage]) {
                       return [<td key={`col-${stage}-${ri}`} className="text-center px-1 py-0.5 border-l border-r text-muted-foreground">…</td>];
