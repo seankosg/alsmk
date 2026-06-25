@@ -499,7 +499,14 @@ export function MdrMilestoneMonitorPanel() {
                   </th>
                 );
               })}
-              {/* Overall Progress 2단: SD/DD/CD */}
+              {/* Progress Status 2단: Overall / SD Stage / DD Stage / CD Stage */}
+              <th
+                key="op-h-OVERALL"
+                colSpan={3}
+                className="text-center px-2 py-1 border-l text-black font-bold bg-slate-200"
+              >
+                Overall
+              </th>
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 return (
@@ -508,7 +515,7 @@ export function MdrMilestoneMonitorPanel() {
                     colSpan={3}
                     className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${i === 2 ? "border-r" : ""}`}
                   >
-                    {s}
+                    {s} Stage
                   </th>
                 );
               })}
