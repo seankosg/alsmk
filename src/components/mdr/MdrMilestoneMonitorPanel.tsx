@@ -364,13 +364,22 @@ export function MdrMilestoneMonitorPanel() {
             )}
             {displayRows.map((row, ri) => {
               const prev = ri > 0 ? displayRows[ri - 1] : null;
+              const rowTeam = TEAM_OF_DISCIPLINE[normalizeDiscipline(row.discipline)] ?? "—";
               const showBlock = !prev || prev.building !== row.building;
               const blockRowSpan = displayRows.filter((r) => r.building === row.building).length;
+              const prevTeam = prev ? (TEAM_OF_DISCIPLINE[normalizeDiscipline(prev.discipline)] ?? "—") : null;
+              const showTeam = !prev || prev.building !== row.building || prevTeam !== rowTeam;
+              const teamRowSpan = displayRows.filter((r) => r.building === row.building && (TEAM_OF_DISCIPLINE[normalizeDiscipline(r.discipline)] ?? "—") === rowTeam).length;
               return (
                 <tr key={`${row.building}-${row.discipline}`} className="border-b hover:bg-muted/20">
                   {showBlock && (
                     <td rowSpan={blockRowSpan} className="px-2 py-0.5 sticky left-0 bg-background font-semibold border-r align-top">
                       {row.building}
+                    </td>
+                  )}
+                  {showTeam && (
+                    <td rowSpan={teamRowSpan} className="px-2 py-0.5 border-r align-top text-xs font-medium">
+                      {rowTeam}
                     </td>
                   )}
                   <td className="px-2 py-0.5 border-r">{row.discipline}</td>
