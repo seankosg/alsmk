@@ -413,8 +413,8 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
     };
     row.cells.set(k, {
       plan: Number(r.plan_pct) || 0,
-      actual: Number(r.actual_pct) || 0,
-      delta: Number(r.delta_pct) || 0,
+      actual: r.actual_pct == null ? null : Number(r.actual_pct),
+      delta: r.delta_pct == null ? null : Number(r.delta_pct),
       drawingCount: Number(r.drawing_count) || 0,
     });
     if (r.stage_plan_pct != null || r.stage_actual_pct != null) {
