@@ -268,33 +268,7 @@ export function MdrSummaryPanel() {
   });
   const toggle = (s: StageCode) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
-  // 필터 상태 — URL 파라미터와 동기화
-  const [searchParams, setSearchParams] = useSearchParams();
-  const filter: SummaryFilterState = {
-    building: searchParams.get("b") ?? "all",
-    team: searchParams.get("t") ?? "all",
-    discipline: searchParams.get("d") ?? "all",
-  };
-  const setFilter = (next: SummaryFilterState) => {
-    const sp = new URLSearchParams(searchParams);
-    const apply = (k: string, v: string, def: string) => {
-      if (v === def) sp.delete(k); else sp.set(k, v);
-    };
-    apply("b", next.building, "all");
-    apply("t", next.team, "all");
-    apply("d", next.discipline, "all");
-    setSearchParams(sp, { replace: true });
-  };
-
-  const summary = useMemo(
-    () => (rawSummary ? filterSummary(rawSummary, filter) : null),
-    [rawSummary, filter.building, filter.team, filter.discipline],
-  );
-
-  const buildings = useMemo(
-    () => (rawSummary?.blocks ?? []).map((b) => b.building),
-    [rawSummary],
-  );
+  const summary = rawSummary;
 
   if (isLoading) return <div className="text-muted-foreground p-6">SUMMARY 계산 중...</div>;
   if (!rawSummary || rawSummary.blocks.length === 0) {
