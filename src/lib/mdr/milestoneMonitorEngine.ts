@@ -327,6 +327,8 @@ export async function saveSnapshot(matrix: MonitorMatrix): Promise<void> {
           drawing_count_sd: r.drawingCountSD,
           drawing_count_dd: r.drawingCountDD,
           drawing_count_cd: r.drawingCountCD,
+          stage_plan_pct: r.stageW[stage]?.plan ?? null,
+          stage_actual_pct: r.stageW[stage]?.actual ?? null,
           computed_at: new Date().toISOString(),
         });
       }
