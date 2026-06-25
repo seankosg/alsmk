@@ -356,12 +356,10 @@ export function MdrMilestoneMonitorPanel() {
             CD: { plan: null, actual: null, delta: null },
           };
           for (const s of STAGES) {
-            const lm = lastMsByStage[s];
+            // stage 대표값은 WF 토글과 무관하게 항상 Summary 산식(row.stageW)을 사용
             const parts = rows.map((r) => {
               const sw = r.stageW?.[s];
-              const lc = lm ? r.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
-              const src = wfEnabled ? sw : lc;
-              return { plan: src?.plan ?? null, actual: src?.actual ?? null, weight: getStageCount(r, s) };
+              return { plan: sw?.plan ?? null, actual: sw?.actual ?? null, weight: getStageCount(r, s) };
             });
             const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
             const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
@@ -635,18 +633,14 @@ export function MdrMilestoneMonitorPanel() {
                   <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
                   <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
                   <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
-                  {/* Progress Status 본문 — Overall + SD/DD/CD Stage. WF ON → row.stageW(Summary 산식), OFF → 마지막 마일스톤 cell */}
+                  {/* Progress Status 본문 — Overall + SD/DD/CD Stage. stage 대표값은 항상 row.stageW(Summary 산식) 사용 */}
                   {(() => {
                     const stageSrc: Record<MdrStage, { plan: number | null; actual: number | null; delta: number | null } | null> = {
                       SD: null, DD: null, CD: null,
                     };
                     for (const s of STAGES) {
-                      const lm = lastMsByStage[s];
-                      const lastCell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
                       const sw = row.stageW?.[s];
-                      stageSrc[s] = wfEnabled
-                        ? (sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null)
-                        : (lastCell ? { plan: lastCell.plan, actual: lastCell.actual, delta: lastCell.delta } : null);
+                      stageSrc[s] = sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null;
                     }
                     const overall = overallFromStages(stageSrc, wfEnabled);
                     const overallEmpty = overall.plan == null && overall.actual == null;
