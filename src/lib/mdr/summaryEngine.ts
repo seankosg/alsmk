@@ -289,21 +289,11 @@ function computeBlock(
     }
   }
 
-  let bpNum = 0, bpDen = 0;
-  for (const c of cells) {
-    const w = wf.discipline[c.discipline] ?? 0;
-    if (c.drawingCount > 0 && w > 0) {
-      bpNum += c.discProgress * w;
-      bpDen += w;
-    }
-  }
-  const blockProgress = bpDen > 0 ? bpNum / bpDen : 0;
-  const buildingWf = wf.building[building] ?? 0;
-
-  const ORDER = ["ARCH", "STR", "MECH", "ELEC", "FAFP", "CIVIL"];
+  // Discipline 정렬
+  const DISC_ORDER = ["ARCH", "CIVIL", "STR", "MECH", "FP", "ELEC", "FA", "FAFP"];
   cells.sort((a, b) => {
-    const ai = ORDER.indexOf(a.discipline);
-    const bi = ORDER.indexOf(b.discipline);
+    const ai = DISC_ORDER.indexOf(a.discipline);
+    const bi = DISC_ORDER.indexOf(b.discipline);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
@@ -320,10 +310,26 @@ function computeBlock(
     });
   }
 
+  // === Team 집계 ===
+  const teams: TeamCell[] = buildTeams(cells, wf);
+
+  // Block 진척률 = Team WF 가중 평균 (DB의 discipline row가 Team WF로 사용됨)
+  let bpNum = 0, bpDen = 0;
+  for (const t of teams) {
+    const w = wf.discipline[t.team] ?? 0;
+    if (t.drawingCount > 0 && w > 0) {
+      bpNum += t.teamProgress * w;
+      bpDen += w;
+    }
+  }
+  const blockProgress = bpDen > 0 ? bpNum / bpDen : 0;
+  const buildingWf = wf.building[building] ?? 0;
+
   return {
     building,
     drawingCount: drawings.length,
     cells,
+    teams,
     blockProgress,
     buildingWf,
     contributesToOverall: buildingWf > 0 && drawings.length > 0,
@@ -332,6 +338,71 @@ function computeBlock(
     hasDrawings: drawings.length > 0,
     sortOrder: meta.sortOrder,
   };
+}
+
+/** Discipline 셀들을 Team 단위로 묶어 TeamCell[] 생성 */
+function buildTeams(cells: DiscCell[], wf: MdrWfBundle): TeamCell[] {
+  const out: TeamCell[] = [];
+  for (const team of TEAMS) {
+    const members = cells.filter((c) => TEAM_OF_DISCIPLINE[c.discipline] === team);
+    if (members.length === 0) continue;
+
+    // Team Stage = 소속 Discipline 셀들의 도면 수 가중 합 → 평균
+    const sd = aggregateStage("SD", members.map((m) => m.sd));
+    const dd = aggregateStage("DD", members.map((m) => m.dd));
+    const cd = aggregateStage("CD", members.map((m) => m.cd));
+    const drawingCount = members.reduce((a, m) => a + m.drawingCount, 0);
+
+    // Team progress: stage WF 가중 평균. FP/FA는 FAFP_STAGE_WF, 그 외는 일반 stage WF.
+    const usesFafpWf = members.every((m) => m.discipline === "FP" || m.discipline === "FA");
+    const stageWf = usesFafpWf ? FAFP_STAGE_WF : wf.stage;
+    let num = 0, den = 0;
+    for (const st of STAGES) {
+      const sc = st === "SD" ? sd : st === "DD" ? dd : cd;
+      if (sc.drawingCount > 0 && stageWf[st] > 0) {
+        num += sc.actual * stageWf[st];
+        den += stageWf[st];
+      }
+    }
+    const teamProgress = den > 0 ? num / den : 0;
+
+    // Discipline 순서 고정
+    const ordered = [...members].sort((a, b) => {
+      const order = DISCIPLINES_BY_TEAM[team];
+      const ai = order.indexOf(a.discipline);
+      const bi = order.indexOf(b.discipline);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    out.push({ team, drawingCount, sd, dd, cd, teamProgress, disciplines: ordered });
+  }
+  return out;
+}
+
+/** 도면 수 가중 평균으로 Stage 셀 합산 */
+function aggregateStage(stage: StageCode, list: StageCell[]): StageCell {
+  const acc = emptyCell(stage);
+  let planSum = 0, actualSum = 0;
+  for (const sc of list) {
+    acc.drawingCount += sc.drawingCount;
+    acc.planCount += sc.planCount;
+    acc.actualCount += sc.actualCount;
+    planSum += sc.plan * sc.drawingCount;
+    actualSum += sc.actual * sc.drawingCount;
+    for (let i = 0; i < acc.milestones.length && i < sc.milestones.length; i++) {
+      acc.milestones[i].planCount += sc.milestones[i].planCount;
+      acc.milestones[i].actualCount += sc.milestones[i].actualCount;
+    }
+  }
+  const n = acc.drawingCount;
+  acc.plan = n > 0 ? planSum / n : 0;
+  acc.actual = n > 0 ? actualSum / n : 0;
+  acc.progress = acc.actual;
+  for (const mc of acc.milestones) {
+    mc.planRatio = n > 0 ? mc.planCount / n : 0;
+    mc.actualRatio = n > 0 ? mc.actualCount / n : 0;
+  }
+  return acc;
 }
 
 
