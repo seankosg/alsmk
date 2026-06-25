@@ -397,9 +397,9 @@ export function MdrMilestoneMonitorPanel() {
                       : (lastCell ? { plan: lastCell.plan, actual: lastCell.actual, delta: lastCell.delta } : null);
                     if (!useSrc) {
                       return [
-                        <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
-                        <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
-                        <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
+                        <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l text-muted-foreground w-14">—</td>,
+                        <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground w-14">—</td>,
+                        <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 text-muted-foreground w-14 ${last ? "border-r" : ""}`}>—</td>,
                       ];
                     }
                     return [
