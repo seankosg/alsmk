@@ -14,7 +14,6 @@ import { RefreshCw, Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   computeMatrix,
-  loadLatestSnapshot,
   saveSnapshot,
   type MonitorMatrix,
   type MonitorMilestoneKey,
@@ -100,18 +99,11 @@ export function MdrMilestoneMonitorPanel() {
     (async () => {
       setLoading(true);
       try {
-        const snap = await loadLatestSnapshot();
+        const today = new Date().toISOString().slice(0, 10);
+        const m = await computeMatrix(today);
         if (cancelled) return;
-        if (snap) {
-          setMatrix(snap);
-          setAsOf(snap.asOf);
-        } else {
-          const today = new Date().toISOString().slice(0, 10);
-          const m = await computeMatrix(today);
-          if (cancelled) return;
-          setMatrix(m);
-          setAsOf(today);
-        }
+        setMatrix(m);
+        setAsOf(today);
       } catch (e: any) {
         toast.error(`마일스톤 모니터링 로드 실패: ${e?.message ?? e}`);
       } finally {
