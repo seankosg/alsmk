@@ -349,10 +349,13 @@ export function MdrMilestoneMonitorPanel() {
             </tr>
           </thead>
           <tbody>
-            {matrix.rows.map((row, ri) => {
-              const prev = ri > 0 ? matrix.rows[ri - 1] : null;
+            {displayRows.length === 0 && (
+              <tr><td colSpan={99} className="text-center px-2 py-4 text-muted-foreground text-[11px]">필터 조건에 해당하는 행이 없습니다.</td></tr>
+            )}
+            {displayRows.map((row, ri) => {
+              const prev = ri > 0 ? displayRows[ri - 1] : null;
               const showBlock = !prev || prev.building !== row.building;
-              const blockRowSpan = matrix.rows.filter((r) => r.building === row.building).length;
+              const blockRowSpan = displayRows.filter((r) => r.building === row.building).length;
               return (
                 <tr key={`${row.building}-${row.discipline}`} className="border-b hover:bg-muted/20">
                   {showBlock && (
