@@ -191,6 +191,8 @@ export function MdrMilestoneMonitorPanel() {
   }
 
   return (
+    <div className="space-y-3">
+    <MdrSummaryFilterBar buildings={buildings} value={filter} onChange={setFilter} />
     <Card className="p-3 space-y-2">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
