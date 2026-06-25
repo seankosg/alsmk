@@ -21,15 +21,55 @@ export const FAFP_STAGE_WF: Record<StageCode, number> = {
   CD: 0.5,
 };
 
-/** Discipline 가중치 — ARCH + STR + MECH + FAFP + ELEC + CIVIL = 1.0 (CIVIL은 0) */
-export const DEFAULT_DISCIPLINE_WF: Record<string, number> = {
-  ARCH: 0.45,
-  STR: 0.25,
-  MECH: 0.09,
-  FAFP: 0.10,
-  ELEC: 0.11,
-  CIVIL: 0,
+/**
+ * Team 가중치 — Arch + Civil + STR + Mech + Elec = 1.0
+ * (DB에는 discipline=ARCH/CIVIL/STR/MECH/ELEC row로 저장 — 기존 mdr_weights 스키마 호환)
+ */
+export const TEAMS = ["ARCH", "CIVIL", "STR", "MECH", "ELEC"] as const;
+export type TeamCode = (typeof TEAMS)[number];
+
+export const TEAM_LABEL: Record<TeamCode, string> = {
+  ARCH: "Arch",
+  CIVIL: "Civil",
+  STR: "STR",
+  MECH: "Mech",
+  ELEC: "Elec",
 };
+
+export const DEFAULT_TEAM_WF: Record<TeamCode, number> = {
+  ARCH: 0.45,
+  CIVIL: 0,
+  STR: 0.25,
+  MECH: 0.19,
+  ELEC: 0.11,
+};
+
+/** Backward-compat alias — Team WF는 기존 discipline row를 그대로 사용 */
+export const DEFAULT_DISCIPLINE_WF: Record<string, number> = { ...DEFAULT_TEAM_WF };
+
+/** Discipline → Team 매핑 */
+export const TEAM_OF_DISCIPLINE: Record<string, TeamCode> = {
+  ARCH: "ARCH",
+  CIVIL: "CIVIL",
+  STR: "STR",
+  MECH: "MECH",
+  FP: "MECH",
+  ELEC: "ELEC",
+  FA: "ELEC",
+};
+
+/** Team별 Discipline 표시 순서 */
+export const DISCIPLINES_BY_TEAM: Record<TeamCode, string[]> = {
+  ARCH: ["ARCH"],
+  CIVIL: ["CIVIL"],
+  STR: ["STR"],
+  MECH: ["MECH", "FP"],
+  ELEC: ["ELEC", "FA"],
+};
+
+export function teamOfDiscipline(disc: string): TeamCode | null {
+  return TEAM_OF_DISCIPLINE[disc] ?? null;
+}
 
 /** Building 가중치 (공사비 비중) — 합 1.0. GEN(General)은 키 없음 → 합산 제외(플랜트 업역). */
 export const DEFAULT_BUILDING_WF: Record<string, number> = {
@@ -41,6 +81,7 @@ export const DEFAULT_BUILDING_WF: Record<string, number> = {
 
 export interface MdrWfBundle {
   stage: Record<StageCode, number>;
+  /** Team WF — key는 TeamCode (ARCH/CIVIL/STR/MECH/ELEC). discipline 필드명은 DB 스키마 호환을 위해 유지. */
   discipline: Record<string, number>;
   building: Record<string, number>;
 }
@@ -48,16 +89,11 @@ export interface MdrWfBundle {
 /**
  * mdr_weights 테이블에서 WF 로드 (is_reference_only=false 만).
  * 행이 없으면 기본 상수 그대로 반환.
- *
- * 행 구분:
- *  - Stage WF      → building_code = null, discipline = null, stage IN ('SD','DD','CD')
- *  - Discipline WF → building_code = null, discipline = '...', stage = null
- *  - Building WF   → building_code = '...', discipline = null, stage = null
  */
 export async function loadMdrWeights(): Promise<MdrWfBundle> {
   const bundle: MdrWfBundle = {
     stage: { ...DEFAULT_STAGE_WF },
-    discipline: { ...DEFAULT_DISCIPLINE_WF },
+    discipline: { ...DEFAULT_TEAM_WF },
     building: { ...DEFAULT_BUILDING_WF },
   };
 
@@ -91,6 +127,10 @@ export function normalizeDiscipline(raw: string | null | undefined): string {
   if (up === "ME" || up.startsWith("MECH")) return "MECH";
   if (up === "EL" || up.startsWith("ELEC")) return "ELEC";
   if (up === "CV" || up.startsWith("CIVIL")) return "CIVIL";
-  if (up === "FF" || up.startsWith("FAFP") || up.startsWith("FIRE")) return "FAFP";
+  // FP / FA: 신규 세부 코드
+  if (up === "FP" || up.startsWith("FP")) return "FP";
+  if (up === "FA" || up.startsWith("FA")) return "FA";
+  // 레거시 FAFP/FIRE → Mech의 FP로 폴백
+  if (up === "FF" || up.startsWith("FAFP") || up.startsWith("FIRE")) return "FP";
   return up;
 }
