@@ -139,42 +139,67 @@ export default function DesignImportLogs() {
     setSearch("");
     setRenderLimit(500);
 
-    // RPC 사용: PostgREST 1000행 응답 제한을 우회해 전체 행 로그를 안정 정렬로 일괄 반환
-    const callRpc = () =>
-      (supabase as any).rpc("get_mdr_import_row_logs", { _import_log_id: batchId });
-
-    let { data, error } = await callRpc();
-    if (error) {
-      console.warn("get_mdr_import_row_logs 1차 실패, 재시도:", error.message);
-      ({ data, error } = await callRpc());
+    // PostgREST 응답 최대 행수(기본 1000) 제한을 우회하기 위해 .range() 페이지네이션
+    const PAGE = 1000;
+    const all: RowLog[] = [];
+    let from = 0;
+    let failed = false;
+    try {
+      while (true) {
+        const callPage = () =>
+          (supabase as any)
+            .rpc("get_mdr_import_row_logs", { _import_log_id: batchId })
+            .range(from, from + PAGE - 1);
+        let { data, error } = await callPage();
+        if (error) {
+          console.warn("get_mdr_import_row_logs page 실패, 재시도:", error.message);
+          ({ data, error } = await callPage());
+        }
+        if (error) throw error;
+        const chunk = (data as RowLog[]) ?? [];
+        all.push(...chunk);
+        if (chunk.length < PAGE) break;
+        from += PAGE;
+        if (from > 500_000) break; // 안전 가드
+      }
+    } catch (e: any) {
+      failed = true;
+      console.error(e);
+      toast({ title: "행 로그 조회 실패", description: e?.message ?? String(e), variant: "destructive" });
     }
-    if (error) {
-      console.error(error);
-      toast({ title: "행 로그 조회 실패", description: error.message, variant: "destructive" });
-    } else {
-      setRowLogs((data as RowLog[]) ?? []);
-    }
+    if (!failed) setRowLogs(all);
     setRowsBusy(false);
   };
 
   /** 이 batch의 row logs에서 inserted/rev_updated doc_base 목록 추출 */
   const fetchBatchScope = async (batchId: string, buildingCode: string | null) => {
-    const { data, error } = await supabase
-      .from("mdr_import_row_logs" as never)
-      .select("doc_base, action")
-      .eq("import_log_id", batchId)
-      .in("action", ["inserted", "rev_updated"])
-      .limit(50000);
-    if (error) throw error;
+    // PostgREST 응답 제한 우회: .range() 페이지네이션
+    const PAGE = 1000;
     const inserted: string[] = [];
     const revUpdated: string[] = [];
-    for (const r of (data as any[]) ?? []) {
-      if (!r.doc_base) continue;
-      if (r.action === "inserted") inserted.push(r.doc_base);
-      else if (r.action === "rev_updated") revUpdated.push(r.doc_base);
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from("mdr_import_row_logs" as never)
+        .select("doc_base, action")
+        .eq("import_log_id", batchId)
+        .in("action", ["inserted", "rev_updated"])
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const rows = (data as any[]) ?? [];
+      for (const r of rows) {
+        if (!r.doc_base) continue;
+        if (r.action === "inserted") inserted.push(r.doc_base);
+        else if (r.action === "rev_updated") revUpdated.push(r.doc_base);
+      }
+      if (rows.length < PAGE) break;
+      from += PAGE;
+      if (from > 500_000) break;
     }
     return { inserted, revUpdated, buildingCode };
   };
+
 
   const rollback = async (log: MdrLog) => {
     setActionBusyId(log.id);
