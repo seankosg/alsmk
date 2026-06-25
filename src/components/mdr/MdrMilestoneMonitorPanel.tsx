@@ -633,18 +633,14 @@ export function MdrMilestoneMonitorPanel() {
                   <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
                   <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
                   <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
-                  {/* Progress Status 본문 — Overall + SD/DD/CD Stage. WF ON → row.stageW(Summary 산식), OFF → 마지막 마일스톤 cell */}
+                  {/* Progress Status 본문 — Overall + SD/DD/CD Stage. stage 대표값은 항상 row.stageW(Summary 산식) 사용 */}
                   {(() => {
                     const stageSrc: Record<MdrStage, { plan: number | null; actual: number | null; delta: number | null } | null> = {
                       SD: null, DD: null, CD: null,
                     };
                     for (const s of STAGES) {
-                      const lm = lastMsByStage[s];
-                      const lastCell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
                       const sw = row.stageW?.[s];
-                      stageSrc[s] = wfEnabled
-                        ? (sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null)
-                        : (lastCell ? { plan: lastCell.plan, actual: lastCell.actual, delta: lastCell.delta } : null);
+                      stageSrc[s] = sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null;
                     }
                     const overall = overallFromStages(stageSrc, wfEnabled);
                     const overallEmpty = overall.plan == null && overall.actual == null;
