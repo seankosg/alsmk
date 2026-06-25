@@ -1,0 +1,1 @@
+ALTER TABLE public.mdr_milestone_snapshots ALTER COLUMN actual_pct DROP NOT NULL, ALTER COLUMN delta_pct DROP NOT NULL;

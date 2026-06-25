@@ -784,11 +784,11 @@ export type Database = {
       }
       mdr_milestone_snapshots: {
         Row: {
-          actual_pct: number
+          actual_pct: number | null
           as_of: string
           building: string
           computed_at: string
-          delta_pct: number
+          delta_pct: number | null
           discipline: string
           drawing_count: number
           drawing_count_cd: number
@@ -804,11 +804,11 @@ export type Database = {
           stage_plan_pct: number | null
         }
         Insert: {
-          actual_pct?: number
+          actual_pct?: number | null
           as_of: string
           building: string
           computed_at?: string
-          delta_pct?: number
+          delta_pct?: number | null
           discipline: string
           drawing_count?: number
           drawing_count_cd?: number
@@ -824,11 +824,11 @@ export type Database = {
           stage_plan_pct?: number | null
         }
         Update: {
-          actual_pct?: number
+          actual_pct?: number | null
           as_of?: string
           building?: string
           computed_at?: string
-          delta_pct?: number
+          delta_pct?: number | null
           discipline?: string
           drawing_count?: number
           drawing_count_cd?: number
