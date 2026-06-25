@@ -202,12 +202,17 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
       for (const stage of STAGES) {
         if (!isInScope(d, stage)) continue;
         stageN[stage] += 1;
-        // Summary planAtDate: plan_date ≤ asOf 의 최대 pct
+        // SD 는 Raw/Summary 와 일치시키기 위해 항상 100% 계획.
+        // DD/CD 는 Summary planAtDate: plan_date ≤ asOf 의 최대 pct.
         let planPct = 0;
-        for (const m of d.mdr_milestones ?? []) {
-          if (m.stage !== stage || !m.plan_date) continue;
-          if (m.plan_date > asOf) continue;
-          if (m.pct > planPct) planPct = m.pct;
+        if (stage === "SD") {
+          planPct = 100;
+        } else {
+          for (const m of d.mdr_milestones ?? []) {
+            if (m.stage !== stage || !m.plan_date) continue;
+            if (m.plan_date > asOf) continue;
+            if (m.pct > planPct) planPct = m.pct;
+          }
         }
         // Summary actualAtDate: actual_date ≤ asOf & is_done 의 cell increment 합
         let actualPct = 0;
