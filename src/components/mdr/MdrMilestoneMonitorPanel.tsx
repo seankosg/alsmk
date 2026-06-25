@@ -277,6 +277,70 @@ export function MdrMilestoneMonitorPanel() {
     [matrix],
   );
 
+  // 합계행 렌더러 (건물별 / 전체) — WF 토글 반영(ON=도면수 가중평균, OFF=단순평균)
+  const renderAggRow = (label: string, rows: MonitorDiscRow[], variant: "building" | "grand") => {
+    const sdSum = rows.reduce((a, r) => a + r.drawingCountSD, 0);
+    const ddSum = rows.reduce((a, r) => a + r.drawingCountDD, 0);
+    const cdSum = rows.reduce((a, r) => a + r.drawingCountCD, 0);
+    const bgCls =
+      variant === "grand"
+        ? "bg-orange-200/80 dark:bg-orange-900/50 font-bold"
+        : "bg-orange-100/80 dark:bg-orange-900/30 font-semibold";
+    const borderCls = variant === "grand" ? "border-t-2 border-b-2 border-orange-500/70" : "border-b-2 border-orange-400/60";
+    return (
+      <tr key={`agg-${variant}-${label}`} className={`${bgCls} ${borderCls}`}>
+        <td colSpan={3} className="px-2 py-1 sticky left-0 border-r text-[11px] bg-inherit">
+          {variant === "grand" ? "전체 합계" : `${label} 합계`}
+        </td>
+        <td className="text-center px-2 py-1 border-l tabular-nums">{sdSum}</td>
+        <td className="text-center px-2 py-1 tabular-nums">{ddSum}</td>
+        <td className="text-center px-2 py-1 border-r tabular-nums">{cdSum}</td>
+        {STAGES.map((s, si) => {
+          const last = si === 2;
+          const lm = lastMsByStage[s];
+          const parts = rows.map((r) => {
+            const sw = r.stageW?.[s];
+            const lc = lm ? r.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
+            const src = wfEnabled ? sw : lc;
+            return { plan: src?.plan ?? null, actual: src?.actual ?? null, weight: getStageCount(r, s) };
+          });
+          const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
+          const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
+          const delta = plan != null && actual != null ? actual - plan : null;
+          return [
+            <td key={`agg-op-p-${s}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
+            <td key={`agg-op-a-${s}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
+            <td key={`agg-op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+          ];
+        })}
+        {headers?.flatMap(({ stage, ms }) => {
+          if (!expanded[stage]) {
+            return [<td key={`agg-col-${stage}`} className="text-center px-1 py-1 border-l border-r text-muted-foreground">…</td>];
+          }
+          if (ms.length === 0) {
+            return [<td key={`agg-empty-${stage}`} colSpan={3} className="text-center px-1 py-1 border-l border-r text-muted-foreground">—</td>];
+          }
+          return ms.flatMap((m, mi) => {
+            const last = mi === ms.length - 1;
+            const parts = rows.map((r) => {
+              const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+              return { plan: c?.plan ?? null, actual: c?.actual ?? null, weight: getStageCount(r, stage) };
+            });
+            const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
+            const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
+            const delta = plan != null && actual != null ? actual - plan : null;
+            return [
+              <td key={`agg-p-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
+              <td key={`agg-a-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
+              <td key={`agg-d-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+            ];
+          });
+        })}
+      </tr>
+    );
+  };
+
+
   if (loading) {
     return (
       <Card className="p-6 flex items-center gap-2 text-muted-foreground">
