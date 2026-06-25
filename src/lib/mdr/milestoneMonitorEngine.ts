@@ -443,6 +443,28 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
   }
 
   for (const stage of STAGES) milestonesByStage[stage].sort(sortMs);
+
+  // 미도래(planDate > asOf) 셀 A/Δ → null 정규화 + 역진행/정체 warn 재계산
+  for (const row of rowMap.values()) {
+    for (const stage of STAGES) {
+      let prevA: number | null = null;
+      for (const ms of milestonesByStage[stage]) {
+        const cell = row.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        if (!cell) continue;
+        if (ms.planDate && ms.planDate > latest) {
+          cell.actual = null;
+          cell.delta = null;
+        }
+        cell.warn = false;
+        const currA = cell.actual;
+        if (prevA !== null && prevA > 0 && currA !== null && currA <= prevA) {
+          cell.warn = true;
+        }
+        if (currA !== null) prevA = currA;
+      }
+    }
+  }
+
   return {
     asOf: latest,
     milestonesByStage,
