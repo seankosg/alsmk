@@ -76,10 +76,23 @@ export interface DiscCell {
   discProgress: number;
 }
 
+export interface TeamCell {
+  team: TeamCode;
+  drawingCount: number;
+  sd: StageCell;
+  dd: StageCell;
+  cd: StageCell;
+  teamProgress: number;
+  disciplines: DiscCell[];
+}
+
 export interface BlockSummary {
   building: string;
   drawingCount: number;
+  /** Discipline 플랫 리스트 (DesignDashboard 등 호환용) */
   cells: DiscCell[];
+  /** Team 단위 중첩 구조 (SUMMARY 표용) */
+  teams: TeamCell[];
   blockProgress: number;
   buildingWf: number;
   contributesToOverall: boolean;
