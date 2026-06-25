@@ -7,9 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Settings, Database, History } from "lucide-react";
+import { Upload, Database, History } from "lucide-react";
 import { MdrRawDataGrid } from "@/components/mdr/MdrRawDataGrid";
-import { MdrWeightsEditor } from "@/components/mdr/MdrWeightsEditor";
 import { Link, Navigate } from "react-router-dom";
 
 function BuildingSheets({ buildingCode, asOf, threshold }: { buildingCode: string; asOf: string; threshold: number }) {
@@ -100,56 +99,45 @@ export default function DesignManagement() {
 
       </div>
 
-      <Tabs defaultValue="raw" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="raw"><Database className="h-4 w-4 mr-1" />Raw Data</TabsTrigger>
-          <TabsTrigger value="admin"><Settings className="h-4 w-4 mr-1" />Admin</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="raw" className="space-y-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground">기준일 (asOf)</label>
-              <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-44" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Δ 지연 임계 (%)</label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={threshold}
-                onChange={(e) => onThresholdChange(parseFloat(e.target.value) || 0)}
-                className="w-24"
-              />
-            </div>
-            <Badge variant="outline" className="ml-auto">건물 {buildings?.length ?? 0}개</Badge>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground">기준일 (asOf)</label>
+            <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-44" />
           </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Δ 지연 임계 (%)</label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={threshold}
+              onChange={(e) => onThresholdChange(parseFloat(e.target.value) || 0)}
+              className="w-24"
+            />
+          </div>
+          <Badge variant="outline" className="ml-auto">건물 {buildings?.length ?? 0}개</Badge>
+        </div>
 
-          {(!buildings || buildings.length === 0) ? (
-            <Card className="p-8 text-center text-muted-foreground">
-              임포트된 건물이 없습니다. 우측 상단의 Import를 통해 MDR 엑셀을 업로드하세요.
-            </Card>
-          ) : (
-            <Tabs defaultValue={buildings[0].code}>
-              <TabsList className="flex-wrap h-auto">
-                {buildings.map((b: any) => (
-                  <TabsTrigger key={b.code} value={b.code}>{b.code}</TabsTrigger>
-                ))}
-              </TabsList>
+        {(!buildings || buildings.length === 0) ? (
+          <Card className="p-8 text-center text-muted-foreground">
+            임포트된 건물이 없습니다. 우측 상단의 Import를 통해 MDR 엑셀을 업로드하세요.
+          </Card>
+        ) : (
+          <Tabs defaultValue={buildings[0].code}>
+            <TabsList className="flex-wrap h-auto">
               {buildings.map((b: any) => (
-                <TabsContent key={b.code} value={b.code} className="space-y-2">
-                  <BuildingSheets buildingCode={b.code} asOf={asOf} threshold={threshold} />
-                </TabsContent>
+                <TabsTrigger key={b.code} value={b.code}>{b.code}</TabsTrigger>
               ))}
-            </Tabs>
-          )}
-        </TabsContent>
-
-        <TabsContent value="admin">
-          <MdrWeightsEditor />
-        </TabsContent>
-      </Tabs>
+            </TabsList>
+            {buildings.map((b: any) => (
+              <TabsContent key={b.code} value={b.code} className="space-y-2">
+                <BuildingSheets buildingCode={b.code} asOf={asOf} threshold={threshold} />
+              </TabsContent>
+            ))}
+          </Tabs>
+        )}
+      </div>
 
     </div>
   );

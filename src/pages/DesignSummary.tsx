@@ -1,8 +1,8 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { History } from "lucide-react";
-import { MdrSummaryPanel } from "@/components/mdr/MdrSummaryPanel";
 import { MdrMilestoneMonitorPanel } from "@/components/mdr/MdrMilestoneMonitorPanel";
+import { MdrWeightsEditor } from "@/components/mdr/MdrWeightsEditor";
 
 
 export default function DesignSummary() {
@@ -16,9 +16,8 @@ export default function DesignSummary() {
         <History className="h-6 w-6" />
         Design Summary
       </h1>
-      <MdrSummaryPanel />
       <MdrMilestoneMonitorPanel />
+      <MdrWeightsEditor />
     </div>
   );
 }
-
