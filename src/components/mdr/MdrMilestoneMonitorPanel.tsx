@@ -327,12 +327,16 @@ export function MdrMilestoneMonitorPanel() {
                   <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
                   <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
                   <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
-                  {/* Overall Progress 본문 */}
+                  {/* Overall Progress 본문 — WF ON 이면 Summary 산식(row.stageW), OFF 면 last-milestone cell */}
                   {STAGES.map((s, si) => {
                     const last = si === 2;
                     const lm = lastMsByStage[s];
-                    const cell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
-                    if (!cell) {
+                    const lastCell = lm ? row.cells.get(mkKey(s, lm.pct, lm.planDate)) : undefined;
+                    const sw = row.stageW?.[s];
+                    const useSrc = wfEnabled
+                      ? (sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null)
+                      : (lastCell ? { plan: lastCell.plan, actual: lastCell.actual, delta: lastCell.delta } : null);
+                    if (!useSrc) {
                       return [
                         <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
                         <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
@@ -340,9 +344,9 @@ export function MdrMilestoneMonitorPanel() {
                       ];
                     }
                     return [
-                      <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(cell.plan)}</td>,
-                      <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(cell.actual)}</td>,
-                      <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(cell.delta)}</td>,
+                      <td key={`op-p-${s}-${ri}`} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(useSrc.plan)}</td>,
+                      <td key={`op-a-${s}-${ri}`} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(useSrc.actual)}</td>,
+                      <td key={`op-d-${s}-${ri}`} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(useSrc.delta)}</td>,
                     ];
                   })}
                   {headers?.flatMap(({ stage, ms }) => {
