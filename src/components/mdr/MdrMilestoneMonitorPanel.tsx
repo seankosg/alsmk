@@ -622,10 +622,13 @@ export function MdrMilestoneMonitorPanel() {
                   })}
                 </tr>
                 {isLastOfBuilding && renderAggRow(row.building, displayRows.filter((r) => r.building === row.building), "building")}
+                {isLastOfBuilding && row.building === lastFactoryBuilding && factoryRows.length > 0 && (
+                  renderAggRow("공장동", factoryRows, "factory")
+                )}
                 </Fragment>
               );
             })}
-            {displayRows.length > 0 && renderAggRow("전체", displayRows, "grand")}
+            {displayRows.length > 0 && renderAggRow("프로젝트 전체", displayRows, "grand")}
           </tbody>
         </table>
       </div>
