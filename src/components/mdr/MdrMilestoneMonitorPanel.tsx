@@ -286,19 +286,32 @@ export function MdrMilestoneMonitorPanel() {
   );
 
   // 합계행 렌더러 (건물별 / 전체) — WF 토글 반영(ON=도면수 가중평균, OFF=단순평균)
-  const renderAggRow = (label: string, rows: MonitorDiscRow[], variant: "building" | "grand") => {
+  const renderAggRow = (
+    label: string,
+    rows: MonitorDiscRow[],
+    variant: "building" | "factory" | "grand",
+  ) => {
     const sdSum = rows.reduce((a, r) => a + r.drawingCountSD, 0);
     const ddSum = rows.reduce((a, r) => a + r.drawingCountDD, 0);
     const cdSum = rows.reduce((a, r) => a + r.drawingCountCD, 0);
     const bgCls =
       variant === "grand"
-        ? "bg-orange-200/80 dark:bg-orange-900/50 font-bold"
+        ? "bg-orange-300/80 dark:bg-orange-900/60 font-bold"
+        : variant === "factory"
+        ? "bg-orange-200/80 dark:bg-orange-900/45 font-semibold"
         : "bg-orange-100/80 dark:bg-orange-900/30 font-semibold";
-    const borderCls = variant === "grand" ? "border-t-2 border-b-2 border-orange-500/70" : "border-b-2 border-orange-400/60";
+    const borderCls =
+      variant === "grand"
+        ? "border-t-2 border-b-2 border-orange-600/80"
+        : variant === "factory"
+        ? "border-t border-b-2 border-orange-500/70"
+        : "border-b-2 border-orange-400/60";
+    const displayLabel =
+      variant === "grand" ? "프로젝트 전체" : variant === "factory" ? "공장동 합계" : `${label} 합계`;
     return (
       <tr key={`agg-${variant}-${label}`} className={`${bgCls} ${borderCls}`}>
         <td colSpan={3} className="px-2 py-1 sticky left-0 border-r text-[11px] bg-inherit">
-          {variant === "grand" ? "전체 합계" : `${label} 합계`}
+          {displayLabel}
         </td>
         <td className="text-center px-2 py-1 border-l tabular-nums">{sdSum}</td>
         <td className="text-center px-2 py-1 tabular-nums">{ddSum}</td>
