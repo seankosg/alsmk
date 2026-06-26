@@ -192,6 +192,9 @@ export function MdrMilestoneMonitorPanel() {
   const [computedAt, setComputedAt] = useState<string | null>(null);
   const [latestImportAt, setLatestImportAt] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: true, CD: false });
+  /** Progress Status 내 SD/DD/CD Stage P/A/Δ 블록 펼침. 기본 모두 펼침. 접힘 시 Δ 1열만 노출. */
+  const [stageColExpanded, setStageColExpanded] = useState<Record<MdrStage, boolean>>({ SD: true, DD: true, CD: true });
+  const toggleStageCol = (s: MdrStage) => setStageColExpanded((p) => ({ ...p, [s]: !p[s] }));
   const [wfEnabled, setWfEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = window.localStorage.getItem(WF_STORAGE_KEY);
