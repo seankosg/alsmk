@@ -86,8 +86,8 @@ function ResizeHandle({
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
-/** 건물 고정 정렬 순서: 공장동(GEN→SMP&CCM→HSM→CRM) → 사무동(MAIN_OFFICE) → FAFP */
-const BUILDING_ORDER: string[] = ["GEN", "SMP&CCM", "HSM", "CRM", "MAIN_OFFICE", "FAFP"];
+/** 건물 고정 정렬 순서: 공장동(GEN→SMP&CCM→HSM→CRM→FAFP) → 사무동(MAIN_OFFICE) */
+const BUILDING_ORDER: string[] = ["GEN", "SMP&CCM", "HSM", "CRM", "FAFP", "MAIN_OFFICE"];
 /** 공장동 분류 */
 const FACTORY_BUILDINGS = new Set(["GEN", "SMP&CCM", "HSM", "CRM", "FAFP"]);
 /** 공장동 마지막 건물 (이 건물 소계 직후 공장동 합계행 삽입) */
