@@ -93,9 +93,9 @@ const FACTORY_BUILDINGS = new Set(["GEN", "SMP&CCM", "HSM", "CRM", "FAFP"]);
 /** 공장동 마지막 건물 (이 건물 소계 직후 공장동 합계행 삽입) */
 const LAST_FACTORY_BUILDING = "FAFP";
 
-/** Sticky 좌측 고정 컬럼 순서 — Block/Team/Disc + Total DWG(3) + Progress Status 12열 = 18열.
- *  w=고정 폭(px), null=columnWidths[key] ?? DEFAULT_COL_W 사용. */
-const STICKY_COLS: ReadonlyArray<{ key: string; w: number | null }> = [
+/** Sticky 좌측 고정 컬럼 — Block/Team/Disc + Total DWG(3) + Overall(3) + 각 Stage(3 또는 1).
+ *  w=고정 폭(px), null=columnWidths[key] ?? DEFAULT_COL_W 사용. 동적(stage 토글) 생성. */
+const BASE_STICKY_COLS: ReadonlyArray<{ key: string; w: number | null }> = [
   { key: "__block", w: 90 },
   { key: "__team", w: 70 },
   { key: "__disc", w: 60 },
@@ -105,15 +105,6 @@ const STICKY_COLS: ReadonlyArray<{ key: string; w: number | null }> = [
   { key: "op-OVERALL-P", w: null },
   { key: "op-OVERALL-A", w: null },
   { key: "op-OVERALL-D", w: null },
-  { key: "op-SD-P", w: null },
-  { key: "op-SD-A", w: null },
-  { key: "op-SD-D", w: null },
-  { key: "op-DD-P", w: null },
-  { key: "op-DD-A", w: null },
-  { key: "op-DD-D", w: null },
-  { key: "op-CD-P", w: null },
-  { key: "op-CD-A", w: null },
-  { key: "op-CD-D", w: null },
 ];
 
 /** Block 표시 라벨: 내부 코드 GEN → "GENERAL"로 표기. 그 외는 코드 그대로. */
@@ -201,6 +192,9 @@ export function MdrMilestoneMonitorPanel() {
   const [computedAt, setComputedAt] = useState<string | null>(null);
   const [latestImportAt, setLatestImportAt] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: true, CD: false });
+  /** Progress Status 내 SD/DD/CD Stage P/A/Δ 블록 펼침. 기본 모두 펼침. 접힘 시 Δ 1열만 노출. */
+  const [stageColExpanded, setStageColExpanded] = useState<Record<MdrStage, boolean>>({ SD: true, DD: true, CD: true });
+  const toggleStageCol = (s: MdrStage) => setStageColExpanded((p) => ({ ...p, [s]: !p[s] }));
   const [wfEnabled, setWfEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = window.localStorage.getItem(WF_STORAGE_KEY);
@@ -236,20 +230,34 @@ export function MdrMilestoneMonitorPanel() {
     return { width: w, minWidth: w, maxWidth: w };
   };
 
-  // 18개 sticky 컬럼의 누적 left 오프셋
+  // 동적 sticky 컬럼 (Stage 토글 반영)
+  const stickyCols = useMemo(() => {
+    const arr: Array<{ key: string; w: number | null }> = [...BASE_STICKY_COLS];
+    for (const s of STAGES) {
+      if (stageColExpanded[s]) {
+        arr.push({ key: `op-${s}-P`, w: null }, { key: `op-${s}-A`, w: null }, { key: `op-${s}-D`, w: null });
+      } else {
+        // 접힘 — Δ 1열만 노출
+        arr.push({ key: `op-${s}-D`, w: null });
+      }
+    }
+    return arr;
+  }, [stageColExpanded]);
+
+  // sticky 컬럼의 누적 left 오프셋
   const stickyOffsets = useMemo(() => {
     const out: Record<string, number> = {};
     let acc = 0;
-    for (const c of STICKY_COLS) {
+    for (const c of stickyCols) {
       out[c.key] = acc;
       const w = c.w ?? (columnWidths[c.key] ?? DEFAULT_COL_W);
       acc += w;
     }
     out.__total = acc;
     return out;
-  }, [columnWidths]);
+  }, [columnWidths, stickyCols]);
   const stickyKeyWidth = (key: string): number => {
-    const c = STICKY_COLS.find((x) => x.key === key);
+    const c = stickyCols.find((x) => x.key === key);
     if (!c) return DEFAULT_COL_W;
     return c.w ?? (columnWidths[key] ?? DEFAULT_COL_W);
   };
@@ -487,11 +495,23 @@ export function MdrMilestoneMonitorPanel() {
             <td key="agg-op-p-OVERALL" style={aStick("op-OVERALL-P")} className="text-center px-1 py-1 border-l tabular-nums bg-inherit">{fmtPct(overall.plan)}</td>,
             <td key="agg-op-a-OVERALL" style={aStick("op-OVERALL-A")} className="text-center px-1 py-1 tabular-nums bg-inherit">{fmtPct(overall.actual)}</td>,
             <td key="agg-op-d-OVERALL" style={aStick("op-OVERALL-D")} className={`text-center px-1 py-1 tabular-nums bg-inherit ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
-            // SD/DD/CD Stage 셀
+            // SD/DD/CD Stage 셀 (접힘 시 Δ 1열)
             ...STAGES.flatMap((s, si) => {
               const last = si === 2;
               const { plan, actual, delta } = stageVals[s];
               const edge = last ? { boxShadow: STICKY_EDGE_SHADOW } : undefined;
+              if (!stageColExpanded[s]) {
+                return [
+                  <td
+                    key={`agg-op-d-${s}`}
+                    style={aStick(`op-${s}-D`, edge)}
+                    className={`text-center px-1 py-1 border-l tabular-nums bg-inherit ${deltaClass(delta)} ${last ? "border-r" : ""}`}
+                    title={`P ${fmtPct(plan)} / A ${fmtPct(actual)}`}
+                  >
+                    {fmtDelta(delta)}
+                  </td>,
+                ];
+              }
               return [
                 <td key={`agg-op-p-${s}`} style={aStick(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums bg-inherit">{fmtPct(plan)}</td>,
                 <td key={`agg-op-a-${s}`} style={aStick(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums bg-inherit">{fmtPct(actual)}</td>,
@@ -632,7 +652,7 @@ export function MdrMilestoneMonitorPanel() {
                 Total DWG
               </th>
               <th
-                colSpan={12}
+                colSpan={3 + STAGES.reduce((a, s) => a + (stageColExpanded[s] ? 3 : 1), 0)}
                 style={{ position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15, boxShadow: STICKY_EDGE_SHADOW }}
                 className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider"
               >
@@ -685,14 +705,21 @@ export function MdrMilestoneMonitorPanel() {
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
+                const isOpen = stageColExpanded[s];
+                const leftKey = isOpen ? `op-${s}-P` : `op-${s}-D`;
                 return (
                   <th
                     key={`op-h-${s}`}
-                    colSpan={3}
-                    style={{ position: "sticky", left: stickyOffsets[`op-${s}-P`], zIndex: 15, boxShadow: last ? STICKY_EDGE_SHADOW : undefined }}
-                    className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${last ? "border-r" : ""}`}
+                    colSpan={isOpen ? 3 : 1}
+                    onClick={() => toggleStageCol(s)}
+                    style={{ position: "sticky", left: stickyOffsets[leftKey], zIndex: 15, boxShadow: last ? STICKY_EDGE_SHADOW : undefined }}
+                    className={`text-center px-2 py-1 border-l text-black font-bold cursor-pointer select-none hover:brightness-95 ${th.sub} ${last ? "border-r" : ""}`}
+                    title={isOpen ? "클릭하여 접기" : "클릭하여 펼치기 (P/A/Δ)"}
                   >
-                    {s} Stage
+                    <span className="inline-flex items-center gap-0.5">
+                      {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      {s}{isOpen ? " Stage" : ""}
+                    </span>
                   </th>
                 );
               })}
@@ -738,11 +765,16 @@ export function MdrMilestoneMonitorPanel() {
               <th key="op-p-OVERALL" style={{ ...colStyle(`op-OVERALL-P`), position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15 }} className="relative text-center px-1 py-0.5 border-l font-bold text-black bg-slate-200">P<ResizeHandle colKey={`op-OVERALL-P`} setWidths={setColumnWidths} /></th>
               <th key="op-a-OVERALL" style={{ ...colStyle(`op-OVERALL-A`), position: "sticky", left: stickyOffsets["op-OVERALL-A"], zIndex: 15 }} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">A<ResizeHandle colKey={`op-OVERALL-A`} setWidths={setColumnWidths} /></th>
               <th key="op-d-OVERALL" style={{ ...colStyle(`op-OVERALL-D`), position: "sticky", left: stickyOffsets["op-OVERALL-D"], zIndex: 15 }} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">Δ<ResizeHandle colKey={`op-OVERALL-D`} setWidths={setColumnWidths} /></th>
-              {/* SD/DD/CD Stage P/A/Δ */}
+              {/* SD/DD/CD Stage P/A/Δ (접힘 시 Δ 1열) */}
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
                 const dShadow = last ? STICKY_EDGE_SHADOW : undefined;
+                if (!stageColExpanded[s]) {
+                  return (
+                    <th key={`op-d-${s}`} style={{ ...colStyle(`op-${s}-D`), position: "sticky", left: stickyOffsets[`op-${s}-D`], zIndex: 15, boxShadow: dShadow }} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub} ${last ? "border-r" : ""}`}>Δ<ResizeHandle colKey={`op-${s}-D`} setWidths={setColumnWidths} /></th>
+                  );
+                }
                 return [
                   <th key={`op-p-${s}`} style={{ ...colStyle(`op-${s}-P`), position: "sticky", left: stickyOffsets[`op-${s}-P`], zIndex: 15 }} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`op-${s}-P`} setWidths={setColumnWidths} /></th>,
                   <th key={`op-a-${s}`} style={{ ...colStyle(`op-${s}-A`), position: "sticky", left: stickyOffsets[`op-${s}-A`], zIndex: 15 }} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`op-${s}-A`} setWidths={setColumnWidths} /></th>,
@@ -837,6 +869,19 @@ export function MdrMilestoneMonitorPanel() {
                       const last = si === 2;
                       const useSrc = stageSrc[s];
                       const edgeShadow = last ? { boxShadow: STICKY_EDGE_SHADOW } : undefined;
+                      if (!stageColExpanded[s]) {
+                        // 접힘 — Δ 1열만
+                        if (!useSrc) {
+                          cells.push(
+                            <td key={`op-d-${s}-${ri}`} style={sStick(`op-${s}-D`, edgeShadow)} className={`text-center px-1 py-0.5 border-l text-muted-foreground bg-background ${last ? "border-r" : ""}`}>—</td>,
+                          );
+                        } else {
+                          cells.push(
+                            <td key={`op-d-${s}-${ri}`} style={sStick(`op-${s}-D`, edgeShadow)} className={`text-center px-1 py-0.5 border-l tabular-nums bg-background ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`} title={`P ${fmtPct(useSrc.plan)} / A ${fmtPct(useSrc.actual)}`}>{fmtDelta(useSrc.delta)}</td>,
+                          );
+                        }
+                        return;
+                      }
                       if (!useSrc) {
                         cells.push(
                           <td key={`op-p-${s}-${ri}`} style={sStick(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground bg-background">—</td>,
