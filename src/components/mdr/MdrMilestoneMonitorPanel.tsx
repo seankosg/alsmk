@@ -705,14 +705,21 @@ export function MdrMilestoneMonitorPanel() {
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
+                const isOpen = stageColExpanded[s];
+                const leftKey = isOpen ? `op-${s}-P` : `op-${s}-D`;
                 return (
                   <th
                     key={`op-h-${s}`}
-                    colSpan={3}
-                    style={{ position: "sticky", left: stickyOffsets[`op-${s}-P`], zIndex: 15, boxShadow: last ? STICKY_EDGE_SHADOW : undefined }}
-                    className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${last ? "border-r" : ""}`}
+                    colSpan={isOpen ? 3 : 1}
+                    onClick={() => toggleStageCol(s)}
+                    style={{ position: "sticky", left: stickyOffsets[leftKey], zIndex: 15, boxShadow: last ? STICKY_EDGE_SHADOW : undefined }}
+                    className={`text-center px-2 py-1 border-l text-black font-bold cursor-pointer select-none hover:brightness-95 ${th.sub} ${last ? "border-r" : ""}`}
+                    title={isOpen ? "클릭하여 접기" : "클릭하여 펼치기 (P/A/Δ)"}
                   >
-                    {s} Stage
+                    <span className="inline-flex items-center gap-0.5">
+                      {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      {s}{isOpen ? " Stage" : ""}
+                    </span>
                   </th>
                 );
               })}
