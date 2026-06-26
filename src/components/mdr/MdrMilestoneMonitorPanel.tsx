@@ -765,11 +765,16 @@ export function MdrMilestoneMonitorPanel() {
               <th key="op-p-OVERALL" style={{ ...colStyle(`op-OVERALL-P`), position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15 }} className="relative text-center px-1 py-0.5 border-l font-bold text-black bg-slate-200">P<ResizeHandle colKey={`op-OVERALL-P`} setWidths={setColumnWidths} /></th>
               <th key="op-a-OVERALL" style={{ ...colStyle(`op-OVERALL-A`), position: "sticky", left: stickyOffsets["op-OVERALL-A"], zIndex: 15 }} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">A<ResizeHandle colKey={`op-OVERALL-A`} setWidths={setColumnWidths} /></th>
               <th key="op-d-OVERALL" style={{ ...colStyle(`op-OVERALL-D`), position: "sticky", left: stickyOffsets["op-OVERALL-D"], zIndex: 15 }} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">Δ<ResizeHandle colKey={`op-OVERALL-D`} setWidths={setColumnWidths} /></th>
-              {/* SD/DD/CD Stage P/A/Δ */}
+              {/* SD/DD/CD Stage P/A/Δ (접힘 시 Δ 1열) */}
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
                 const dShadow = last ? STICKY_EDGE_SHADOW : undefined;
+                if (!stageColExpanded[s]) {
+                  return (
+                    <th key={`op-d-${s}`} style={{ ...colStyle(`op-${s}-D`), position: "sticky", left: stickyOffsets[`op-${s}-D`], zIndex: 15, boxShadow: dShadow }} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub} ${last ? "border-r" : ""}`}>Δ<ResizeHandle colKey={`op-${s}-D`} setWidths={setColumnWidths} /></th>
+                  );
+                }
                 return [
                   <th key={`op-p-${s}`} style={{ ...colStyle(`op-${s}-P`), position: "sticky", left: stickyOffsets[`op-${s}-P`], zIndex: 15 }} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`op-${s}-P`} setWidths={setColumnWidths} /></th>,
                   <th key={`op-a-${s}`} style={{ ...colStyle(`op-${s}-A`), position: "sticky", left: stickyOffsets[`op-${s}-A`], zIndex: 15 }} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`op-${s}-A`} setWidths={setColumnWidths} /></th>,
