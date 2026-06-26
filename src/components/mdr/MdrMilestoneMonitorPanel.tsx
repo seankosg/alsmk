@@ -482,7 +482,19 @@ export function MdrMilestoneMonitorPanel() {
     <Card className="p-3 space-y-2">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="font-semibold text-sm">Design Progress Status</h3>
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            Design Progress Status
+            {computedAt && (
+              <span className="text-[10px] font-normal text-muted-foreground">
+                · 최종 계산 {new Date(computedAt).toLocaleString("ko-KR", { hour12: false })}
+              </span>
+            )}
+            {stale && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 border border-amber-500/40">
+                임포트 이후 변경 — 재계산 필요
+              </span>
+            )}
+          </h3>
           <div className="text-[10px] text-muted-foreground">
             P=계획·A=실적·Δ=차이 · 단계 순차 강제(SD→DD→CD) 적용 · 기준일 일할 계산 · 단계 헤더 클릭 시 마일스톤 펼치기/접기
           </div>
