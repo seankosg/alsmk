@@ -447,12 +447,16 @@ export function MdrMilestoneMonitorPanel() {
       variant === "grand" ? "프로젝트 전체" : variant === "factory" ? "공장동 합계" : `${label} 합계`;
     return (
       <tr key={`agg-${variant}-${label}`} className={`${bgCls} ${borderCls}`}>
-        <td colSpan={3} className="px-2 py-1 sticky left-0 border-r text-[11px] bg-inherit">
+        <td
+          colSpan={3}
+          style={{ position: "sticky", left: 0, zIndex: 5, width: 220, minWidth: 220, maxWidth: 220 }}
+          className="px-2 py-1 border-r text-[11px] bg-inherit"
+        >
           {displayLabel}
         </td>
-        <td className="text-center px-2 py-1 border-l tabular-nums">{sdSum}</td>
-        <td className="text-center px-2 py-1 tabular-nums">{ddSum}</td>
-        <td className="text-center px-2 py-1 border-r tabular-nums">{cdSum}</td>
+        <td style={{ position: "sticky", left: stickyOffsets["__dwg-SD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-1 border-l tabular-nums bg-inherit">{sdSum}</td>
+        <td style={{ position: "sticky", left: stickyOffsets["__dwg-DD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-1 tabular-nums bg-inherit">{ddSum}</td>
+        <td style={{ position: "sticky", left: stickyOffsets["__dwg-CD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-1 border-r tabular-nums bg-inherit">{cdSum}</td>
         {(() => {
           // 단계별 집계값 선계산 (Overall 합성에도 재사용)
           const stageVals: Record<MdrStage, { plan: number | null; actual: number | null; delta: number | null }> = {
@@ -471,23 +475,32 @@ export function MdrMilestoneMonitorPanel() {
             stageVals[s] = { plan, actual, delta: plan != null && actual != null ? actual - plan : null };
           }
           const overall = overallFromStages(stageVals, wfEnabled);
+          const aStick = (k: string, extra?: React.CSSProperties): React.CSSProperties => ({
+            ...colStyle(k),
+            position: "sticky",
+            left: stickyOffsets[k],
+            zIndex: 5,
+            ...extra,
+          });
           return [
             // Overall 3셀
-            <td key="agg-op-p-OVERALL" style={colStyle(`op-OVERALL-P`)} className="text-center px-1 py-1 border-l tabular-nums bg-slate-100/60 dark:bg-slate-800/40">{fmtPct(overall.plan)}</td>,
-            <td key="agg-op-a-OVERALL" style={colStyle(`op-OVERALL-A`)} className="text-center px-1 py-1 tabular-nums bg-slate-100/60 dark:bg-slate-800/40">{fmtPct(overall.actual)}</td>,
-            <td key="agg-op-d-OVERALL" style={colStyle(`op-OVERALL-D`)} className={`text-center px-1 py-1 tabular-nums bg-slate-100/60 dark:bg-slate-800/40 ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
+            <td key="agg-op-p-OVERALL" style={aStick("op-OVERALL-P")} className="text-center px-1 py-1 border-l tabular-nums bg-inherit">{fmtPct(overall.plan)}</td>,
+            <td key="agg-op-a-OVERALL" style={aStick("op-OVERALL-A")} className="text-center px-1 py-1 tabular-nums bg-inherit">{fmtPct(overall.actual)}</td>,
+            <td key="agg-op-d-OVERALL" style={aStick("op-OVERALL-D")} className={`text-center px-1 py-1 tabular-nums bg-inherit ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
             // SD/DD/CD Stage 셀
             ...STAGES.flatMap((s, si) => {
               const last = si === 2;
               const { plan, actual, delta } = stageVals[s];
+              const edge = last ? { boxShadow: STICKY_EDGE_SHADOW } : undefined;
               return [
-                <td key={`agg-op-p-${s}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
-                <td key={`agg-op-a-${s}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
-                <td key={`agg-op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+                <td key={`agg-op-p-${s}`} style={aStick(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums bg-inherit">{fmtPct(plan)}</td>,
+                <td key={`agg-op-a-${s}`} style={aStick(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums bg-inherit">{fmtPct(actual)}</td>,
+                <td key={`agg-op-d-${s}`} style={aStick(`op-${s}-D`, edge)} className={`text-center px-1 py-1 tabular-nums bg-inherit ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
               ];
             }),
           ];
         })()}
+
         {headers?.flatMap(({ stage, ms }) => {
           if (!expanded[stage]) {
             return [<td key={`agg-col-${stage}`} className="text-center px-1 py-1 border-l border-r text-muted-foreground">…</td>];
