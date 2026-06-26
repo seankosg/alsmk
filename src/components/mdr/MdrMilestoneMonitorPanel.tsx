@@ -236,6 +236,43 @@ export function MdrMilestoneMonitorPanel() {
     return { width: w, minWidth: w, maxWidth: w };
   };
 
+  // 18개 sticky 컬럼의 누적 left 오프셋
+  const stickyOffsets = useMemo(() => {
+    const out: Record<string, number> = {};
+    let acc = 0;
+    for (const c of STICKY_COLS) {
+      out[c.key] = acc;
+      const w = c.w ?? (columnWidths[c.key] ?? DEFAULT_COL_W);
+      acc += w;
+    }
+    out.__total = acc;
+    return out;
+  }, [columnWidths]);
+  const stickyKeyWidth = (key: string): number => {
+    const c = STICKY_COLS.find((x) => x.key === key);
+    if (!c) return DEFAULT_COL_W;
+    return c.w ?? (columnWidths[key] ?? DEFAULT_COL_W);
+  };
+  /** sticky cell style. leftKey = 시작 컬럼 키, spanKeys = colSpan 시 합산 폭(없으면 leftKey 단일). */
+  const stickyStyle = (
+    leftKey: string,
+    opts?: { spanKeys?: string[]; zIndex?: number },
+  ): React.CSSProperties => {
+    const left = stickyOffsets[leftKey] ?? 0;
+    const keys = opts?.spanKeys ?? [leftKey];
+    const totalW = keys.reduce((a, k) => a + stickyKeyWidth(k), 0);
+    return {
+      position: "sticky",
+      left,
+      zIndex: opts?.zIndex ?? 5,
+      width: totalW,
+      minWidth: totalW,
+      maxWidth: totalW,
+    };
+  };
+  /** sticky 우측 경계(18번째 컬럼) 표시용 box-shadow */
+  const STICKY_EDGE_SHADOW = "inset -2px 0 0 0 hsl(var(--border))";
+
   const toggleStage = (s: MdrStage) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
   // 필터 — URL 동기화 (?b, ?t, ?d)
