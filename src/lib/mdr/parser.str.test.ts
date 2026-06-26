@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import * as fs from "node:fs";
-import * as path from "node:path";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const fs = require("fs") as typeof import("fs");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const path = require("path") as typeof import("path");
 import { parseMdrFile } from "./parser";
 
 // 업로드한 SMP&CCM 파일을 사용해 STR DD 그룹이 라벨 기반(Information/STR Analysis/Drawings)
