@@ -869,6 +869,19 @@ export function MdrMilestoneMonitorPanel() {
                       const last = si === 2;
                       const useSrc = stageSrc[s];
                       const edgeShadow = last ? { boxShadow: STICKY_EDGE_SHADOW } : undefined;
+                      if (!stageColExpanded[s]) {
+                        // 접힘 — Δ 1열만
+                        if (!useSrc) {
+                          cells.push(
+                            <td key={`op-d-${s}-${ri}`} style={sStick(`op-${s}-D`, edgeShadow)} className={`text-center px-1 py-0.5 border-l text-muted-foreground bg-background ${last ? "border-r" : ""}`}>—</td>,
+                          );
+                        } else {
+                          cells.push(
+                            <td key={`op-d-${s}-${ri}`} style={sStick(`op-${s}-D`, edgeShadow)} className={`text-center px-1 py-0.5 border-l tabular-nums bg-background ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`} title={`P ${fmtPct(useSrc.plan)} / A ${fmtPct(useSrc.actual)}`}>{fmtDelta(useSrc.delta)}</td>,
+                          );
+                        }
+                        return;
+                      }
                       if (!useSrc) {
                         cells.push(
                           <td key={`op-p-${s}-${ri}`} style={sStick(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground bg-background">—</td>,
