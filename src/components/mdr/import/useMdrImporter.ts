@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 import { parseMdrFile, isSummaryFilename, type MdrParseResult } from "@/lib/mdr/parser";
 import { validateSheet, applyAutoFix } from "@/lib/mdr/validator";
 import { persistParsed, logImport } from "@/lib/mdr/importRunner";
+import { computeMatrix, saveSnapshot } from "@/lib/mdr/milestoneMonitorEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 export type ImportFileStatus =
   | "pending"
