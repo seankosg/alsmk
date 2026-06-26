@@ -285,6 +285,10 @@ function parseSheet(
         const nextLabel = cellStr(ws, milestoneLabelRow, k);
         if (nextLabel && MILESTONE_RE.test(nextLabel)) break;
         if (isIdentHeader(k)) break;
+        // row 4 의 다음 단계 헤더(예: "Design Development" / "Construction Documentation")
+        // 를 만나면 현재 마일스톤 그룹을 끊는다. (STR SD100% 가 DD region 을 잠식하던 버그 방지)
+        const r4 = cellStr(ws, headerRow, k);
+        if (r4 && STAGE_ROW4_RE.test(r4)) break;
         end = k;
       }
       const cols: number[] = [];
