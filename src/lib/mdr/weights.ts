@@ -54,9 +54,9 @@ export const TEAM_OF_DISCIPLINE: Record<string, TeamCode> = {
   STR: "STR",
   MECH: "MECH",
   FP: "MECH",
+  HV: "MECH",
   ELEC: "ELEC",
   TEL: "ELEC",
-  HV: "ELEC",
   FA: "ELEC",
 };
 
@@ -65,8 +65,8 @@ export const DISCIPLINES_BY_TEAM: Record<TeamCode, string[]> = {
   ARCH: ["ARCH"],
   CIVIL: ["CIVIL"],
   STR: ["STR"],
-  MECH: ["MECH", "FP"],
-  ELEC: ["ELEC", "TEL", "HV", "FA"],
+  MECH: ["MECH", "FP", "HV"],
+  ELEC: ["ELEC", "TEL", "FA"],
 };
 
 export function teamOfDiscipline(disc: string): TeamCode | null {
