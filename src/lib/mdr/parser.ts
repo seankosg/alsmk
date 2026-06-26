@@ -343,8 +343,8 @@ function parseSheet(
       curLabel = null; curStart = -1; curCols = [];
     };
     for (let cc = region.start; cc <= region.end; cc++) {
-      // 식별 헤더(예: REV) 가 region 내에 들어오는 경우 — 비정상이지만 안전하게 끊는다
-      if (isIdentHeader(cc)) { flush(cc - 1); continue; }
+      // region 안에 있는 셀은 단계 영역 내부이므로 isIdentHeader 가드를 적용하지 않는다.
+      // (예: STR DD 의 "Drawings" 라벨이 ident 정규식의 'drawing' 에 우연히 매칭되어 끊기던 버그 방지)
       const t = cellStr(ws, milestoneLabelRow, cc).trim();
       if (t) {
         flush(cc - 1);
