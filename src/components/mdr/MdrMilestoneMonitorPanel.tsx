@@ -590,13 +590,39 @@ export function MdrMilestoneMonitorPanel() {
           <thead>
             {/* 1단 */}
             <tr className="border-b">
-              <th rowSpan={3} className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
-              <th rowSpan={3} className="text-left px-2 py-1 border-r">Team</th>
-              <th rowSpan={3} className="text-left px-2 py-1 border-r">Disc.</th>
-              <th colSpan={3} className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider">
+              <th
+                rowSpan={3}
+                style={{ position: "sticky", left: 0, zIndex: 15, width: 90, minWidth: 90, maxWidth: 90 }}
+                className="text-left px-2 py-1 bg-background border-r"
+              >
+                Block
+              </th>
+              <th
+                rowSpan={3}
+                style={{ position: "sticky", left: stickyOffsets.__team, zIndex: 15, width: 70, minWidth: 70, maxWidth: 70 }}
+                className="text-left px-2 py-1 bg-background border-r"
+              >
+                Team
+              </th>
+              <th
+                rowSpan={3}
+                style={{ position: "sticky", left: stickyOffsets.__disc, zIndex: 15, width: 60, minWidth: 60, maxWidth: 60 }}
+                className="text-left px-2 py-1 bg-background border-r"
+              >
+                Disc.
+              </th>
+              <th
+                colSpan={3}
+                style={{ position: "sticky", left: stickyOffsets["__dwg-SD"], zIndex: 15 }}
+                className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider"
+              >
                 Total DWG
               </th>
-              <th colSpan={12} className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider">
+              <th
+                colSpan={12}
+                style={{ position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15, boxShadow: STICKY_EDGE_SHADOW }}
+                className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider"
+              >
                 Progress Status
               </th>
               {headers?.map(({ stage, ms }) => {
@@ -627,6 +653,7 @@ export function MdrMilestoneMonitorPanel() {
                   <th
                     key={`dwgh-${s}`}
                     rowSpan={2}
+                    style={{ position: "sticky", left: stickyOffsets[`__dwg-${s}`], zIndex: 15, width: 44, minWidth: 44, maxWidth: 44 }}
                     className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${i === 2 ? "border-r" : ""}`}
                   >
                     {s}
@@ -637,17 +664,20 @@ export function MdrMilestoneMonitorPanel() {
               <th
                 key="op-h-OVERALL"
                 colSpan={3}
+                style={{ position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15 }}
                 className="text-center px-2 py-1 border-l text-black font-bold bg-slate-200"
               >
                 Overall
               </th>
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
+                const last = i === 2;
                 return (
                   <th
                     key={`op-h-${s}`}
                     colSpan={3}
-                    className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${i === 2 ? "border-r" : ""}`}
+                    style={{ position: "sticky", left: stickyOffsets[`op-${s}-P`], zIndex: 15, boxShadow: last ? STICKY_EDGE_SHADOW : undefined }}
+                    className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${last ? "border-r" : ""}`}
                   >
                     {s} Stage
                   </th>
@@ -692,17 +722,18 @@ export function MdrMilestoneMonitorPanel() {
             {/* 3단 */}
             <tr className="border-b-2">
               {/* Overall P/A/Δ (Stage WF 합성) */}
-              <th key="op-p-OVERALL" style={colStyle(`op-OVERALL-P`)} className="relative text-center px-1 py-0.5 border-l font-bold text-black bg-slate-200">P<ResizeHandle colKey={`op-OVERALL-P`} setWidths={setColumnWidths} /></th>
-              <th key="op-a-OVERALL" style={colStyle(`op-OVERALL-A`)} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">A<ResizeHandle colKey={`op-OVERALL-A`} setWidths={setColumnWidths} /></th>
-              <th key="op-d-OVERALL" style={colStyle(`op-OVERALL-D`)} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">Δ<ResizeHandle colKey={`op-OVERALL-D`} setWidths={setColumnWidths} /></th>
+              <th key="op-p-OVERALL" style={{ ...colStyle(`op-OVERALL-P`), position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15 }} className="relative text-center px-1 py-0.5 border-l font-bold text-black bg-slate-200">P<ResizeHandle colKey={`op-OVERALL-P`} setWidths={setColumnWidths} /></th>
+              <th key="op-a-OVERALL" style={{ ...colStyle(`op-OVERALL-A`), position: "sticky", left: stickyOffsets["op-OVERALL-A"], zIndex: 15 }} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">A<ResizeHandle colKey={`op-OVERALL-A`} setWidths={setColumnWidths} /></th>
+              <th key="op-d-OVERALL" style={{ ...colStyle(`op-OVERALL-D`), position: "sticky", left: stickyOffsets["op-OVERALL-D"], zIndex: 15 }} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">Δ<ResizeHandle colKey={`op-OVERALL-D`} setWidths={setColumnWidths} /></th>
               {/* SD/DD/CD Stage P/A/Δ */}
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
+                const dShadow = last ? STICKY_EDGE_SHADOW : undefined;
                 return [
-                  <th key={`op-p-${s}`} style={colStyle(`op-${s}-P`)} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`op-${s}-P`} setWidths={setColumnWidths} /></th>,
-                  <th key={`op-a-${s}`} style={colStyle(`op-${s}-A`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`op-${s}-A`} setWidths={setColumnWidths} /></th>,
-                  <th key={`op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r" : ""}`}>Δ<ResizeHandle colKey={`op-${s}-D`} setWidths={setColumnWidths} /></th>,
+                  <th key={`op-p-${s}`} style={{ ...colStyle(`op-${s}-P`), position: "sticky", left: stickyOffsets[`op-${s}-P`], zIndex: 15 }} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`op-${s}-P`} setWidths={setColumnWidths} /></th>,
+                  <th key={`op-a-${s}`} style={{ ...colStyle(`op-${s}-A`), position: "sticky", left: stickyOffsets[`op-${s}-A`], zIndex: 15 }} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`op-${s}-A`} setWidths={setColumnWidths} /></th>,
+                  <th key={`op-d-${s}`} style={{ ...colStyle(`op-${s}-D`), position: "sticky", left: stickyOffsets[`op-${s}-D`], zIndex: 15, boxShadow: dShadow }} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r" : ""}`}>Δ<ResizeHandle colKey={`op-${s}-D`} setWidths={setColumnWidths} /></th>,
                 ];
               })}
               {headers?.flatMap(({ stage, ms }) => {
@@ -720,6 +751,7 @@ export function MdrMilestoneMonitorPanel() {
               })}
             </tr>
           </thead>
+
           <tbody>
             {displayRows.length === 0 && (
               <tr><td colSpan={99} className="text-center px-2 py-4 text-muted-foreground text-[11px]">필터 조건에 해당하는 행이 없습니다.</td></tr>
