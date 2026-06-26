@@ -54,9 +54,9 @@ export const TEAM_OF_DISCIPLINE: Record<string, TeamCode> = {
   STR: "STR",
   MECH: "MECH",
   FP: "MECH",
+  HV: "MECH",
   ELEC: "ELEC",
   TEL: "ELEC",
-  HV: "ELEC",
   FA: "ELEC",
 };
 
