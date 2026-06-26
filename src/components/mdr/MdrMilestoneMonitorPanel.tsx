@@ -495,11 +495,23 @@ export function MdrMilestoneMonitorPanel() {
             <td key="agg-op-p-OVERALL" style={aStick("op-OVERALL-P")} className="text-center px-1 py-1 border-l tabular-nums bg-inherit">{fmtPct(overall.plan)}</td>,
             <td key="agg-op-a-OVERALL" style={aStick("op-OVERALL-A")} className="text-center px-1 py-1 tabular-nums bg-inherit">{fmtPct(overall.actual)}</td>,
             <td key="agg-op-d-OVERALL" style={aStick("op-OVERALL-D")} className={`text-center px-1 py-1 tabular-nums bg-inherit ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
-            // SD/DD/CD Stage 셀
+            // SD/DD/CD Stage 셀 (접힘 시 Δ 1열)
             ...STAGES.flatMap((s, si) => {
               const last = si === 2;
               const { plan, actual, delta } = stageVals[s];
               const edge = last ? { boxShadow: STICKY_EDGE_SHADOW } : undefined;
+              if (!stageColExpanded[s]) {
+                return [
+                  <td
+                    key={`agg-op-d-${s}`}
+                    style={aStick(`op-${s}-D`, edge)}
+                    className={`text-center px-1 py-1 border-l tabular-nums bg-inherit ${deltaClass(delta)} ${last ? "border-r" : ""}`}
+                    title={`P ${fmtPct(plan)} / A ${fmtPct(actual)}`}
+                  >
+                    {fmtDelta(delta)}
+                  </td>,
+                ];
+              }
               return [
                 <td key={`agg-op-p-${s}`} style={aStick(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums bg-inherit">{fmtPct(plan)}</td>,
                 <td key={`agg-op-a-${s}`} style={aStick(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums bg-inherit">{fmtPct(actual)}</td>,
