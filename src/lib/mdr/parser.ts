@@ -351,6 +351,7 @@ function parseSheet(
       }
     }
     flush(region.end);
+    if (sheetName === "STR") console.log("[DBG STR] region", region, "labelCols:", labelCols.map(l => ({label: l.label, cols: l.cols})));
     if (labelCols.length === 0) continue;
     const pcts = STAGE_UNLABELED_PCTS[labelCols.length] ?? labelCols.map((_, i) => Math.round(((i + 1) / labelCols.length) * 100));
     labelCols.forEach((grp, gi) => {
