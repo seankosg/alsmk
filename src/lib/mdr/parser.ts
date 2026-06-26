@@ -327,7 +327,6 @@ function parseSheet(
   // 단, "Progress" 라벨은 제외. cumulative pct 는 STAGE_UNLABELED_PCTS 매핑.
   for (const region of stageRegions) {
     const insideMs = milestoneGroups.filter((g) => g.cols.some((x) => x >= region.start && x <= region.end));
-    if (sheetName === "STR") console.log("[DBG STR] region", region, "insideMs:", insideMs.map(m => ({stage: m.stage, pct: m.pct, cols: m.cols})));
     if (insideMs.length > 0) continue;
     // row 5 라벨 토큰 추출
     const labelCols: { label: string; start: number; end: number; cols: number[] }[] = [];
