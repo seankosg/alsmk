@@ -209,10 +209,22 @@ export function MdrMilestoneMonitorPanel() {
   const [recomputing, setRecomputing] = useState(false);
   const [computedAt, setComputedAt] = useState<string | null>(null);
   const [latestImportAt, setLatestImportAt] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: true, CD: false });
+  const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>(() =>
+    loadStageBoolMap(EXPANDED_KEY, { SD: false, DD: true, CD: false }),
+  );
   /** Progress Status 내 SD/DD/CD Stage P/A/Δ 블록 펼침. 기본 모두 펼침. 접힘 시 Δ 1열만 노출. */
-  const [stageColExpanded, setStageColExpanded] = useState<Record<MdrStage, boolean>>({ SD: true, DD: true, CD: true });
+  const [stageColExpanded, setStageColExpanded] = useState<Record<MdrStage, boolean>>(() =>
+    loadStageBoolMap(STAGE_COL_EXPANDED_KEY, { SD: true, DD: true, CD: true }),
+  );
   const toggleStageCol = (s: MdrStage) => setStageColExpanded((p) => ({ ...p, [s]: !p[s] }));
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(EXPANDED_KEY, JSON.stringify(expanded)); } catch { /* ignore */ }
+  }, [expanded]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(STAGE_COL_EXPANDED_KEY, JSON.stringify(stageColExpanded)); } catch { /* ignore */ }
+  }, [stageColExpanded]);
   const [wfEnabled, setWfEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = window.localStorage.getItem(WF_STORAGE_KEY);
