@@ -652,7 +652,7 @@ export function MdrMilestoneMonitorPanel() {
                 Total DWG
               </th>
               <th
-                colSpan={12}
+                colSpan={3 + STAGES.reduce((a, s) => a + (stageColExpanded[s] ? 3 : 1), 0)}
                 style={{ position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15, boxShadow: STICKY_EDGE_SHADOW }}
                 className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider"
               >
