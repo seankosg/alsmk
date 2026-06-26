@@ -230,20 +230,34 @@ export function MdrMilestoneMonitorPanel() {
     return { width: w, minWidth: w, maxWidth: w };
   };
 
-  // 18개 sticky 컬럼의 누적 left 오프셋
+  // 동적 sticky 컬럼 (Stage 토글 반영)
+  const stickyCols = useMemo(() => {
+    const arr: Array<{ key: string; w: number | null }> = [...BASE_STICKY_COLS];
+    for (const s of STAGES) {
+      if (stageColExpanded[s]) {
+        arr.push({ key: `op-${s}-P`, w: null }, { key: `op-${s}-A`, w: null }, { key: `op-${s}-D`, w: null });
+      } else {
+        // 접힘 — Δ 1열만 노출
+        arr.push({ key: `op-${s}-D`, w: null });
+      }
+    }
+    return arr;
+  }, [stageColExpanded]);
+
+  // sticky 컬럼의 누적 left 오프셋
   const stickyOffsets = useMemo(() => {
     const out: Record<string, number> = {};
     let acc = 0;
-    for (const c of STICKY_COLS) {
+    for (const c of stickyCols) {
       out[c.key] = acc;
       const w = c.w ?? (columnWidths[c.key] ?? DEFAULT_COL_W);
       acc += w;
     }
     out.__total = acc;
     return out;
-  }, [columnWidths]);
+  }, [columnWidths, stickyCols]);
   const stickyKeyWidth = (key: string): number => {
-    const c = STICKY_COLS.find((x) => x.key === key);
+    const c = stickyCols.find((x) => x.key === key);
     if (!c) return DEFAULT_COL_W;
     return c.w ?? (columnWidths[key] ?? DEFAULT_COL_W);
   };
