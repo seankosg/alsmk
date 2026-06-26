@@ -93,6 +93,29 @@ const FACTORY_BUILDINGS = new Set(["GEN", "SMP&CCM", "HSM", "CRM", "FAFP"]);
 /** 공장동 마지막 건물 (이 건물 소계 직후 공장동 합계행 삽입) */
 const LAST_FACTORY_BUILDING = "FAFP";
 
+/** Sticky 좌측 고정 컬럼 순서 — Block/Team/Disc + Total DWG(3) + Progress Status 12열 = 18열.
+ *  w=고정 폭(px), null=columnWidths[key] ?? DEFAULT_COL_W 사용. */
+const STICKY_COLS: ReadonlyArray<{ key: string; w: number | null }> = [
+  { key: "__block", w: 90 },
+  { key: "__team", w: 70 },
+  { key: "__disc", w: 60 },
+  { key: "__dwg-SD", w: 44 },
+  { key: "__dwg-DD", w: 44 },
+  { key: "__dwg-CD", w: 44 },
+  { key: "op-OVERALL-P", w: null },
+  { key: "op-OVERALL-A", w: null },
+  { key: "op-OVERALL-D", w: null },
+  { key: "op-SD-P", w: null },
+  { key: "op-SD-A", w: null },
+  { key: "op-SD-D", w: null },
+  { key: "op-DD-P", w: null },
+  { key: "op-DD-A", w: null },
+  { key: "op-DD-D", w: null },
+  { key: "op-CD-P", w: null },
+  { key: "op-CD-A", w: null },
+  { key: "op-CD-D", w: null },
+];
+
 /** Block 표시 라벨: 내부 코드 GEN → "GENERAL"로 표기. 그 외는 코드 그대로. */
 const displayBuilding = (code: string): string => (code === "GEN" ? "GENERAL" : code);
 
