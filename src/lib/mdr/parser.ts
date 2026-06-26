@@ -321,6 +321,7 @@ function parseSheet(
   // 으로 표시된 단계 영역인데 그 안에 MILESTONE_RE 로 잡힌 그룹이 0개인 경우,
   // row 5 의 라벨(예: Information / STR Analysis / Drawings)로 그룹화.
   // 단, "Progress" 라벨은 제외. cumulative pct 는 STAGE_UNLABELED_PCTS 매핑.
+  if (sheetName === "STR") console.log("[DBG STR] stageRegions:", JSON.stringify(stageRegions), "msGroups inside DD:", milestoneGroups.length);
   for (const region of stageRegions) {
     const insideMs = milestoneGroups.filter((g) => g.cols.some((x) => x >= region.start && x <= region.end));
     if (insideMs.length > 0) continue;
