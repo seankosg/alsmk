@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 import { parseMdrFile, isSummaryFilename, type MdrParseResult } from "@/lib/mdr/parser";
 import { validateSheet, applyAutoFix } from "@/lib/mdr/validator";
 import { persistParsed, logImport } from "@/lib/mdr/importRunner";
+import { computeMatrix, saveSnapshot } from "@/lib/mdr/milestoneMonitorEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 export type ImportFileStatus =
   | "pending"
@@ -143,6 +145,20 @@ export function useMdrImporter(onImported?: () => void) {
         }
       }
       onImported?.();
+      // 임포트 완료 → 설계진도율 스냅샷 백그라운드 재계산 (UI 차단 없음)
+      const anyDone = files.some((f) => f.status === "done") || targets.length > 0;
+      if (anyDone) {
+        (async () => {
+          try {
+            const today = new Date().toISOString().slice(0, 10);
+            const m = await computeMatrix(today);
+            await saveSnapshot(m);
+            toast.success("설계진도율 스냅샷 갱신 완료");
+          } catch (e: any) {
+            toast.error(`설계진도율 스냅샷 갱신 실패: ${e?.message ?? e}`);
+          }
+        })();
+      }
     } finally {
       setIsRunning(false);
     }

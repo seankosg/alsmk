@@ -15,6 +15,9 @@ import { toast } from "sonner";
 import {
   computeMatrix,
   saveSnapshot,
+  loadLatestSnapshot,
+  loadLatestSnapshotMeta,
+  loadLatestImportAt,
   type MonitorMatrix,
   type MonitorMilestoneKey,
   type MonitorDiscRow,
@@ -172,6 +175,8 @@ export function MdrMilestoneMonitorPanel() {
   const [matrix, setMatrix] = useState<MonitorMatrix | null>(null);
   const [loading, setLoading] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
+  const [computedAt, setComputedAt] = useState<string | null>(null);
+  const [latestImportAt, setLatestImportAt] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: false, CD: false });
   const [wfEnabled, setWfEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -224,16 +229,39 @@ export function MdrMilestoneMonitorPanel() {
     setSearchParams(sp, { replace: true });
   };
 
+  // 초기 로드: 스냅샷 우선. 없으면 풀계산 후 저장.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        const m = await computeMatrix(today);
+        const [snap, meta, importedAt] = await Promise.all([
+          loadLatestSnapshot(),
+          loadLatestSnapshotMeta(),
+          loadLatestImportAt(),
+        ]);
         if (cancelled) return;
-        setMatrix(m);
-        setAsOf(today);
+        if (snap) {
+          setMatrix(snap);
+          setAsOf(snap.asOf);
+          setComputedAt(meta?.computedAt ?? null);
+          setLatestImportAt(importedAt);
+        } else {
+          // 스냅샷 없음 — 최초 1회 풀계산 + 저장
+          const today = new Date().toISOString().slice(0, 10);
+          const m = await computeMatrix(today);
+          if (cancelled) return;
+          setMatrix(m);
+          setAsOf(today);
+          try {
+            await saveSnapshot(m);
+            const meta2 = await loadLatestSnapshotMeta();
+            if (!cancelled) setComputedAt(meta2?.computedAt ?? new Date().toISOString());
+          } catch {
+            // 저장 실패해도 화면 표시는 유지
+          }
+          setLatestImportAt(importedAt);
+        }
       } catch (e: any) {
         toast.error(`설계진도율 로드 실패: ${e?.message ?? e}`);
       } finally {
@@ -245,17 +273,25 @@ export function MdrMilestoneMonitorPanel() {
 
   const handleRecompute = async () => {
     setRecomputing(true);
+    const t = toast.loading("설계진도율 계산 중…");
     try {
       const m = await computeMatrix(asOf);
       setMatrix(m);
       await saveSnapshot(m);
-      toast.success(`신규 계산 완료 — 기준일 ${asOf}`);
+      const meta = await loadLatestSnapshotMeta();
+      setComputedAt(meta?.computedAt ?? new Date().toISOString());
+      const importedAt = await loadLatestImportAt();
+      setLatestImportAt(importedAt);
+      toast.success(`신규 계산 완료 — 기준일 ${asOf}`, { id: t });
     } catch (e: any) {
-      toast.error(`재계산 실패: ${e?.message ?? e}`);
+      toast.error(`재계산 실패: ${e?.message ?? e}`, { id: t });
     } finally {
       setRecomputing(false);
     }
   };
+
+  // 스냅샷 < 최신 임포트 → 재계산 필요
+  const stale = !!(computedAt && latestImportAt && latestImportAt > computedAt);
 
   const headers = useMemo(() => {
     if (!matrix) return null;
@@ -446,7 +482,19 @@ export function MdrMilestoneMonitorPanel() {
     <Card className="p-3 space-y-2">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="font-semibold text-sm">Design Progress Status</h3>
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            Design Progress Status
+            {computedAt && (
+              <span className="text-[10px] font-normal text-muted-foreground">
+                · 최종 계산 {new Date(computedAt).toLocaleString("ko-KR", { hour12: false })}
+              </span>
+            )}
+            {stale && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 border border-amber-500/40">
+                임포트 이후 변경 — 재계산 필요
+              </span>
+            )}
+          </h3>
           <div className="text-[10px] text-muted-foreground">
             P=계획·A=실적·Δ=차이 · 단계 순차 강제(SD→DD→CD) 적용 · 기준일 일할 계산 · 단계 헤더 클릭 시 마일스톤 펼치기/접기
           </div>

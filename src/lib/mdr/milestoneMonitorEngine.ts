@@ -331,7 +331,7 @@ export async function computeMatrix(asOf: string): Promise<MonitorMatrix> {
   return buildMatrix(drawings, asOf);
 }
 
-/** 전체 계산 결과를 snapshot 테이블에 upsert */
+/** 전체 계산 결과를 snapshot 테이블에 저장 (as_of 일괄 DELETE → 청크 INSERT) */
 export async function saveSnapshot(matrix: MonitorMatrix): Promise<void> {
   const rows: any[] = [];
   for (const r of matrix.rows) {
@@ -362,23 +362,44 @@ export async function saveSnapshot(matrix: MonitorMatrix): Promise<void> {
     }
   }
   if (!rows.length) return;
-  // 기존 동일 (as_of, building, discipline) 삭제 후 insert (간단·안전)
-  const groups = new Map<string, { as_of: string; building: string; discipline: string }>();
-  for (const r of rows) {
-    groups.set(`${r.as_of}|${r.building}|${r.discipline}`, { as_of: r.as_of, building: r.building, discipline: r.discipline });
-  }
-  for (const g of groups.values()) {
-    await (supabase.from("mdr_milestone_snapshots" as never) as any)
+  // 동일 as_of 의 기존 스냅샷 일괄 삭제 (DELETE 라운드트립 N → 1)
+  {
+    const { error } = await (supabase.from("mdr_milestone_snapshots" as never) as any)
       .delete()
-      .eq("as_of", g.as_of)
-      .eq("building", g.building)
-      .eq("discipline", g.discipline);
+      .eq("as_of", matrix.asOf);
+    if (error) throw error;
   }
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
     const { error } = await supabase.from("mdr_milestone_snapshots" as never).insert(chunk as any);
     if (error) throw error;
   }
+}
+
+/** 최신 스냅샷의 메타데이터(기준일·계산시각) — 가벼운 1행 조회. */
+export async function loadLatestSnapshotMeta(): Promise<{ asOf: string; computedAt: string | null } | null> {
+  const { data, error } = await supabase
+    .from("mdr_milestone_snapshots" as never)
+    .select("as_of, computed_at")
+    .order("as_of", { ascending: false })
+    .order("computed_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  const row = ((data as unknown) as { as_of: string; computed_at: string | null }[])?.[0];
+  if (!row) return null;
+  return { asOf: row.as_of, computedAt: row.computed_at ?? null };
+}
+
+/** 최신 MDR 임포트(성공) 시각 — 스냅샷이 임포트보다 오래되었는지 판단용. */
+export async function loadLatestImportAt(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("mdr_import_logs" as never)
+    .select("created_at")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) return null;
+  const row = ((data as unknown) as { created_at: string | null }[])?.[0];
+  return row?.created_at ?? null;
 }
 
 /** snapshot 테이블에서 최신 as_of 의 매트릭스 로드 (없으면 null). */
