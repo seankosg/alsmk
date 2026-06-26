@@ -200,7 +200,7 @@ export function MdrMilestoneMonitorPanel() {
   const [recomputing, setRecomputing] = useState(false);
   const [computedAt, setComputedAt] = useState<string | null>(null);
   const [latestImportAt, setLatestImportAt] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: false, CD: false });
+  const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: true, CD: false });
   const [wfEnabled, setWfEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = window.localStorage.getItem(WF_STORAGE_KEY);
