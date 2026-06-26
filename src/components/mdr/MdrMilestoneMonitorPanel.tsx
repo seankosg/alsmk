@@ -93,6 +93,29 @@ const FACTORY_BUILDINGS = new Set(["GEN", "SMP&CCM", "HSM", "CRM", "FAFP"]);
 /** 공장동 마지막 건물 (이 건물 소계 직후 공장동 합계행 삽입) */
 const LAST_FACTORY_BUILDING = "FAFP";
 
+/** Sticky 좌측 고정 컬럼 순서 — Block/Team/Disc + Total DWG(3) + Progress Status 12열 = 18열.
+ *  w=고정 폭(px), null=columnWidths[key] ?? DEFAULT_COL_W 사용. */
+const STICKY_COLS: ReadonlyArray<{ key: string; w: number | null }> = [
+  { key: "__block", w: 90 },
+  { key: "__team", w: 70 },
+  { key: "__disc", w: 60 },
+  { key: "__dwg-SD", w: 44 },
+  { key: "__dwg-DD", w: 44 },
+  { key: "__dwg-CD", w: 44 },
+  { key: "op-OVERALL-P", w: null },
+  { key: "op-OVERALL-A", w: null },
+  { key: "op-OVERALL-D", w: null },
+  { key: "op-SD-P", w: null },
+  { key: "op-SD-A", w: null },
+  { key: "op-SD-D", w: null },
+  { key: "op-DD-P", w: null },
+  { key: "op-DD-A", w: null },
+  { key: "op-DD-D", w: null },
+  { key: "op-CD-P", w: null },
+  { key: "op-CD-A", w: null },
+  { key: "op-CD-D", w: null },
+];
+
 /** Block 표시 라벨: 내부 코드 GEN → "GENERAL"로 표기. 그 외는 코드 그대로. */
 const displayBuilding = (code: string): string => (code === "GEN" ? "GENERAL" : code);
 
@@ -177,7 +200,7 @@ export function MdrMilestoneMonitorPanel() {
   const [recomputing, setRecomputing] = useState(false);
   const [computedAt, setComputedAt] = useState<string | null>(null);
   const [latestImportAt, setLatestImportAt] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: false, CD: false });
+  const [expanded, setExpanded] = useState<Record<MdrStage, boolean>>({ SD: false, DD: true, CD: false });
   const [wfEnabled, setWfEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = window.localStorage.getItem(WF_STORAGE_KEY);
@@ -212,6 +235,43 @@ export function MdrMilestoneMonitorPanel() {
     const w = columnWidths[k] ?? DEFAULT_COL_W;
     return { width: w, minWidth: w, maxWidth: w };
   };
+
+  // 18개 sticky 컬럼의 누적 left 오프셋
+  const stickyOffsets = useMemo(() => {
+    const out: Record<string, number> = {};
+    let acc = 0;
+    for (const c of STICKY_COLS) {
+      out[c.key] = acc;
+      const w = c.w ?? (columnWidths[c.key] ?? DEFAULT_COL_W);
+      acc += w;
+    }
+    out.__total = acc;
+    return out;
+  }, [columnWidths]);
+  const stickyKeyWidth = (key: string): number => {
+    const c = STICKY_COLS.find((x) => x.key === key);
+    if (!c) return DEFAULT_COL_W;
+    return c.w ?? (columnWidths[key] ?? DEFAULT_COL_W);
+  };
+  /** sticky cell style. leftKey = 시작 컬럼 키, spanKeys = colSpan 시 합산 폭(없으면 leftKey 단일). */
+  const stickyStyle = (
+    leftKey: string,
+    opts?: { spanKeys?: string[]; zIndex?: number },
+  ): React.CSSProperties => {
+    const left = stickyOffsets[leftKey] ?? 0;
+    const keys = opts?.spanKeys ?? [leftKey];
+    const totalW = keys.reduce((a, k) => a + stickyKeyWidth(k), 0);
+    return {
+      position: "sticky",
+      left,
+      zIndex: opts?.zIndex ?? 5,
+      width: totalW,
+      minWidth: totalW,
+      maxWidth: totalW,
+    };
+  };
+  /** sticky 우측 경계(18번째 컬럼) 표시용 box-shadow */
+  const STICKY_EDGE_SHADOW = "inset -2px 0 0 0 hsl(var(--border))";
 
   const toggleStage = (s: MdrStage) => setExpanded((p) => ({ ...p, [s]: !p[s] }));
 
@@ -387,12 +447,16 @@ export function MdrMilestoneMonitorPanel() {
       variant === "grand" ? "프로젝트 전체" : variant === "factory" ? "공장동 합계" : `${label} 합계`;
     return (
       <tr key={`agg-${variant}-${label}`} className={`${bgCls} ${borderCls}`}>
-        <td colSpan={3} className="px-2 py-1 sticky left-0 border-r text-[11px] bg-inherit">
+        <td
+          colSpan={3}
+          style={{ position: "sticky", left: 0, zIndex: 5, width: 220, minWidth: 220, maxWidth: 220 }}
+          className="px-2 py-1 border-r text-[11px] bg-inherit"
+        >
           {displayLabel}
         </td>
-        <td className="text-center px-2 py-1 border-l tabular-nums">{sdSum}</td>
-        <td className="text-center px-2 py-1 tabular-nums">{ddSum}</td>
-        <td className="text-center px-2 py-1 border-r tabular-nums">{cdSum}</td>
+        <td style={{ position: "sticky", left: stickyOffsets["__dwg-SD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-1 border-l tabular-nums bg-inherit">{sdSum}</td>
+        <td style={{ position: "sticky", left: stickyOffsets["__dwg-DD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-1 tabular-nums bg-inherit">{ddSum}</td>
+        <td style={{ position: "sticky", left: stickyOffsets["__dwg-CD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-1 border-r tabular-nums bg-inherit">{cdSum}</td>
         {(() => {
           // 단계별 집계값 선계산 (Overall 합성에도 재사용)
           const stageVals: Record<MdrStage, { plan: number | null; actual: number | null; delta: number | null }> = {
@@ -411,23 +475,32 @@ export function MdrMilestoneMonitorPanel() {
             stageVals[s] = { plan, actual, delta: plan != null && actual != null ? actual - plan : null };
           }
           const overall = overallFromStages(stageVals, wfEnabled);
+          const aStick = (k: string, extra?: React.CSSProperties): React.CSSProperties => ({
+            ...colStyle(k),
+            position: "sticky",
+            left: stickyOffsets[k],
+            zIndex: 5,
+            ...extra,
+          });
           return [
             // Overall 3셀
-            <td key="agg-op-p-OVERALL" style={colStyle(`op-OVERALL-P`)} className="text-center px-1 py-1 border-l tabular-nums bg-slate-100/60 dark:bg-slate-800/40">{fmtPct(overall.plan)}</td>,
-            <td key="agg-op-a-OVERALL" style={colStyle(`op-OVERALL-A`)} className="text-center px-1 py-1 tabular-nums bg-slate-100/60 dark:bg-slate-800/40">{fmtPct(overall.actual)}</td>,
-            <td key="agg-op-d-OVERALL" style={colStyle(`op-OVERALL-D`)} className={`text-center px-1 py-1 tabular-nums bg-slate-100/60 dark:bg-slate-800/40 ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
+            <td key="agg-op-p-OVERALL" style={aStick("op-OVERALL-P")} className="text-center px-1 py-1 border-l tabular-nums bg-inherit">{fmtPct(overall.plan)}</td>,
+            <td key="agg-op-a-OVERALL" style={aStick("op-OVERALL-A")} className="text-center px-1 py-1 tabular-nums bg-inherit">{fmtPct(overall.actual)}</td>,
+            <td key="agg-op-d-OVERALL" style={aStick("op-OVERALL-D")} className={`text-center px-1 py-1 tabular-nums bg-inherit ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
             // SD/DD/CD Stage 셀
             ...STAGES.flatMap((s, si) => {
               const last = si === 2;
               const { plan, actual, delta } = stageVals[s];
+              const edge = last ? { boxShadow: STICKY_EDGE_SHADOW } : undefined;
               return [
-                <td key={`agg-op-p-${s}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
-                <td key={`agg-op-a-${s}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
-                <td key={`agg-op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+                <td key={`agg-op-p-${s}`} style={aStick(`op-${s}-P`)} className="text-center px-1 py-1 border-l tabular-nums bg-inherit">{fmtPct(plan)}</td>,
+                <td key={`agg-op-a-${s}`} style={aStick(`op-${s}-A`)} className="text-center px-1 py-1 tabular-nums bg-inherit">{fmtPct(actual)}</td>,
+                <td key={`agg-op-d-${s}`} style={aStick(`op-${s}-D`, edge)} className={`text-center px-1 py-1 tabular-nums bg-inherit ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
               ];
             }),
           ];
         })()}
+
         {headers?.flatMap(({ stage, ms }) => {
           if (!expanded[stage]) {
             return [<td key={`agg-col-${stage}`} className="text-center px-1 py-1 border-l border-r text-muted-foreground">…</td>];
@@ -530,13 +603,39 @@ export function MdrMilestoneMonitorPanel() {
           <thead>
             {/* 1단 */}
             <tr className="border-b">
-              <th rowSpan={3} className="text-left px-2 py-1 sticky left-0 bg-background border-r">Block</th>
-              <th rowSpan={3} className="text-left px-2 py-1 border-r">Team</th>
-              <th rowSpan={3} className="text-left px-2 py-1 border-r">Disc.</th>
-              <th colSpan={3} className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider">
+              <th
+                rowSpan={3}
+                style={{ position: "sticky", left: 0, zIndex: 15, width: 90, minWidth: 90, maxWidth: 90 }}
+                className="text-left px-2 py-1 bg-background border-r"
+              >
+                Block
+              </th>
+              <th
+                rowSpan={3}
+                style={{ position: "sticky", left: stickyOffsets.__team, zIndex: 15, width: 70, minWidth: 70, maxWidth: 70 }}
+                className="text-left px-2 py-1 bg-background border-r"
+              >
+                Team
+              </th>
+              <th
+                rowSpan={3}
+                style={{ position: "sticky", left: stickyOffsets.__disc, zIndex: 15, width: 60, minWidth: 60, maxWidth: 60 }}
+                className="text-left px-2 py-1 bg-background border-r"
+              >
+                Disc.
+              </th>
+              <th
+                colSpan={3}
+                style={{ position: "sticky", left: stickyOffsets["__dwg-SD"], zIndex: 15 }}
+                className="text-center px-2 py-1 border-r border-l bg-muted text-black font-bold tracking-wider"
+              >
                 Total DWG
               </th>
-              <th colSpan={12} className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider">
+              <th
+                colSpan={12}
+                style={{ position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15, boxShadow: STICKY_EDGE_SHADOW }}
+                className="text-center px-2 py-1 border-r bg-slate-300 text-black font-bold tracking-wider"
+              >
                 Progress Status
               </th>
               {headers?.map(({ stage, ms }) => {
@@ -567,6 +666,7 @@ export function MdrMilestoneMonitorPanel() {
                   <th
                     key={`dwgh-${s}`}
                     rowSpan={2}
+                    style={{ position: "sticky", left: stickyOffsets[`__dwg-${s}`], zIndex: 15, width: 44, minWidth: 44, maxWidth: 44 }}
                     className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${i === 2 ? "border-r" : ""}`}
                   >
                     {s}
@@ -577,17 +677,20 @@ export function MdrMilestoneMonitorPanel() {
               <th
                 key="op-h-OVERALL"
                 colSpan={3}
+                style={{ position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15 }}
                 className="text-center px-2 py-1 border-l text-black font-bold bg-slate-200"
               >
                 Overall
               </th>
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
+                const last = i === 2;
                 return (
                   <th
                     key={`op-h-${s}`}
                     colSpan={3}
-                    className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${i === 2 ? "border-r" : ""}`}
+                    style={{ position: "sticky", left: stickyOffsets[`op-${s}-P`], zIndex: 15, boxShadow: last ? STICKY_EDGE_SHADOW : undefined }}
+                    className={`text-center px-2 py-1 border-l text-black font-bold ${th.sub} ${last ? "border-r" : ""}`}
                   >
                     {s} Stage
                   </th>
@@ -632,17 +735,18 @@ export function MdrMilestoneMonitorPanel() {
             {/* 3단 */}
             <tr className="border-b-2">
               {/* Overall P/A/Δ (Stage WF 합성) */}
-              <th key="op-p-OVERALL" style={colStyle(`op-OVERALL-P`)} className="relative text-center px-1 py-0.5 border-l font-bold text-black bg-slate-200">P<ResizeHandle colKey={`op-OVERALL-P`} setWidths={setColumnWidths} /></th>
-              <th key="op-a-OVERALL" style={colStyle(`op-OVERALL-A`)} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">A<ResizeHandle colKey={`op-OVERALL-A`} setWidths={setColumnWidths} /></th>
-              <th key="op-d-OVERALL" style={colStyle(`op-OVERALL-D`)} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">Δ<ResizeHandle colKey={`op-OVERALL-D`} setWidths={setColumnWidths} /></th>
+              <th key="op-p-OVERALL" style={{ ...colStyle(`op-OVERALL-P`), position: "sticky", left: stickyOffsets["op-OVERALL-P"], zIndex: 15 }} className="relative text-center px-1 py-0.5 border-l font-bold text-black bg-slate-200">P<ResizeHandle colKey={`op-OVERALL-P`} setWidths={setColumnWidths} /></th>
+              <th key="op-a-OVERALL" style={{ ...colStyle(`op-OVERALL-A`), position: "sticky", left: stickyOffsets["op-OVERALL-A"], zIndex: 15 }} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">A<ResizeHandle colKey={`op-OVERALL-A`} setWidths={setColumnWidths} /></th>
+              <th key="op-d-OVERALL" style={{ ...colStyle(`op-OVERALL-D`), position: "sticky", left: stickyOffsets["op-OVERALL-D"], zIndex: 15 }} className="relative text-center px-1 py-0.5 font-bold text-black bg-slate-200">Δ<ResizeHandle colKey={`op-OVERALL-D`} setWidths={setColumnWidths} /></th>
               {/* SD/DD/CD Stage P/A/Δ */}
               {STAGES.map((s, i) => {
                 const th = STAGE_THEME[s];
                 const last = i === 2;
+                const dShadow = last ? STICKY_EDGE_SHADOW : undefined;
                 return [
-                  <th key={`op-p-${s}`} style={colStyle(`op-${s}-P`)} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`op-${s}-P`} setWidths={setColumnWidths} /></th>,
-                  <th key={`op-a-${s}`} style={colStyle(`op-${s}-A`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`op-${s}-A`} setWidths={setColumnWidths} /></th>,
-                  <th key={`op-d-${s}`} style={colStyle(`op-${s}-D`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r" : ""}`}>Δ<ResizeHandle colKey={`op-${s}-D`} setWidths={setColumnWidths} /></th>,
+                  <th key={`op-p-${s}`} style={{ ...colStyle(`op-${s}-P`), position: "sticky", left: stickyOffsets[`op-${s}-P`], zIndex: 15 }} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`op-${s}-P`} setWidths={setColumnWidths} /></th>,
+                  <th key={`op-a-${s}`} style={{ ...colStyle(`op-${s}-A`), position: "sticky", left: stickyOffsets[`op-${s}-A`], zIndex: 15 }} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`op-${s}-A`} setWidths={setColumnWidths} /></th>,
+                  <th key={`op-d-${s}`} style={{ ...colStyle(`op-${s}-D`), position: "sticky", left: stickyOffsets[`op-${s}-D`], zIndex: 15, boxShadow: dShadow }} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r" : ""}`}>Δ<ResizeHandle colKey={`op-${s}-D`} setWidths={setColumnWidths} /></th>,
                 ];
               })}
               {headers?.flatMap(({ stage, ms }) => {
@@ -660,6 +764,7 @@ export function MdrMilestoneMonitorPanel() {
               })}
             </tr>
           </thead>
+
           <tbody>
             {displayRows.length === 0 && (
               <tr><td colSpan={99} className="text-center px-2 py-4 text-muted-foreground text-[11px]">필터 조건에 해당하는 행이 없습니다.</td></tr>
@@ -677,19 +782,27 @@ export function MdrMilestoneMonitorPanel() {
                 <Fragment key={`${row.building}-${row.discipline}`}>
                 <tr className="border-b hover:bg-muted/20">
                   {showBlock && (
-                    <td rowSpan={blockRowSpan} className="px-2 py-0.5 sticky left-0 bg-background font-semibold border-r align-top">
+                    <td
+                      rowSpan={blockRowSpan}
+                      style={{ position: "sticky", left: 0, zIndex: 5, width: 90, minWidth: 90, maxWidth: 90 }}
+                      className="px-2 py-0.5 bg-background font-semibold border-r align-top"
+                    >
                       {displayBuilding(row.building)}
                     </td>
                   )}
                   {showTeam && (
-                    <td rowSpan={teamRowSpan} className="px-2 py-0.5 border-r align-top text-xs font-medium">
+                    <td
+                      rowSpan={teamRowSpan}
+                      style={{ position: "sticky", left: stickyOffsets.__team, zIndex: 5, width: 70, minWidth: 70, maxWidth: 70 }}
+                      className="px-2 py-0.5 border-r align-top text-xs font-medium bg-background"
+                    >
                       {rowTeam}
                     </td>
                   )}
-                  <td className="px-2 py-0.5 border-r">{row.discipline}</td>
-                  <td className="text-center px-2 py-0.5 border-l tabular-nums">{row.drawingCountSD}</td>
-                  <td className="text-center px-2 py-0.5 tabular-nums">{row.drawingCountDD}</td>
-                  <td className="text-center px-2 py-0.5 border-r tabular-nums">{row.drawingCountCD}</td>
+                  <td style={{ position: "sticky", left: stickyOffsets.__disc, zIndex: 5, width: 60, minWidth: 60, maxWidth: 60 }} className="px-2 py-0.5 border-r bg-background">{row.discipline}</td>
+                  <td style={{ position: "sticky", left: stickyOffsets["__dwg-SD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-0.5 border-l tabular-nums bg-background">{row.drawingCountSD}</td>
+                  <td style={{ position: "sticky", left: stickyOffsets["__dwg-DD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-0.5 tabular-nums bg-background">{row.drawingCountDD}</td>
+                  <td style={{ position: "sticky", left: stickyOffsets["__dwg-CD"], zIndex: 5, width: 44, minWidth: 44, maxWidth: 44 }} className="text-center px-2 py-0.5 border-r tabular-nums bg-background">{row.drawingCountCD}</td>
                   {/* Progress Status 본문 — Overall + SD/DD/CD Stage. stage 대표값은 항상 row.stageW(Summary 산식) 사용 */}
                   {(() => {
                     const stageSrc: Record<MdrStage, { plan: number | null; actual: number | null; delta: number | null } | null> = {
@@ -701,36 +814,46 @@ export function MdrMilestoneMonitorPanel() {
                     }
                     const overall = overallFromStages(stageSrc, wfEnabled);
                     const overallEmpty = overall.plan == null && overall.actual == null;
+                    const ovBg = "bg-slate-100 dark:bg-slate-900";
+                    const sStick = (k: string, extra?: React.CSSProperties): React.CSSProperties => ({
+                      ...colStyle(k),
+                      position: "sticky",
+                      left: stickyOffsets[k],
+                      zIndex: 5,
+                      ...extra,
+                    });
                     const cells: JSX.Element[] = [
                       overallEmpty
-                        ? <td key={`op-p-OVERALL-${ri}`} style={colStyle(`op-OVERALL-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground bg-slate-100/40 dark:bg-slate-800/30">—</td>
-                        : <td key={`op-p-OVERALL-${ri}`} style={colStyle(`op-OVERALL-P`)} className="text-center px-1 py-0.5 border-l tabular-nums bg-slate-100/40 dark:bg-slate-800/30">{fmtPct(overall.plan)}</td>,
+                        ? <td key={`op-p-OVERALL-${ri}`} style={sStick("op-OVERALL-P")} className={`text-center px-1 py-0.5 border-l text-muted-foreground ${ovBg}`}>—</td>
+                        : <td key={`op-p-OVERALL-${ri}`} style={sStick("op-OVERALL-P")} className={`text-center px-1 py-0.5 border-l tabular-nums ${ovBg}`}>{fmtPct(overall.plan)}</td>,
                       overallEmpty
-                        ? <td key={`op-a-OVERALL-${ri}`} style={colStyle(`op-OVERALL-A`)} className="text-center px-1 py-0.5 text-muted-foreground bg-slate-100/40 dark:bg-slate-800/30">—</td>
-                        : <td key={`op-a-OVERALL-${ri}`} style={colStyle(`op-OVERALL-A`)} className="text-center px-1 py-0.5 tabular-nums bg-slate-100/40 dark:bg-slate-800/30">{fmtPct(overall.actual)}</td>,
+                        ? <td key={`op-a-OVERALL-${ri}`} style={sStick("op-OVERALL-A")} className={`text-center px-1 py-0.5 text-muted-foreground ${ovBg}`}>—</td>
+                        : <td key={`op-a-OVERALL-${ri}`} style={sStick("op-OVERALL-A")} className={`text-center px-1 py-0.5 tabular-nums ${ovBg}`}>{fmtPct(overall.actual)}</td>,
                       overallEmpty
-                        ? <td key={`op-d-OVERALL-${ri}`} style={colStyle(`op-OVERALL-D`)} className="text-center px-1 py-0.5 text-muted-foreground bg-slate-100/40 dark:bg-slate-800/30">—</td>
-                        : <td key={`op-d-OVERALL-${ri}`} style={colStyle(`op-OVERALL-D`)} className={`text-center px-1 py-0.5 tabular-nums bg-slate-100/40 dark:bg-slate-800/30 ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
+                        ? <td key={`op-d-OVERALL-${ri}`} style={sStick("op-OVERALL-D")} className={`text-center px-1 py-0.5 text-muted-foreground ${ovBg}`}>—</td>
+                        : <td key={`op-d-OVERALL-${ri}`} style={sStick("op-OVERALL-D")} className={`text-center px-1 py-0.5 tabular-nums ${ovBg} ${deltaClass(overall.delta)}`}>{fmtDelta(overall.delta)}</td>,
                     ];
                     STAGES.forEach((s, si) => {
                       const last = si === 2;
                       const useSrc = stageSrc[s];
+                      const edgeShadow = last ? { boxShadow: STICKY_EDGE_SHADOW } : undefined;
                       if (!useSrc) {
                         cells.push(
-                          <td key={`op-p-${s}-${ri}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
-                          <td key={`op-a-${s}-${ri}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
-                          <td key={`op-d-${s}-${ri}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
+                          <td key={`op-p-${s}-${ri}`} style={sStick(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground bg-background">—</td>,
+                          <td key={`op-a-${s}-${ri}`} style={sStick(`op-${s}-A`)} className="text-center px-1 py-0.5 text-muted-foreground bg-background">—</td>,
+                          <td key={`op-d-${s}-${ri}`} style={sStick(`op-${s}-D`, edgeShadow)} className={`text-center px-1 py-0.5 text-muted-foreground bg-background ${last ? "border-r" : ""}`}>—</td>,
                         );
                       } else {
                         cells.push(
-                          <td key={`op-p-${s}-${ri}`} style={colStyle(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(useSrc.plan)}</td>,
-                          <td key={`op-a-${s}-${ri}`} style={colStyle(`op-${s}-A`)} className="text-center px-1 py-0.5 tabular-nums">{fmtPct(useSrc.actual)}</td>,
-                          <td key={`op-d-${s}-${ri}`} style={colStyle(`op-${s}-D`)} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(useSrc.delta)}</td>,
+                          <td key={`op-p-${s}-${ri}`} style={sStick(`op-${s}-P`)} className="text-center px-1 py-0.5 border-l tabular-nums bg-background">{fmtPct(useSrc.plan)}</td>,
+                          <td key={`op-a-${s}-${ri}`} style={sStick(`op-${s}-A`)} className="text-center px-1 py-0.5 tabular-nums bg-background">{fmtPct(useSrc.actual)}</td>,
+                          <td key={`op-d-${s}-${ri}`} style={sStick(`op-${s}-D`, edgeShadow)} className={`text-center px-1 py-0.5 tabular-nums bg-background ${deltaClass(useSrc.delta)} ${last ? "border-r" : ""}`}>{fmtDelta(useSrc.delta)}</td>,
                         );
                       }
                     });
                     return cells;
                   })()}
+
                   {headers?.flatMap(({ stage, ms }) => {
                     if (!expanded[stage]) {
                       return [<td key={`col-${stage}-${ri}`} className="text-center px-1 py-0.5 border-l border-r text-muted-foreground">…</td>];

@@ -1,45 +1,50 @@
-## 문제 진단
+## 변경 요청 정리
 
-설계진도율 패널은 마운트 때마다 `computeMatrix(today)`를 호출합니다.
-- `loadDrawings()`: `mdr_drawings` + 중첩 3개(`mdr_milestones`, `mdr_milestone_cells`, `mdr_progress`)을 1000건씩 페이지네이션으로 전부 적재
-- `buildMatrix()`: 도면별로 단계×마일스톤×cell 루프(O(도면 × 마일스톤 × cell))를 매번 재계산
-실시간으로 바뀌는 값이 거의 없는데도 **매 진입마다** 무거운 풀계산이 반복됩니다.
+1. **Sticky 컬럼 확장**: 좌측 고정 영역을 `Progress Status` 전체 12열까지 확장
+   - 고정 컬럼: `Block` · `Team` · `Disc.` · `Total DWG`(SD/DD/CD 3열) · `Progress Status` 전체 12열 (Overall 3 + SD Stage 3 + DD Stage 3 + CD Stage 3) = **총 18열**
+   - 우측 스크롤 영역: SD/DD/CD 단계 펼침 시 노출되는 마일스톤 상세 컬럼들
 
-스냅샷 인프라(`mdr_milestone_snapshots`, `loadLatestSnapshot()`, `saveSnapshot()`)는 이미 존재하지만 패널이 사용하지 않습니다.
+2. **SD/DD/CD Stage 펼침/접힘 기본값 변경**
+   - 현재: 세 단계 모두 접힘
+   - 변경: **DD만 펼침**, SD/CD는 접힘 (`{ SD: false, DD: true, CD: false }`)
+   - 토글 동작 자체는 그대로 유지
 
-## 효율화 전략 — "스냅샷 우선, 임포트시 무효화" 모델
+3. **Block/Team rowSpan 셀 병합 유지** (해제하지 않음)
 
-### 1. 패널 초기 로드: 스냅샷 우선
-- `useEffect` 초기 로드를 `loadLatestSnapshot()` → 성공시 즉시 표시
-- 스냅샷이 없을 때만 `computeMatrix(today)` fallback 후 자동으로 `saveSnapshot()`
-- 화면 상단에 "기준일 / 마지막 계산: yyyy-mm-dd hh:mm" 표시 + 스냅샷이 N일 이상 오래되었거나 임포트보다 오래되었으면 "재계산 필요" 배지
+## 구현 방법 (기술 상세)
 
-### 2. "신규 계산" 버튼: 풀 재계산 + 스냅샷 저장 (현행 유지)
-- 기존 `handleRecompute` 로직 유지하되 진행 토스트("계산 중…") 보강
+### A. Sticky 누적 left 오프셋 계산
+- `colStyle(key)`가 반환하는 `width`를 기반으로 18개 고정열의 **누적 left 값**을 `useMemo`로 계산
+- 각 고정 컬럼 키 순서를 배열로 정의:
+  ```
+  ["__block","__team","__disc",
+   "dwg-SD","dwg-DD","dwg-CD",
+   "op-OVERALL-P","op-OVERALL-A","op-OVERALL-D",
+   "op-SD-P","op-SD-A","op-SD-D",
+   "op-DD-P","op-DD-A","op-DD-D",
+   "op-CD-P","op-CD-A","op-CD-D"]
+  ```
+- 각 키의 너비(없으면 `DEFAULT_COL_W=56`, Block/Team/Disc는 별도 고정 폭 상수 — 예: 110/90/70)를 누적 → `leftOffset[key]`
+- 헬퍼 `stickyStyle(key)`: `{ position:"sticky", left: leftOffset[key], zIndex, background }` 반환
 
-### 3. 임포트 완료시 자동 무효화 → 백그라운드 재계산
-- `mdr_import_logs`에 `created_at` 컬럼이 있다는 점을 이용해 **최신 임포트 시각 > 최신 스냅샷 `computed_at`** 이면 "데이터 변경됨 — 재계산 필요" 배너 노출.
-- `useMdrImporter`의 `startImport()` 성공 분기(`onImported?.()` 직전)에 옵션으로 `triggerRecompute` 콜백을 받아, 임포트 직후 한 번만 `computeMatrix + saveSnapshot`을 비동기 실행. UI 차단 없이 백그라운드 진행, 완료시 toast "설계진도율 스냅샷 갱신 완료".
+### B. thead/tbody 모든 해당 셀에 sticky 적용
+- **1단 헤더** (`Block`/`Team`/`Disc.` rowSpan=3, `Total DWG` colSpan=3, `Progress Status` colSpan=12): rowSpan/colSpan을 가진 셀도 sticky 가능 → 각 셀에 `stickyStyle`의 left 값 적용 (colSpan 셀은 가장 좌측 컬럼의 left 사용)
+- **2단/3단 헤더**: 해당 18개 컬럼에 sticky 적용
+- **tbody `<td>`**: rowSpan을 가진 Block/Team 셀 포함, 18개 고정 컬럼 모두 sticky 적용 + 행 배경(`bg-background` / 합계행 배경)을 명시해 스크롤 시 가려지지 않도록
+- z-index 계층: 헤더 sticky(20) > 본문 sticky(10) > 일반 셀
 
-### 4. `saveSnapshot()` 성능 개선
-- 현재: building×discipline 단위로 개별 DELETE 루프(N회) → INSERT 청크
-- 개선: 한 번의 DELETE (`.eq("as_of", asOf)`) 후 청크 INSERT. 단일 트랜잭션 효과로 왕복 N → 1+M으로 축소.
-- UNIQUE 제약(`as_of, building, discipline, stage, pct`)이 이미 존재 → 안전.
+### C. 우측 경계선
+- 18번째 컬럼(`op-CD-D`)의 우측에 `border-r` 강조 + `box-shadow: inset -1px 0 0` 또는 `shadow-[2px_0_4px] ` 로 스크롤 경계 시각화
 
-### 5. (선택) `loadDrawings()` 페이로드 축소
-- 풀계산 자체를 빠르게 하기 위해, 풀계산 경로에서만 사용되는 `mdr_milestone_cells.label` 등 표시에만 필요한 필드는 조회에서 제외해도 무방. 다만 우선순위 낮음 — 1~3번만으로도 패널 첫 페인트는 1회 SELECT(snapshot)로 단축됨.
+### D. expanded 기본값 변경
+- `useState<Record<MdrStage,boolean>>({ SD:false, DD:true, CD:false })`
 
-## 작업 파일
-- `src/lib/mdr/milestoneMonitorEngine.ts` — `saveSnapshot` DELETE 일괄화, `loadLatestSnapshot` 보조로 `computed_at`/최신 임포트 시각 반환 추가
-- `src/components/mdr/MdrMilestoneMonitorPanel.tsx` — 초기 로드 스냅샷 우선, "재계산 필요" 배지, 마지막 계산 시각 표시
-- `src/components/mdr/import/useMdrImporter.ts` — 임포트 완료 후 백그라운드 재계산 트리거(옵션 콜백)
-- `src/pages/DesignImport.tsx` (또는 ImportShell) — 위 콜백으로 `computeMatrix + saveSnapshot` 연결
+## 영향/주의
 
-## 비변경
-- 산식/가중치/엔진 결과(수치는 동일)
-- DB 스키마(컬럼/제약 그대로). 마이그레이션 없음.
+- **가시 영역**: 현재 미리보기 폭(995px CSS px)에서 sticky 18열 합계가 약 1,000px 이상이 될 수 있어, 마일스톤 상세 컬럼을 보려면 가로 스크롤 거의 전체가 필요합니다. 좁은 화면에선 사실상 우측 영역이 거의 안 보일 수 있음.
+- **rowSpan + sticky 호환성**: 최신 Chromium/Safari/Firefox에서 동작. `border-collapse: collapse`인 현재 테이블에서도 sticky는 작동하지만 셀 border가 스크롤 시 일부 사라져 보일 수 있어 background는 반드시 셀별로 지정.
+- 컬럼 너비 리사이즈(ResizeHandle)에 따라 누적 offset이 즉시 재계산되도록 `columnWidths` 의존성에 연결.
 
-## 기대 효과
-- 패널 첫 진입: 도면 전체 조회 + buildMatrix(수초~) → 스냅샷 단일 SELECT(수십~수백 ms) 수준으로 단축
-- 임포트가 없는 한 화면 재진입은 항상 즉시 표시
-- "신규 계산" 버튼은 명시적 풀계산용으로 그대로 유지
+## 변경 파일
+
+- `src/components/mdr/MdrMilestoneMonitorPanel.tsx` (단일 파일)
