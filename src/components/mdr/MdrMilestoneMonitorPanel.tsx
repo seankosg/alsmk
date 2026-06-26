@@ -28,6 +28,24 @@ import { normalizeDiscipline, TEAM_OF_DISCIPLINE, DEFAULT_STAGE_WF, TEAMS } from
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 const COL_WIDTHS_KEY = "mdr.monitor.columnWidths";
+const EXPANDED_KEY = "mdr.monitor.expanded";
+const STAGE_COL_EXPANDED_KEY = "mdr.monitor.stageColExpanded";
+
+function loadStageBoolMap(key: string, defaults: Record<MdrStage, boolean>): Record<MdrStage, boolean> {
+  if (typeof window === "undefined") return defaults;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw);
+    return {
+      SD: typeof parsed?.SD === "boolean" ? parsed.SD : defaults.SD,
+      DD: typeof parsed?.DD === "boolean" ? parsed.DD : defaults.DD,
+      CD: typeof parsed?.CD === "boolean" ? parsed.CD : defaults.CD,
+    };
+  } catch {
+    return defaults;
+  }
+}
 const DEFAULT_COL_W = 56;
 const MIN_COL_W = 32;
 const MAX_COL_W = 240;
