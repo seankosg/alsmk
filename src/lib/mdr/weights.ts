@@ -133,7 +133,8 @@ export function normalizeDiscipline(raw: string | null | undefined): string {
   if (!raw) return "ETC";
   const up = raw.toUpperCase().trim();
   if (up === "AR" || up.startsWith("ARCH")) return "ARCH";
-  if (up === "ST" || up.startsWith("STR")) return "STR";
+  // STR 및 변형 세부분류 (예: "STR - STEEL", "STR-CONC", "STR_RC") → 모두 STR팀으로 합산
+  if (up === "ST" || up === "STR" || up.startsWith("STR ") || up.startsWith("STR-") || up.startsWith("STR_") || up.startsWith("STR")) return "STR";
   if (up === "ME" || up.startsWith("MECH")) return "MECH";
   if (up === "EL" || up.startsWith("ELEC")) return "ELEC";
   if (up === "TEL" || up.startsWith("TEL")) return "TEL";
