@@ -305,6 +305,19 @@ export function MdrMilestoneMonitorPanel() {
     }
   }, [wfEnabled]);
 
+  // SUMMARY 가중치(WF) 번들 — MdrWeightsEditor 가 mdr_weights 테이블에 저장한 값.
+  // WF 토글이 ON 일 때 합계행 산식에 사용 (엑셀 SUMMARY 와 동일한 Stage·Team·Building WF).
+  const { data: wfData } = useQuery({
+    queryKey: ["mdr_wf_bundle"],
+    queryFn: loadMdrWeights,
+    staleTime: 60_000,
+  });
+  const wf: MdrWfBundle = wfData ?? {
+    stage: { ...DEFAULT_STAGE_WF },
+    discipline: {},
+    building: {},
+  };
+
   // P/A/Δ 컬럼 너비 (localStorage 영속)
   const [columnWidths, setColumnWidths] = useState<ColWidths>(() => {
     if (typeof window === "undefined") return {};
