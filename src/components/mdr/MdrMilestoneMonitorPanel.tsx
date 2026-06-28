@@ -584,16 +584,25 @@ export function MdrMilestoneMonitorPanel() {
             CD: { plan: null, actual: null, delta: null },
           };
           for (const s of STAGES) {
-            // stage 대표값은 WF 토글과 무관하게 항상 Summary 산식(row.stageW)을 사용
-            const parts = rows.map((r) => {
-              const sw = r.stageW?.[s];
-              return { plan: sw?.plan ?? null, actual: sw?.actual ?? null, weight: getStageCount(r, s) };
-            });
-            const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
-            const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
-            stageVals[s] = { plan, actual, delta: plan != null && actual != null ? actual - plan : null };
+            if (wfEnabled) {
+              // WF ON → 엑셀 SUMMARY 와 동일: Team WF (× Building WF) 가중평균
+              const v = aggregateWfAvg(rows, (r) => {
+                const sw = r.stageW?.[s];
+                return { plan: sw?.plan ?? null, actual: sw?.actual ?? null };
+              }, variant, wf);
+              stageVals[s] = v;
+            } else {
+              // WF OFF → 단순 평균 (도면수 가중 없음)
+              const parts = rows.map((r) => {
+                const sw = r.stageW?.[s];
+                return { plan: sw?.plan ?? null, actual: sw?.actual ?? null, weight: 1 };
+              });
+              const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), false);
+              const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), false);
+              stageVals[s] = { plan, actual, delta: plan != null && actual != null ? actual - plan : null };
+            }
           }
-          const overall = overallFromStages(stageVals, wfEnabled);
+          const overall = overallFromStages(stageVals, wfEnabled, wf.stage);
           const aStick = (k: string, extra?: React.CSSProperties): React.CSSProperties => ({
             ...colStyle(k),
             position: "sticky",
