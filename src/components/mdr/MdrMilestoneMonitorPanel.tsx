@@ -6,6 +6,7 @@
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,15 @@ import {
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
-import { normalizeDiscipline, TEAM_OF_DISCIPLINE, DEFAULT_STAGE_WF, TEAMS } from "@/lib/mdr/weights";
+import {
+  normalizeDiscipline,
+  TEAM_OF_DISCIPLINE,
+  DEFAULT_STAGE_WF,
+  TEAMS,
+  loadMdrWeights,
+  FAFP_STAGE_WF,
+  type MdrWfBundle,
+} from "@/lib/mdr/weights";
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 const COL_WIDTHS_KEY = "mdr.monitor.columnWidths";
