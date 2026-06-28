@@ -728,7 +728,7 @@ export function MdrMilestoneMonitorPanel() {
             className={`flex items-center gap-2 px-2 py-1 rounded border text-[11px] ${
               wfEnabled ? "border-primary/40 bg-primary/5" : "border-muted bg-muted/30"
             }`}
-            title="WF 적용: Overall Progress 를 Summary 와 동일한 산식(단계별 도면 평균)으로 표시"
+            title="WF 적용 — 엑셀 SUMMARY 와 동일한 Stage·Team·Building WF 가중평균. 미적용 — 단순 도면 평균."
           >
             <span className={`font-semibold ${wfEnabled ? "text-primary" : "text-muted-foreground"}`}>
               WF {wfEnabled ? "적용" : "미적용"}
