@@ -48,6 +48,13 @@ export const DEFAULT_TEAM_WF: Record<TeamCode, number> = {
 export const DEFAULT_DISCIPLINE_WF: Record<string, number> = { ...DEFAULT_TEAM_WF };
 
 /** Discipline → Team 매핑 */
+/**
+ * Discipline → Team 매핑
+ *
+ * 주의: GEN은 의도적으로 매핑하지 않는다.
+ *  - GEN은 특정 동(棟) 전용이 아니라 각 동에 적용되는 General/Overall 도면 분류.
+ *  - 특정 팀에 귀속시키지 않으며, Building WF(=0/미정의) 정책과 함께 Overall 합산에서 자연 제외.
+ */
 export const TEAM_OF_DISCIPLINE: Record<string, TeamCode> = {
   ARCH: "ARCH",
   CIVIL: "CIVIL",
@@ -59,6 +66,7 @@ export const TEAM_OF_DISCIPLINE: Record<string, TeamCode> = {
   TEL: "ELEC",
   FA: "ELEC",
 };
+
 
 /** Team별 Discipline 표시 순서 */
 export const DISCIPLINES_BY_TEAM: Record<TeamCode, string[]> = {
@@ -125,7 +133,8 @@ export function normalizeDiscipline(raw: string | null | undefined): string {
   if (!raw) return "ETC";
   const up = raw.toUpperCase().trim();
   if (up === "AR" || up.startsWith("ARCH")) return "ARCH";
-  if (up === "ST" || up.startsWith("STR")) return "STR";
+  // STR 및 변형 세부분류 (예: "STR - STEEL", "STR-CONC", "STR_RC") → 모두 STR팀으로 합산
+  if (up === "ST" || up === "STR" || up.startsWith("STR ") || up.startsWith("STR-") || up.startsWith("STR_") || up.startsWith("STR")) return "STR";
   if (up === "ME" || up.startsWith("MECH")) return "MECH";
   if (up === "EL" || up.startsWith("ELEC")) return "ELEC";
   if (up === "TEL" || up.startsWith("TEL")) return "TEL";
