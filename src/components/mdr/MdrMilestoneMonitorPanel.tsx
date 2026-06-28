@@ -175,19 +175,78 @@ function getStageCount(r: MonitorDiscRow, s: MdrStage): number {
   return s === "SD" ? r.drawingCountSD : s === "DD" ? r.drawingCountDD : r.drawingCountCD;
 }
 
-/** SD/DD/CD 단계값을 합성해 Overall P/A/Δ 산출. WF ON → DEFAULT_STAGE_WF 가중평균, OFF → 단순평균. null 단계는 가중치에서 제외. */
+/** SD/DD/CD 단계값을 합성해 Overall P/A/Δ 산출. WF ON → stageWf 가중평균, OFF → 단순평균. null 단계는 가중치에서 제외. */
 function overallFromStages(
   triples: Partial<Record<MdrStage, { plan: number | null | undefined; actual: number | null | undefined } | null | undefined>>,
   weighted: boolean,
+  stageWf?: Record<MdrStage, number>,
 ): { plan: number | null; actual: number | null; delta: number | null } {
+  const wfMap = stageWf ?? DEFAULT_STAGE_WF;
   let pNum = 0, pDen = 0, aNum = 0, aDen = 0;
   for (const s of STAGES) {
     const v = triples[s];
     if (!v) continue;
-    const w = weighted ? (DEFAULT_STAGE_WF[s] ?? 0) : 1;
+    const w = weighted ? (wfMap[s] ?? 0) : 1;
     if (w <= 0) continue;
     if (v.plan != null && isFinite(v.plan as number)) { pNum += (v.plan as number) * w; pDen += w; }
     if (v.actual != null && isFinite(v.actual as number)) { aNum += (v.actual as number) * w; aDen += w; }
+  }
+  const plan = pDen > 0 ? pNum / pDen : null;
+  const actual = aDen > 0 ? aNum / aDen : null;
+  const delta = plan != null && actual != null ? actual - plan : null;
+  return { plan, actual, delta };
+}
+
+/** 엑셀 SUMMARY 와 동일한 3축 WF 가중 평균.
+ *  - Team WF: row 의 discipline 을 TEAM_OF_DISCIPLINE 으로 매핑해 wf.discipline[team]
+ *  - Building WF: wf.building[building]
+ *  - level="building" → 같은 building 내 Team WF 가중평균
+ *  - level="factory"/"grand" → building 별 Team WF 가중평균 → 그 결과들을 Building WF 가중평균
+ */
+function aggregateWfAvg(
+  rows: MonitorDiscRow[],
+  getter: (r: MonitorDiscRow) => { plan: number | null | undefined; actual: number | null | undefined },
+  level: "building" | "factory" | "grand",
+  wf: MdrWfBundle,
+): { plan: number | null; actual: number | null; delta: number | null } {
+  // 1) building 별로 묶고 Team WF 가중평균
+  const byBld = new Map<string, MonitorDiscRow[]>();
+  for (const r of rows) {
+    const arr = byBld.get(r.building) ?? [];
+    arr.push(r);
+    byBld.set(r.building, arr);
+  }
+  const bldVals: { bld: string; plan: number | null; actual: number | null }[] = [];
+  for (const [bld, list] of byBld.entries()) {
+    let pNum = 0, pDen = 0, aNum = 0, aDen = 0;
+    for (const r of list) {
+      const disc = normalizeDiscipline(r.discipline);
+      const team = TEAM_OF_DISCIPLINE[disc];
+      const tw = team ? (wf.discipline[team] ?? 0) : 0;
+      if (tw <= 0) continue;
+      const v = getter(r);
+      if (v.plan != null && isFinite(v.plan as number)) { pNum += (v.plan as number) * tw; pDen += tw; }
+      if (v.actual != null && isFinite(v.actual as number)) { aNum += (v.actual as number) * tw; aDen += tw; }
+    }
+    bldVals.push({
+      bld,
+      plan: pDen > 0 ? pNum / pDen : null,
+      actual: aDen > 0 ? aNum / aDen : null,
+    });
+  }
+  if (level === "building") {
+    // 단일 빌딩 (또는 들어온 rows 가 한 빌딩만일 때) — 첫 값 그대로
+    const v = bldVals[0] ?? { plan: null, actual: null };
+    const delta = v.plan != null && v.actual != null ? v.actual - v.plan : null;
+    return { plan: v.plan, actual: v.actual, delta };
+  }
+  // 2) factory/grand → Building WF 가중평균
+  let pNum = 0, pDen = 0, aNum = 0, aDen = 0;
+  for (const v of bldVals) {
+    const bw = wf.building[v.bld] ?? 0;
+    if (bw <= 0) continue;
+    if (v.plan != null && isFinite(v.plan)) { pNum += v.plan * bw; pDen += bw; }
+    if (v.actual != null && isFinite(v.actual)) { aNum += v.actual * bw; aDen += bw; }
   }
   const plan = pDen > 0 ? pNum / pDen : null;
   const actual = aDen > 0 ? aNum / aDen : null;
