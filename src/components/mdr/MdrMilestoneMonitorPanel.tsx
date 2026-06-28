@@ -171,9 +171,6 @@ function weightedAvg(
   return den > 0 ? num / den : null;
 }
 
-function getStageCount(r: MonitorDiscRow, s: MdrStage): number {
-  return s === "SD" ? r.drawingCountSD : s === "DD" ? r.drawingCountDD : r.drawingCountCD;
-}
 
 /** SD/DD/CD 단계값을 합성해 Overall P/A/Δ 산출. WF ON → stageWf 가중평균, OFF → 단순평균. null 단계는 가중치에서 제외. */
 function overallFromStages(
