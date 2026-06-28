@@ -6,6 +6,7 @@
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,15 @@ import {
 } from "@/lib/mdr/milestoneMonitorEngine";
 import type { MdrStage } from "@/lib/mdr/parser";
 import { MdrSummaryFilterBar, type SummaryFilterState } from "./MdrSummaryFilterBar";
-import { normalizeDiscipline, TEAM_OF_DISCIPLINE, DEFAULT_STAGE_WF, TEAMS } from "@/lib/mdr/weights";
+import {
+  normalizeDiscipline,
+  TEAM_OF_DISCIPLINE,
+  DEFAULT_STAGE_WF,
+  TEAMS,
+  loadMdrWeights,
+  FAFP_STAGE_WF,
+  type MdrWfBundle,
+} from "@/lib/mdr/weights";
 
 const WF_STORAGE_KEY = "mdr.monitor.wfEnabled";
 const COL_WIDTHS_KEY = "mdr.monitor.columnWidths";
@@ -162,23 +171,79 @@ function weightedAvg(
   return den > 0 ? num / den : null;
 }
 
-function getStageCount(r: MonitorDiscRow, s: MdrStage): number {
-  return s === "SD" ? r.drawingCountSD : s === "DD" ? r.drawingCountDD : r.drawingCountCD;
-}
 
-/** SD/DD/CD 단계값을 합성해 Overall P/A/Δ 산출. WF ON → DEFAULT_STAGE_WF 가중평균, OFF → 단순평균. null 단계는 가중치에서 제외. */
+/** SD/DD/CD 단계값을 합성해 Overall P/A/Δ 산출. WF ON → stageWf 가중평균, OFF → 단순평균. null 단계는 가중치에서 제외. */
 function overallFromStages(
   triples: Partial<Record<MdrStage, { plan: number | null | undefined; actual: number | null | undefined } | null | undefined>>,
   weighted: boolean,
+  stageWf?: Record<MdrStage, number>,
 ): { plan: number | null; actual: number | null; delta: number | null } {
+  const wfMap = stageWf ?? DEFAULT_STAGE_WF;
   let pNum = 0, pDen = 0, aNum = 0, aDen = 0;
   for (const s of STAGES) {
     const v = triples[s];
     if (!v) continue;
-    const w = weighted ? (DEFAULT_STAGE_WF[s] ?? 0) : 1;
+    const w = weighted ? (wfMap[s] ?? 0) : 1;
     if (w <= 0) continue;
     if (v.plan != null && isFinite(v.plan as number)) { pNum += (v.plan as number) * w; pDen += w; }
     if (v.actual != null && isFinite(v.actual as number)) { aNum += (v.actual as number) * w; aDen += w; }
+  }
+  const plan = pDen > 0 ? pNum / pDen : null;
+  const actual = aDen > 0 ? aNum / aDen : null;
+  const delta = plan != null && actual != null ? actual - plan : null;
+  return { plan, actual, delta };
+}
+
+/** 엑셀 SUMMARY 와 동일한 3축 WF 가중 평균.
+ *  - Team WF: row 의 discipline 을 TEAM_OF_DISCIPLINE 으로 매핑해 wf.discipline[team]
+ *  - Building WF: wf.building[building]
+ *  - level="building" → 같은 building 내 Team WF 가중평균
+ *  - level="factory"/"grand" → building 별 Team WF 가중평균 → 그 결과들을 Building WF 가중평균
+ */
+function aggregateWfAvg(
+  rows: MonitorDiscRow[],
+  getter: (r: MonitorDiscRow) => { plan: number | null | undefined; actual: number | null | undefined },
+  level: "building" | "factory" | "grand",
+  wf: MdrWfBundle,
+): { plan: number | null; actual: number | null; delta: number | null } {
+  // 1) building 별로 묶고 Team WF 가중평균
+  const byBld = new Map<string, MonitorDiscRow[]>();
+  for (const r of rows) {
+    const arr = byBld.get(r.building) ?? [];
+    arr.push(r);
+    byBld.set(r.building, arr);
+  }
+  const bldVals: { bld: string; plan: number | null; actual: number | null }[] = [];
+  for (const [bld, list] of byBld.entries()) {
+    let pNum = 0, pDen = 0, aNum = 0, aDen = 0;
+    for (const r of list) {
+      const disc = normalizeDiscipline(r.discipline);
+      const team = TEAM_OF_DISCIPLINE[disc];
+      const tw = team ? (wf.discipline[team] ?? 0) : 0;
+      if (tw <= 0) continue;
+      const v = getter(r);
+      if (v.plan != null && isFinite(v.plan as number)) { pNum += (v.plan as number) * tw; pDen += tw; }
+      if (v.actual != null && isFinite(v.actual as number)) { aNum += (v.actual as number) * tw; aDen += tw; }
+    }
+    bldVals.push({
+      bld,
+      plan: pDen > 0 ? pNum / pDen : null,
+      actual: aDen > 0 ? aNum / aDen : null,
+    });
+  }
+  if (level === "building") {
+    // 단일 빌딩 (또는 들어온 rows 가 한 빌딩만일 때) — 첫 값 그대로
+    const v = bldVals[0] ?? { plan: null, actual: null };
+    const delta = v.plan != null && v.actual != null ? v.actual - v.plan : null;
+    return { plan: v.plan, actual: v.actual, delta };
+  }
+  // 2) factory/grand → Building WF 가중평균
+  let pNum = 0, pDen = 0, aNum = 0, aDen = 0;
+  for (const v of bldVals) {
+    const bw = wf.building[v.bld] ?? 0;
+    if (bw <= 0) continue;
+    if (v.plan != null && isFinite(v.plan)) { pNum += v.plan * bw; pDen += bw; }
+    if (v.actual != null && isFinite(v.actual)) { aNum += v.actual * bw; aDen += bw; }
   }
   const plan = pDen > 0 ? pNum / pDen : null;
   const actual = aDen > 0 ? aNum / aDen : null;
@@ -236,6 +301,19 @@ export function MdrMilestoneMonitorPanel() {
       window.localStorage.setItem(WF_STORAGE_KEY, wfEnabled ? "1" : "0");
     }
   }, [wfEnabled]);
+
+  // SUMMARY 가중치(WF) 번들 — MdrWeightsEditor 가 mdr_weights 테이블에 저장한 값.
+  // WF 토글이 ON 일 때 합계행 산식에 사용 (엑셀 SUMMARY 와 동일한 Stage·Team·Building WF).
+  const { data: wfData } = useQuery({
+    queryKey: ["mdr_wf_bundle"],
+    queryFn: loadMdrWeights,
+    staleTime: 60_000,
+  });
+  const wf: MdrWfBundle = wfData ?? {
+    stage: { ...DEFAULT_STAGE_WF },
+    discipline: {},
+    building: {},
+  };
 
   // P/A/Δ 컬럼 너비 (localStorage 영속)
   const [columnWidths, setColumnWidths] = useState<ColWidths>(() => {
@@ -503,16 +581,25 @@ export function MdrMilestoneMonitorPanel() {
             CD: { plan: null, actual: null, delta: null },
           };
           for (const s of STAGES) {
-            // stage 대표값은 WF 토글과 무관하게 항상 Summary 산식(row.stageW)을 사용
-            const parts = rows.map((r) => {
-              const sw = r.stageW?.[s];
-              return { plan: sw?.plan ?? null, actual: sw?.actual ?? null, weight: getStageCount(r, s) };
-            });
-            const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
-            const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
-            stageVals[s] = { plan, actual, delta: plan != null && actual != null ? actual - plan : null };
+            if (wfEnabled) {
+              // WF ON → 엑셀 SUMMARY 와 동일: Team WF (× Building WF) 가중평균
+              const v = aggregateWfAvg(rows, (r) => {
+                const sw = r.stageW?.[s];
+                return { plan: sw?.plan ?? null, actual: sw?.actual ?? null };
+              }, variant, wf);
+              stageVals[s] = v;
+            } else {
+              // WF OFF → 단순 평균 (도면수 가중 없음)
+              const parts = rows.map((r) => {
+                const sw = r.stageW?.[s];
+                return { plan: sw?.plan ?? null, actual: sw?.actual ?? null, weight: 1 };
+              });
+              const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), false);
+              const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), false);
+              stageVals[s] = { plan, actual, delta: plan != null && actual != null ? actual - plan : null };
+            }
           }
-          const overall = overallFromStages(stageVals, wfEnabled);
+          const overall = overallFromStages(stageVals, wfEnabled, wf.stage);
           const aStick = (k: string, extra?: React.CSSProperties): React.CSSProperties => ({
             ...colStyle(k),
             position: "sticky",
@@ -560,12 +647,23 @@ export function MdrMilestoneMonitorPanel() {
           }
           return ms.flatMap((m, mi) => {
             const last = mi === ms.length - 1;
-            const parts = rows.map((r) => {
-              const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
-              return { plan: c?.plan ?? null, actual: c?.actual ?? null, weight: getStageCount(r, stage) };
-            });
-            const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
-            const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
+            let plan: number | null;
+            let actual: number | null;
+            if (wfEnabled) {
+              const v = aggregateWfAvg(rows, (r) => {
+                const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+                return { plan: c?.plan ?? null, actual: c?.actual ?? null };
+              }, variant, wf);
+              plan = v.plan;
+              actual = v.actual;
+            } else {
+              const parts = rows.map((r) => {
+                const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+                return { plan: c?.plan ?? null, actual: c?.actual ?? null, weight: 1 };
+              });
+              plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), false);
+              actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), false);
+            }
             const delta = plan != null && actual != null ? actual - plan : null;
             return [
               <td key={`agg-p-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
@@ -627,7 +725,7 @@ export function MdrMilestoneMonitorPanel() {
             className={`flex items-center gap-2 px-2 py-1 rounded border text-[11px] ${
               wfEnabled ? "border-primary/40 bg-primary/5" : "border-muted bg-muted/30"
             }`}
-            title="WF 적용: Overall Progress 를 Summary 와 동일한 산식(단계별 도면 평균)으로 표시"
+            title="WF 적용 — 엑셀 SUMMARY 와 동일한 Stage·Team·Building WF 가중평균. 미적용 — 단순 도면 평균."
           >
             <span className={`font-semibold ${wfEnabled ? "text-primary" : "text-muted-foreground"}`}>
               WF {wfEnabled ? "적용" : "미적용"}
@@ -874,7 +972,9 @@ export function MdrMilestoneMonitorPanel() {
                       const sw = row.stageW?.[s];
                       stageSrc[s] = sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null;
                     }
-                    const overall = overallFromStages(stageSrc, wfEnabled);
+                    // FAFP(소방) 행은 SD 없음·DD/CD 50:50 전용 Stage WF 사용 (엑셀 2.1 Notes)
+                    const rowStageWf = normalizeDiscipline(row.discipline) === "FAFP" ? FAFP_STAGE_WF : wf.stage;
+                    const overall = overallFromStages(stageSrc, wfEnabled, rowStageWf);
                     const overallEmpty = overall.plan == null && overall.actual == null;
                     const ovBg = "bg-slate-100 dark:bg-slate-900";
                     const sStick = (k: string, extra?: React.CSSProperties): React.CSSProperties => ({
@@ -968,7 +1068,7 @@ export function MdrMilestoneMonitorPanel() {
       </div>
 
       <div className="text-[10px] text-muted-foreground space-y-0.5">
-        <div>※ Overall Progress — WF 적용: Summary 산식(plan_date·actual_date ≤ 기준일 기준 도면 평균). WF 미적용: 각 단계 마지막 마일스톤의 P/A/Δ(일할 보간). 토글로 전환 (기본 WF 적용).</div>
+        <div>※ 합계행 — WF 적용: 엑셀 SUMMARY 와 동일한 Stage WF × Team WF × Building WF 가중평균 (값은 SUMMARY 가중치 편집기에서 수정). WF 미적용: 단순 도면 평균. 토글로 전환 (기본 WF 적용).</div>
         <div>※ 기준일 미도래(planDate &gt; 기준일) 마일스톤의 A/Δ 는 표시하지 않습니다(—).</div>
         <div>※ <span className="inline-block w-3 h-3 align-middle bg-pink-500/25 dark:bg-pink-500/30 border border-pink-500/40" /> 핑크 = 동일 단계 직전 마일스톤 대비 A 가 같거나 감소 → 역진행/정체 경고.</div>
       </div>
