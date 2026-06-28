@@ -650,12 +650,23 @@ export function MdrMilestoneMonitorPanel() {
           }
           return ms.flatMap((m, mi) => {
             const last = mi === ms.length - 1;
-            const parts = rows.map((r) => {
-              const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
-              return { plan: c?.plan ?? null, actual: c?.actual ?? null, weight: getStageCount(r, stage) };
-            });
-            const plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), wfEnabled);
-            const actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), wfEnabled);
+            let plan: number | null;
+            let actual: number | null;
+            if (wfEnabled) {
+              const v = aggregateWfAvg(rows, (r) => {
+                const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+                return { plan: c?.plan ?? null, actual: c?.actual ?? null };
+              }, variant, wf);
+              plan = v.plan;
+              actual = v.actual;
+            } else {
+              const parts = rows.map((r) => {
+                const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+                return { plan: c?.plan ?? null, actual: c?.actual ?? null, weight: 1 };
+              });
+              plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), false);
+              actual = weightedAvg(parts.map((p) => ({ val: p.actual, weight: p.weight })), false);
+            }
             const delta = plan != null && actual != null ? actual - plan : null;
             return [
               <td key={`agg-p-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
