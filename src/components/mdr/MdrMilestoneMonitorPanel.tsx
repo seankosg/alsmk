@@ -975,7 +975,9 @@ export function MdrMilestoneMonitorPanel() {
                       const sw = row.stageW?.[s];
                       stageSrc[s] = sw ? { plan: sw.plan, actual: sw.actual, delta: sw.delta } : null;
                     }
-                    const overall = overallFromStages(stageSrc, wfEnabled);
+                    // FAFP(소방) 행은 SD 없음·DD/CD 50:50 전용 Stage WF 사용 (엑셀 2.1 Notes)
+                    const rowStageWf = normalizeDiscipline(row.discipline) === "FAFP" ? FAFP_STAGE_WF : wf.stage;
+                    const overall = overallFromStages(stageSrc, wfEnabled, rowStageWf);
                     const overallEmpty = overall.plan == null && overall.actual == null;
                     const ovBg = "bg-slate-100 dark:bg-slate-900";
                     const sStick = (k: string, extra?: React.CSSProperties): React.CSSProperties => ({
