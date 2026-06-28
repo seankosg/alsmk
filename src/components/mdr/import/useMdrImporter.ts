@@ -1,170 +1,34 @@
-import { useCallback, useState } from "react";
-import { parseMdrFile, isSummaryFilename, type MdrParseResult } from "@/lib/mdr/parser";
-import { validateSheet, applyAutoFix } from "@/lib/mdr/validator";
-import { persistParsed, logImport } from "@/lib/mdr/importRunner";
-import { computeMatrix, saveSnapshot } from "@/lib/mdr/milestoneMonitorEngine";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback, useSyncExternalStore } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { toast } from "sonner";
+import { importerStore, type ImportFile, type ImportFileStatus } from "@/lib/mdr/import/importerStore";
 
-export type ImportFileStatus =
-  | "pending"
-  | "parsing"
-  | "ready"
-  | "skipped"
-  | "processing"
-  | "done"
-  | "failed";
-
-export interface ImportFile {
-  id: string;
-  file: File;
-  name: string;
-  size: number;
-  status: ImportFileStatus;
-  parsed?: MdrParseResult;
-  building?: string;
-  sheetNames?: string[];
-  parsedCount?: number;
-  validationWarnings?: string[];
-  skipReason?: string;
-  error?: string;
-  result?: { inserted: number; skipped: number };
-}
-
-let _uid = 0;
-const uid = () => `f${Date.now()}-${++_uid}`;
+export type { ImportFile, ImportFileStatus };
 
 export function useMdrImporter(onImported?: () => void) {
   const { user } = useAuth();
-  const [files, setFiles] = useState<ImportFile[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
+  const state = useSyncExternalStore(
+    importerStore.subscribe,
+    importerStore.getState,
+    importerStore.getState,
+  );
 
-  const update = useCallback((id: string, patch: Partial<ImportFile>) => {
-    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
-  }, []);
+  const addFiles = useCallback((files: File[]) => importerStore.addFiles(files), []);
+  const removeFile = useCallback((id: string) => importerStore.removeFile(id), []);
+  const clearAll = useCallback(() => importerStore.clearAll(), []);
+  const startImport = useCallback(
+    () => importerStore.startImport({ userId: user?.id ?? null, onImported }),
+    [user?.id, onImported],
+  );
 
-  const addFiles = useCallback(async (incoming: File[]) => {
-    if (!incoming.length) return;
-    const newOnes: ImportFile[] = incoming.map((file) => ({
-      id: uid(),
-      file,
-      name: file.name,
-      size: file.size,
-      status: "parsing",
-    }));
-    setFiles((prev) => [...prev, ...newOnes]);
+  const readyCount = state.files.filter((f) => f.status === "ready").length;
 
-    for (const item of newOnes) {
-      try {
-        if (isSummaryFilename(item.file.name)) {
-          update(item.id, {
-            status: "skipped",
-            skipReason: "SUMMARY 파일은 Raw Data에서 자동 계산되므로 임포트하지 않습니다.",
-          });
-          continue;
-        }
-        const parsed = await parseMdrFile(item.file);
-        const warnings: string[] = [];
-        let totalRows = 0;
-        for (const sh of parsed.sheets) {
-          if (sh.skipped) continue;
-          totalRows += sh.rows.length;
-          const rep = validateSheet(sh);
-          if (!rep.ok) {
-            for (const iss of rep.issues) {
-              if (iss.canAutoFix) {
-                applyAutoFix(sh, iss);
-                warnings.push(`${sh.sheetName}/${iss.stage}: 합계 ${iss.actualSum}% → 자동 차분 적용`);
-              } else {
-                warnings.push(`${sh.sheetName}/${iss.stage}: 합계 ${iss.actualSum}% (Δ${iss.delta.toFixed(1)})`);
-              }
-            }
-          }
-        }
-        update(item.id, {
-          status: "ready",
-          parsed,
-          building: parsed.building,
-          sheetNames: parsed.sheets.map((s) => s.sheetName),
-          parsedCount: totalRows,
-          validationWarnings: warnings,
-        });
-      } catch (e: any) {
-        update(item.id, { status: "failed", error: e?.message ?? String(e) });
-      }
-    }
-  }, [update]);
-
-  const removeFile = useCallback((id: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== id));
-  }, []);
-
-  const clearAll = useCallback(() => {
-    if (isRunning) return;
-    setFiles([]);
-  }, [isRunning]);
-
-  const startImport = useCallback(async () => {
-    if (isRunning) return;
-    setIsRunning(true);
-    try {
-      // snapshot ready files
-      const targets = files.filter((f) => f.status === "ready" && f.parsed);
-      for (const t of targets) {
-        update(t.id, { status: "processing" });
-        try {
-          // Pre-create the import log to get an ID, then persist with row-level logs attached.
-          const logId = await logImport({
-            filename: t.parsed!.filename,
-            building: t.parsed!.building,
-            status: "success",
-            inserted: 0,
-            skipped: 0,
-            userId: user?.id ?? null,
-          });
-          const res = await persistParsed(t.parsed!, undefined, logId, t.file);
-          if (logId) {
-            await (supabase as any).from("mdr_import_logs")
-              .update({ rows_inserted: res.inserted, rows_skipped: res.skipped })
-              .eq("id", logId);
-          }
-          update(t.id, { status: "done", result: res });
-        } catch (e: any) {
-          const msg = e?.message ?? String(e);
-          await logImport({
-            filename: t.parsed!.filename,
-            building: t.parsed!.building ?? null,
-            status: "failed",
-            inserted: 0,
-            skipped: 0,
-            userId: user?.id ?? null,
-            errorSummary: msg,
-          });
-          update(t.id, { status: "failed", error: msg });
-        }
-      }
-      onImported?.();
-      // 임포트 완료 → 설계진도율 스냅샷 백그라운드 재계산 (UI 차단 없음)
-      const anyDone = files.some((f) => f.status === "done") || targets.length > 0;
-      if (anyDone) {
-        (async () => {
-          try {
-            const today = new Date().toISOString().slice(0, 10);
-            const m = await computeMatrix(today);
-            await saveSnapshot(m);
-            toast.success("설계진도율 스냅샷 갱신 완료");
-          } catch (e: any) {
-            toast.error(`설계진도율 스냅샷 갱신 실패: ${e?.message ?? e}`);
-          }
-        })();
-      }
-    } finally {
-      setIsRunning(false);
-    }
-  }, [files, isRunning, onImported, update, user?.id]);
-
-  const readyCount = files.filter((f) => f.status === "ready").length;
-
-  return { files, isRunning, addFiles, removeFile, clearAll, startImport, readyCount };
+  return {
+    files: state.files,
+    isRunning: state.isRunning,
+    addFiles,
+    removeFile,
+    clearAll,
+    startImport,
+    readyCount,
+  };
 }
