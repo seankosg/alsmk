@@ -282,6 +282,7 @@ export async function persistParsed(
       stage_plan_sd: row.stagePlanSd ?? null,
       stage_plan_dd: row.stagePlanDd ?? null,
       stage_plan_cd: row.stagePlanCd ?? null,
+      dd_weight: row.ddWeight ?? null,
       source_sheet: row.sourceSheet,
       import_log_id: importLogId ?? null,
       raw_row_cells: row.rawRowCells ?? null,
