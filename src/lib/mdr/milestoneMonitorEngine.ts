@@ -240,10 +240,39 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
         stageActualSum[stage] += actualPct;
       }
     }
+    // === DD: 도면별 dd_weight 가 모두 있으면 엑셀 'DD CURRENT STATUS' 방식으로 재집계 ===
+    // 합계 = Σ(dd_weight × 100 × DD-완료여부). 그룹 내 모든 in-scope DD 도면이 weight 보유 시에만 적용.
+    const ddDrawings = g.drawings.filter((d) => isInScope(d, "DD"));
+    const allHaveDdW = ddDrawings.length > 0 && ddDrawings.every((d) => d.dd_weight != null);
+    let ddActualWeighted: number | null = null;
+    if (allHaveDdW) {
+      let sum = 0;
+      for (const d of ddDrawings) {
+        // 셀 단위 DD 실적 100% 도달 여부 (milestone cells 기반)
+        let cellSum = 0;
+        if (d.mdr_milestone_cells && d.mdr_milestone_cells.length) {
+          for (const cc of d.mdr_milestone_cells) {
+            if (cc.stage !== "DD") continue;
+            const matched = (d.mdr_progress ?? []).find((p) =>
+              p.stage === "DD" && p.pct === cc.pct && (p.sub_idx ?? 0) === cc.sub_idx
+              && p.is_done && (!p.actual_date || p.actual_date <= asOf),
+            );
+            if (matched) cellSum += Number(cc.increment_pct) || 0;
+          }
+        }
+        const fullyDone = cellSum >= 99.99;
+        if (fullyDone) sum += Number(d.dd_weight) * 100;
+      }
+      ddActualWeighted = sum;
+    }
+
     for (const stage of STAGES) {
       const n = stageN[stage];
       const plan = n > 0 ? stagePlanSum[stage] / n : 0;
-      const actual = n > 0 ? stageActualSum[stage] / n : 0;
+      let actual = n > 0 ? stageActualSum[stage] / n : 0;
+      if (stage === "DD" && ddActualWeighted !== null) {
+        actual = ddActualWeighted;
+      }
       row.stageW[stage] = { plan, actual, delta: actual - plan };
     }
 
