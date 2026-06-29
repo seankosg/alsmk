@@ -35,6 +35,7 @@ export const MDR_COLUMN_MAP = {
   stagePlanSd:   { header: "SD Stage Plan",        source: "app_generated", preserveOnReimport: true },
   stagePlanDd:   { header: "DD Stage Plan",        source: "app_generated", preserveOnReimport: true },
   stagePlanCd:   { header: "CD Stage Plan",        source: "app_generated", preserveOnReimport: true },
+  ddWeight:      { header: "TOTAL DD WEIGHT VALUE (%)", source: "original", preserveOnReimport: true },
 } as const satisfies Record<string, MdrColumnDef>;
 
 export type MdrColumnKey = keyof typeof MDR_COLUMN_MAP;
