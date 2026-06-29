@@ -424,14 +424,25 @@ function parseSheet(
     ifrIssue?: number;
     ifcStart?: number;
     ifcIssue?: number;
+    ddWeight?: number;
   } = {};
   for (let c = noCol; c <= maxCol; c++) {
-    const h4 = cellStr(ws, headerRow, c).toLowerCase().replace(/\s+/g, " ").trim();
-    const h5 = cellStr(ws, headerRow + 1, c).toLowerCase().replace(/\s+/g, " ").trim();
-    const h7 = cellStr(ws, planDateRow, c).toLowerCase().replace(/\s+/g, " ").trim();
+    const h4Raw = cellStr(ws, headerRow, c);
+    const h5Raw = headerRow + 1 <= range.e.r ? cellStr(ws, headerRow + 1, c) : "";
+    const h7Raw = cellStr(ws, planDateRow, c);
+    const h4 = h4Raw.toLowerCase().replace(/\s+/g, " ").trim();
+    const h5 = h5Raw.toLowerCase().replace(/\s+/g, " ").trim();
+    const h7 = h7Raw.toLowerCase().replace(/\s+/g, " ").trim();
     if (h4.includes("confirmed") && extraCols.confirmedBy === undefined) extraCols.confirmedBy = c;
     if (h4.includes("document class") && extraCols.documentClass === undefined) extraCols.documentClass = c;
     if ((h4.includes("문서분류") || h5 === "코드" || h4 === "코드") && extraCols.docClassCode === undefined) extraCols.docClassCode = c;
+    // TOTAL DD WEIGHT VALUE (%) — 헤더는 row4 또는 row4+row5 결합 형태로 등장
+    if (extraCols.ddWeight === undefined) {
+      const combined = `${h4} ${h5}`.replace(/\s+/g, " ").trim();
+      if (/total\s*dd\s*weight/.test(combined) || /total\s*dd\s*weight/.test(h4) || /total\s*dd\s*weight/.test(h5)) {
+        extraCols.ddWeight = c;
+      }
+    }
     if (/ifr\/?ifi/i.test(h5) || /ifr\/?ifi/i.test(h4)) {
       if (h7.includes("issue") && extraCols.ifrIssue === undefined) extraCols.ifrIssue = c;
       else if (extraCols.ifrStart === undefined) extraCols.ifrStart = c;
@@ -440,6 +451,7 @@ function parseSheet(
       else if (extraCols.ifcStart === undefined) extraCols.ifcStart = c;
     }
   }
+
 
   // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
   const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
