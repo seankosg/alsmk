@@ -593,6 +593,26 @@ function parseSheet(
       return v && !/^(tbd|tba|n\/a|na|미정|tbc|-)$/i.test(v) ? v : undefined;
     };
 
+    // dd_weight 정규화: 숫자(0~1) 그대로 / "5%" 텍스트면 0.05 / 1보다 크면 /100 보정
+    const readDdWeight = (c: number | undefined): number | undefined => {
+      if (c === undefined) return undefined;
+      const cell = cellRaw(ws, r, c);
+      if (!cell || cell.v === undefined || cell.v === null || cell.v === "") return undefined;
+      let v: number;
+      if (typeof cell.v === "number") v = cell.v;
+      else {
+        const s = String(cell.v).trim().replace("%", "").trim();
+        const parsed = parseFloat(s);
+        if (!isFinite(parsed)) return undefined;
+        // "5%" 또는 "5" → 0.05 추정 (셀에 %가 붙었거나 1보다 큰 값)
+        v = (String(cell.v).includes("%") || parsed > 1) ? parsed / 100 : parsed;
+      }
+      if (!isFinite(v) || v < 0) return undefined;
+      // 표시 형식이 % 인 셀(예: cell.z 에 '%' 포함, v=0.0333 같은 fraction)은 그대로 사용
+      return v > 1 ? v / 100 : v;
+    };
+
+
     // 원본 행의 모든 셀(헤더→값) 수집 — 마일스톤 Y/N 컬럼은 별도로 progress 에 저장되므로 제외.
     const rawRowCells: Record<string, string | number | boolean | null> = {};
     for (let cc = range.s.c; cc <= maxCol; cc++) {
