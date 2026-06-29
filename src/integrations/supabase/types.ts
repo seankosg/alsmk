@@ -512,6 +512,7 @@ export type Database = {
           building_code: string
           confirmed_by: string | null
           created_at: string
+          dd_weight: number | null
           discipline: string
           doc_base: string
           doc_class_code: string | null
@@ -553,6 +554,7 @@ export type Database = {
           building_code: string
           confirmed_by?: string | null
           created_at?: string
+          dd_weight?: number | null
           discipline: string
           doc_base: string
           doc_class_code?: string | null
@@ -594,6 +596,7 @@ export type Database = {
           building_code?: string
           confirmed_by?: string | null
           created_at?: string
+          dd_weight?: number | null
           discipline?: string
           doc_base?: string
           doc_class_code?: string | null
