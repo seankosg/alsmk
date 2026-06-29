@@ -203,17 +203,51 @@ export function deltaPct(planned: number, actual: number): number {
   return actual - planned;
 }
 
-/** 도면 단계별 계획/실적 — SD는 항상 계획·실적 100% (범위 안일 때) */
+/**
+ * 도면의 DD 단계가 완전히 완료되었는지 (모든 마일스톤 셀이 done).
+ * — `actualPct(DD) >= 99.99` 로 판정.
+ */
+export function isDdFullyDone(
+  milestones: MilestoneRow[],
+  progress: ProgressRow[],
+  cells?: MilestoneCellRow[],
+): boolean {
+  return actualPct(milestones, progress, "DD", cells) >= 99.99;
+}
+
+/**
+ * 엑셀 'TOTAL DD WEIGHT VALUE (%)' 기반 도면 DD 실적률(%).
+ * - dd_weight 가 있으면: 완료 시 dd_weight × 100, 미완료 시 0.
+ * - 없으면 null (호출측에서 기존 마일스톤 기반 actualPct 사용).
+ */
+export function ddActualFromWeight(
+  ddWeight: number | null | undefined,
+  fullyDone: boolean,
+): number | null {
+  if (ddWeight == null || !isFinite(ddWeight)) return null;
+  return fullyDone ? ddWeight * 100 : 0;
+}
+
+/** 도면 단계별 계획/실적 — SD는 항상 계획·실적 100% (범위 안일 때)
+ *  - DD 단계에서 `ddWeight` 가 주어지면 엑셀 방식(weight × done) 으로 actual 산정.
+ */
 export function drawingStagePct(
   milestones: MilestoneRow[],
   progress: ProgressRow[],
   stage: MdrStage,
   asOf: string,
   cells?: MilestoneCellRow[],
+  ddWeight?: number | null,
 ) {
   if (stage === "SD") return { planned: 100, actual: 100, delta: 0 };
   const planned = plannedPctAsOf(milestones, stage, asOf);
-  const actual = actualPct(milestones, progress, stage, cells);
+  let actual: number;
+  if (stage === "DD" && ddWeight != null && isFinite(ddWeight)) {
+    const fullyDone = isDdFullyDone(milestones, progress, cells);
+    actual = ddWeight * 100 * (fullyDone ? 1 : 0);
+  } else {
+    actual = actualPct(milestones, progress, stage, cells);
+  }
   return { planned, actual, delta: actual - planned };
 }
 
