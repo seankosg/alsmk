@@ -661,6 +661,8 @@ function parseSheet(
       stagePlanSd: readDateAt(stagePlanCols.sd),
       stagePlanDd: readDateAt(stagePlanCols.dd),
       stagePlanCd: readDateAt(stagePlanCols.cd),
+      ddWeight: readDdWeight(extraCols.ddWeight),
+
       sourceSheet: sheetName,
       rawRowNo: r + 1,
       milestones,
