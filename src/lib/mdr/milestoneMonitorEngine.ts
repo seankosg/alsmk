@@ -307,12 +307,16 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
       row.stageW[stage] = { plan, actual, delta: actual - plan };
     }
 
-    // 기존 per-milestone 셀 P/A (interpolated, 도면 단순평균) — 유지
+    // 셀(sub_idx) 단위 P/A — 도면 단순 평균
     for (const stage of STAGES) {
       for (const ms of milestonesByStage[stage]) {
+        // 해당 셀이 존재하는 도면들만 매칭(같은 stage·pct·sub_idx·planDate).
         const matching = g.drawings.filter((d) =>
           isInScope(d, stage) &&
-          (d.mdr_milestones ?? []).some((m) => m.stage === stage && m.pct === ms.pct && (m.plan_date ?? null) === ms.planDate),
+          (d.mdr_milestone_cells ?? []).some((c) =>
+            c.stage === stage && c.pct === ms.pct && c.sub_idx === ms.subIdx
+            && (c.plan_date ?? null) === ms.planDate,
+          ),
         );
         if (matching.length === 0) continue;
         let pSum = 0, aSum = 0;
@@ -329,16 +333,15 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
             stage: p.stage, pct: p.pct, subIdx: p.sub_idx ?? 0,
             isDone: !!p.is_done, actualDate: p.actual_date,
           }));
-          pSum += drawingMilestonePlannedPct(milestones, stage, ms.pct, asOf);
-          aSum += actualPctUpTo(milestones, progress, stage, ms.pct, cells);
+          pSum += drawingCellPlannedPct(milestones, cells, stage, ms.pct, ms.subIdx, asOf);
+          aSum += actualPctUpTo(milestones, progress, stage, ms.pct, cells, ms.subIdx);
         }
         const n = matching.length;
         const plan = pSum / n;
-        // 기준일 미도래(마일스톤 planDate > asOf) → A=Null, Δ=Null
         const future = !!(ms.planDate && ms.planDate > asOf);
         const actual: number | null = future ? null : aSum / n;
         const delta: number | null = actual === null ? null : actual - plan;
-        row.cells.set(mkKey(stage, ms.pct, ms.planDate), {
+        row.cells.set(mkKey(stage, ms.pct, ms.subIdx, ms.planDate), {
           plan, actual, delta, drawingCount: n,
         });
       }
@@ -351,7 +354,7 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
     for (const stage of STAGES) {
       let prevA: number | null = null;
       for (const ms of milestonesByStage[stage]) {
-        const cell = row.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        const cell = row.cells.get(mkKey(stage, ms.pct, ms.subIdx, ms.planDate));
         if (!cell) continue;
         const currA = cell.actual;
         if (prevA !== null && prevA > 0 && currA !== null && currA <= prevA) {
