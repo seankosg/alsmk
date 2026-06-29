@@ -151,8 +151,8 @@ function deltaClass(n: number | null | undefined): string {
   return n < 0 ? "text-destructive" : "text-primary";
 }
 
-function mkKey(stage: MdrStage, pct: number, planDate: string | null): string {
-  return `${stage}|${pct}|${planDate ?? ""}`;
+function mkKey(stage: MdrStage, pct: number, subIdx: number, planDate: string | null): string {
+  return `${stage}|${pct}|${subIdx}|${planDate ?? ""}`;
 }
 
 function weightedAvg(
