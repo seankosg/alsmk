@@ -914,13 +914,16 @@ export function MdrMilestoneMonitorPanel() {
               {headers?.flatMap(({ stage, ms }) => {
                 if (!expanded[stage]) return [];
                 const th = STAGE_THEME[stage];
-                const list = ms.length === 0 ? [{ pct: 0, planDate: null as string | null }] : ms;
+                const list = ms.length === 0
+                  ? [{ pct: 0, subIdx: 0, planDate: null as string | null }]
+                  : ms;
                 return list.flatMap((m, i) => {
                   const last = i === list.length - 1;
+                  const colKeyBase = `ms-${stage}-${m.pct}-${m.subIdx}-${m.planDate}`;
                   return [
-                    <th key={`p-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`ms-${stage}-${m.pct}-${m.planDate}-P`} setWidths={setColumnWidths} /></th>,
-                    <th key={`a-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-A`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`ms-${stage}-${m.pct}-${m.planDate}-A`} setWidths={setColumnWidths} /></th>,
-                    <th key={`d-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-D`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ<ResizeHandle colKey={`ms-${stage}-${m.pct}-${m.planDate}-D`} setWidths={setColumnWidths} /></th>,
+                    <th key={`p-${colKeyBase}`} style={colStyle(`${colKeyBase}-P`)} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`${colKeyBase}-P`} setWidths={setColumnWidths} /></th>,
+                    <th key={`a-${colKeyBase}`} style={colStyle(`${colKeyBase}-A`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`${colKeyBase}-A`} setWidths={setColumnWidths} /></th>,
+                    <th key={`d-${colKeyBase}`} style={colStyle(`${colKeyBase}-D`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ<ResizeHandle colKey={`${colKeyBase}-D`} setWidths={setColumnWidths} /></th>,
                   ];
                 });
               })}
