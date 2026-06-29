@@ -61,6 +61,8 @@ export interface MdrParsedRow {
   stagePlanSd?: string;
   stagePlanDd?: string;
   stagePlanCd?: string;
+  /** 엑셀 'TOTAL DD WEIGHT VALUE (%)' — 도면별 DD 단계 가중치 (0~1). 진도 계산에 직접 사용. */
+  ddWeight?: number;
   sourceSheet: string;
   rawRowNo: number;
   milestones: MdrMilestoneDef[];
