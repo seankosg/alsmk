@@ -140,19 +140,46 @@ async function fetchDrawingCountsByGroup(): Promise<Map<string, { total: number;
 
 /** 컴퓨팅: 도면들 → Block×Discipline 매트릭스 */
 export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix {
-  // 1) 도면별 (stage,pct,planDate) 마일스톤 키 수집
+  // 1) 셀(sub_idx) 단위 마일스톤 키 수집 — mdr_milestone_cells 가 1차 소스.
+  //    같은 (stage,pct) 안에 sub_idx 별로 다른 plan_date/increment 가 존재할 수 있으므로
+  //    반드시 sub_idx 를 키에 포함한다. 매트릭스 전역 합집합으로 모은다.
   const keySetByStage: Record<MdrStage, Map<string, MonitorMilestoneKey>> = {
     SD: new Map(), DD: new Map(), CD: new Map(),
   };
   for (const d of drawings) {
-    for (const m of d.mdr_milestones ?? []) {
-      if (!STAGES.includes(m.stage)) continue;
-      if (!isInScope(d, m.stage)) continue;
-      const k = mkKey(m.stage, m.pct, m.plan_date ?? null);
-      if (!keySetByStage[m.stage].has(k)) {
-        // STR 라벨은 cells 의 label 에서 가져옴
-        const label = d.mdr_milestone_cells?.find((c) => c.stage === m.stage && c.pct === m.pct && c.label)?.label ?? null;
-        keySetByStage[m.stage].set(k, { stage: m.stage, pct: m.pct, planDate: m.plan_date ?? null, label });
+    const cellsList = d.mdr_milestone_cells ?? [];
+    if (cellsList.length > 0) {
+      for (const cc of cellsList) {
+        if (!STAGES.includes(cc.stage)) continue;
+        if (!isInScope(d, cc.stage)) continue;
+        const k = mkKey(cc.stage, cc.pct, cc.sub_idx, cc.plan_date ?? null);
+        if (!keySetByStage[cc.stage].has(k)) {
+          keySetByStage[cc.stage].set(k, {
+            stage: cc.stage,
+            pct: cc.pct,
+            subIdx: cc.sub_idx,
+            incrementPct: Number(cc.increment_pct) || 0,
+            planDate: cc.plan_date ?? null,
+            label: cc.label ?? null,
+          });
+        }
+      }
+    } else {
+      // 폴백 — 셀 데이터 없음(레거시): 그룹 단위 1개로 표시.
+      for (const m of d.mdr_milestones ?? []) {
+        if (!STAGES.includes(m.stage)) continue;
+        if (!isInScope(d, m.stage)) continue;
+        const k = mkKey(m.stage, m.pct, 0, m.plan_date ?? null);
+        if (!keySetByStage[m.stage].has(k)) {
+          keySetByStage[m.stage].set(k, {
+            stage: m.stage,
+            pct: m.pct,
+            subIdx: 0,
+            incrementPct: Number(m.increment_pct) || 0,
+            planDate: m.plan_date ?? null,
+            label: null,
+          });
+        }
       }
     }
   }
