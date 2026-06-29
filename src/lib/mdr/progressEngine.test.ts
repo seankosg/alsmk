@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { actualPct, drawingStagePct, type MilestoneCellRow, type MilestoneRow, type ProgressRow } from "./progressEngine";
+import {
+  actualPct,
+  actualPctUpTo,
+  drawingCellPlannedPct,
+  drawingStagePct,
+  type MilestoneCellRow,
+  type MilestoneRow,
+  type ProgressRow,
+} from "./progressEngine";
 
 /**
  * 회귀: SMP&CCM / ARCH / No.1 (L2Z1-800-EA100-001-B)
