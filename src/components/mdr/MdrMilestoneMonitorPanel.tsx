@@ -649,16 +649,18 @@ export function MdrMilestoneMonitorPanel() {
             const last = mi === ms.length - 1;
             let plan: number | null;
             let actual: number | null;
+            const cellKey = mkKey(stage, m.pct, m.subIdx, m.planDate);
+            const colKeyBase = `ms-${stage}-${m.pct}-${m.subIdx}-${m.planDate}`;
             if (wfEnabled) {
               const v = aggregateWfAvg(rows, (r) => {
-                const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+                const c = r.cells.get(cellKey);
                 return { plan: c?.plan ?? null, actual: c?.actual ?? null };
               }, variant, wf);
               plan = v.plan;
               actual = v.actual;
             } else {
               const parts = rows.map((r) => {
-                const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+                const c = r.cells.get(cellKey);
                 return { plan: c?.plan ?? null, actual: c?.actual ?? null, weight: 1 };
               });
               plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), false);
@@ -666,9 +668,9 @@ export function MdrMilestoneMonitorPanel() {
             }
             const delta = plan != null && actual != null ? actual - plan : null;
             return [
-              <td key={`agg-p-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
-              <td key={`agg-a-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
-              <td key={`agg-d-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+              <td key={`agg-p-${cellKey}`} style={colStyle(`${colKeyBase}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
+              <td key={`agg-a-${cellKey}`} style={colStyle(`${colKeyBase}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
+              <td key={`agg-d-${cellKey}`} style={colStyle(`${colKeyBase}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
             ];
           });
         })}
