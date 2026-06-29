@@ -805,6 +805,7 @@ export type Database = {
           stage: string
           stage_actual_pct: number | null
           stage_plan_pct: number | null
+          sub_idx: number
         }
         Insert: {
           actual_pct?: number | null
@@ -825,6 +826,7 @@ export type Database = {
           stage: string
           stage_actual_pct?: number | null
           stage_plan_pct?: number | null
+          sub_idx?: number
         }
         Update: {
           actual_pct?: number | null
@@ -845,6 +847,7 @@ export type Database = {
           stage?: string
           stage_actual_pct?: number | null
           stage_plan_pct?: number | null
+          sub_idx?: number
         }
         Relationships: []
       }

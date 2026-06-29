@@ -172,10 +172,11 @@ export function actualPctUpTo(
   stage: MdrStage,
   pct: number,
   cells?: MilestoneCellRow[],
+  subIdx?: number,
 ): number {
   if (stage === "SD") return 100;
   if (!cells || !cells.length) {
-    // 폴백: 그룹 단위 — 동일 stage 의 pct ≤ 인자 완료 합
+    // 폴백: 그룹 단위 — 동일 stage 의 pct ≤ 인자 완료 합 (subIdx 인자는 무시)
     const incMap = new Map<number, number>();
     for (const m of milestones) if (m.stage === stage && m.pct <= pct) incMap.set(m.pct, m.incrementPct);
     let sum = 0;
@@ -188,13 +189,76 @@ export function actualPctUpTo(
   const guarded = enforceSequential(progress, cells as { stage: MdrStage; pct: number; subIdx: number; incrementPct: number }[]);
   let sum = 0;
   for (const cc of cells) {
-    if (cc.stage !== stage || cc.pct > pct) continue;
+    if (cc.stage !== stage) continue;
+    // 동일 stage 내 셀 순서: (pct, subIdx) 사전식.
+    // subIdx 가 주어지면 (pct, subIdx) ≤ (인자.pct, 인자.subIdx) 인 셀만 누적.
+    // 미지정이면 기존 동작: pct ≤ 인자 인 모든 셀 누적.
+    if (subIdx === undefined) {
+      if (cc.pct > pct) continue;
+    } else {
+      if (cc.pct > pct) continue;
+      if (cc.pct === pct && cc.subIdx > subIdx) continue;
+    }
     const matched = guarded.find((p) =>
       p.stage === stage && p.pct === cc.pct && (p.subIdx ?? 0) === cc.subIdx && p.isDone
     );
     if (matched) sum += cc.incrementPct;
   }
   return clamp(sum, 0, 100);
+}
+
+/**
+ * 셀(sub_idx) 단위 누적 계획률.
+ * - 동일 stage 의 모든 셀을 plan_date 오름차순(plan_date 동률 시 pct→subIdx) 으로 정렬.
+ * - 각 셀은 [직전 셀 plan_date + 1일, 본인 plan_date] 구간에 걸쳐 increment 를 선형 분배.
+ * - 단계 첫 셀의 시작일은 직전 stage 마지막 plan_date(없으면 본 셀 plan_date − 7일).
+ * - asOf 기준 (stage,pct,subIdx) 까지의 누적값을 반환.
+ * - SD 는 항상 100.
+ */
+export function drawingCellPlannedPct(
+  milestones: MilestoneRow[],
+  cells: MilestoneCellRow[],
+  stage: MdrStage,
+  pct: number,
+  subIdx: number,
+  asOf: string,
+): number {
+  if (stage === "SD") return 100;
+  const list = cells
+    .filter((c) => c.stage === stage && c.planDate)
+    .slice()
+    .sort((a, b) => {
+      const ap = a.planDate as string;
+      const bp = b.planDate as string;
+      if (ap !== bp) return ap < bp ? -1 : 1;
+      if (a.pct !== b.pct) return a.pct - b.pct;
+      return a.subIdx - b.subIdx;
+    });
+  if (!list.length) return 0;
+
+  const firstPlan = list[0].planDate as string;
+  const stageStart = stageStartDate(milestones, stage, firstPlan);
+
+  let acc = 0;
+  let prevDate: string | null = null;
+  for (const cc of list) {
+    const endDate = cc.planDate as string;
+    const startDate = prevDate
+      ? new Date(new Date(prevDate).getTime() + DAY_MS).toISOString().slice(0, 10)
+      : stageStart;
+    const isTarget = cc.pct === pct && cc.subIdx === subIdx;
+    if (isTarget) {
+      if (dDay(asOf, endDate) >= 0) return clamp(acc + cc.incrementPct, 0, 100);
+      if (dDay(asOf, startDate) <= 0) return clamp(acc, 0, 100);
+      const span = dDay(endDate, startDate);
+      const elapsed = dDay(asOf, startDate);
+      const ratio = clamp(span > 0 ? elapsed / span : 0, 0, 1);
+      return clamp(acc + cc.incrementPct * ratio, 0, 100);
+    }
+    acc += cc.incrementPct;
+    prevDate = endDate;
+  }
+  return clamp(acc, 0, 100);
 }
 
 

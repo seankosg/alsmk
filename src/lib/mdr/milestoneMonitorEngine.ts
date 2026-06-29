@@ -9,7 +9,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import {
-  drawingMilestonePlannedPct,
+  drawingCellPlannedPct,
   actualPctUpTo,
   type MilestoneRow,
   type ProgressRow,
@@ -21,6 +21,10 @@ import type { MdrStage } from "./parser";
 export interface MonitorMilestoneKey {
   stage: MdrStage;
   pct: number;
+  /** 셀(sub_idx) 단위 컬럼. 그룹 단위 fallback 시 0. */
+  subIdx: number;
+  /** 셀별 increment(%) — 도면별로 다를 수 있어 표시용·검증용. */
+  incrementPct: number;
   planDate: string | null;
   label?: string | null;
 }
@@ -76,8 +80,8 @@ interface RawDrawing {
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
-function mkKey(stage: MdrStage, pct: number, planDate: string | null): string {
-  return `${stage}|${pct}|${planDate ?? ""}`;
+function mkKey(stage: MdrStage, pct: number, subIdx: number, planDate: string | null): string {
+  return `${stage}|${pct}|${subIdx}|${planDate ?? ""}`;
 }
 
 function isInScope(d: RawDrawing, stage: MdrStage): boolean {
@@ -136,19 +140,46 @@ async function fetchDrawingCountsByGroup(): Promise<Map<string, { total: number;
 
 /** 컴퓨팅: 도면들 → Block×Discipline 매트릭스 */
 export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix {
-  // 1) 도면별 (stage,pct,planDate) 마일스톤 키 수집
+  // 1) 셀(sub_idx) 단위 마일스톤 키 수집 — mdr_milestone_cells 가 1차 소스.
+  //    같은 (stage,pct) 안에 sub_idx 별로 다른 plan_date/increment 가 존재할 수 있으므로
+  //    반드시 sub_idx 를 키에 포함한다. 매트릭스 전역 합집합으로 모은다.
   const keySetByStage: Record<MdrStage, Map<string, MonitorMilestoneKey>> = {
     SD: new Map(), DD: new Map(), CD: new Map(),
   };
   for (const d of drawings) {
-    for (const m of d.mdr_milestones ?? []) {
-      if (!STAGES.includes(m.stage)) continue;
-      if (!isInScope(d, m.stage)) continue;
-      const k = mkKey(m.stage, m.pct, m.plan_date ?? null);
-      if (!keySetByStage[m.stage].has(k)) {
-        // STR 라벨은 cells 의 label 에서 가져옴
-        const label = d.mdr_milestone_cells?.find((c) => c.stage === m.stage && c.pct === m.pct && c.label)?.label ?? null;
-        keySetByStage[m.stage].set(k, { stage: m.stage, pct: m.pct, planDate: m.plan_date ?? null, label });
+    const cellsList = d.mdr_milestone_cells ?? [];
+    if (cellsList.length > 0) {
+      for (const cc of cellsList) {
+        if (!STAGES.includes(cc.stage)) continue;
+        if (!isInScope(d, cc.stage)) continue;
+        const k = mkKey(cc.stage, cc.pct, cc.sub_idx, cc.plan_date ?? null);
+        if (!keySetByStage[cc.stage].has(k)) {
+          keySetByStage[cc.stage].set(k, {
+            stage: cc.stage,
+            pct: cc.pct,
+            subIdx: cc.sub_idx,
+            incrementPct: Number(cc.increment_pct) || 0,
+            planDate: cc.plan_date ?? null,
+            label: cc.label ?? null,
+          });
+        }
+      }
+    } else {
+      // 폴백 — 셀 데이터 없음(레거시): 그룹 단위 1개로 표시.
+      for (const m of d.mdr_milestones ?? []) {
+        if (!STAGES.includes(m.stage)) continue;
+        if (!isInScope(d, m.stage)) continue;
+        const k = mkKey(m.stage, m.pct, 0, m.plan_date ?? null);
+        if (!keySetByStage[m.stage].has(k)) {
+          keySetByStage[m.stage].set(k, {
+            stage: m.stage,
+            pct: m.pct,
+            subIdx: 0,
+            incrementPct: Number(m.increment_pct) || 0,
+            planDate: m.plan_date ?? null,
+            label: null,
+          });
+        }
       }
     }
   }
@@ -276,12 +307,16 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
       row.stageW[stage] = { plan, actual, delta: actual - plan };
     }
 
-    // 기존 per-milestone 셀 P/A (interpolated, 도면 단순평균) — 유지
+    // 셀(sub_idx) 단위 P/A — 도면 단순 평균
     for (const stage of STAGES) {
       for (const ms of milestonesByStage[stage]) {
+        // 해당 셀이 존재하는 도면들만 매칭(같은 stage·pct·sub_idx·planDate).
         const matching = g.drawings.filter((d) =>
           isInScope(d, stage) &&
-          (d.mdr_milestones ?? []).some((m) => m.stage === stage && m.pct === ms.pct && (m.plan_date ?? null) === ms.planDate),
+          (d.mdr_milestone_cells ?? []).some((c) =>
+            c.stage === stage && c.pct === ms.pct && c.sub_idx === ms.subIdx
+            && (c.plan_date ?? null) === ms.planDate,
+          ),
         );
         if (matching.length === 0) continue;
         let pSum = 0, aSum = 0;
@@ -298,16 +333,15 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
             stage: p.stage, pct: p.pct, subIdx: p.sub_idx ?? 0,
             isDone: !!p.is_done, actualDate: p.actual_date,
           }));
-          pSum += drawingMilestonePlannedPct(milestones, stage, ms.pct, asOf);
-          aSum += actualPctUpTo(milestones, progress, stage, ms.pct, cells);
+          pSum += drawingCellPlannedPct(milestones, cells, stage, ms.pct, ms.subIdx, asOf);
+          aSum += actualPctUpTo(milestones, progress, stage, ms.pct, cells, ms.subIdx);
         }
         const n = matching.length;
         const plan = pSum / n;
-        // 기준일 미도래(마일스톤 planDate > asOf) → A=Null, Δ=Null
         const future = !!(ms.planDate && ms.planDate > asOf);
         const actual: number | null = future ? null : aSum / n;
         const delta: number | null = actual === null ? null : actual - plan;
-        row.cells.set(mkKey(stage, ms.pct, ms.planDate), {
+        row.cells.set(mkKey(stage, ms.pct, ms.subIdx, ms.planDate), {
           plan, actual, delta, drawingCount: n,
         });
       }
@@ -320,7 +354,7 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
     for (const stage of STAGES) {
       let prevA: number | null = null;
       for (const ms of milestonesByStage[stage]) {
-        const cell = row.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        const cell = row.cells.get(mkKey(stage, ms.pct, ms.subIdx, ms.planDate));
         if (!cell) continue;
         const currA = cell.actual;
         if (prevA !== null && prevA > 0 && currA !== null && currA <= prevA) {
@@ -351,6 +385,7 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
 
 function sortMs(a: MonitorMilestoneKey, b: MonitorMilestoneKey): number {
   if (a.pct !== b.pct) return a.pct - b.pct;
+  if (a.subIdx !== b.subIdx) return a.subIdx - b.subIdx;
   const ap = a.planDate ?? "";
   const bp = b.planDate ?? "";
   return ap.localeCompare(bp);
@@ -367,7 +402,7 @@ export async function saveSnapshot(matrix: MonitorMatrix): Promise<void> {
   for (const r of matrix.rows) {
     for (const stage of STAGES) {
       for (const ms of matrix.milestonesByStage[stage]) {
-        const cell = r.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        const cell = r.cells.get(mkKey(stage, ms.pct, ms.subIdx, ms.planDate));
         if (!cell) continue;
         rows.push({
           as_of: matrix.asOf,
@@ -375,6 +410,7 @@ export async function saveSnapshot(matrix: MonitorMatrix): Promise<void> {
           discipline: r.discipline,
           stage,
           pct: ms.pct,
+          sub_idx: ms.subIdx,
           label: ms.label ?? null,
           plan_date: ms.planDate,
           plan_pct: cell.plan,
@@ -443,7 +479,7 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
   if (!latest) return null;
   const { data, error } = await supabase
     .from("mdr_milestone_snapshots" as never)
-    .select("as_of, building, discipline, stage, pct, label, plan_date, plan_pct, actual_pct, delta_pct, drawing_count, drawing_count_sd, drawing_count_dd, drawing_count_cd, stage_plan_pct, stage_actual_pct")
+    .select("as_of, building, discipline, stage, pct, sub_idx, label, plan_date, plan_pct, actual_pct, delta_pct, drawing_count, drawing_count_sd, drawing_count_dd, drawing_count_cd, stage_plan_pct, stage_actual_pct")
     .eq("as_of", latest);
   if (error) throw error;
   const list = ((data as unknown) as any[]) ?? [];
@@ -455,10 +491,14 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
   for (const r of list) {
     const stage = r.stage as MdrStage;
     if (!STAGES.includes(stage)) continue;
-    const k = mkKey(stage, r.pct, r.plan_date ?? null);
+    const subIdx = Number(r.sub_idx ?? 0);
+    const k = mkKey(stage, r.pct, subIdx, r.plan_date ?? null);
     if (!seen[stage].has(k)) {
       seen[stage].add(k);
-      milestonesByStage[stage].push({ stage, pct: r.pct, planDate: r.plan_date ?? null, label: r.label ?? null });
+      milestonesByStage[stage].push({
+        stage, pct: r.pct, subIdx, incrementPct: 0,
+        planDate: r.plan_date ?? null, label: r.label ?? null,
+      });
     }
     const rk = `${r.building}||${r.discipline}`;
     const row: MonitorDiscRow = rowMap.get(rk) ?? {
@@ -505,7 +545,7 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
     for (const stage of STAGES) {
       let prevA: number | null = null;
       for (const ms of milestonesByStage[stage]) {
-        const cell = row.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        const cell = row.cells.get(mkKey(stage, ms.pct, ms.subIdx, ms.planDate));
         if (!cell) continue;
         if (ms.planDate && ms.planDate > latest) {
           cell.actual = null;

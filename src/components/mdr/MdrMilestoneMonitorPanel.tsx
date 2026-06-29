@@ -151,8 +151,8 @@ function deltaClass(n: number | null | undefined): string {
   return n < 0 ? "text-destructive" : "text-primary";
 }
 
-function mkKey(stage: MdrStage, pct: number, planDate: string | null): string {
-  return `${stage}|${pct}|${planDate ?? ""}`;
+function mkKey(stage: MdrStage, pct: number, subIdx: number, planDate: string | null): string {
+  return `${stage}|${pct}|${subIdx}|${planDate ?? ""}`;
 }
 
 function weightedAvg(
@@ -649,16 +649,18 @@ export function MdrMilestoneMonitorPanel() {
             const last = mi === ms.length - 1;
             let plan: number | null;
             let actual: number | null;
+            const cellKey = mkKey(stage, m.pct, m.subIdx, m.planDate);
+            const colKeyBase = `ms-${stage}-${m.pct}-${m.subIdx}-${m.planDate}`;
             if (wfEnabled) {
               const v = aggregateWfAvg(rows, (r) => {
-                const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+                const c = r.cells.get(cellKey);
                 return { plan: c?.plan ?? null, actual: c?.actual ?? null };
               }, variant, wf);
               plan = v.plan;
               actual = v.actual;
             } else {
               const parts = rows.map((r) => {
-                const c = r.cells.get(mkKey(stage, m.pct, m.planDate));
+                const c = r.cells.get(cellKey);
                 return { plan: c?.plan ?? null, actual: c?.actual ?? null, weight: 1 };
               });
               plan = weightedAvg(parts.map((p) => ({ val: p.plan, weight: p.weight })), false);
@@ -666,9 +668,9 @@ export function MdrMilestoneMonitorPanel() {
             }
             const delta = plan != null && actual != null ? actual - plan : null;
             return [
-              <td key={`agg-p-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
-              <td key={`agg-a-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
-              <td key={`agg-d-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
+              <td key={`agg-p-${cellKey}`} style={colStyle(`${colKeyBase}-P`)} className="text-center px-1 py-1 border-l tabular-nums">{fmtPct(plan)}</td>,
+              <td key={`agg-a-${cellKey}`} style={colStyle(`${colKeyBase}-A`)} className="text-center px-1 py-1 tabular-nums">{fmtPct(actual)}</td>,
+              <td key={`agg-d-${cellKey}`} style={colStyle(`${colKeyBase}-D`)} className={`text-center px-1 py-1 tabular-nums ${deltaClass(delta)} ${last ? "border-r" : ""}`}>{fmtDelta(delta)}</td>,
             ];
           });
         })}
@@ -872,7 +874,7 @@ export function MdrMilestoneMonitorPanel() {
                   </th>
                 ) : ms.map((m, i) => (
                   <th
-                    key={`ms-${stage}-${m.pct}-${m.planDate}`}
+                    key={`ms-${stage}-${m.pct}-${m.subIdx}-${m.planDate}`}
                     colSpan={3}
                     className={`text-center px-1 py-1 border-l text-[10px] ${th.sub} ${i === ms.length - 1 ? "border-r " + th.border : ""}`}
                   >
@@ -912,13 +914,16 @@ export function MdrMilestoneMonitorPanel() {
               {headers?.flatMap(({ stage, ms }) => {
                 if (!expanded[stage]) return [];
                 const th = STAGE_THEME[stage];
-                const list = ms.length === 0 ? [{ pct: 0, planDate: null as string | null }] : ms;
+                const list = ms.length === 0
+                  ? [{ pct: 0, subIdx: 0, planDate: null as string | null }]
+                  : ms;
                 return list.flatMap((m, i) => {
                   const last = i === list.length - 1;
+                  const colKeyBase = `ms-${stage}-${m.pct}-${m.subIdx}-${m.planDate}`;
                   return [
-                    <th key={`p-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`ms-${stage}-${m.pct}-${m.planDate}-P`} setWidths={setColumnWidths} /></th>,
-                    <th key={`a-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-A`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`ms-${stage}-${m.pct}-${m.planDate}-A`} setWidths={setColumnWidths} /></th>,
-                    <th key={`d-${stage}-${m.pct}-${m.planDate}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-D`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ<ResizeHandle colKey={`ms-${stage}-${m.pct}-${m.planDate}-D`} setWidths={setColumnWidths} /></th>,
+                    <th key={`p-${colKeyBase}`} style={colStyle(`${colKeyBase}-P`)} className={`relative text-center px-1 py-0.5 border-l font-bold text-black ${th.sub}`}>P<ResizeHandle colKey={`${colKeyBase}-P`} setWidths={setColumnWidths} /></th>,
+                    <th key={`a-${colKeyBase}`} style={colStyle(`${colKeyBase}-A`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub}`}>A<ResizeHandle colKey={`${colKeyBase}-A`} setWidths={setColumnWidths} /></th>,
+                    <th key={`d-${colKeyBase}`} style={colStyle(`${colKeyBase}-D`)} className={`relative text-center px-1 py-0.5 font-bold text-black ${th.sub} ${last ? "border-r " + th.border : ""}`}>Δ<ResizeHandle colKey={`${colKeyBase}-D`} setWidths={setColumnWidths} /></th>,
                   ];
                 });
               })}
@@ -1038,19 +1043,21 @@ export function MdrMilestoneMonitorPanel() {
                     }
                     return ms.flatMap((m, mi) => {
                       const last = mi === ms.length - 1;
-                      const cell = row.cells.get(mkKey(stage, m.pct, m.planDate));
+                      const cellKey = mkKey(stage, m.pct, m.subIdx, m.planDate);
+                      const colKeyBase = `ms-${stage}-${m.pct}-${m.subIdx}-${m.planDate}`;
+                      const cell = row.cells.get(cellKey);
                       if (!cell) {
                         return [
-                          <td key={`p-${stage}-${m.pct}-${m.planDate}-${ri}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
-                          <td key={`a-${stage}-${m.pct}-${m.planDate}-${ri}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-A`)} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
-                          <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-D`)} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
+                          <td key={`p-${cellKey}-${ri}`} style={colStyle(`${colKeyBase}-P`)} className="text-center px-1 py-0.5 border-l text-muted-foreground">—</td>,
+                          <td key={`a-${cellKey}-${ri}`} style={colStyle(`${colKeyBase}-A`)} className="text-center px-1 py-0.5 text-muted-foreground">—</td>,
+                          <td key={`d-${cellKey}-${ri}`} style={colStyle(`${colKeyBase}-D`)} className={`text-center px-1 py-0.5 text-muted-foreground ${last ? "border-r" : ""}`}>—</td>,
                         ];
                       }
                       const warnCls = cell.warn ? "bg-pink-500/25 dark:bg-pink-500/30" : "";
                       return [
-                        <td key={`p-${stage}-${m.pct}-${m.planDate}-${ri}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-P`)} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(cell.plan)}</td>,
-                        <td key={`a-${stage}-${m.pct}-${m.planDate}-${ri}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-A`)} className={`text-center px-1 py-0.5 tabular-nums ${warnCls}`} title={cell.warn ? "이전 마일스톤 대비 실적이 같거나 감소 — 역진행/정체 경고" : undefined}>{fmtPct(cell.actual)}</td>,
-                        <td key={`d-${stage}-${m.pct}-${m.planDate}-${ri}`} style={colStyle(`ms-${stage}-${m.pct}-${m.planDate}-D`)} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)} ${warnCls} ${last ? "border-r" : ""}`}>{fmtDelta(cell.delta)}</td>,
+                        <td key={`p-${cellKey}-${ri}`} style={colStyle(`${colKeyBase}-P`)} className="text-center px-1 py-0.5 border-l tabular-nums">{fmtPct(cell.plan)}</td>,
+                        <td key={`a-${cellKey}-${ri}`} style={colStyle(`${colKeyBase}-A`)} className={`text-center px-1 py-0.5 tabular-nums ${warnCls}`} title={cell.warn ? "이전 마일스톤 대비 실적이 같거나 감소 — 역진행/정체 경고" : undefined}>{fmtPct(cell.actual)}</td>,
+                        <td key={`d-${cellKey}-${ri}`} style={colStyle(`${colKeyBase}-D`)} className={`text-center px-1 py-0.5 tabular-nums ${deltaClass(cell.delta)} ${warnCls} ${last ? "border-r" : ""}`}>{fmtDelta(cell.delta)}</td>,
                       ];
                     });
                   })}
