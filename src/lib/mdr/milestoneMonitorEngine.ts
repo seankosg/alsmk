@@ -9,7 +9,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import {
-  drawingMilestonePlannedPct,
+  drawingCellPlannedPct,
   actualPctUpTo,
   type MilestoneRow,
   type ProgressRow,
@@ -21,6 +21,10 @@ import type { MdrStage } from "./parser";
 export interface MonitorMilestoneKey {
   stage: MdrStage;
   pct: number;
+  /** 셀(sub_idx) 단위 컬럼. 그룹 단위 fallback 시 0. */
+  subIdx: number;
+  /** 셀별 increment(%) — 도면별로 다를 수 있어 표시용·검증용. */
+  incrementPct: number;
   planDate: string | null;
   label?: string | null;
 }
