@@ -385,6 +385,7 @@ export function buildMatrix(drawings: RawDrawing[], asOf: string): MonitorMatrix
 
 function sortMs(a: MonitorMilestoneKey, b: MonitorMilestoneKey): number {
   if (a.pct !== b.pct) return a.pct - b.pct;
+  if (a.subIdx !== b.subIdx) return a.subIdx - b.subIdx;
   const ap = a.planDate ?? "";
   const bp = b.planDate ?? "";
   return ap.localeCompare(bp);
@@ -401,7 +402,7 @@ export async function saveSnapshot(matrix: MonitorMatrix): Promise<void> {
   for (const r of matrix.rows) {
     for (const stage of STAGES) {
       for (const ms of matrix.milestonesByStage[stage]) {
-        const cell = r.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        const cell = r.cells.get(mkKey(stage, ms.pct, ms.subIdx, ms.planDate));
         if (!cell) continue;
         rows.push({
           as_of: matrix.asOf,
@@ -409,6 +410,7 @@ export async function saveSnapshot(matrix: MonitorMatrix): Promise<void> {
           discipline: r.discipline,
           stage,
           pct: ms.pct,
+          sub_idx: ms.subIdx,
           label: ms.label ?? null,
           plan_date: ms.planDate,
           plan_pct: cell.plan,
