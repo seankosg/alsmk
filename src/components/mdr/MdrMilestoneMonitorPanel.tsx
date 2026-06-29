@@ -874,7 +874,7 @@ export function MdrMilestoneMonitorPanel() {
                   </th>
                 ) : ms.map((m, i) => (
                   <th
-                    key={`ms-${stage}-${m.pct}-${m.planDate}`}
+                    key={`ms-${stage}-${m.pct}-${m.subIdx}-${m.planDate}`}
                     colSpan={3}
                     className={`text-center px-1 py-1 border-l text-[10px] ${th.sub} ${i === ms.length - 1 ? "border-r " + th.border : ""}`}
                   >
