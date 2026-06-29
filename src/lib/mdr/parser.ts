@@ -61,6 +61,8 @@ export interface MdrParsedRow {
   stagePlanSd?: string;
   stagePlanDd?: string;
   stagePlanCd?: string;
+  /** 엑셀 'TOTAL DD WEIGHT VALUE (%)' — 도면별 DD 단계 가중치 (0~1). 진도 계산에 직접 사용. */
+  ddWeight?: number;
   sourceSheet: string;
   rawRowNo: number;
   milestones: MdrMilestoneDef[];
@@ -422,14 +424,25 @@ function parseSheet(
     ifrIssue?: number;
     ifcStart?: number;
     ifcIssue?: number;
+    ddWeight?: number;
   } = {};
   for (let c = noCol; c <= maxCol; c++) {
-    const h4 = cellStr(ws, headerRow, c).toLowerCase().replace(/\s+/g, " ").trim();
-    const h5 = cellStr(ws, headerRow + 1, c).toLowerCase().replace(/\s+/g, " ").trim();
-    const h7 = cellStr(ws, planDateRow, c).toLowerCase().replace(/\s+/g, " ").trim();
+    const h4Raw = cellStr(ws, headerRow, c);
+    const h5Raw = headerRow + 1 <= range.e.r ? cellStr(ws, headerRow + 1, c) : "";
+    const h7Raw = cellStr(ws, planDateRow, c);
+    const h4 = h4Raw.toLowerCase().replace(/\s+/g, " ").trim();
+    const h5 = h5Raw.toLowerCase().replace(/\s+/g, " ").trim();
+    const h7 = h7Raw.toLowerCase().replace(/\s+/g, " ").trim();
     if (h4.includes("confirmed") && extraCols.confirmedBy === undefined) extraCols.confirmedBy = c;
     if (h4.includes("document class") && extraCols.documentClass === undefined) extraCols.documentClass = c;
     if ((h4.includes("문서분류") || h5 === "코드" || h4 === "코드") && extraCols.docClassCode === undefined) extraCols.docClassCode = c;
+    // TOTAL DD WEIGHT VALUE (%) — 헤더는 row4 또는 row4+row5 결합 형태로 등장
+    if (extraCols.ddWeight === undefined) {
+      const combined = `${h4} ${h5}`.replace(/\s+/g, " ").trim();
+      if (/total\s*dd\s*weight/.test(combined) || /total\s*dd\s*weight/.test(h4) || /total\s*dd\s*weight/.test(h5)) {
+        extraCols.ddWeight = c;
+      }
+    }
     if (/ifr\/?ifi/i.test(h5) || /ifr\/?ifi/i.test(h4)) {
       if (h7.includes("issue") && extraCols.ifrIssue === undefined) extraCols.ifrIssue = c;
       else if (extraCols.ifrStart === undefined) extraCols.ifrStart = c;
@@ -438,6 +451,7 @@ function parseSheet(
       else if (extraCols.ifcStart === undefined) extraCols.ifcStart = c;
     }
   }
+
 
   // planDateRow에 날짜가 하나라도 있으면 데이터는 그 다음 행, 없으면 incrementRow 다음 행에서 시작
   const hasPlanDates = milestoneCols.some((mc) => mc.planDate);
@@ -579,6 +593,26 @@ function parseSheet(
       return v && !/^(tbd|tba|n\/a|na|미정|tbc|-)$/i.test(v) ? v : undefined;
     };
 
+    // dd_weight 정규화: 숫자(0~1) 그대로 / "5%" 텍스트면 0.05 / 1보다 크면 /100 보정
+    const readDdWeight = (c: number | undefined): number | undefined => {
+      if (c === undefined) return undefined;
+      const cell = cellRaw(ws, r, c);
+      if (!cell || cell.v === undefined || cell.v === null || cell.v === "") return undefined;
+      let v: number;
+      if (typeof cell.v === "number") v = cell.v;
+      else {
+        const s = String(cell.v).trim().replace("%", "").trim();
+        const parsed = parseFloat(s);
+        if (!isFinite(parsed)) return undefined;
+        // "5%" 또는 "5" → 0.05 추정 (셀에 %가 붙었거나 1보다 큰 값)
+        v = (String(cell.v).includes("%") || parsed > 1) ? parsed / 100 : parsed;
+      }
+      if (!isFinite(v) || v < 0) return undefined;
+      // 표시 형식이 % 인 셀(예: cell.z 에 '%' 포함, v=0.0333 같은 fraction)은 그대로 사용
+      return v > 1 ? v / 100 : v;
+    };
+
+
     // 원본 행의 모든 셀(헤더→값) 수집 — 마일스톤 Y/N 컬럼은 별도로 progress 에 저장되므로 제외.
     const rawRowCells: Record<string, string | number | boolean | null> = {};
     for (let cc = range.s.c; cc <= maxCol; cc++) {
@@ -627,6 +661,8 @@ function parseSheet(
       stagePlanSd: readDateAt(stagePlanCols.sd),
       stagePlanDd: readDateAt(stagePlanCols.dd),
       stagePlanCd: readDateAt(stagePlanCols.cd),
+      ddWeight: readDdWeight(extraCols.ddWeight),
+
       sourceSheet: sheetName,
       rawRowNo: r + 1,
       milestones,

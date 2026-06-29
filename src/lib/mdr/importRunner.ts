@@ -211,6 +211,7 @@ export async function persistParsed(
           stage_plan_sd: r.stagePlanSd ?? null,
           stage_plan_dd: r.stagePlanDd ?? null,
           stage_plan_cd: r.stagePlanCd ?? null,
+          dd_weight: r.ddWeight ?? null,
           source_sheet: r.sourceSheet,
           import_log_id: importLogId ?? null,
           raw_row_cells: r.rawRowCells ?? null,
@@ -281,6 +282,7 @@ export async function persistParsed(
       stage_plan_sd: row.stagePlanSd ?? null,
       stage_plan_dd: row.stagePlanDd ?? null,
       stage_plan_cd: row.stagePlanCd ?? null,
+      dd_weight: row.ddWeight ?? null,
       source_sheet: row.sourceSheet,
       import_log_id: importLogId ?? null,
       raw_row_cells: row.rawRowCells ?? null,
@@ -315,6 +317,7 @@ export async function persistParsed(
       document_class: row.documentClass ?? null, doc_class_code: row.docClassCode ?? null,
       stage_plan_sd: row.stagePlanSd ?? null, stage_plan_dd: row.stagePlanDd ?? null,
       stage_plan_cd: row.stagePlanCd ?? null,
+      dd_weight: row.ddWeight ?? null,
       source_sheet: row.sourceSheet, import_log_id: importLogId ?? null,
       raw_row_cells: row.rawRowCells ?? null,
     };
@@ -422,6 +425,7 @@ export async function persistParsed(
           stage_plan_sd: r.stagePlanSd ?? null,
           stage_plan_dd: r.stagePlanDd ?? null,
           stage_plan_cd: r.stagePlanCd ?? null,
+          dd_weight: r.ddWeight ?? null,
           raw_row_cells: r.rawRowCells ?? null,
         } as any)
         .eq("id", ex.id);

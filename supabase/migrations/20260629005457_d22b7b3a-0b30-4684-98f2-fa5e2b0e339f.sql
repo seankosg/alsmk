@@ -1,0 +1,1 @@
+ALTER TABLE public.mdr_drawings ADD COLUMN IF NOT EXISTS dd_weight numeric(12,10);
