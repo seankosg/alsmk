@@ -80,8 +80,8 @@ interface RawDrawing {
 
 const STAGES: MdrStage[] = ["SD", "DD", "CD"];
 
-function mkKey(stage: MdrStage, pct: number, planDate: string | null): string {
-  return `${stage}|${pct}|${planDate ?? ""}`;
+function mkKey(stage: MdrStage, pct: number, subIdx: number, planDate: string | null): string {
+  return `${stage}|${pct}|${subIdx}|${planDate ?? ""}`;
 }
 
 function isInScope(d: RawDrawing, stage: MdrStage): boolean {
