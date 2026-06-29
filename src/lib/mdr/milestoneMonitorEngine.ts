@@ -479,7 +479,7 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
   if (!latest) return null;
   const { data, error } = await supabase
     .from("mdr_milestone_snapshots" as never)
-    .select("as_of, building, discipline, stage, pct, label, plan_date, plan_pct, actual_pct, delta_pct, drawing_count, drawing_count_sd, drawing_count_dd, drawing_count_cd, stage_plan_pct, stage_actual_pct")
+    .select("as_of, building, discipline, stage, pct, sub_idx, label, plan_date, plan_pct, actual_pct, delta_pct, drawing_count, drawing_count_sd, drawing_count_dd, drawing_count_cd, stage_plan_pct, stage_actual_pct")
     .eq("as_of", latest);
   if (error) throw error;
   const list = ((data as unknown) as any[]) ?? [];
@@ -491,10 +491,14 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
   for (const r of list) {
     const stage = r.stage as MdrStage;
     if (!STAGES.includes(stage)) continue;
-    const k = mkKey(stage, r.pct, r.plan_date ?? null);
+    const subIdx = Number(r.sub_idx ?? 0);
+    const k = mkKey(stage, r.pct, subIdx, r.plan_date ?? null);
     if (!seen[stage].has(k)) {
       seen[stage].add(k);
-      milestonesByStage[stage].push({ stage, pct: r.pct, planDate: r.plan_date ?? null, label: r.label ?? null });
+      milestonesByStage[stage].push({
+        stage, pct: r.pct, subIdx, incrementPct: 0,
+        planDate: r.plan_date ?? null, label: r.label ?? null,
+      });
     }
     const rk = `${r.building}||${r.discipline}`;
     const row: MonitorDiscRow = rowMap.get(rk) ?? {
@@ -541,7 +545,7 @@ export async function loadLatestSnapshot(): Promise<MonitorMatrix | null> {
     for (const stage of STAGES) {
       let prevA: number | null = null;
       for (const ms of milestonesByStage[stage]) {
-        const cell = row.cells.get(mkKey(stage, ms.pct, ms.planDate));
+        const cell = row.cells.get(mkKey(stage, ms.pct, ms.subIdx, ms.planDate));
         if (!cell) continue;
         if (ms.planDate && ms.planDate > latest) {
           cell.actual = null;
