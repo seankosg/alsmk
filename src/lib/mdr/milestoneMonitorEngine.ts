@@ -68,6 +68,7 @@ interface RawDrawing {
   in_scope_sd: boolean | null;
   in_scope_dd: boolean | null;
   in_scope_cd: boolean | null;
+  dd_weight: number | null;
   mdr_milestones: { stage: MdrStage; pct: number; plan_date: string | null; increment_pct: number }[] | null;
   mdr_milestone_cells: { stage: MdrStage; pct: number; sub_idx: number; increment_pct: number; plan_date: string | null; label: string | null }[] | null;
   mdr_progress: { stage: MdrStage; pct: number; sub_idx: number | null; is_done: boolean; actual_date: string | null }[] | null;
