@@ -63,13 +63,20 @@ const HEADER_ALIASES: Record<string, MdrColumnKey> = {
   "document class": "documentClass",
   "문서분류체계": "docClassCode",
   "코드": "docClassCode",
+  "total dd weight value (%)": "ddWeight",
+  "total dd weight": "ddWeight",
+  "dd weight value (%)": "ddWeight",
+  "dd weight": "ddWeight",
 };
 
 /** 시트 셀에서 헤더 텍스트로 컬럼 키를 추정 */
 export function detectColumnKey(headerText: string): MdrColumnKey | null {
-  const norm = headerText.trim().toLowerCase();
+  // 개행/연속공백을 단일 공백으로 정규화
+  const norm = headerText.replace(/\s+/g, " ").trim().toLowerCase();
   for (const [key, def] of Object.entries(MDR_COLUMN_MAP)) {
-    if (def.header.trim().toLowerCase() === norm) return key as MdrColumnKey;
+    const h = def.header.replace(/\s+/g, " ").trim().toLowerCase();
+    if (h === norm) return key as MdrColumnKey;
   }
   return HEADER_ALIASES[norm] ?? null;
 }
+
