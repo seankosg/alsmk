@@ -293,7 +293,9 @@ export function ddActualFromWeight(
 }
 
 /** 도면 단계별 계획/실적 — SD는 항상 계획·실적 100% (범위 안일 때)
- *  - DD 단계에서 `ddWeight` 가 주어지면 엑셀 방식(weight × done) 으로 actual 산정.
+ *  - 각 단계 actual 은 항상 셀 누적(actualPct) 로 계산.
+ *  - dd_weight 는 개별 도면 표시가 아니라 상위 집계(팀/건물/전체)에서만 곱함.
+ *  - ddWeight 인자는 하위 호환을 위해 남겨두되 무시.
  */
 export function drawingStagePct(
   milestones: MilestoneRow[],
@@ -301,17 +303,11 @@ export function drawingStagePct(
   stage: MdrStage,
   asOf: string,
   cells?: MilestoneCellRow[],
-  ddWeight?: number | null,
+  _ddWeight?: number | null,
 ) {
   if (stage === "SD") return { planned: 100, actual: 100, delta: 0 };
   const planned = plannedPctAsOf(milestones, stage, asOf);
-  let actual: number;
-  if (stage === "DD" && ddWeight != null && isFinite(ddWeight)) {
-    const fullyDone = isDdFullyDone(milestones, progress, cells);
-    actual = ddWeight * 100 * (fullyDone ? 1 : 0);
-  } else {
-    actual = actualPct(milestones, progress, stage, cells);
-  }
+  const actual = actualPct(milestones, progress, stage, cells);
   return { planned, actual, delta: actual - planned };
 }
 

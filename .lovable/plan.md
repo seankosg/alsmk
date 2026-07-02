@@ -1,104 +1,69 @@
-## 확인된 원인
+# 엑셀 ↔ Raw Data 진도율 일치성 검증 보고
 
-엑셀 파싱과 DB 저장은 정상입니다. SMP&CCM ARCH 예시 기준 DB의 `mdr_milestone_cells` 에는 DD 셀이 모두 저장되어 있었습니다.
+## 1. 핵심 결론 (이미 검증 완료)
 
-누락의 실제 원인은 진도율 패널(`MdrMilestoneMonitorPanel`)이 컬럼을 만들 때 `mdr_milestones`(그룹 단위, DD30/60/90/100 형태로 합쳐진 행)만 참조하기 때문입니다. 그 결과 같은 pct 안에 들어 있는 여러 셀이 한 컬럼으로 접혀 보입니다.
+**임포트된 원본 데이터(`mdr_milestone_cells`, `mdr_progress`)는 엑셀과 100% 일치합니다.**
+NO.68 STR 도면의 "0%" 표시 버그는 **임포트 문제가 아니라 화면 표시 계산식 버그**입니다.
 
-```text
-DB 저장 단위 (셀):
-mdr_milestone_cells = (stage, pct, sub_idx, plan_date, increment_pct, label?)
+### 검증 — STR NO.68 (SMP&CCM-STR-68)
 
-패널 컬럼 단위 (그룹):
-mdr_milestones = (stage, pct, plan_date, increment_pct)
-→ pct 당 1개로 합쳐져 sub_idx 정보가 사라짐
+| 항목 | 엑셀 값 | DB 셀 데이터 | 일치 |
+|---|---|---|---|
+| SD Progress (col15) | 100% | SD50 + SD100 셀 모두 done = 100% | ✓ |
+| DD Progress (col31) | **56%** | DD30(20+5) + DD60(7+8+8+8) done = **56%** | ✓ |
+| CD Progress (col43) | 0% | 모든 CD 셀 미완료 = 0% | ✓ |
+| DD WEIGHT (col45) | 0.0009709 | `dd_weight` = 0.0009709 | ✓ |
+| DD CURRENT STATUS (col46) | 0.0005437 | 0.56 × 0.0009709 = 0.0005437 | ✓ |
+
+→ **임포트 로직은 정상.** Y/N 셀 단위 진척이 정확히 저장됨.
+
+### 버그 위치: `src/lib/mdr/progressEngine.ts` — `drawingStagePct()`
+
+```ts
+if (stage === "DD" && ddWeight != null && isFinite(ddWeight)) {
+  const fullyDone = isDdFullyDone(...);
+  actual = ddWeight * 100 * (fullyDone ? 1 : 0);  // ← 부분완료시 0
+}
 ```
 
-## 수정 목표
+DD가 부분 완료(6/13 셀)인 경우 `fullyDone=false` → `actual=0`. 그래서 Raw Data 그리드 DD A 컬럼이 0%로 보임. 실제 셀 데이터는 56%인데 표시가 0%인 것.
 
-진도율 패널 컬럼을 셀 단위로 표시합니다. **셀 개수는 어디에도 하드코딩하지 않고**, 파일/시트/단계마다 `mdr_milestone_cells` 에 저장된 셀을 그대로 컬럼화합니다.
+## 2. 4개 시트 × 10개 랜덤 샘플 일치성 검증
 
-- 단계별 셀 수는 파일/시트/단계에 따라 다를 수 있음 (4, 5, 6, 10, 15 등 가변)
-- 같은 단계라도 도면마다 셀 수/날짜가 다를 수 있음
-- 진도 계산은 현재 요청대로 **셀 누적 방식 유지**(`dd_weight` 방식으로 바꾸지 않음)
-
-## 구현 계획
-
-### 1. 패널 컬럼 키를 셀 단위로 변경
-
-`src/lib/mdr/milestoneMonitorEngine.ts`
-
-- `MonitorMilestoneKey` 에 `subIdx`, `incrementPct`, `label` 추가
-- key 식별자 확장
+플랜 승인 후 build 모드에서 실행할 검증 스크립트:
 
 ```text
-기존: stage | pct | planDate
-변경: stage | pct | subIdx | planDate
+시트별 N개 랜덤 행 → 엑셀 col15/31/43 (SD/DD/CD %) 추출
+                  → DB actualPct() 셀합산 계산
+                  → 차이 ≤ 0.01% 인지 확인
+                  → 결과 CSV 출력 (/mnt/documents/mdr_verify_smpccm.csv)
 ```
 
-- 컬럼 수집 소스를 `d.mdr_milestones` → `d.mdr_milestone_cells` 로 교체
-- 셀 수 상수/배열/하드코딩 없음. 단순 순회로 수집
-- 매트릭스 전체에서 등장한 셀의 **합집합**을 컬럼으로 사용(도면마다 셀 수가 달라도 정상 동작)
-- 정렬: `stage → pct → subIdx → planDate`
+기대 결과: 모든 행 일치 (임포트 정확).
+불일치 발생 시 그 행만 별도 보고.
 
-### 2. 셀 단위 P/A 계산
+## 3. 수정 계획 (버그 수정)
 
-`src/lib/mdr/progressEngine.ts`
+### A안 (권장) — `drawingStagePct` 의 DD all-or-nothing 분기 제거
 
-- `actualPctUpTo()` 에 선택 인자 `subIdx?: number` 추가
-  - 지정 시 동일 stage 의 `(pct, subIdx) ≤ 인자` 셀 increment 합산
-  - 미지정 시 기존 pct 단위 동작 유지 (다른 호출부 영향 없음)
-- 신규 `drawingCellPlannedPct(cells, stage, pct, subIdx, asOf, prevStageLastPlanDate?)`
-  - 동일 stage 셀들을 `plan_date` 오름차순으로 정렬해 누적
-  - 단계 첫 셀 시작일은 직전 stage 마지막 plan_date(없으면 첫 셀 −7일)
-  - 셀 구간 내부는 일일 선형 보간
+`drawingStagePct()`에서 `ddWeight` 분기를 삭제하고 항상 `actualPct(cells)` 사용. dd_weight 는 **집계(층/팀/필드 가중평균)** 에서만 곱하고, **개별 도면 단계 진도율**에는 적용하지 않음.
 
-도면이 어떤 셀 개수를 가지더라도 동일 함수로 처리됩니다.
+영향 파일:
+- `src/lib/mdr/progressEngine.ts` — DD 분기 제거
+- `src/lib/mdr/summaryEngine.ts` — 집계 단계에서 dd_weight 가중 (기존 로직 확인 필요)
+- `src/components/mdr/grid/MdrAdvancedGrid.tsx` — DD 셀/A 컬럼이 자동으로 56% 표시됨
+- 회귀 테스트: `src/lib/mdr/progressEngine.test.ts` 에 NO.68 케이스 추가
 
-### 3. 스냅샷 테이블 확장
+### 결과
+- DD A 컬럼: 56% (셀 누적과 일치, 엑셀 col31 과 동일)
+- 가중 적용 진도율(전체 집계): 0.054% (엑셀 col46 = `DD CURRENT STATUS` 와 동일)
 
-DB migration 추가:
+## 4. 다음 단계
 
-- `mdr_milestone_snapshots.sub_idx INTEGER` 컬럼 추가
-- 중복 기준을 `(as_of, building, discipline, stage, pct)` → `(as_of, building, discipline, stage, pct, sub_idx)` 로 확장
-- `saveSnapshot()` payload 에 `sub_idx` 포함
+1. **build 모드 전환 승인** → 위 검증 스크립트 실행, CSV 보고
+2. **불일치 0건 확인 후** → A안으로 `drawingStagePct` 수정 + 테스트 추가
+3. **Raw Data 그리드에서 NO.68 56% 표시 확인**
 
-기존 스냅샷은 그룹 단위이므로 마이그레이션 후 첫 Recompute 시 셀 단위로 다시 저장됩니다.
+---
 
-### 4. 패널 UI
-
-`src/components/mdr/MdrMilestoneMonitorPanel.tsx`
-
-- 헤더는 2단 구조 유지
-  - 상단: 그룹 라벨(DD30/DD60/DD90/DD100 등 — 현재 pct 별로 동적 생성되므로 그대로 동작)
-  - 하단: 셀별 plan_date 라벨
-- 그룹의 colSpan 은 현재 매트릭스에 들어온 해당 그룹 셀 수로 동적 계산
-- 컬럼 key 를 `sub_idx` 포함 값으로 변경하여 같은 pct 의 셀들이 서로 덮어쓰지 않도록 처리
-
-### 5. 재발방지 테스트
-
-`src/lib/mdr/progressEngine.test.ts` 및 (필요 시) `milestoneMonitorEngine` 용 테스트
-
-- 셀 수가 가변임을 전제로 한 일반 케이스로 작성. 특정 숫자 하드코딩 금지
-- 검증 항목
-  - 임의의 셀 배열(예: DD pct=30 셀 N개, pct=60 셀 M개)을 입력했을 때, 매트릭스 컬럼 수 = 셀 합계와 같아지는지
-  - `actualPctUpTo(..., subIdx)` 가 셀별로 정확히 누적되는지
-  - 기존 pct 단위 호출은 결과가 변하지 않는지
-  - 도면마다 셀 수가 다른 경우에도 합집합으로 모든 셀 컬럼이 살아남는지
-
-### 6. 검증
-
-- 다양한 시트(ARCH/STR/MECH/ELEC 등)에서 패널 컬럼 수가 엑셀 셀 수와 일치
-- 같은 단계 안 셀 수가 도면별로 달라도 누락 없이 표시
-- Raw Data 그리드, DD weight 기반 stage 합계, Overall, WF 토글 영향 없음
-
-## 변경 파일
-
-- `src/lib/mdr/milestoneMonitorEngine.ts`
-- `src/lib/mdr/progressEngine.ts`
-- `src/lib/mdr/progressEngine.test.ts`
-- `src/components/mdr/MdrMilestoneMonitorPanel.tsx`
-- `supabase/migrations/*_add_sub_idx_to_mdr_milestone_snapshots.sql`
-
-## 재발방지 원칙
-
-진도율 패널의 마일스톤 컬럼은 항상 `mdr_milestone_cells` 를 1차 소스로 사용합니다. `stage + pct` 만으로 key 를 만드는 코드는 금지(같은 pct 안에 sub_idx 별로 다른 plan_date/increment 가 존재할 수 있음). 셀 개수에 의존하는 상수/배열을 도입하지 않습니다.
+검증 스크립트와 코드 수정을 진행하려면 build 모드로 전환해 주세요.
