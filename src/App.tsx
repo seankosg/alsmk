@@ -18,6 +18,8 @@ import DesignDashboard from "./pages/DesignDashboard";
 import DesignSummary from "./pages/DesignSummary";
 import DesignImport from "./pages/DesignImport";
 import DesignImportLogs from "./pages/DesignImportLogs";
+import RfiRawData from "./pages/RfiRawData";
+import RfiImport from "./pages/RfiImport";
 
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
