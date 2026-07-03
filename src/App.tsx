@@ -20,6 +20,7 @@ import DesignImport from "./pages/DesignImport";
 import DesignImportLogs from "./pages/DesignImportLogs";
 import RfiRawData from "./pages/RfiRawData";
 import RfiImport from "./pages/RfiImport";
+import RfiImportLogs from "./pages/RfiImportLogs";
 
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
@@ -71,6 +72,7 @@ const App = () => (
                   <Route path="/design/import/logs" element={<DesignImportLogs />} />
                   <Route path="/design/rfi" element={<RfiRawData />} />
                   <Route path="/design/rfi/import" element={<RfiImport />} />
+                  <Route path="/design/rfi/import/logs" element={<RfiImportLogs />} />
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
