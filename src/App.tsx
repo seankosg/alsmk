@@ -69,6 +69,8 @@ const App = () => (
                   <Route path="/design/summary" element={<DesignSummary />} />
                   <Route path="/design/import" element={<DesignImport />} />
                   <Route path="/design/import/logs" element={<DesignImportLogs />} />
+                  <Route path="/design/rfi" element={<RfiRawData />} />
+                  <Route path="/design/rfi/import" element={<RfiImport />} />
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
