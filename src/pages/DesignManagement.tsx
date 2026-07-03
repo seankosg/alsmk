@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Database, History } from "lucide-react";
+import { Upload, Database, History, MessageSquare } from "lucide-react";
 import { MdrRawDataGrid } from "@/components/mdr/MdrRawDataGrid";
 import { Link, Navigate } from "react-router-dom";
 
