@@ -34,7 +34,8 @@ const allNavItems: NavItem[] = [
 const designSubItems = [
   { title: "Dashboard", url: "/design/dashboard", icon: LayoutDashboard, end: false },
   { title: "Summary", url: "/design/summary", icon: History, end: false },
-  { title: "Raw Data", url: "/design", icon: Database, end: true },
+  { title: "MDR Raw Data", url: "/design", icon: Database, end: true },
+  { title: "RFI Raw Data", url: "/design/rfi", icon: MessageSquare, end: false },
 ];
 
 export function AppSidebar() {
