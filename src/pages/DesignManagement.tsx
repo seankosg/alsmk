@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Database, History } from "lucide-react";
+import { Upload, Database, History, MessageSquare } from "lucide-react";
 import { MdrRawDataGrid } from "@/components/mdr/MdrRawDataGrid";
 import { Link, Navigate } from "react-router-dom";
 
@@ -84,9 +84,10 @@ export default function DesignManagement() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Database className="h-6 w-6" />
-            Design Raw Data
+            MDR Raw Data
           </h1>
           <p className="text-sm text-muted-foreground">MDR 도면 진척 관리 — 건물·분야별 SD / DD / CD</p>
+
         </div>
         <div className="flex items-center gap-2">
           <Button asChild>
@@ -94,6 +95,9 @@ export default function DesignManagement() {
           </Button>
           <Button variant="outline" asChild>
             <Link to="/design/import/logs"><History className="h-4 w-4 mr-1" /> Import Logs</Link>
+          </Button>
+          <Button variant="secondary" asChild>
+            <Link to="/design/rfi"><MessageSquare className="h-4 w-4 mr-1" /> RFI Raw Data</Link>
           </Button>
         </div>
 

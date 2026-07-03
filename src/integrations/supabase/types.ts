@@ -1323,6 +1323,201 @@ export type Database = {
         }
         Relationships: []
       }
+      rfi_events: {
+        Row: {
+          created_at: string
+          direction: string
+          discipline: string | null
+          due_date: string | null
+          event_type: string
+          external_url: string | null
+          finish_date: string | null
+          from_party: string | null
+          id: string
+          import_log_id: string | null
+          issue_date: string | null
+          originator: string | null
+          raw_no: number | null
+          raw_status: string | null
+          rfi_no: string
+          source_filename: string | null
+          source_row_hash: string
+          title: string | null
+          title_clean: string | null
+          to_party: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          direction?: string
+          discipline?: string | null
+          due_date?: string | null
+          event_type?: string
+          external_url?: string | null
+          finish_date?: string | null
+          from_party?: string | null
+          id?: string
+          import_log_id?: string | null
+          issue_date?: string | null
+          originator?: string | null
+          raw_no?: number | null
+          raw_status?: string | null
+          rfi_no: string
+          source_filename?: string | null
+          source_row_hash: string
+          title?: string | null
+          title_clean?: string | null
+          to_party?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          discipline?: string | null
+          due_date?: string | null
+          event_type?: string
+          external_url?: string | null
+          finish_date?: string | null
+          from_party?: string | null
+          id?: string
+          import_log_id?: string | null
+          issue_date?: string | null
+          originator?: string | null
+          raw_no?: number | null
+          raw_status?: string | null
+          rfi_no?: string
+          source_filename?: string | null
+          source_row_hash?: string
+          title?: string | null
+          title_clean?: string | null
+          to_party?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rfi_import_logs: {
+        Row: {
+          created_at: string
+          error_summary: string | null
+          filename: string | null
+          id: string
+          rows_inserted: number
+          rows_skipped: number
+          rows_total: number
+          status: string
+          storage_path: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_summary?: string | null
+          filename?: string | null
+          id?: string
+          rows_inserted?: number
+          rows_skipped?: number
+          rows_total?: number
+          status?: string
+          storage_path?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_summary?: string | null
+          filename?: string | null
+          id?: string
+          rows_inserted?: number
+          rows_skipped?: number
+          rows_total?: number
+          status?: string
+          storage_path?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      rfi_masters: {
+        Row: {
+          direction: string | null
+          discipline: string | null
+          due_date: string | null
+          event_count: number
+          finish_date: string | null
+          issue_date: string | null
+          last_event_at: string | null
+          originator: string | null
+          response_date: string | null
+          rfi_no: string
+          status: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          direction?: string | null
+          discipline?: string | null
+          due_date?: string | null
+          event_count?: number
+          finish_date?: string | null
+          issue_date?: string | null
+          last_event_at?: string | null
+          originator?: string | null
+          response_date?: string | null
+          rfi_no: string
+          status?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          direction?: string | null
+          discipline?: string | null
+          due_date?: string | null
+          event_count?: number
+          finish_date?: string | null
+          issue_date?: string | null
+          last_event_at?: string | null
+          originator?: string | null
+          response_date?: string | null
+          rfi_no?: string
+          status?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rfi_reminders: {
+        Row: {
+          body: string | null
+          created_at: string
+          days_overdue: number | null
+          dm_id: string | null
+          event_id: string | null
+          id: string
+          rfi_no: string
+          sent_by: string | null
+          subject: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          days_overdue?: number | null
+          dm_id?: string | null
+          event_id?: string | null
+          id?: string
+          rfi_no: string
+          sent_by?: string | null
+          subject?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          days_overdue?: number | null
+          dm_id?: string | null
+          event_id?: string | null
+          id?: string
+          rfi_no?: string
+          sent_by?: string | null
+          subject?: string | null
+        }
+        Relationships: []
+      }
       task_code_sequences: {
         Row: {
           part_code: string
@@ -1603,6 +1798,7 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      recompute_rfi_master: { Args: { _rfi_no: string }; Returns: undefined }
       resequence_subtask_codes: {
         Args: { _parent_id: string }
         Returns: undefined
