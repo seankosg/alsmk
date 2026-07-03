@@ -96,6 +96,9 @@ export default function DesignManagement() {
           <Button variant="outline" asChild>
             <Link to="/design/import/logs"><History className="h-4 w-4 mr-1" /> Import Logs</Link>
           </Button>
+          <Button variant="secondary" asChild>
+            <Link to="/design/rfi"><MessageSquare className="h-4 w-4 mr-1" /> RFI Raw Data</Link>
+          </Button>
         </div>
 
       </div>
