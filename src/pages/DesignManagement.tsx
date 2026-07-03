@@ -84,9 +84,10 @@ export default function DesignManagement() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Database className="h-6 w-6" />
-            Design Raw Data
+            MDR Raw Data
           </h1>
           <p className="text-sm text-muted-foreground">MDR 도면 진척 관리 — 건물·분야별 SD / DD / CD</p>
+
         </div>
         <div className="flex items-center gap-2">
           <Button asChild>
